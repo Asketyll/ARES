@@ -47,7 +47,7 @@ Private Const ISO10126 = 5
 
 ' Encoding Constants
 Public Const Base64 = 0 ' Default
-Public Const Hex = 1
+Public Const HexAES = 1
 
 Private Sub TestEncryptAES()
 
@@ -173,7 +173,7 @@ Public Function EncryptStringAES(StrText As String, StrKey As String, _
     Select Case Encoding
         Case Base64
             StrEncryptedIV = BytesToBase64(ByteEncryptedIV)
-        Case Hex
+        Case HexAES
             StrEncryptedIV = BytesToHex(ByteEncryptedIV)
         Case Else
             Err.Raise vbObjectError + 516, "Encoding", "Invalid encoding type"
@@ -213,7 +213,7 @@ Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     Select Case Encoding
         Case Base64
             ByteEncryptedIV = Base64toBytes(StrEncryptedIV)
-        Case Hex
+        Case HexAES
             ByteEncryptedIV = HextoBytes(StrEncryptedIV)
         Case Else
             Err.Raise vbObjectError + 516, "Encoding", "ERROR: Invalid encoding type"
@@ -237,13 +237,12 @@ Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     ReDim ByteEncrypted(UBound(ByteEncryptedIV) - UBound(ByteIV) - 1)
     For i = LBound(ByteEncrypted) To UBound(ByteEncrypted)
         ByteEncrypted(i) = ByteEncryptedIV(UBound(ByteIV) + i + 1)
-        'Debug.Print "i=" & i & vbTab & UBound(byteIV) + 1 + i
     Next i
     
     ' Decryption Settings:
     ObjCSP.Padding = Zeros
     ObjCSP.Key = Base64toBytes(StrKey) ' NOTE: Convert SHA256 hash to bytes
-    ObjCSP.IV = ByteIV 'CreateObject("System.Text.UTF8Encoding").GetBytes_4(strIV)
+    ObjCSP.IV = ByteIV
     
     ' Decrypt byte data
     ByteText = ObjCSP.CreateDecryptor().TransformFinalBlock(ByteEncrypted, 0, UBound(ByteEncrypted) + 1)
@@ -256,9 +255,6 @@ Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     
     ' Return decrypted string
     DecryptStringAES = StrText
-    
-    ' Print decryption info for user
-    'Debug.Print GetCSPInfo(objCSP)
     
     Set ObjCSP = Nothing
     
@@ -278,29 +274,29 @@ Private Function GetDecryptStringIV(StrEncryptedIV As String, _
 
     On Error GoTo FunctionError
 
-    ' Convertir la chaîne encodée en octets
+    ' Convert encoded string to bytes
     Select Case Encoding
         Case Base64
             ByteEncryptedIV = Base64toBytes(StrEncryptedIV)
-        Case Hex
+        Case HexAES
             ByteEncryptedIV = HextoBytes(StrEncryptedIV)
         Case Else
             Err.Raise vbObjectError + 516, "Encoding", "ERROR: Invalid encoding type"
     End Select
 
-    ' Vérifier les arguments
+    ' Check arguments
     If StrEncryptedIV = Null Or Len(StrEncryptedIV) <= 0 Then Err.Raise vbObjectError + 513, "strEncryptedIV", "Argument 'strEncryptedIV' cannot be null"
 
-    ' Extraire l'IV de strEncrypted
+    ' Extract IV from strEncrypted
     Dim i As Integer
     For i = LBound(ByteIV) To UBound(ByteIV)
         ByteIV(i) = ByteEncryptedIV(i)
     Next i
 
-    ' Convertir les octets en chaîne Base64
+    ' Convert bytes to Base64 string
     StrIV = BytesToBase64(ByteIV)
 
-    ' Retourner l'IV
+    ' Return IV
     GetDecryptStringIV = StrIV
 
     Exit Function
