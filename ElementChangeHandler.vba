@@ -1,9 +1,13 @@
 ' ClassModule: ElementChangeHandler
 ' Description: Handles element change events.
 
+'Dependencies: Config, Auto_Lengths, ARES_VAR
+
 Option Explicit
 
 Implements IChangeTrackEvents
+
+Private Const ARES_AUTO_LENGTHS_DEFAULT As Boolean = True
 
 ' Event handler for the beginning of an undo/redo action
 Private Sub IChangeTrackEvents_BeginUndoRedo(ByVal AfterUndoRedo As Element, ByVal BeforeUndoRedo As Element, ByVal Action As MsdChangeTrackAction, ByVal IsUndo As Boolean)
@@ -32,5 +36,24 @@ End Sub
 
 ' Handle the addition of a new element
 Private Sub HandleElementAdded(ByVal NewElement As Element)
-    ' Add your logic here to handle the newly added element
+    Dim AUTO_LEN As Boolean
+    
+    ' Logic to wright Length in text of element
+    If Config.GetVar(ARES_VAR.AUTO_LENGTHS) = "" Then
+        If Not Config.SetVar(ARES_VAR.AUTO_LENGTHS, ARES_AUTO_LENGTHS_DEFAULT) Then
+            ShowStatus "Impossible de créer la variable " & ARES_VAR.AUTO_LENGTHS & " ou de la modifier."
+        Else
+            ShowStatus ARES_VAR.AUTO_LENGTHS & " défini à " & ARES_AUTO_LENGTHS_DEFAULT & " par défaut"
+        End If
+    End If
+    
+    AUTO_LEN = Config.GetVar(ARES_VAR.AUTO_LENGTHS)
+    If AUTO_LEN = True And NewElement.GraphicGroup <> ARES_VAR.DEFAULT_GRAPHIC_GROUP_ID Then
+        If NewElement.IsTextElement Or NewElement.IsTextNodeElement Or NewElement.IsCellElement Then
+            Dim AutoLengths As New AutoLengths
+            
+            AutoLengths.Initialize NewElement
+            AutoLengths.UpdateLengths
+        End If
+    End If
 End Sub
