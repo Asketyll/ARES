@@ -18,3 +18,6 @@ Public Const DEFAULT_GRAPHIC_GROUP_ID As Long = 0 ' Constant for no graphic grou
 
 'Used in Link and MicroStationDefinition module for check if a MsdElementType is unknow or raise a error
 Public Const MSDETYPE_ERROR As Long = 44 ' If you use Type 44, you can replace with another MsdElementType not used
+
+'Used in Auto_Lengths module for replace this triger with the length of element
+Public Const ARES_LENGTH_TRIGGER_ID As String = "Xx_"
