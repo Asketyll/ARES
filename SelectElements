@@ -1,0 +1,45 @@
+' UserForm: SelectElements
+
+Private pLinkedElements() As Element
+Private pSelectedElement As Element
+
+Public Event ElementSelected(ByVal selectedElement As Element)
+
+Public Sub SetLinkedElements(elements() As Element)
+    pLinkedElements = elements
+End Sub
+
+Public Property Get LinkedElements() As Variant
+    LinkedElements = pLinkedElements
+End Property
+
+Public Property Get selectedElement() As Element
+    Set selectedElement = pSelectedElement
+End Property
+
+Private Sub ListBox1_Click()
+    If ListBox1.ListIndex <> -1 Then
+        Dim selectedIndex As Long
+        selectedIndex = ListBox1.List(ListBox1.ListIndex, 1)
+        If Not pLinkedElements(selectedIndex) Is Nothing Then
+            MSGraphicalInteraction.ZoomEl pLinkedElements(selectedIndex)
+        Else
+            MsgBox "L'élément sélectionné n'est pas valide.", vbExclamation
+        End If
+    End If
+End Sub
+
+Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
+    If ListBox1.ListIndex <> -1 Then
+        Dim selectedIndex As Long
+        selectedIndex = ListBox1.List(ListBox1.ListIndex, 1)
+        Set pSelectedElement = pLinkedElements(selectedIndex)
+        RaiseEvent ElementSelected(pSelectedElement)
+        Me.Hide
+    End If
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = 0 Then MsgBox "Vous devez faire un choix pour que la macro se termine sans encombre."
+    Cancel = CloseMode = 0
+End Sub
