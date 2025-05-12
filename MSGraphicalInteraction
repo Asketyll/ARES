@@ -3,7 +3,10 @@
 
 Option Explicit
 
+Public TEC As TransientElementContainer
+
 Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3, Optional intView As Integer = 1) As Boolean
+    On Error GoTo ErrorHandler
     Dim Rng As Range3d
     Dim PntZoom As Point3d
     Dim oView As View
@@ -32,14 +35,21 @@ Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3, Opt
         oView.Redraw
         ZoomEl = True
     End If
-
-End Function
-
-Public Function HighlightEl(ByVal el As Element) As Boolean
-    Dim HighlightedEl As Element
-    HighlightEl = False
+    Exit Function
     
-    Set HighlightedEl = ActiveModelReference.CopyElement(el)
-    HighlightedEl.Redraw msdDrawingModeHilite
-    HighlightEl = True
+ErrorHandler:
+    ZoomEl = False
+End Function
+Public Function HighlightEl(ByVal el As Element) As Boolean
+    On Error GoTo ErrorHandler
+    Dim Flags As MsdTransientFlags
+    Set TEC = Nothing
+    Flags = msdTransientFlagsOverlay + msdTransientFlagsSnappable
+    el.IsHighlighted = True
+    Set TEC = CreateTransientElementContainer1(el, Flags, msdViewAll, msdDrawingModeHilite)
+    el.IsHighlighted = False
+    Exit Function
+    
+ErrorHandler:
+    HighlightEl = False
 End Function
