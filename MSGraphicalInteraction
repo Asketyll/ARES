@@ -7,6 +7,7 @@ Public TEC As TransientElementContainer
 
 Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3, Optional intView As Integer = 1) As Boolean
     On Error GoTo ErrorHandler
+    
     Dim Rng As Range3d
     Dim PntZoom As Point3d
     Dim oView As View
@@ -42,12 +43,15 @@ ErrorHandler:
 End Function
 Public Function HighlightEl(ByVal el As Element) As Boolean
     On Error GoTo ErrorHandler
+    
     Dim Flags As MsdTransientFlags
+    HighlightEl = False
     Set TEC = Nothing
     Flags = msdTransientFlagsOverlay + msdTransientFlagsSnappable
     el.IsHighlighted = True
     Set TEC = CreateTransientElementContainer1(el, Flags, msdViewAll, msdDrawingModeHilite)
     el.IsHighlighted = False
+    HighlightEl = True
     Exit Function
     
 ErrorHandler:
