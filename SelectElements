@@ -35,6 +35,7 @@ End Sub
 
 Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
     If ListBox1.ListIndex <> -1 Then
+        If Not TEC Is Nothing Then Set TEC = Nothing
         Dim selectedIndex As Long
         selectedIndex = ListBox1.List(ListBox1.ListIndex, 1)
         Set pSelectedElement = pLinkedElements(selectedIndex)
