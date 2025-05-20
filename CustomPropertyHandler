@@ -1,12 +1,17 @@
 ' Module: CustomPropertyHandler
+' Description: This module provides functions to calculate lengths of elements in MicroStation with silent error handling.
+' The module includes functions to determine the length of various element types, handle rounding logic,
+' and manage configuration variables for rounding.
+
+' Dependencies: Config module, ARES_VAR
 
 Option Explicit
 
 ' Function to get or create an ItemTypeLibrary by name
-Public Function GetItemTypeLibrary(Optional LibraryName As String = "ARES") As ItemTypeLibrary
+Public Function GetItemTypeLibrary(Optional LibraryName As String = "ARES", Optional ItemName As String = "ARESAutoLengthObject") As itemTypelibrary
     On Error GoTo ErrorHandler
     Dim ItemLibs As ItemTypeLibraries
-    Dim ITL As ItemTypeLibrary
+    Dim ITL As itemTypelibrary
     
     ' Instantiate the ItemTypeLibraries collection
     Set ItemLibs = New ItemTypeLibraries
@@ -16,7 +21,7 @@ Public Function GetItemTypeLibrary(Optional LibraryName As String = "ARES") As I
     
     ' If the library does not exist, create it
     If ITL Is Nothing Then
-        Set GetItemTypeLibrary = CreateItemTypeLibrary(LibraryName)
+        Set GetItemTypeLibrary = CreateItemTypeLibrary(LibraryName, ItemName)
     Else
         Set GetItemTypeLibrary = ITL
     End If
@@ -28,12 +33,12 @@ ErrorHandler:
 End Function
 
 ' Function to create a new ItemTypeLibrary and its associated ItemType
-Private Function CreateItemTypeLibrary(Optional LibraryName As String = "ARES") As ItemTypeLibrary
+Private Function CreateItemTypeLibrary(Optional LibraryName As String = "ARES", Optional ItemName As String = "ARESAutoLengthObject") As itemTypelibrary
     On Error GoTo ErrorHandler
     Dim Item As ItemType
     Dim ItemProp As ItemTypeProperty
     Dim ItemLibs As ItemTypeLibraries
-    Dim ITL As ItemTypeLibrary
+    Dim ITL As itemTypelibrary
     
     ' Instantiate the ItemTypeLibraries collection
     Set ItemLibs = New ItemTypeLibraries
@@ -47,10 +52,10 @@ Private Function CreateItemTypeLibrary(Optional LibraryName As String = "ARES") 
         Set CreateItemTypeLibrary = ItemLibs.CreateLib(LibraryName, False)
         
         ' Create the ItemType within the library
-        Set Item = CreateItemTypeLibrary.AddItemType("ARESAutoLengthObject")
+        Set Item = CreateItemTypeLibrary.AddItemType(ItemName)
         
         ' Add properties to the ItemType
-        Set ItemProp = Item.AddProperty("EditedByARES", ItemPropertyTypeBoolean)
+        Set ItemProp = Item.AddProperty("EditedBy" & LibraryName, ItemPropertyTypeBoolean)
         Set ItemProp = Item.AddProperty("UpdatedString", ItemPropertyTypeString)
         Set ItemProp = Item.AddProperty("DateOfEdit", ItemPropertyTypeDateTime)
         
@@ -68,7 +73,7 @@ End Function
 Private Function DeleteItemTypeLibrary(Optional LibraryName As String = "ARES") As Boolean
     On Error GoTo ErrorHandler
     Dim oItemLibs As ItemTypeLibraries
-    Dim ITL As ItemTypeLibrary
+    Dim ITL As itemTypelibrary
     
     ' Initialize the return value to False
     DeleteItemTypeLibrary = False
@@ -92,36 +97,29 @@ ErrorHandler:
 End Function
 
 ' Function to attach an ItemType to an Element
-Public Function AttachItemToElement(ByVal El As Element, Optional LibraryName As String = "ARES") As Boolean
-    'On Error GoTo ErrorHandler
-    Dim ITL As ItemTypeLibrary
+Public Function AttachItemToElement(ByVal El As Element, Optional LibraryName As String, Optional ItemName As String) As Boolean
+    On Error GoTo ErrorHandler
+    Dim ITL As itemTypelibrary
     Dim Item As ItemType
-    Dim ItemPropHandler As ItemTypePropertyHandler
-    Dim oDate As Date
+    Dim itemPropHandler As ItemTypePropertyHandler
+    
     
     ' Initialize the return value to False
     AttachItemToElement = False
     
     ' Get the ItemTypeLibrary
-    Set ITL = GetItemTypeLibrary(LibraryName)
+    Set ITL = GetItemTypeLibrary(LibraryName, ItemName)
     
     ' If the library exists, proceed
     If Not ITL Is Nothing Then
         ' Get the ItemType by name
-        Set Item = ITL.GetItemTypeByName("ARESAutoLengthObject")
+        Set Item = ITL.GetItemTypeByName(ItemName)
         
         ' If the ItemType exists, attach it to the Element
         If Not Item Is Nothing Then
-            Set ItemPropHandler = Item.AttachItem(El)
-            
-            ' Set the properties of the attached ItemType
-            ItemPropHandler.SetPropertyValue "ItemPropertyTypeBoolean", True
-            ItemPropHandler.SetPropertyValue "ItemPropertyTypeString", ""
-            ItemPropHandler.SetPropertyValue "DateOfEdit", ""
-            
-            ' Retrieve the DateOfEdit property value
-            oDate = ItemPropHandler.GetPropertyValue("DateOfEdit")
-            
+            If Not El.Items.HasItems(LibraryName, ItemName) Then
+                Set itemPropHandler = Item.AttachItem(El)
+            End If
             ' Set the return value to True if successful
             AttachItemToElement = True
         End If
@@ -129,13 +127,41 @@ Public Function AttachItemToElement(ByVal El As Element, Optional LibraryName As
     
     Exit Function
     
-'ErrorHandler:
-    'AttachItemToElement = False
+ErrorHandler:
+    AttachItemToElement = False
 End Function
-Sub tt()
-    'DeleteItemTypeLibrary
-    'GetItemTypeLibrary
-    Dim El As Element
-    Set El = ActiveModelReference.GetElementByID(DLongFromLong(2149))
-    AttachItemToElement El
-End Sub
+
+' Function to remove an ItemType to an Element
+Public Function RemoveItemToElement(ByVal El As Element, Optional LibraryName As String, Optional ItemName As String) As Boolean
+    On Error GoTo ErrorHandler
+    Dim ITL As itemTypelibrary
+    Dim Item As ItemType
+    Dim itemPropHandler As ItemTypePropertyHandler
+    
+    
+    ' Initialize the return value to False
+    RemoveItemToElement = False
+    
+    ' Get the ItemTypeLibrary
+    Set ITL = GetItemTypeLibrary(LibraryName, ItemName)
+    
+    ' If the library exists, proceed
+    If Not ITL Is Nothing Then
+        ' Get the ItemType by name
+        Set Item = ITL.GetItemTypeByName(ItemName)
+        
+        ' If the ItemType exists, attach it to the Element
+        If Not Item Is Nothing Then
+            If Not El.Items.HasItems(LibraryName, ItemName) Then
+                Set itemPropHandler = Item.AttachItem(El)
+            End If
+            ' Set the return value to True if successful
+            AttachItemToElement = True
+        End If
+    End If
+    
+    Exit Function
+    
+ErrorHandler:
+    RemoveItemToElement = False
+End Function
