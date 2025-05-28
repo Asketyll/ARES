@@ -1,7 +1,5 @@
 ' Module: CustomPropertyHandler
-' Description: This module provides functions to calculate lengths of elements in MicroStation with silent error handling.
-' The module includes functions to determine the length of various element types, handle rounding logic,
-' and manage configuration variables for rounding.
+' Description: This module provides functions to manipulate Custom Property (EC) in MicroStation with silent error handling.
 
 ' Dependencies: Config module, ARES_VAR
 
