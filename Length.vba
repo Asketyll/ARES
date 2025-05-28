@@ -12,11 +12,11 @@ Private Const ARES_RND_ERROR_VALUE As Byte = 255
 Option Explicit
 
 ' Public function to get the length of an element
-Public Function GetLength(ByVal el As Element, Optional RND As Variant, Optional RndLength As Boolean = True, Optional ErasRnd As Boolean = False) As Double
+Public Function GetLength(ByVal El As Element, Optional RND As Variant, Optional RndLength As Boolean = True, Optional ErasRnd As Boolean = False) As Double
     On Error GoTo ErrorHandler
 
     ' Determine the length based on the element type
-    GetLength = GetElementLength(el)
+    GetLength = GetElementLength(El)
 
     ' Handle rounding if required
     If RndLength Then
@@ -41,19 +41,19 @@ ErrorHandler:
 End Function
 
 ' Private function to get the length of an element based on its type
-Private Function GetElementLength(ByVal el As Element) As Double
+Private Function GetElementLength(ByVal El As Element) As Double
     On Error GoTo ErrorHandler
     
     ' Determine the length based on the element type
     Select Case True
-        Case el.IsComplexStringElement
-            GetElementLength = el.AsComplexStringElement.Length
-        Case el.IsComplexShapeElement
-            GetElementLength = LengthComplexShape(el)
-        Case el.IsLineElement
-            GetElementLength = el.AsLineElement.Length
-        Case el.IsArcElement
-            GetElementLength = el.AsArcElement.Length
+        Case El.IsComplexStringElement
+            GetElementLength = El.AsComplexStringElement.Length
+        Case El.IsComplexShapeElement
+            GetElementLength = LengthComplexShape(El)
+        Case El.IsLineElement
+            GetElementLength = El.AsLineElement.Length
+        Case El.IsArcElement
+            GetElementLength = El.AsArcElement.Length
         Case Else
             GetElementLength = 0
     End Select
@@ -95,7 +95,7 @@ Private Function HandleRoundingForErase(Optional RND As Variant) As Boolean
     ' Set default rounding if Rnd is missing
     If IsMissing(RND) Then
         If Not SetRound(ARES_RND_DEFAULT) Then Exit Function
-        ShowStatus ARES_VAR.ROUNDS & " défini à " & ARES_RND_DEFAULT & " par défaut"
+        ShowStatus ARES_VAR.ARES_ROUNDS & " défini à " & ARES_RND_DEFAULT & " par défaut"
     ElseIf VarType(RND) = vbByte Or VarType(RND) = vbInteger Then
         ' Set rounding value if Rnd is provided
         If Not SetRound(CByte(RND)) Then Exit Function
@@ -120,7 +120,7 @@ Private Function GetRoundValue() As Variant
         If Not SetRound(ARES_RND_DEFAULT) Then Exit Function
         roundValue = GetRound()
         If roundValue = "" Then Exit Function
-        ShowStatus ARES_VAR.ROUNDS & " défini à " & ARES_RND_DEFAULT & " par défaut"
+        ShowStatus ARES_VAR.ARES_ROUNDS & " défini à " & ARES_RND_DEFAULT & " par défaut"
     End If
     GetRoundValue = CByte(roundValue)
 
@@ -134,7 +134,7 @@ End Function
 Private Function GetRound() As String
     On Error GoTo ErrorHandler
     
-    GetRound = Config.GetVar(ARES_VAR.ROUND)
+    GetRound = Config.GetVar(ARES_VAR.Round)
     Exit Function
     
 ErrorHandler:
@@ -145,7 +145,7 @@ End Function
 Private Function SetRound(RND As Byte) As Boolean
     On Error GoTo ErrorHandler
     
-    SetRound = Config.SetVar(ARES_VAR.ROUNDS, RND)
+    SetRound = Config.SetVar(ARES_VAR.ARES_ROUNDS, RND)
     Exit Function
     
 ErrorHandler:
@@ -153,15 +153,15 @@ ErrorHandler:
 End Function
 
 ' Private function to calculate the length of a complex shape element
-Private Function LengthComplexShape(ByVal el As ComplexShapeElement) As Double
+Private Function LengthComplexShape(ByVal El As ComplexShapeElement) As Double
     On Error GoTo ErrorHandler
 
-    Dim ElEnum As ElementEnumerator
+    Dim ElEnum As elementEnumerator
     Dim SubEl As Element
     Dim i As Long
 
-    LengthComplexShape = el.Perimeter
-    Set ElEnum = el.GetSubElements
+    LengthComplexShape = El.Perimeter
+    Set ElEnum = El.GetSubElements
 
     ' Iterate through sub-elements
     For i = 0 To UBound(ElEnum.BuildArrayFromContents)
@@ -185,7 +185,7 @@ End Function
 Private Function RoundedLength(Length As Double, RND As Byte) As Double
     On Error GoTo ErrorHandler
     
-    RoundedLength = ROUND(Length, RND)
+    RoundedLength = Round(Length, RND)
     Exit Function
     
 ErrorHandler:
