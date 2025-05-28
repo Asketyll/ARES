@@ -1,6 +1,8 @@
 ' Module: MicroStationDefinition
 ' Description: This module provides functions to manipulate MsdElementType of MicroStation.
 
+' Dependencies: ARES_VAR
+
 Option Explicit
 
 ' Public function to convert a string to MsdElementType
@@ -29,7 +31,7 @@ Public Function StringToMsdElementType(ByVal TypeName As String, Optional CaseSe
     Next ElementType
 
 ErrorHandler:
-    StringToMsdElementType = ARES_VAR.MSDETYPE_ERROR
+    StringToMsdElementType = ARES_VAR.ARES_MSDETYPE_ERROR
 End Function
 
 ' Public function to check if a value is a valid MsdElementType
