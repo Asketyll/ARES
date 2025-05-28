@@ -1,7 +1,7 @@
 ' Class Module: AutoLengths
 ' Description: This module provides functions to add length with rounding to a text if they are graphically linked and the trigger is present in the text.
 
-' Dependencies: Config, Length, ARES_VAR
+' Dependencies: Config, Length, ARES_VAR, SelectElements
 
 Option Explicit
 
@@ -11,11 +11,11 @@ Private pLinkedElements() As Element
 Private pLengths() As Double
 Private pRounding As Byte
 Private pTriggersList As String
-Private WithEvents frm As SelectElements
+Private pSelectedElement As Element
 
 ' Constants for default values
-Private Const ARES_LENGTH_RND_DEFAULT As Byte = 2
-Private Const ARES_LENGTH_TRIGGER_DEFAULT As String = "(" & ARES_LENGTH_TRIGGER_ID & "m)"
+Private Const ARES_LENGTH_RND_DEFAULT As Byte = 1
+Private Const ARES_LENGTH_TRIGGER_DEFAULT As String = "(Xx_m)"
 
 ' Initialize the class with the new element
 Public Sub Initialize(ByVal NewElement As Element)
@@ -66,10 +66,7 @@ Public Sub UpdateLengths()
             Next j
         Else
             ' If there are multiple non-zero lengths, show a selection form
-            Set selectedElement = ShowElementSelectionForm
-            If Not selectedElement Is Nothing Then
-                Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(Length.GetLength(selectedElement, pRounding)), pTriggersList)
-            End If
+            ShowElementSelectionForm
         End If
     End If
     Exit Sub
@@ -79,7 +76,7 @@ ErrorHandler:
 End Sub
 
 ' Show a form to select an element from the linked elements
-Private Function ShowElementSelectionForm() As Element
+Private Sub ShowElementSelectionForm()
     Dim frm As New SelectElements
     Dim i As Long
 
@@ -91,57 +88,50 @@ Private Function ShowElementSelectionForm() As Element
         End If
     Next i
 
+    ' Pass the reference to the current instance of AutoLengths
+    Set frm.AutoLengthsInstance = Me
+    
     frm.SetLinkedElements pLinkedElements
     frm.Show vbModeless
+End Sub
 
-    ' Wait for the ElementSelected event
-    Do While frm.Visible
-        DoEvents
-    Loop
-
-    ' Return the selected element
-    Set ShowElementSelectionForm = frm.selectedElement
-
-    Unload frm
-    Set frm = Nothing
-End Function
-
-' Event handler for when an element is selected in the form
-Private Sub frm_ElementSelected(ByVal selectedElement As Element)
-    Set ShowElementSelectionForm = selectedElement
-    frm.Hide
+' Method to be called when an element is selected in the form
+Public Sub OnElementSelected(ByVal selectedElement As Element)
+    Dim Results() As String
+    Set pSelectedElement = selectedElement
+    Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(Length.GetLength(pSelectedElement, pRounding)), pTriggersList)
 End Sub
 
 ' Get the rounding setting from the configuration
 Private Function GetRoundingSetting() As Byte
     Dim rounding As Byte
-    If Config.GetVar(ARES_VAR.LENGTH_ROUND) = "" Then
-        If Not Config.SetVar(ARES_VAR.LENGTH_ROUND, ARES_LENGTH_RND_DEFAULT) Then
-            ShowStatus "Impossible de créer la variable " & ARES_VAR.LENGTH_ROUND & " ou de la modifier."
+    If Config.GetVar(ARES_VAR.ARES_LENGTH_ROUND) = "" Then
+        If Not Config.SetVar(ARES_VAR.ARES_LENGTH_ROUND, ARES_LENGTH_RND_DEFAULT) Then
+            ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_LENGTH_ROUND & " ou de la modifier."
         Else
-            ShowStatus ARES_VAR.LENGTH_ROUND & " défini à " & ARES_LENGTH_RND_DEFAULT & " par défaut"
+            ShowStatus ARES_VAR.ARES_LENGTH_ROUND & " défini à " & ARES_LENGTH_RND_DEFAULT & " par défaut"
         End If
     End If
-    rounding = CByte(Config.GetVar(ARES_VAR.LENGTH_ROUND))
+    rounding = CByte(Config.GetVar(ARES_VAR.ARES_LENGTH_ROUND))
     GetRoundingSetting = rounding
 End Function
 
 ' Get the trigger list from the configuration
 Private Function GetTriggers() As String
-    If Config.GetVar(ARES_VAR.LENGTH_TRIGGER) = "" Then
+    If Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER) = "" Then
         If Not SetTriggers(ARES_LENGTH_TRIGGER_DEFAULT) Then
-            ShowStatus "Impossible de créer la variable " & ARES_VAR.LENGTH_TRIGGER & " ou de la modifier."
+            ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_LENGTH_TRIGGER & " ou de la modifier."
         Else
-            ShowStatus ARES_VAR.LENGTH_TRIGGER & " défini à " & ARES_LENGTH_TRIGGER_DEFAULT & " par défaut"
+            ShowStatus ARES_VAR.ARES_LENGTH_TRIGGER & " défini à " & ARES_LENGTH_TRIGGER_DEFAULT & " par défaut"
         End If
     End If
-    GetTriggers = Config.GetVar(ARES_VAR.LENGTH_TRIGGER)
+    GetTriggers = Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER)
 End Function
 
 ' Set the trigger list in the configuration
 Private Function SetTriggers(ByVal trigger As String) As Boolean
-    If Config.GetVar(ARES_VAR.LENGTH_TRIGGER) = "" Then
-        SetTriggers = Config.SetVar(ARES_VAR.LENGTH_TRIGGER, trigger)
+    If Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER) = "" Then
+        SetTriggers = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER, trigger)
     Else
         SetTriggers = AddTrigger(trigger)
     End If
@@ -150,6 +140,6 @@ End Function
 ' Add a new trigger to the existing trigger list
 Private Function AddTrigger(ByVal newTrigger As String) As Boolean
     Dim currentTriggers As String
-    currentTriggers = Config.GetVar(ARES_VAR.LENGTH_TRIGGER)
-    AddTrigger = Config.SetVar(ARES_VAR.LENGTH_TRIGGER, currentTriggers & ARES_LENGTH_TRIGGER_DELIMITER & newTrigger)
+    currentTriggers = Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER)
+    AddTrigger = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER, currentTriggers & ARES_VAR_DELIMITER & newTrigger)
 End Function
