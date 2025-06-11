@@ -1,17 +1,15 @@
 ' Class Module: AutoLengths
 ' Description: This module provides functions to add length with rounding to a text if they are graphically linked and the trigger is present in the text.
 
-' Dependencies: Config, Length, ARES_VAR, SelectElements
+' Dependencies: Config, Length, ARES_VAR, AutoLengths_GUI_SelectElements
 
 Option Explicit
 
-' Private variables for class properties
 Private pNewElement As Element
 Private pLinkedElements() As Element
 Private pLengths() As Double
 Private pRounding As Byte
 Private pTriggersList As String
-Private pSelectedElement As Element
 
 ' Constants for default values
 Private Const ARES_LENGTH_RND_DEFAULT As Byte = 1
@@ -42,7 +40,6 @@ Public Sub UpdateLengths()
     Dim Results() As String
     Dim count As Long
     Dim j As Long
-    Dim selectedElement As Element
     
     ' If there's only one linked element, update the length directly
     If UBound(pLinkedElements) - LBound(pLinkedElements) = 0 Then
@@ -77,7 +74,7 @@ End Sub
 
 ' Show a form to select an element from the linked elements
 Private Sub ShowElementSelectionForm()
-    Dim frm As New SelectElements
+    Dim frm As New AutoLengths_GUI_SelectElements
     Dim i As Long
 
     ' Add non-zero lengths to the form's list box
@@ -92,19 +89,22 @@ Private Sub ShowElementSelectionForm()
     Set frm.AutoLengthsInstance = Me
     
     frm.SetLinkedElements pLinkedElements
+    'pNewElement -> NewElement -> AfterChange is unintialized by MS at the end of ElementChangeHandler ClassModule
+    'even if you maintain the instance with elementChangeHandler As ElementChangeHandler
+    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.ID)
+    'to be reviewed later
     frm.Show vbModeless
 End Sub
 
 ' Method to be called when an element is selected in the form
-Public Sub OnElementSelected(ByVal selectedElement As Element)
+Public Sub OnElementSelected(ByVal selectedElement As Element, ByVal MasterElement As Element)
     Dim Results() As String
-    Set pSelectedElement = selectedElement
-    Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(Length.GetLength(pSelectedElement, pRounding)), pTriggersList)
+    
+    Results = StringsInEl.GetSetTextsInEl(MasterElement, CStr(Length.GetLength(selectedElement, pRounding)), pTriggersList)
 End Sub
 
 ' Get the rounding setting from the configuration
 Private Function GetRoundingSetting() As Byte
-    Dim rounding As Byte
     If Config.GetVar(ARES_VAR.ARES_LENGTH_ROUND) = "" Then
         If Not Config.SetVar(ARES_VAR.ARES_LENGTH_ROUND, ARES_LENGTH_RND_DEFAULT) Then
             ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_LENGTH_ROUND & " ou de la modifier."
@@ -112,8 +112,7 @@ Private Function GetRoundingSetting() As Byte
             ShowStatus ARES_VAR.ARES_LENGTH_ROUND & " défini à " & ARES_LENGTH_RND_DEFAULT & " par défaut"
         End If
     End If
-    rounding = CByte(Config.GetVar(ARES_VAR.ARES_LENGTH_ROUND))
-    GetRoundingSetting = rounding
+    GetRoundingSetting = CByte(Config.GetVar(ARES_VAR.ARES_LENGTH_ROUND))
 End Function
 
 ' Get the trigger list from the configuration
