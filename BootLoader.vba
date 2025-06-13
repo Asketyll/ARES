@@ -11,7 +11,10 @@ Dim oOpenClose As DGNOpenClose
 ' Entry point when the project is loaded
 Sub OnProjectLoad()
     On Error GoTo ErrorHandler
-
+    
+    ARES_VAR.InitMSVars
+    ShowStatus "ARES Config with MS Vars Initialized"
+    
     Set oOpenClose = New DGNOpenClose
 
     Exit Sub
