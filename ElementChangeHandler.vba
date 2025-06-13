@@ -36,19 +36,7 @@ End Sub
 
 ' Handle the addition of a new element
 Private Sub HandleElementAdded(ByVal NewElement As Element)
-    Dim AUTO_LENGTH As Boolean
-    
-    ' Logic to wright Length in text of element
-    If Config.GetVar(ARES_VAR.ARES_AUTO_LENGTHS) = "" Then
-        If Not Config.SetVar(ARES_VAR.ARES_AUTO_LENGTHS, ARES_AUTO_LENGTHS_DEFAULT) Then
-            ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_AUTO_LENGTHS & " ou de la modifier."
-        Else
-            ShowStatus ARES_VAR.ARES_AUTO_LENGTHS & " défini à " & ARES_AUTO_LENGTHS_DEFAULT & " par défaut"
-        End If
-    End If
-    
-    AUTO_LENGTH = Config.GetVar(ARES_VAR.ARES_AUTO_LENGTHS)
-    If AUTO_LENGTH And NewElement.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
+    If ARES_VAR.ARES_AUTO_LENGTHS.Value And NewElement.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
         If NewElement.IsTextElement Or NewElement.IsTextNodeElement Or NewElement.IsCellElement Then
             Dim autoLengths As New autoLengths
             autoLengths.Initialize NewElement
