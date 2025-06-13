@@ -72,12 +72,10 @@ Private Function InitializeMSVar(ByRef msVar As ARES_MS_VAR, key As String, defa
 End Function
 
 Public Function ResetMSVar(ByRef msVar As ARES_MS_VAR)
-    If msVar.Value <> ARES_VAR.ARES_NAVD Then
-        If Config.SetVar(msVar.key, msVar.Default) Then
-            msVar.Value = Config.GetVar(msVar.key)
-            ShowStatus msVar.key & " défini à " & msVar.Default & " par défaut"
-        Else
-            ShowStatus "Impossible de créer la variable " & msVar.key & " ou de la modifier."
-        End If
+    If Config.SetVar(msVar.key, msVar.Default) Then
+        msVar.Value = Config.GetVar(msVar.key)
+        ShowStatus msVar.key & " défini à " & msVar.Default & " par défaut"
+    Else
+        ShowStatus "Impossible de créer la variable " & msVar.key & " ou de la modifier."
     End If
 End Function
