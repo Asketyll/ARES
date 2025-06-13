@@ -17,6 +17,9 @@ Public Const ARES_VAR_DELIMITER As String = "|" ' Delimiter used in :ARES_LENGTH
 ' Used in Config and ARES_VAR
 Public Const ARES_NAVD As String = "NaVD" ' Constant for undefined MS configuration variables :Not a Variable Defined
 
+' Used in Length
+Public Const ARES_RND_ERROR_VALUE As Byte = 255 ' Constant for error in ARES_ROUNDS and ARES_LENGTH_ROUND
+
 '######################################################################################################################
 '                             CAN BE MODIFIED IN MS ENVIRONMENT VARIABLES DO NOT MODIFY HERE
 '                                   USE CONFIG MODULE TO GET, SET AND REMOVE A VALUE
@@ -64,12 +67,17 @@ Private Function InitializeMSVar(ByRef msVar As ARES_MS_VAR, key As String, defa
     msVar.Default = defaultValue
     msVar.Value = Config.GetVar(key)
     If msVar.Value = ARES_VAR.ARES_NAVD Then
-        If Config.SetVar(key, defaultValue) Then
-            msVar.Value = Config.GetVar(key)
-            ShowStatus key & " défini à " & defaultValue & " par défaut"
+        ResetMSVar msVar
+    End If
+End Function
+
+Public Function ResetMSVar(ByRef msVar As ARES_MS_VAR)
+    If msVar.Value <> ARES_VAR.ARES_NAVD Then
+        If Config.SetVar(msVar.key, msVar.Default) Then
+            msVar.Value = Config.GetVar(msVar.key)
+            ShowStatus key & " défini à " & msVar.Default & " par défaut"
         Else
-            
+            ShowStatus "Impossible de créer la variable " & msVar.key & " ou de la modifier."
         End If
     End If
-
 End Function
