@@ -13,9 +13,8 @@ Sub OnProjectLoad()
     On Error GoTo ErrorHandler
     
     If ModuleExists("ARES_VAR") Then
-        MsgBox "ARES_VAR module is ok !", vbOKOnly
         ARES_VAR.InitMSVars
-        ShowStatus "ARES Config with MS Vars Initialized"
+        MsgBox "ARES Config with MS Vars Initialized", vbOKOnly
     Else
         MsgBox "ARES_VAR module is missing !", vbOKOnly
         GoTo ErrorHandler
