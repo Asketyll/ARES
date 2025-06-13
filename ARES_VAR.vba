@@ -75,7 +75,7 @@ Public Function ResetMSVar(ByRef msVar As ARES_MS_VAR)
     If msVar.Value <> ARES_VAR.ARES_NAVD Then
         If Config.SetVar(msVar.key, msVar.Default) Then
             msVar.Value = Config.GetVar(msVar.key)
-            ShowStatus key & " défini à " & msVar.Default & " par défaut"
+            ShowStatus msVar.key & " défini à " & msVar.Default & " par défaut"
         Else
             ShowStatus "Impossible de créer la variable " & msVar.key & " ou de la modifier."
         End If
