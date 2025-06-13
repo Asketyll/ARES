@@ -7,8 +7,6 @@ Option Explicit
 
 Implements IChangeTrackEvents
 
-Private Const ARES_AUTO_LENGTHS_DEFAULT As Boolean = True
-
 ' Event handler for the beginning of an undo/redo action
 Private Sub IChangeTrackEvents_BeginUndoRedo(ByVal AfterUndoRedo As Element, ByVal BeforeUndoRedo As Element, ByVal Action As MsdChangeTrackAction, ByVal IsUndo As Boolean)
     ' Add code to handle the beginning of an undo/redo action if needed
