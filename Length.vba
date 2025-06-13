@@ -4,7 +4,7 @@
 ' and manage configuration variables for rounding.
 ' NEVER USE Rnd = 255 in GetLength function ! it reserved for error
 
-' Dependencies: Config module, ARES_VAR
+' Dependencies: Config , ARES_VAR
 
 Option Explicit
 
