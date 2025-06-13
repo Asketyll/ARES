@@ -1,7 +1,7 @@
 ' Module: StringsInEl
 ' Description: This module provides functions to get and set texts within elements in MicroStation.
 
-' Dependencies: Config, ARES_VAR
+' Dependencies: ARES_VAR
 
                     'Color Property is eras if y use TextLine Write Property
                     'Using TextLine is not recommended. This feature has been buggy for 20 years and has numerous technical limitations not
@@ -9,8 +9,6 @@
                     'My workaround is to treat the TextNodeElement as a cell composed of TextElements.
                     'You need to create an ElementEnumerator and GetSubElements to interact directly with the sub-elements.
                     'or .color Property to get befor change and set color of TextNodeElement befor Rewrite
-
-Private Const ARES_LENGTH_TRIGGER_ID_DEFAULT As String = "Xx_"
 
 Option Explicit
 
@@ -61,21 +59,13 @@ Private Function ProcessTextElement(ByVal TextElement As Element, txt As String,
         ' Retrieve the current text of the element
         OldTxt = TextElement.AsTextElement.Text
         ' Split the Triggers into an array using the delimiter
-        trigger = Split(Triggers, ARES_VAR_DELIMITER)
+        trigger = Split(Triggers, ARES_VAR.ARES_VAR_DELIMITER)
         NewTxt = OldTxt
 
         ' Loop through each Trigger and process replacements
         For i = LBound(trigger) To UBound(trigger)
             ' Split the Trigger into parts using the trigger ID
-            If Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER_ID) = "" Then
-                If Not Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER_ID, ARES_LENGTH_TRIGGER_ID_DEFAULT) Then
-                    ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_LENGTH_TRIGGER_ID & " ou de la modifier."
-                Else
-                    ShowStatus ARES_VAR.ARES_LENGTH_TRIGGER_ID & " défini à " & ARES_LENGTH_TRIGGER_ID_DEFAULT & " par défaut"
-                End If
-            Else
-                SplitedTriggers = Split(trigger(i), Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER_ID))
-            End If
+            SplitedTriggers = Split(trigger(i), ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)
             ' If the Trigger is valid (contains the ID), perform the replacement
             If UBound(SplitedTriggers) = 1 Then
                 NewTxt = Replace(NewTxt, SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
@@ -121,7 +111,7 @@ Private Function ProcessTextNodeElement(ByVal TextElement As Element, txt As Str
         ReDim OldTxts(TextElement.AsTextNodeElement.TextLinesCount - 1)
         ReDim NewTxts(TextElement.AsTextNodeElement.TextLinesCount - 1)
         ' Split the Triggers into an array using the delimiter
-        trigger = Split(Triggers, ARES_VAR_DELIMITER)
+        trigger = Split(Triggers, ARES_VAR.ARES_VAR_DELIMITER)
 
         ' Loop through each text line and process replacements
         For i = 0 To UBound(OldTxts)
@@ -131,15 +121,7 @@ Private Function ProcessTextNodeElement(ByVal TextElement As Element, txt As Str
             ' Loop through each Trigger and process replacements
             For j = LBound(trigger) To UBound(trigger)
                 ' Split the Trigger into parts using the trigger ID
-                If Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER_ID) = "" Then
-                    If Not Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER_ID, ARES_LENGTH_TRIGGER_ID_DEFAULT) Then
-                        ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_LENGTH_TRIGGER_ID & " ou de la modifier."
-                    Else
-                        ShowStatus ARES_VAR.ARES_LENGTH_TRIGGER_ID & " défini à " & ARES_LENGTH_TRIGGER_ID_DEFAULT & " par défaut"
-                    End If
-                Else
-                    SplitedTriggers = Split(trigger(i), Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER_ID))
-                End If
+                SplitedTriggers = Split(trigger(i), ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)
                 ' If the Trigger is valid (contains the ID), perform the replacement
                 If UBound(SplitedTriggers) = 1 Then
                     NewTxts(i) = Replace(NewTxts(i), SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
