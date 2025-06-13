@@ -17,7 +17,7 @@ End Sub
 Private Sub hooks_OnDesignFileClosed(ByVal DesignFileName As String)
     ' Call a sub or function when a DGN file is closed
     ' Example: CleanupResources
-    MsgBox "Hey ! i'm a autorun VBA project of ARES !"
+    'MsgBox "Hey ! i'm a autorun VBA project of ARES !"
 End Sub
 
 ' Event handler for when a design file is opened
@@ -30,5 +30,5 @@ End Sub
 Private Sub InitializeChangeHandler()
     Set ChangeHandler = New ElementChangeHandler
     AddChangeTrackEventsHandler ChangeHandler
-    ShowStatus "Hey ! i'm a autorun VBA project of ARES !"
+    ShowStatus "ARES Element Track Events Handler Initialized !"
 End Sub
