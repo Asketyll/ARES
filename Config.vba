@@ -2,7 +2,7 @@
 ' Description: This module provides functions to manage configuration variables in MicroStation with silent error handling.
 ' It includes functions to get, set, configuration variables and RemoveValue, ensuring that operations are performed
 ' without interrupting the workflow in case of errors.
-' Delete a configuration variable is possible but not saved if you restart MS, use RemoveValue.
+' Delete a configuration variable is possible but not saved if you restart MS, use RemoveValue instead.
 
 Option Explicit
 
