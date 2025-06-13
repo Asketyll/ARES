@@ -36,7 +36,10 @@ End Sub
 
 ' Handle the addition of a new element
 Private Sub HandleElementAdded(ByVal NewElement As Element)
-    If ARES_VAR.ARES_AUTO_LENGTHS.Value And NewElement.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
+    Dim AUTO_LENGTH As Boolean
+    AUTO_LENGTH = ARES_VAR.ARES_AUTO_LENGTHS.Value
+    
+    If AUTO_LENGTH And NewElement.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
         If NewElement.IsTextElement Or NewElement.IsTextNodeElement Or NewElement.IsCellElement Then
             Dim autoLengths As New autoLengths
             autoLengths.Initialize NewElement
