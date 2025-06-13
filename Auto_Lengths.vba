@@ -8,18 +8,10 @@ Option Explicit
 Private pNewElement As Element
 Private pLinkedElements() As Element
 Private pLengths() As Double
-Private pRounding As Byte
-Private pTriggersList As String
-
-' Constants for default values
-Private Const ARES_LENGTH_RND_DEFAULT As Byte = 1
-Private Const ARES_LENGTH_TRIGGER_DEFAULT As String = "(Xx_m)"
 
 ' Initialize the class with the new element
 Public Sub Initialize(ByVal NewElement As Element)
     Set pNewElement = NewElement
-    pRounding = GetRoundingSetting()
-    pTriggersList = GetTriggers()
     pLinkedElements = Link.GetLink(NewElement)
     ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
     CalculateLengths
@@ -29,7 +21,7 @@ End Sub
 Private Sub CalculateLengths()
     Dim i As Long
     For i = LBound(pLinkedElements) To UBound(pLinkedElements)
-        pLengths(i) = Length.GetLength(pLinkedElements(i), pRounding)
+        pLengths(i) = Length.GetLength(pLinkedElements(i), ARES_VAR.ARES_LENGTH_ROUND.Value)
     Next i
 End Sub
 
@@ -43,7 +35,7 @@ Public Sub UpdateLengths()
     
     ' If there's only one linked element, update the length directly
     If UBound(pLinkedElements) - LBound(pLinkedElements) = 0 Then
-        Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(UBound(pLinkedElements))), pTriggersList)
+        Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(UBound(pLinkedElements))), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
     Else
         count = 0
         ' Count non-zero lengths
@@ -57,7 +49,7 @@ Public Sub UpdateLengths()
         If count = 1 Then
             For j = LBound(pLengths) To UBound(pLengths)
                 If pLengths(j) <> 0 Then
-                    Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(j)), pTriggersList)
+                    Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(j)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
                     Exit For
                 End If
             Next j
@@ -100,45 +92,36 @@ End Sub
 Public Sub OnElementSelected(ByVal selectedElement As Element, ByVal MasterElement As Element)
     Dim Results() As String
     
-    Results = StringsInEl.GetSetTextsInEl(MasterElement, CStr(Length.GetLength(selectedElement, pRounding)), pTriggersList)
+    Results = StringsInEl.GetSetTextsInEl(MasterElement, CStr(Length.GetLength(selectedElement, ARES_VAR.ARES_LENGTH_ROUND.Value)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
 End Sub
 
-' Get the rounding setting from the configuration
-Private Function GetRoundingSetting() As Byte
-    If Config.GetVar(ARES_VAR.ARES_LENGTH_ROUND) = "" Then
-        If Not Config.SetVar(ARES_VAR.ARES_LENGTH_ROUND, ARES_LENGTH_RND_DEFAULT) Then
-            ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_LENGTH_ROUND & " ou de la modifier."
-        Else
-            ShowStatus ARES_VAR.ARES_LENGTH_ROUND & " défini à " & ARES_LENGTH_RND_DEFAULT & " par défaut"
-        End If
-    End If
-    GetRoundingSetting = CByte(Config.GetVar(ARES_VAR.ARES_LENGTH_ROUND))
-End Function
-
-' Get the trigger list from the configuration
-Private Function GetTriggers() As String
-    If Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER) = "" Then
-        If Not SetTriggers(ARES_LENGTH_TRIGGER_DEFAULT) Then
-            ShowStatus "Impossible de créer la variable " & ARES_VAR.ARES_LENGTH_TRIGGER & " ou de la modifier."
-        Else
-            ShowStatus ARES_VAR.ARES_LENGTH_TRIGGER & " défini à " & ARES_LENGTH_TRIGGER_DEFAULT & " par défaut"
-        End If
-    End If
-    GetTriggers = Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER)
-End Function
-
 ' Set the trigger list in the configuration
-Private Function SetTriggers(ByVal trigger As String) As Boolean
-    If Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER) = "" Then
-        SetTriggers = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER, trigger)
+Public Function SetTrigger(ByVal trigger As String) As Boolean
+    SetTrigger = False
+    
+    If ARES_VAR.ARES_LENGTH_TRIGGER.Value = "" Then
+        SetTrigger = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER.key, trigger)
+        SetTrigger = True
     Else
-        SetTriggers = AddTrigger(trigger)
+        SetTrigger = AddTrigger(trigger)
     End If
 End Function
 
 ' Add a new trigger to the existing trigger list
 Private Function AddTrigger(ByVal newTrigger As String) As Boolean
     Dim currentTriggers As String
-    currentTriggers = Config.GetVar(ARES_VAR.ARES_LENGTH_TRIGGER)
-    AddTrigger = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER, currentTriggers & ARES_VAR_DELIMITER & newTrigger)
+    currentTriggers = ARES_VAR.ARES_LENGTH_TRIGGER.Value
+    AddTrigger = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER.key, currentTriggers & ARES_VAR.ARES_VAR_DELIMITER & newTrigger)
+End Function
+
+' Reset the trigger list in the configuration
+Public Function ResetTrigger() As Boolean
+    ResetTrigger = False
+    
+    ARES_VAR.ResetMSVar ARES_VAR.ARES_LENGTH_TRIGGER
+    If ARES_VAR.ARES_LENGTH_TRIGGER.Value = ARES_VAR.ARES_LENGTH_TRIGGER.Default Then
+        ResetTrigger = True
+    Else
+        ResetTrigger = False
+    End If
 End Function
