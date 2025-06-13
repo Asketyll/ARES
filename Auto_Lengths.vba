@@ -83,7 +83,7 @@ Private Sub ShowElementSelectionForm()
     frm.SetLinkedElements pLinkedElements
     'pNewElement -> NewElement -> AfterChange is unintialized by MS at the end of ElementChangeHandler ClassModule
     'even if you maintain the instance with elementChangeHandler As ElementChangeHandler
-    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.ID)
+    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.Id)
     'to be reviewed later
     frm.Show vbModeless
 End Sub
@@ -101,7 +101,6 @@ Public Function SetTrigger(ByVal trigger As String) As Boolean
     
     If ARES_VAR.ARES_LENGTH_TRIGGER.Value = "" Then
         SetTrigger = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER.key, trigger)
-        SetTrigger = True
     Else
         SetTrigger = AddTrigger(trigger)
     End If
