@@ -6,9 +6,6 @@
 
 ' Dependencies: Config module, ARES_VAR
 
-Private Const ARES_RND_DEFAULT As Byte = 2
-Private Const ARES_RND_ERROR_VALUE As Byte = 255
-
 Option Explicit
 
 ' Public function to get the length of an element
@@ -21,8 +18,8 @@ Public Function GetLength(ByVal El As Element, Optional RND As Variant, Optional
     ' Handle rounding if required
     If RndLength Then
         RND = HandleRounding(RND, ErasRnd)
-        If RND = ARES_RND_ERROR_VALUE Then
-            ShowStatus "Valeur d'arrondi interdit: " & ARES_RND_ERROR_VALUE
+        If RND = ARES_VAR.ARES_RND_ERROR_VALUE Then
+            ShowStatus "Valeur d'arrondi interdit: " & ARES_VAR.ARES_RND_ERROR_VALUE
             GetLength = 0
             Exit Function
         End If
