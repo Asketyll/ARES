@@ -71,11 +71,16 @@ Private Function InitializeMSVar(ByRef msVar As ARES_MS_VAR, key As String, defa
     End If
 End Function
 
-Public Function ResetMSVar(ByRef msVar As ARES_MS_VAR)
+Public Function ResetMSVar(ByRef msVar As ARES_MS_VAR) As Boolean
+    ResetMSVar = False
     If Config.SetVar(msVar.key, msVar.Default) Then
         msVar.Value = Config.GetVar(msVar.key)
         ShowStatus msVar.key & " défini à " & msVar.Default & " par défaut"
+        ResetMSVar = True
     Else
         ShowStatus "Impossible de créer la variable " & msVar.key & " ou de la modifier."
     End If
+End Function
+Public Function RemoveAllMSVar()
+
 End Function
