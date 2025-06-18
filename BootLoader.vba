@@ -1,7 +1,7 @@
 ' Module: BootLoader
 ' Description: Initializes the VBA project on load.
 
-' Dependencies: DGNOpenClose, ElementChangeHandler
+' Dependencies: DGNOpenClose, ElementChangeHandler, LangManager
 
 Option Explicit
 
@@ -11,6 +11,9 @@ Dim oOpenClose As DGNOpenClose
 ' Entry point when the project is loaded
 Sub OnProjectLoad()
     On Error GoTo ErrorHandler
+    
+    LangManager.InitializeTranslations
+    MsgBox "ARES user language initialized", vbOKOnly
     
     If ModuleExists("ARES_VAR") Then
         ARES_VAR.InitMSVars
