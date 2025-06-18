@@ -1,0 +1,69 @@
+' Module: LangManager
+' Description: This module manages translations for different languages in GUI.
+
+' Dependencies: Config
+
+Public Enum SupportedLanguages
+    English = 1
+    French = 2
+    ' Add more languages as needed
+End Enum
+
+Private mTranslations As Object
+
+Sub InitializeTranslations()
+    Set mTranslations = CreateObject("Scripting.Dictionary")
+
+    ' Add English translations
+    mTranslations.Add "EN_VarResetSuccess", "Reset to default value: {0}"
+    mTranslations.Add "EN_VarResetError", "Unable to reset the variable."
+    mTranslations.Add "EN_VarRemoveConfirm", "Do you really want to remove the variable {0} ?"
+    mTranslations.Add "EN_VarRemoveSuccess", "Removed."
+    mTranslations.Add "EN_VarRemoveError", "Unable to remove the variable."
+    mTranslations.Add "EN_VarKeyNotFound", "Key not found in the collection: {0}"
+    mTranslations.Add "EN_VarInvalidArgument", "Invalid argument type."
+    mTranslations.Add "EN_VarInitializeMSVarfailed", "ARES Config with MS Vars failed."
+    mTranslations.Add "EN_VarKeyNotInCollection", "The variable : {0} is not known."
+    mTranslations.Add "EN_VarsRemoveConfirm", "Do you really want to remove all variables ?"
+    
+    ' Add French translations
+    mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut : {0}"
+    mTranslations.Add "FR_VarResetError", "Impossible de réinitialiser la variable."
+    mTranslations.Add "FR_VarRemoveConfirm", "Voulez-vous vraiment supprimer la variable {0}?"
+    mTranslations.Add "FR_VarRemoveSuccess", "Supprimé."
+    mTranslations.Add "FR_VarRemoveError", "Impossible de supprimer la variable."
+    mTranslations.Add "FR_VarKeyNotFound", "Clé introuvable dans la collection : {0}"
+    mTranslations.Add "FR_VarInvalidArgument", "Type d'argument non valide."
+    mTranslations.Add "FR_VarInitializeMSVarfailed", "ARES Config avec MS Vars à échoué."
+    mTranslations.Add "FR_VarKeyNotInCollection", "La variable : {0} n'est pas reconnue."
+    mTranslations.Add "FR_VarsRemoveConfirm", "Voulez-vous vraiment supprimer toutes les variables ?"
+End Sub
+
+Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
+    Dim baseKey As String
+    baseKey = UCase(Left(GetUserLanguage, 2)) & "_" & key
+
+    If mTranslations.Exists(baseKey) Then
+        GetTranslation = FormatMessage(mTranslations(baseKey), params)
+    Else
+        ' Default to English if translation not found
+        baseKey = "EN_" & key
+        If mTranslations.Exists(baseKey) Then
+            GetTranslation = FormatMessage(mTranslations(baseKey), params)
+        Else
+            GetTranslation = "Translation not found for key: " & key
+        End If
+    End If
+End Function
+
+Private Function FormatMessage(message As String, params() As Variant) As String
+    Dim i As Integer
+    For i = LBound(params) To UBound(params)
+        message = Replace(message, "{" & i & "}", params(i))
+    Next i
+    FormatMessage = message
+End Function
+
+Public Function GetUserLanguage() As String
+    GetUserLanguage = Config.GetVar(CONNECTUSER_LANGUAGE)
+End Function
