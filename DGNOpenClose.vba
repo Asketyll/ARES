@@ -30,5 +30,5 @@ End Sub
 Private Sub InitializeChangeHandler()
     Set ChangeHandler = New ElementChangeHandler
     AddChangeTrackEventsHandler ChangeHandler
-    ShowStatus "ARES Element Track Events Handler Initialized !"
+    ShowStatus GetTranslation("DGNOpenCloseEventsInitialized")
 End Sub
