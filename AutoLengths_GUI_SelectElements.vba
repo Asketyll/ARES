@@ -1,7 +1,7 @@
 ' UserForm: AutoLengths_GUI_SelectElements
 ' Description: This UserForm is used for selecting an element in a list and returning it.
 
-' Dependencies: MSGraphicalInteraction, AutoLengths
+' Dependencies: MSGraphicalInteraction, AutoLengths, LangManager
 
 Private pLinkedElements() As Element
 Private pMasterElement As Element
@@ -27,7 +27,7 @@ Private Sub ListBox1_Click()
             MSGraphicalInteraction.ZoomEl pLinkedElements(selectedIndex)
             MSGraphicalInteraction.HighlightEl pLinkedElements(selectedIndex)
         Else
-            MsgBox "L'élément sélectionné n'est pas valide.", vbExclamation
+            MsgBox GetTranslation("AutoLengthsGUIInvalidSelectedElement"), vbExclamation
         End If
     End If
 End Sub
