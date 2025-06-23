@@ -42,6 +42,10 @@ Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
     End If
 End Sub
 
+Private Sub UserForm_Initialize()
+    Me.Caption = GetTranslation("AutoLengthsGUICaption")
+End Sub
+
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     'If CloseMode = 0 Then MsgBox "Vous devez faire un choix pour que la macro se termine sans encombre."
     'Cancel = CloseMode = 0
