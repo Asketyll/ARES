@@ -51,6 +51,9 @@ Public ARES_NAME_LIBRARY_TYPE As ARES_MS_VAR_Class 'Default Value: ARES
 ' Used in CustomPropertyHandler module for default name of Item Type object
 Public ARES_NAME_ITEM_TYPE As ARES_MS_VAR_Class 'Default Value: ARESAutoLengthObject
 
+' Used in LangManager module to force language if CONNECTUSER_LANGUAGE configuration variable is not set
+Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
+
 Public Function InitMSVars()
     Set ARES_ROUNDS = New ARES_MS_VAR_Class
     Set ARES_AUTO_LENGTHS = New ARES_MS_VAR_Class
@@ -59,7 +62,8 @@ Public Function InitMSVars()
     Set ARES_LENGTH_TRIGGER_ID = New ARES_MS_VAR_Class
     Set ARES_NAME_LIBRARY_TYPE = New ARES_MS_VAR_Class
     Set ARES_NAME_ITEM_TYPE = New ARES_MS_VAR_Class
-
+    Set ARES_LANGUAGE = New ARES_MS_VAR_Class
+    
     InitializeMSVar ARES_ROUNDS, "ARES_Round", "2"
     InitializeMSVar ARES_AUTO_LENGTHS, "ARES_Auto_Lengths", "True"
     InitializeMSVar ARES_LENGTH_ROUND, "ARES_Length_Round", "1"
@@ -67,6 +71,7 @@ Public Function InitMSVars()
     InitializeMSVar ARES_LENGTH_TRIGGER_ID, "ARES_Length_Trigger_ID", "(Xx_)"
     InitializeMSVar ARES_NAME_LIBRARY_TYPE, "ARES_Library_Type_Name", "ARES"
     InitializeMSVar ARES_NAME_ITEM_TYPE, "ARES_Item_Type_Name", "ARESAutoLengthObject"
+    InitializeMSVar ARES_LANGUAGE, "ARES_Language", ""
 End Function
 
 Private Function KeyExistsInCollection(key As String) As Boolean
