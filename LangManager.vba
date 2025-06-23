@@ -36,6 +36,8 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_LengthElementTypeNotSupportedByInterface", "The element: {0} is an element of type: {1}, it is not supported by the GetElementLength interface."
     mTranslations.Add "EN_AutoLengthsUpdateError", "An error occurred while updating lengths."
     mTranslations.Add "EN_DGNOpenCloseEventsInitialized", "Track events element initialized."
+    mTranslations.Add "EN_AutoLengthsGUIInvalidSelectedElement", "The selected item is invalid."
+    
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
     mTranslations.Add "FR_VarResetError", "Impossible de réinitialiser la variable."
@@ -56,6 +58,7 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_LengthElementTypeNotSupportedByInterface", "L'élément: {0} est un élément de type: {1}, il n'est pas géré par l'interface GetElementLength."
     mTranslations.Add "FR_AutoLengthsUpdateError", "Une erreur s'est produite lors de la mise à jour des longueurs."
     mTranslations.Add "FR_DGNOpenCloseEventsInitialized", "Evénements de suivi d'objet initialisé."
+    mTranslations.Add "FR_AutoLengthsGUIInvalidSelectedElement", "L'élément sélectionné n'est pas valide."
 End Sub
 
 Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
