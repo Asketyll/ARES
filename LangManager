@@ -1,7 +1,9 @@
 ' Module: LangManager
 ' Description: This module manages translations for different languages in GUI.
 
-' Dependencies: Config
+' Dependencies: Config, ARES_VAR
+
+Option Explicit
 
 Public Enum SupportedLanguages
     English = 1
@@ -25,6 +27,10 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_VarInitializeMSVarfailed", "ARES Config with MS Vars failed."
     mTranslations.Add "EN_VarKeyNotInCollection", "The variable : {0} is not known."
     mTranslations.Add "EN_VarsRemoveConfirm", "Do you really want to remove all variables ?"
+    mTranslations.Add "EN_BootUserLangInit", "User language initialized."
+    mTranslations.Add "EN_BootMSVarsInit", "Variable management initialized."
+    mTranslations.Add "EN_BootMSVarsMissing", "Variable management is missing."
+    mTranslations.Add "EN_BootFail", "Error in automatic loading of VBA."
     
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut : {0}"
@@ -37,33 +43,49 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_VarInitializeMSVarfailed", "ARES Config avec MS Vars à échoué."
     mTranslations.Add "FR_VarKeyNotInCollection", "La variable : {0} n'est pas reconnue."
     mTranslations.Add "FR_VarsRemoveConfirm", "Voulez-vous vraiment supprimer toutes les variables ?"
+    mTranslations.Add "FR_BootUserLangInit", "Langage utilisateur initialisé."
+    mTranslations.Add "FR_BootMSVarsInit", "Gestion des variables initialisées."
+    mTranslations.Add "FR_BootMSVarsMissing", "Gestion des variables manquante."
+    mTranslations.Add "FR_BootFail", "Erreur lors du chargement automatique de VBA."
 End Sub
 
 Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
     Dim baseKey As String
+    Dim formattedMessage As String
+    Dim i As Integer
+    
     baseKey = UCase(Left(GetUserLanguage, 2)) & "_" & key
-
+    
+    ' Retrieve the message based on the constructed key
     If mTranslations.Exists(baseKey) Then
-        GetTranslation = FormatMessage(mTranslations(baseKey), params)
+        GetTranslation = mTranslations(baseKey)
     Else
         ' Default to English if translation not found
         baseKey = "EN_" & key
         If mTranslations.Exists(baseKey) Then
-            GetTranslation = FormatMessage(mTranslations(baseKey), params)
+            GetTranslation = mTranslations(baseKey)
         Else
             GetTranslation = "Translation not found for key: " & key
+            Exit Function
         End If
+    End If
+
+    ' Format the message with parameters if any are provided
+    If UBound(params) - LBound(params) >= 0 Then
+        formattedMessage = GetTranslation
+        For i = LBound(params) To UBound(params)
+            formattedMessage = Replace(formattedMessage, "{" & i & "}", params(i))
+        Next i
+        GetTranslation = formattedMessage
     End If
 End Function
 
-Private Function FormatMessage(message As String, params() As Variant) As String
-    Dim i As Integer
-    For i = LBound(params) To UBound(params)
-        message = Replace(message, "{" & i & "}", params(i))
-    Next i
-    FormatMessage = message
-End Function
-
 Public Function GetUserLanguage() As String
-    GetUserLanguage = Config.GetVar(CONNECTUSER_LANGUAGE)
+    GetUserLanguage = Config.GetVar("CONNECTUSER_LANGUAGE")
+    If GetUserLanguage = "" Or GetUserLanguage = ARES_VAR.ARES_NAVD Then
+        If ARES_VAR.ARES_LANGUAGE Is Nothing Then
+            ARES_VAR.InitMSVars
+        End If
+        GetUserLanguage = ARES_VAR.ARES_LANGUAGE.Value
+    End If
 End Function
