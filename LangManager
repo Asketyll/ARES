@@ -25,28 +25,37 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_VarKeyNotFound", "Key not found in the collection: {0}"
     mTranslations.Add "EN_VarInvalidArgument", "Invalid argument type."
     mTranslations.Add "EN_VarInitializeMSVarfailed", "ARES Config with MS Vars failed."
-    mTranslations.Add "EN_VarKeyNotInCollection", "The variable : {0} is not known."
+    mTranslations.Add "EN_VarKeyNotInCollection", "The variable: {0} is not known."
     mTranslations.Add "EN_VarsRemoveConfirm", "Do you really want to remove all variables ?"
     mTranslations.Add "EN_BootUserLangInit", "User language initialized."
     mTranslations.Add "EN_BootMSVarsInit", "Variable management initialized."
     mTranslations.Add "EN_BootMSVarsMissing", "Variable management is missing."
     mTranslations.Add "EN_BootFail", "Error in automatic loading of VBA."
-    
+    mTranslations.Add "EN_LangFail", "Translation not found for key: "
+    mTranslations.Add "EN_LengthRoundError", "Rounding value unauthorized: "
+    mTranslations.Add "EN_LengthElementTypeNotSupportedByInterface", "The element: {0} is an element of type: {1}, it is not supported by the GetElementLength interface."
+    mTranslations.Add "EN_AutoLengthsUpdateError", "An error occurred while updating lengths."
+    mTranslations.Add "EN_DGNOpenCloseEventsInitialized", "Track events element initialized."
     ' Add French translations
-    mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut : {0}"
+    mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
     mTranslations.Add "FR_VarResetError", "Impossible de réinitialiser la variable."
     mTranslations.Add "FR_VarRemoveConfirm", "Voulez-vous vraiment supprimer la variable {0}?"
     mTranslations.Add "FR_VarRemoveSuccess", "Supprimé."
     mTranslations.Add "FR_VarRemoveError", "Impossible de supprimer la variable."
-    mTranslations.Add "FR_VarKeyNotFound", "Clé introuvable dans la collection : {0}"
+    mTranslations.Add "FR_VarKeyNotFound", "Clé introuvable dans la collection: {0}"
     mTranslations.Add "FR_VarInvalidArgument", "Type d'argument non valide."
     mTranslations.Add "FR_VarInitializeMSVarfailed", "ARES Config avec MS Vars à échoué."
-    mTranslations.Add "FR_VarKeyNotInCollection", "La variable : {0} n'est pas reconnue."
+    mTranslations.Add "FR_VarKeyNotInCollection", "La variable: {0} n'est pas reconnue."
     mTranslations.Add "FR_VarsRemoveConfirm", "Voulez-vous vraiment supprimer toutes les variables ?"
     mTranslations.Add "FR_BootUserLangInit", "Langage utilisateur initialisé."
     mTranslations.Add "FR_BootMSVarsInit", "Gestion des variables initialisées."
     mTranslations.Add "FR_BootMSVarsMissing", "Gestion des variables manquante."
     mTranslations.Add "FR_BootFail", "Erreur lors du chargement automatique de VBA."
+    mTranslations.Add "FR_LangFail", "Traduction introuvable pour la clé: "
+    mTranslations.Add "FR_LengthRoundError", "Valeur d'arrondi interdit: "
+    mTranslations.Add "FR_LengthElementTypeNotSupportedByInterface", "L'élément: {0} est un élément de type: {1}, il n'est pas géré par l'interface GetElementLength."
+    mTranslations.Add "FR_AutoLengthsUpdateError", "Une erreur s'est produite lors de la mise à jour des longueurs."
+    mTranslations.Add "FR_DGNOpenCloseEventsInitialized", "Evénements de suivi d'objet initialisé."
 End Sub
 
 Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
@@ -65,7 +74,7 @@ Public Function GetTranslation(key As String, ParamArray params() As Variant) As
         If mTranslations.Exists(baseKey) Then
             GetTranslation = mTranslations(baseKey)
         Else
-            GetTranslation = "Translation not found for key: " & key
+            GetTranslation = GetTranslation("LangFail") & key
             Exit Function
         End If
     End If
