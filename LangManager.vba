@@ -37,6 +37,7 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_AutoLengthsUpdateError", "An error occurred while updating lengths."
     mTranslations.Add "EN_DGNOpenCloseEventsInitialized", "Track events element initialized."
     mTranslations.Add "EN_AutoLengthsGUIInvalidSelectedElement", "The selected item is invalid."
+    mTranslations.Add "EN_AutoLengthsGUICaption", "Select:"
     
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -59,6 +60,7 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_AutoLengthsUpdateError", "Une erreur s'est produite lors de la mise à jour des longueurs."
     mTranslations.Add "FR_DGNOpenCloseEventsInitialized", "Evénements de suivi d'objet initialisé."
     mTranslations.Add "FR_AutoLengthsGUIInvalidSelectedElement", "L'élément sélectionné n'est pas valide."
+    mTranslations.Add "FR_AutoLengthsGUICaption", "Sélectionner:"
 End Sub
 
 Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
