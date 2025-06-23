@@ -4,7 +4,7 @@
 ' and manage configuration variables for rounding.
 ' NEVER USE Rnd = 255 in GetLength function ! it reserved for error
 
-' Dependencies: Config, ARES_VAR
+' Dependencies: Config, ARES_VAR, LangManager
 
 Option Explicit
 
@@ -19,7 +19,7 @@ Public Function GetLength(ByVal El As Element, Optional RND As Variant, Optional
     If RndLength Then
         RND = HandleRounding(RND, ErasRnd)
         If RND = ARES_VAR.ARES_RND_ERROR_VALUE Then
-            ShowStatus "Valeur d'arrondi interdit: " & ARES_VAR.ARES_RND_ERROR_VALUE
+            ShowStatus GetTranslation("LengthRoundError") & ARES_VAR.ARES_RND_ERROR_VALUE
             GetLength = 0
             Exit Function
         End If
@@ -54,7 +54,7 @@ Private Function GetElementLength(ByVal El As Element) As Double
         Case Else
             GetElementLength = 0
             MSGraphicalInteraction.ZoomEl El
-            ShowStatus "L'élément :" & DLongToString(El.Id) & " est un élément de type : " & El.Type & ", il n'est pas géré par l'interface GetElementLength."
+            ShowStatus GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(El.Id), El.Type)
     End Select
 
     Exit Function
@@ -172,7 +172,7 @@ Public Function SetRound(RND As Byte) As Boolean
     If RND <> ARES_VAR.ARES_RND_ERROR_VALUE Then
         SetRound = Config.SetVar(ARES_VAR.ARES_ROUNDS.key, RND)
     Else
-        ShowStatus "Valeur d'arrondi interdit: " & ARES_VAR.ARES_RND_ERROR_VALUE
+        ShowStatus GetTranslation("LengthRoundError") & ARES_VAR.ARES_RND_ERROR_VALUE
     End If
 End Function
 
