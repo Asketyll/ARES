@@ -13,13 +13,15 @@ Sub OnProjectLoad()
     On Error GoTo ErrorHandler
     
     LangManager.InitializeTranslations
-    MsgBox "ARES user language initialized", vbOKOnly
+    MsgBox GetTranslation("BootUserLangInit"), vbOKOnly
     
     If ModuleExists("ARES_VAR") Then
-        ARES_VAR.InitMSVars
-        MsgBox "ARES Config with MS Vars Initialized", vbOKOnly
+        If ARES_VAR.ARES_LANGUAGE Is Nothing Then 'LangManager can initialize ARES_VAR if it needs to, check if is not already initialized.
+            ARES_VAR.InitMSVars
+        End If
+        MsgBox GetTranslation("BootMSVarsInit"), vbOKOnly
     Else
-        MsgBox "ARES_VAR module is missing !", vbOKOnly
+        MsgBox GetTranslation("BootMSVarsMissing"), vbOKOnly
         GoTo ErrorHandler
     End If
     Set oOpenClose = New DGNOpenClose
@@ -27,7 +29,7 @@ Sub OnProjectLoad()
     Exit Sub
 
 ErrorHandler:
-    MsgBox "Erreur lors du chargement automatique de VBA : " & Err.Description, vbOKOnly
+    MsgBox GetTranslation("BootFail") & Err.Description, vbOKOnly
 End Sub
 
 'This function check if a module exist
