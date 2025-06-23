@@ -1,7 +1,7 @@
 ' Class Module: AutoLengths
 ' Description: This module provides functions to add length with rounding to a text if they are graphically linked and the trigger is present in the text.
 
-' Dependencies: Config, Length, ARES_VAR, AutoLengths_GUI_SelectElements
+' Dependencies: Config, Length, ARES_VAR, AutoLengths_GUI_SelectElements, LangManager
 
 Option Explicit
 
@@ -61,7 +61,7 @@ Public Sub UpdateLengths()
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "An error occurred while updating lengths."
+    ShowStatus GetTranslation("AutoLengthsUpdateError")
 End Sub
 
 ' Show a form to select an element from the linked elements
