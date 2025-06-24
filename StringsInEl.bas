@@ -12,7 +12,7 @@
 
 Option Explicit
 
-Public Function GetSetTextsInEl(ByVal TextElement As Element, txt As String, Optional Triggers As String) As String()
+Public Function GetSetTextsInEl(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
 
     Dim result() As String
@@ -42,7 +42,7 @@ ErrorHandler:
     End If
 End Function
 
-Private Function ProcessTextElement(ByVal TextElement As Element, txt As String, Optional Triggers As String) As String()
+Private Function ProcessTextElement(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
     
     ' Process a single text element
@@ -53,7 +53,7 @@ Private Function ProcessTextElement(ByVal TextElement As Element, txt As String,
     Dim i As Long
 
     ' If no Triggers are provided, split the text element's text into an array
-    If Triggers = "" Then
+    If Triggers = "" And txt = "" Then
         ProcessTextElement = Split(TextElement.AsTextElement.Text, "")
     Else
         ' Retrieve the current text of the element
@@ -68,7 +68,7 @@ Private Function ProcessTextElement(ByVal TextElement As Element, txt As String,
             SplitedTriggers = Split(trigger(i), ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)
             ' If the Trigger is valid (contains the ID), perform the replacement
             If UBound(SplitedTriggers) = 1 Then
-                NewTxt = Replace(NewTxt, SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
+                NewTxt = Replace(NewTxt, SplitedTriggers(0) & ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
             End If
         Next i
 
@@ -86,7 +86,7 @@ ErrorHandler:
     ProcessTextElement = Array("")
 End Function
 
-Private Function ProcessTextNodeElement(ByVal TextElement As Element, txt As String, Optional Triggers As String) As String()
+Private Function ProcessTextNodeElement(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
     
     ' Process a text node element
@@ -94,13 +94,13 @@ Private Function ProcessTextNodeElement(ByVal TextElement As Element, txt As Str
     Dim OldTxts() As String
     Dim NewTxts() As String
     Dim result() As String
-    Dim SubTxtEnum As elementEnumerator
+    Dim SubTxtEnum As ElementEnumerator
     Dim SubTxt As TextElement
     Dim trigger() As String
     Dim SplitedTriggers() As String
 
     ' If no Triggers are provided, retrieve all text lines from the text node element
-    If Triggers = "" Then
+    If Triggers = "" And txt = "" Then
         ReDim result(TextElement.AsTextNodeElement.TextLinesCount - 1)
         For i = 0 To UBound(result)
             result(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
@@ -148,11 +148,11 @@ ErrorHandler:
     ProcessTextNodeElement = Array("")
 End Function
 
-Private Function ProcessCellElement(ByVal TextElement As Element, txt As String, Optional Triggers As String) As String()
+Private Function ProcessCellElement(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
     
     ' Process a cell element, including nested cells
-    Dim ElEnum As elementEnumerator
+    Dim ElEnum As ElementEnumerator
     Dim SubEl As Element
     Dim result() As String
 
