@@ -28,7 +28,7 @@ Public Const ARES_RND_ERROR_VALUE As Byte = 255 ' Constant for error in ARES_ROU
 '######################################################################################################################
 
 ' Declare a global collection to store ARES_MS_VAR variables
-Dim MSVarsCollection As New Collection
+Public MSVarsCollection As Collection
 
 ' Used in Length module for default rounding
 Public ARES_ROUNDS As ARES_MS_VAR_Class 'Default Value: 2  Range 0 to 254 (Byte -1)    #255 it reserved for error (ARES_RND_ERROR_VALUE)
@@ -55,6 +55,7 @@ Public ARES_NAME_ITEM_TYPE As ARES_MS_VAR_Class 'Default Value: ARESAutoLengthOb
 Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
 
 Public Function InitMSVars()
+    Set MSVarsCollection = New Collection
     Set ARES_ROUNDS = New ARES_MS_VAR_Class
     Set ARES_AUTO_LENGTHS = New ARES_MS_VAR_Class
     Set ARES_LENGTH_ROUND = New ARES_MS_VAR_Class
@@ -68,7 +69,7 @@ Public Function InitMSVars()
     InitializeMSVar ARES_AUTO_LENGTHS, "ARES_Auto_Lengths", "True"
     InitializeMSVar ARES_LENGTH_ROUND, "ARES_Length_Round", "1"
     InitializeMSVar ARES_LENGTH_TRIGGER, "ARES_Length_Triggers", "(Xx_m)"
-    InitializeMSVar ARES_LENGTH_TRIGGER_ID, "ARES_Length_Trigger_ID", "(Xx_)"
+    InitializeMSVar ARES_LENGTH_TRIGGER_ID, "ARES_Length_Trigger_ID", "Xx_"
     InitializeMSVar ARES_NAME_LIBRARY_TYPE, "ARES_Library_Type_Name", "ARES"
     InitializeMSVar ARES_NAME_ITEM_TYPE, "ARES_Item_Type_Name", "ARESAutoLengthObject"
     InitializeMSVar ARES_LANGUAGE, "ARES_Language", ""
