@@ -35,10 +35,22 @@ End Sub
 ' Handle the addition of a new element
 Private Sub HandleElementAdded(ByVal NewElement As Element)
     Dim AUTO_LENGTH As Boolean
+    Dim TriggerFinded As Boolean
+    Dim Txts() As String
+    Dim i As Long
+    
+    TriggerFinded = False
     AUTO_LENGTH = ARES_VAR.ARES_AUTO_LENGTHS.Value
     
     If AUTO_LENGTH And NewElement.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
-        If NewElement.IsTextElement Or NewElement.IsTextNodeElement Or NewElement.IsCellElement Then
+        Txts = StringsInEl.GetSetTextsInEl(NewElement)
+        For i = LBound(Txts) To UBound(Txts)
+            If InStr(1, Txts(i), ARES_VAR.ARES_LENGTH_TRIGGER.Value, vbBinaryCompare) > 0 Then
+                TriggerFinded = True
+                Exit For
+            End If
+        Next i
+        If TriggerFinded Then
             Dim autoLengths As New autoLengths
             autoLengths.Initialize NewElement
             autoLengths.UpdateLengths
