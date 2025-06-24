@@ -5,17 +5,21 @@
 
 Option Explicit
 
-Public Enum SupportedLanguages
-    English = 1
-    French = 2
-    ' Add more languages as needed
-End Enum
-
+Private mSupportedLanguages As Collection
 Private mTranslations As Object
+Private mUserLanguage As String
 
 Sub InitializeTranslations()
+    Set mSupportedLanguages = New Collection
     Set mTranslations = CreateObject("Scripting.Dictionary")
+    
+    ' Add supported languages to the collection
+    mSupportedLanguages.Add "English"
+    mSupportedLanguages.Add "Français"
 
+    ' Initialize user language
+    mUserLanguage = GetUserLanguage()
+    
     ' Add English translations
     mTranslations.Add "EN_VarResetSuccess", "Reset to default value: {0}"
     mTranslations.Add "EN_VarResetError", "Unable to reset the variable."
@@ -26,7 +30,7 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_VarInvalidArgument", "Invalid argument type."
     mTranslations.Add "EN_VarInitializeMSVarfailed", "ARES Config with MS Vars failed."
     mTranslations.Add "EN_VarKeyNotInCollection", "The variable: {0} is not known."
-    mTranslations.Add "EN_VarsRemoveConfirm", "Do you really want to remove all variables ?"
+    mTranslations.Add "EN_VarsRemoveConfirm", "Do you really want to remove all variables ? This action is irreversible."
     mTranslations.Add "EN_BootUserLangInit", "User language initialized."
     mTranslations.Add "EN_BootMSVarsInit", "Variable management initialized."
     mTranslations.Add "EN_BootMSVarsMissing", "Variable management is missing."
@@ -49,7 +53,7 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_VarInvalidArgument", "Type d'argument non valide."
     mTranslations.Add "FR_VarInitializeMSVarfailed", "ARES Config avec MS Vars à échoué."
     mTranslations.Add "FR_VarKeyNotInCollection", "La variable: {0} n'est pas reconnue."
-    mTranslations.Add "FR_VarsRemoveConfirm", "Voulez-vous vraiment supprimer toutes les variables ?"
+    mTranslations.Add "FR_VarsRemoveConfirm", "Voulez-vous vraiment supprimer toutes les variables ? Cette action est irréversible."
     mTranslations.Add "FR_BootUserLangInit", "Langage utilisateur initialisé."
     mTranslations.Add "FR_BootMSVarsInit", "Gestion des variables initialisées."
     mTranslations.Add "FR_BootMSVarsMissing", "Gestion des variables manquante."
@@ -68,7 +72,7 @@ Public Function GetTranslation(key As String, ParamArray params() As Variant) As
     Dim formattedMessage As String
     Dim i As Integer
     
-    baseKey = UCase(Left(GetUserLanguage, 2)) & "_" & key
+    baseKey = UCase(Left(mUserLanguage, 2)) & "_" & key
     
     ' Retrieve the message based on the constructed key
     If mTranslations.Exists(baseKey) Then
@@ -94,12 +98,44 @@ Public Function GetTranslation(key As String, ParamArray params() As Variant) As
     End If
 End Function
 
-Public Function GetUserLanguage() As String
+Private Function GetUserLanguage() As String
+    Dim Prompt As String
+    Dim lang As Variant
+    
     GetUserLanguage = Config.GetVar("CONNECTUSER_LANGUAGE")
     If GetUserLanguage = "" Or GetUserLanguage = ARES_VAR.ARES_NAVD Then
         If ARES_VAR.ARES_LANGUAGE Is Nothing Then
             ARES_VAR.InitMSVars
         End If
-        GetUserLanguage = ARES_VAR.ARES_LANGUAGE.Value
+        If ARES_VAR.ARES_LANGUAGE.Value = "" Then
+            Prompt = "Unable to retrieve your user language." & vbCrLf & _
+            "We invite you to declare it in the MicroStation environment variable, key: ARES_Language" & vbCrLf & _
+            "The supported languages are:"
+            
+            ' Loop through the enum values and append them to the message
+            For Each lang In mSupportedLanguages
+                Prompt = Prompt & vbCrLf & "- " & lang
+            Next lang
+            
+            Prompt = Prompt & vbCrLf & vbCrLf & "You can use the keyin: '""macro vba run [ARES]English'"" or '""macro vba run [ARES]Français'"""
+            'macro vba run Ares.SetLanguage
+            MsgBox Prompt, vbOKOnly, "User language"
+        Else
+            GetUserLanguage = ARES_VAR.ARES_LANGUAGE.Value
+        End If
     End If
 End Function
+Sub English()
+    If Config.SetVar(ARES.ARES_LANGUAGE.key, "English") Then
+        ShowStatus ARES.ARES_LANGUAGE.key & " set to English, please restart."
+    Else
+        ShowStatus "Imposible to set " & ARES.ARES_LANGUAGE.key & ", please try manualy."
+    End If
+End Sub
+Sub Français()
+    If Config.SetVar(ARES.ARES_LANGUAGE.key, "Français") Then
+        ShowStatus ARES.ARES_LANGUAGE.key & " défini à Français, veuillez redémarrer."
+    Else
+        ShowStatus "Impossible de définir " & ARES.ARES_LANGUAGE.key & ", veuillez essayer manuellement."
+    End If
+End Sub
