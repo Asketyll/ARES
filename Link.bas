@@ -1,6 +1,7 @@
 ' Module: Link
 ' Description: This module provides functions to retrieve linked elements in MicroStation.
-
+' It includes functions to scan for elements in a specified graphic group and filter them by type.
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: MicroStationDefinition, ARES_VAR
 
 Option Explicit
@@ -13,16 +14,17 @@ Public Function GetLink(ByRef El As Element, _
     On Error GoTo ErrorHandler
 
     Dim LinkedElements() As Element
-    Dim count As Byte
     Dim MSDEType() As MsdElementType
-
+    Dim Esc As ElementScanCriteria
+    Dim i As Long
+    Dim EE As ElementEnumerator
+    
     ' Check if there is an active model reference
     If Not Application.HasActiveModelReference Then Exit Function
 
     ' Check if the element is graphical and has a valid graphic group ID
     If El.IsGraphical And El.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
         ' Initialize the element scan criteria
-        Dim Esc As ElementScanCriteria
         Set Esc = New ElementScanCriteria
 
         ' Include only the specified graphic group
@@ -33,7 +35,6 @@ Public Function GetLink(ByRef El As Element, _
             ' Ensure FilterByTypes is an array of MsdElementType
             MSDEType = EnsureArray(FilterByTypes)
             Esc.ExcludeAllTypes
-            Dim i As Long
             For i = LBound(MSDEType) To UBound(MSDEType)
                 If IsValidElementType(MSDEType(i)) And MSDEType(i) <> ARES_VAR.ARES_MSDETYPE_ERROR Then
                     Esc.IncludeType MSDEType(i)
@@ -42,7 +43,6 @@ Public Function GetLink(ByRef El As Element, _
         End If
 
         ' Scan for elements in the specified graphic group
-        Dim EE As elementEnumerator
         Set EE = ActiveModelReference.Scan(Esc)
 
         If ReturnMe Then
@@ -70,10 +70,10 @@ Private Function EnsureArray(ByVal Value As Variant) As Variant
     On Error GoTo ErrorHandler
 
     Dim tempArray() As MsdElementType
-    
+    Dim i As Long
+
     If IsArray(Value) Then
         ' Check each element in the array and convert if necessary
-        Dim i As Long
         ReDim tempArray(LBound(Value) To UBound(Value))
         For i = LBound(Value) To UBound(Value)
             Select Case VarType(Value(i))
@@ -125,13 +125,12 @@ ErrorHandler:
     EnsureArray = tempArray
 End Function
 
-
 ' Private function to collect linked elements excluding the original element
-Private Function CollectLinkedElements(ByRef EE As elementEnumerator, _
+Private Function CollectLinkedElements(ByRef EE As ElementEnumerator, _
                                       ByRef El As Element, _
                                       ByVal MaxCount As Byte) As Variant
     On Error GoTo ErrorHandler
-    
+
     Dim LinkedElements() As Element
     Dim count As Byte
     Dim SubEl As Element
@@ -143,7 +142,6 @@ Private Function CollectLinkedElements(ByRef EE As elementEnumerator, _
     If count > 0 Then
         ReDim LinkedElements(1 To count)
         count = 0
-
         ' Reset the enumerator and populate the array
         EE.Reset
         Do While EE.MoveNext
@@ -166,9 +164,11 @@ ErrorHandler:
 End Function
 
 ' Private function to count valid elements excluding the original element
-Private Function CountValidElements(ByRef EE As elementEnumerator, _
+Private Function CountValidElements(ByRef EE As ElementEnumerator, _
                                     ByRef El As Element, _
                                     ByVal MaxCount As Byte) As Byte
+    On Error GoTo ErrorHandler
+
     Dim count As Byte
     Dim SubEl As Element
 
@@ -182,6 +182,10 @@ Private Function CountValidElements(ByRef EE As elementEnumerator, _
     Loop
 
     CountValidElements = count
+    Exit Function
+
+ErrorHandler:
+    CountValidElements = 0
 End Function
 
 ' Private function to check if an element is valid (not the original element)
