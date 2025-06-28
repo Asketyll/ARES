@@ -45,7 +45,15 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_DGNOpenCloseEventsInitialized", "Track events element initialized."
     mTranslations.Add "EN_AutoLengthsGUIInvalidSelectedElement", "The selected item is invalid."
     mTranslations.Add "EN_AutoLengthsGUICaption", "Select:"
-    
+    mTranslations.Add "EN_AutoLengthsInitError", "Error initializing AutoLengths: "
+    mTranslations.Add "EN_AutoLengthsCalculationError", "Error calculating lengths: "
+    mTranslations.Add "EN_AutoLengthsUpdateError", "Error updating lengths: "
+    mTranslations.Add "EN_AutoLengthsShowFormError", "Error showing element selection form: "
+    mTranslations.Add "EN_AutoLengthsSelectionError", "Error selecting element: "
+    mTranslations.Add "EN_AutoLengthsSetTriggerError", "Error setting trigger: "
+    mTranslations.Add "EN_AutoLengthsAddTriggerError", "Error adding trigger: "
+    mTranslations.Add "EN_AutoLengthsResetTriggerError", "Error resetting trigger: "
+
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
     mTranslations.Add "FR_VarResetError", "Impossible de réinitialiser la variable."
@@ -68,6 +76,14 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_DGNOpenCloseEventsInitialized", "Evénements de suivi d'objet initialisé."
     mTranslations.Add "FR_AutoLengthsGUIInvalidSelectedElement", "L'élément sélectionné n'est pas valide."
     mTranslations.Add "FR_AutoLengthsGUICaption", "Sélectionner:"
+    mTranslations.Add "FR_AutoLengthsInitError", "Erreur lors de l'initialisation d'AutoLengths: "
+    mTranslations.Add "FR_AutoLengthsCalculationError", "Erreur lors du calcul des longueurs: "
+    mTranslations.Add "FR_AutoLengthsUpdateError", "Erreur lors de la mise à jour des longueurs: "
+    mTranslations.Add "FR_AutoLengthsShowFormError", "Erreur lors de l'affichage du formulaire de sélection d'élément: "
+    mTranslations.Add "FR_AutoLengthsSelectionError", "Erreur lors de la sélection de l'élément: "
+    mTranslations.Add "FR_AutoLengthsSetTriggerError", "Erreur lors de la définition du déclencheur: "
+    mTranslations.Add "FR_AutoLengthsAddTriggerError", "Erreur lors de l'ajout du déclencheur: "
+    mTranslations.Add "FR_AutoLengthsResetTriggerError", "Erreur lors de la réinitialisation du déclencheur: "
 
     Exit Sub
 
