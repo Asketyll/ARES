@@ -17,17 +17,12 @@ Private pLengths() As Double
 ' Method to initialize the class with the new element
 Public Sub Initialize(ByVal NewElement As Element)
     On Error GoTo ErrorHandler
-    ' Set the new element
+
     Set pNewElement = NewElement
-
-    ' Get the linked elements using the Link module
     pLinkedElements = Link.GetLink(NewElement)
-
-    ' Redimension the lengths array to match the linked elements array
     ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
-
-    ' Calculate the lengths of the linked elements
     CalculateLengths
+
     Exit Sub
 
 ErrorHandler:
@@ -37,12 +32,12 @@ End Sub
 ' Method to calculate lengths for all linked elements
 Private Sub CalculateLengths()
     On Error GoTo ErrorHandler
-    Dim i As Long
 
-    ' Loop through each linked element and calculate its length
+    Dim i As Long
     For i = LBound(pLinkedElements) To UBound(pLinkedElements)
         pLengths(i) = Length.GetLength(pLinkedElements(i), ARES_VAR.ARES_LENGTH_ROUND.Value)
     Next i
+
     Exit Sub
 
 ErrorHandler:
@@ -52,49 +47,74 @@ End Sub
 ' Method to update lengths in the new element based on linked elements
 Public Sub UpdateLengths()
     On Error GoTo ErrorHandler
-    Dim Results() As String
-    Dim count As Long
-    Dim j As Long
 
-    ' If there's only one linked element, update the length directly
-    If UBound(pLinkedElements) - LBound(pLinkedElements) = 0 Then
-        Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(UBound(pLinkedElements))), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
-    Else
-        count = 0
+    HandleElementSelection
 
-        ' Count non-zero lengths
-        For j = LBound(pLengths) To UBound(pLengths)
-            If pLengths(j) <> 0 Then
-                count = count + 1
-            End If
-        Next j
-
-        ' If there's only one non-zero length, update it directly
-        If count = 1 Then
-            For j = LBound(pLengths) To UBound(pLengths)
-                If pLengths(j) <> 0 Then
-                    Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(j)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
-                    Exit For
-                End If
-            Next j
-        Else
-            ' If there are multiple non-zero lengths, show a selection form
-            ShowElementSelectionForm
-        End If
-    End If
     Exit Sub
 
 ErrorHandler:
     ShowStatus GetTranslation("AutoLengthsUpdateError") & Err.Description
 End Sub
 
+' Method to handle the selection logic for elements
+Private Sub HandleElementSelection()
+    If HasSingleLinkedElement() Then
+        HandleSingleElement
+    Else
+        HandleMultipleElements
+    End If
+End Sub
+
+' Method to check if there is only one linked element
+Private Function HasSingleLinkedElement() As Boolean
+    HasSingleLinkedElement = (UBound(pLinkedElements) - LBound(pLinkedElements) = 0)
+End Function
+
+' Method to handle the case of a single linked element
+Private Sub HandleSingleElement()
+    Dim Results() As String
+    Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(UBound(pLinkedElements))), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
+End Sub
+
+' Method to handle the case of multiple linked elements
+Private Sub HandleMultipleElements()
+    If CountNonZeroLengths() = 1 Then
+        UpdateSingleNonZeroLength
+    Else
+        ShowElementSelectionForm
+    End If
+End Sub
+
+' Method to count the number of non-zero lengths
+Private Function CountNonZeroLengths() As Long
+    Dim count As Long, j As Long
+    count = 0
+    For j = LBound(pLengths) To UBound(pLengths)
+        If pLengths(j) <> 0 Then
+            count = count + 1
+        End If
+    Next j
+    CountNonZeroLengths = count
+End Function
+
+' Method to update the length for a single non-zero length
+Private Sub UpdateSingleNonZeroLength()
+    Dim Results() As String, j As Long
+    For j = LBound(pLengths) To UBound(pLengths)
+        If pLengths(j) <> 0 Then
+            Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(j)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
+            Exit For
+        End If
+    Next j
+End Sub
+
 ' Method to show a form to select an element from the linked elements
 Private Sub ShowElementSelectionForm()
     On Error GoTo ErrorHandler
+
     Dim frm As New AutoLengths_GUI_SelectElements
     Dim i As Long
 
-    ' Add non-zero lengths to the form's list box
     For i = LBound(pLinkedElements) To UBound(pLinkedElements)
         If pLengths(i) <> 0 Then
             frm.ListBox1.AddItem CStr(pLengths(i))
@@ -102,17 +122,11 @@ Private Sub ShowElementSelectionForm()
         End If
     Next i
 
-    ' Pass the reference to the current instance of AutoLengths
     Set frm.AutoLengthsInstance = Me
-
-    ' Set the linked elements and master element in the form
     frm.SetLinkedElements pLinkedElements
-
-    ' Get the master element by ID to avoid unintended initialization issues
     Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.Id)
-
-    ' Show the form modelessly
     frm.Show vbModeless
+
     Exit Sub
 
 ErrorHandler:
@@ -122,10 +136,10 @@ End Sub
 ' Method to be called when an element is selected in the form
 Public Sub OnElementSelected(ByVal selectedElement As Element, ByVal MasterElement As Element)
     On Error GoTo ErrorHandler
-    Dim Results() As String
 
-    ' Get and set the text in the master element with the length of the selected element
+    Dim Results() As String
     Results = StringsInEl.GetSetTextsInEl(MasterElement, CStr(Length.GetLength(selectedElement, ARES_VAR.ARES_LENGTH_ROUND.Value)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
+
     Exit Sub
 
 ErrorHandler:
@@ -135,15 +149,15 @@ End Sub
 ' Method to set the trigger list in the configuration
 Public Function SetTrigger(ByVal trigger As String) As Boolean
     On Error GoTo ErrorHandler
+
     SetTrigger = False
 
-    ' If the trigger list is empty, set the new trigger
     If ARES_VAR.ARES_LENGTH_TRIGGER.Value = "" Then
         SetTrigger = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER.key, trigger)
     Else
-        ' Otherwise, add the new trigger to the existing list
         SetTrigger = AddTrigger(trigger)
     End If
+
     Exit Function
 
 ErrorHandler:
@@ -154,13 +168,11 @@ End Function
 ' Method to add a new trigger to the existing trigger list
 Private Function AddTrigger(ByVal newTrigger As String) As Boolean
     On Error GoTo ErrorHandler
+
     Dim currentTriggers As String
-
-    ' Get the current triggers
     currentTriggers = ARES_VAR.ARES_LENGTH_TRIGGER.Value
-
-    ' Append the new trigger to the current list
     AddTrigger = Config.SetVar(ARES_VAR.ARES_LENGTH_TRIGGER.key, currentTriggers & ARES_VAR.ARES_VAR_DELIMITER & newTrigger)
+
     Exit Function
 
 ErrorHandler:
@@ -171,15 +183,15 @@ End Function
 ' Method to reset the trigger list in the configuration
 Public Function ResetTrigger() As Boolean
     On Error GoTo ErrorHandler
+
     ResetTrigger = False
 
-    ' Reset the trigger list to its default value
     ARES_VAR.ResetMSVar ARES_VAR.ARES_LENGTH_TRIGGER
 
-    ' Check if the trigger list was reset successfully
     If ARES_VAR.ARES_LENGTH_TRIGGER.Value = ARES_VAR.ARES_LENGTH_TRIGGER.Default Then
         ResetTrigger = True
     End If
+
     Exit Function
 
 ErrorHandler:
