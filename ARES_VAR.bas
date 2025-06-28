@@ -56,6 +56,10 @@ Public ARES_NAME_ITEM_TYPE As ARES_MS_VAR_Class 'Default Value: ARESAutoLengthOb
 ' Used in LangManager module to force language if CONNECTUSER_LANGUAGE configuration variable is not set
 Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
 
+' Used in UnitTesting module
+Public ARES_UnitTesting As ARES_MS_VAR_Class 'Default Value: I'm a ARES test unit variable
+
+
 ' Function to initialize MS variables
 Public Function InitMSVars() As Boolean
     On Error GoTo ErrorHandler
@@ -70,6 +74,7 @@ Public Function InitMSVars() As Boolean
     Set ARES_NAME_LIBRARY_TYPE = New ARES_MS_VAR_Class
     Set ARES_NAME_ITEM_TYPE = New ARES_MS_VAR_Class
     Set ARES_LANGUAGE = New ARES_MS_VAR_Class
+    Set ARES_UnitTesting = New ARES_MS_VAR_Class
     
     InitializeMSVar ARES_ROUNDS, "ARES_Round", "2"
     InitializeMSVar ARES_AUTO_LENGTHS, "ARES_Auto_Lengths", "True"
@@ -79,6 +84,7 @@ Public Function InitMSVars() As Boolean
     InitializeMSVar ARES_NAME_LIBRARY_TYPE, "ARES_Library_Type_Name", "ARES"
     InitializeMSVar ARES_NAME_ITEM_TYPE, "ARES_Item_Type_Name", "ARESAutoLengthObject"
     InitializeMSVar ARES_LANGUAGE, "ARES_Language", ""
+    InitializeMSVar ARES_UnitTesting, "ARES_Unit_testing", "I'm a ARES test unit variable"
     InitMSVars = True
     
     Exit Function
