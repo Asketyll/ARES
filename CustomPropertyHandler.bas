@@ -1,6 +1,6 @@
 ' Module: CustomPropertyHandler
 ' Description: This module provides functions to manipulate Custom Property (EC) in MicroStation with silent error handling.
-
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARES_VAR
 
 Option Explicit
@@ -8,6 +8,7 @@ Option Explicit
 ' Function to get or create an ItemTypeLibrary by name
 Public Function GetItemTypeLibrary(Optional LibraryName As String = ARES_VAR.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARES_VAR.ARES_NAME_ITEM_TYPE.Value) As ItemTypeLibrary
     On Error GoTo ErrorHandler
+
     Dim ItemLibs As ItemTypeLibraries
     Dim ITL As ItemTypeLibrary
     
@@ -33,6 +34,7 @@ End Function
 ' Function to create a new ItemTypeLibrary and its associated ItemType
 Private Function CreateItemTypeLibrary(Optional LibraryName As String = ARES_VAR.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARES_VAR.ARES_NAME_ITEM_TYPE.Value) As ItemTypeLibrary
     On Error GoTo ErrorHandler
+
     Dim Item As ItemType
     Dim ItemProp As ItemTypeProperty
     Dim ItemLibs As ItemTypeLibraries
@@ -70,6 +72,7 @@ End Function
 ' Function to delete an ItemTypeLibrary by name
 Public Function DeleteItemTypeLibrary(Optional LibraryName As String = ARES_VAR.ARES_NAME_LIBRARY_TYPE.Value) As Boolean
     On Error GoTo ErrorHandler
+
     Dim oItemLibs As ItemTypeLibraries
     Dim ITL As ItemTypeLibrary
     
@@ -80,7 +83,7 @@ Public Function DeleteItemTypeLibrary(Optional LibraryName As String = ARES_VAR.
     Set oItemLibs = New ItemTypeLibraries
     
     ' Try to find the library by name
-    Set ITL = oItemLibs.FindByName("ARES")
+    Set ITL = oItemLibs.FindByName(LibraryName)
     
     ' If the library exists, delete it
     If Not ITL Is Nothing Then
@@ -97,10 +100,10 @@ End Function
 ' Function to attach an ItemType to an Element
 Public Function AttachItemToElement(ByVal El As Element, Optional LibraryName As String = ARES_VAR.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARES_VAR.ARES_NAME_ITEM_TYPE.Value) As Boolean
     On Error GoTo ErrorHandler
+
     Dim ITL As ItemTypeLibrary
     Dim Item As ItemType
     Dim itemPropHandler As ItemTypePropertyHandler
-    
     
     ' Initialize the return value to False
     AttachItemToElement = False
@@ -132,10 +135,9 @@ End Function
 ' Function to remove an ItemType to an Element
 Public Function RemoveItemToElement(ByVal El As Element, Optional LibraryName As String = ARES_VAR.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARES_VAR.ARES_NAME_ITEM_TYPE.Value) As Boolean
     On Error GoTo ErrorHandler
+
     Dim ITL As ItemTypeLibrary
     Dim Item As ItemType
-    Dim itemPropHandler As ItemTypePropertyHandler
-    
     
     ' Initialize the return value to False
     RemoveItemToElement = False
@@ -148,13 +150,13 @@ Public Function RemoveItemToElement(ByVal El As Element, Optional LibraryName As
         ' Get the ItemType by name
         Set Item = ITL.GetItemTypeByName(ItemName)
         
-        ' If the ItemType exists, attach it to the Element
+        ' If the ItemType exists, remove it from the Element
         If Not Item Is Nothing Then
-            If Not El.Items.HasItems(LibraryName, ItemName) Then
-                Set itemPropHandler = Item.AttachItem(El)
+            If El.Items.HasItems(LibraryName, ItemName) Then
+                El.Items.RemoveItem Item
+                ' Set the return value to True if successful
+                RemoveItemFromElement = True
             End If
-            ' Set the return value to True if successful
-            AttachItemToElement = True
         End If
     End If
     
