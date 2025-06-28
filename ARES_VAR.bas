@@ -57,9 +57,10 @@ Public ARES_NAME_ITEM_TYPE As ARES_MS_VAR_Class 'Default Value: ARESAutoLengthOb
 Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
 
 ' Function to initialize MS variables
-Public Function InitMSVars()
+Public Function InitMSVars() As Boolean
     On Error GoTo ErrorHandler
-
+    
+    InitMSVars = False
     Set MSVarsCollection = New Collection
     Set ARES_ROUNDS = New ARES_MS_VAR_Class
     Set ARES_AUTO_LENGTHS = New ARES_MS_VAR_Class
@@ -78,10 +79,12 @@ Public Function InitMSVars()
     InitializeMSVar ARES_NAME_LIBRARY_TYPE, "ARES_Library_Type_Name", "ARES"
     InitializeMSVar ARES_NAME_ITEM_TYPE, "ARES_Item_Type_Name", "ARESAutoLengthObject"
     InitializeMSVar ARES_LANGUAGE, "ARES_Language", ""
-
+    InitMSVars = True
+    
     Exit Function
 
 ErrorHandler:
+    InitMSVars = False
     MsgBox GetTranslation("VarInitializeMSVarFailed"), vbOKOnly
 End Function
 
