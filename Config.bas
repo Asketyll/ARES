@@ -3,6 +3,8 @@
 ' It includes functions to get, set, configuration variables and RemoveValue, ensuring that operations are performed
 ' without interrupting the workflow in case of errors.
 ' Delete a configuration variable is possible but not saved if you restart MS, use RemoveValue instead.
+' License: This project is licensed under the AGPL-3.0.
+' Dependencies: ARES_VAR
 
 Option Explicit
 
@@ -12,19 +14,18 @@ Public Function GetVar(ByVal key As String) As String
     On Error GoTo ErrorHandler
 
     ' Initialize the return value
-    GetVar = ""
+    GetVar = ARES_VAR.ARES_NAVD
 
     ' Check if the configuration variable is defined
     If Application.ActiveWorkspace.IsConfigurationVariableDefined(key) Then
         ' Retrieve the value of the configuration variable
         GetVar = Application.ActiveWorkspace.ConfigurationVariableValue(key)
-    Else
-        GetVar = ARES_VAR.ARES_NAVD
     End If
 
     Exit Function
 
 ErrorHandler:
+    ' In case of error, return an empty string
     GetVar = ""
 End Function
 
@@ -42,6 +43,7 @@ Public Function SetVar(ByVal key As String, ByVal Value As String) As Boolean
     Exit Function
 
 ErrorHandler:
+    ' In case of error, return False
     SetVar = False
 End Function
 
@@ -54,12 +56,13 @@ Public Function RemoveValue(ByVal key As String) As Boolean
     
     ' Check if the configuration variable is defined
     If Application.ActiveWorkspace.IsConfigurationVariableDefined(key) Then
-        ' Remove the configuration variable value
-        If SetVar(key, "") Then RemoveValue = True
+        ' Remove the configuration variable value by setting it to an empty string
+        RemoveValue = SetVar(key, "")
     End If
 
     Exit Function
 
 ErrorHandler:
+    ' In case of error, return False
     RemoveValue = False
 End Function
