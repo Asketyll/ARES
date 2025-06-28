@@ -1,7 +1,9 @@
 ' Module: ARES_VAR
 ' Description: This module provides configuration variables, absolute values, and explanations of each variable and where they are used.
-
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ARES_MS_VAR_Class
+
+Option Explicit
 
 '######################################################################################################################
 '                       CAN'T BE EDITED IN MS VARIABLES ENVIRONMENT, YOU CAN MODIFY HERE
@@ -54,7 +56,10 @@ Public ARES_NAME_ITEM_TYPE As ARES_MS_VAR_Class 'Default Value: ARESAutoLengthOb
 ' Used in LangManager module to force language if CONNECTUSER_LANGUAGE configuration variable is not set
 Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
 
+' Function to initialize MS variables
 Public Function InitMSVars()
+    On Error GoTo ErrorHandler
+
     Set MSVarsCollection = New Collection
     Set ARES_ROUNDS = New ARES_MS_VAR_Class
     Set ARES_AUTO_LENGTHS = New ARES_MS_VAR_Class
@@ -73,29 +78,39 @@ Public Function InitMSVars()
     InitializeMSVar ARES_NAME_LIBRARY_TYPE, "ARES_Library_Type_Name", "ARES"
     InitializeMSVar ARES_NAME_ITEM_TYPE, "ARES_Item_Type_Name", "ARESAutoLengthObject"
     InitializeMSVar ARES_LANGUAGE, "ARES_Language", ""
+
+    Exit Function
+
+ErrorHandler:
+    MsgBox GetTranslation("VarInitializeMSVarFailed"), vbOKOnly
 End Function
 
+' Function to check if a key exists in the collection
 Private Function KeyExistsInCollection(key As String) As Boolean
-    Dim i As Integer
     On Error GoTo ErrorHandler
+
+    Dim i As Integer
     For i = 1 To MSVarsCollection.count
         If MSVarsCollection.Item(i).key = key Then
             KeyExistsInCollection = True
             Exit Function
         End If
     Next i
+
     Exit Function
 
 ErrorHandler:
     KeyExistsInCollection = False
 End Function
 
+' Function to initialize a MS variable
 Private Function InitializeMSVar(ByRef msVar As ARES_MS_VAR_Class, key As String, defaultValue As String)
     On Error GoTo ErrorHandler
 
     msVar.key = key
     msVar.Default = defaultValue
     msVar.Value = Config.GetVar(key)
+
     If msVar.Value = ARES_NAVD Then
         If Not ResetMSVar(msVar) Then GoTo ErrorHandler
     End If
@@ -114,6 +129,8 @@ End Function
 
 ' Private function to get ARES_MS_VAR from a Variant
 Private Function GetMSVarFromVariant(ByVal var As Variant) As ARES_MS_VAR_Class
+    On Error GoTo ErrorHandler
+
     Dim key As String
     Dim i As Integer
 
@@ -134,12 +151,20 @@ Private Function GetMSVarFromVariant(ByVal var As Variant) As ARES_MS_VAR_Class
     Else
         ShowStatus GetTranslation("VarInvalidArgument")
     End If
+    
+    Exit Function
+
+ErrorHandler:
+    ShowStatus GetTranslation("VarInvalidArgument")
 End Function
 
 ' Function to reset a variable in the collection
 Public Function ResetMSVar(ByVal var As Variant) As Boolean
+    On Error GoTo ErrorHandler
+
     Dim msVar As ARES_MS_VAR_Class
     Set msVar = GetMSVarFromVariant(var)
+
     If msVar.key = "" Then
         ShowStatus GetTranslation("VarKeyNotFound", msVar.key)
         ResetMSVar = False
@@ -156,12 +181,14 @@ Public Function ResetMSVar(ByVal var As Variant) As Boolean
     End If
 
 ErrorHandler:
-    ShowStatus "Impossible de réinitialiser la variable."
+    ShowStatus GetTranslation("VarResetError")
     ResetMSVar = False
 End Function
 
 ' Function to remove a variable from the collection
 Public Function RemoveMSVar(ByVal var As Variant, Optional showConfirmation As Boolean = True) As Boolean
+    On Error GoTo ErrorHandler
+
     Dim msVar As ARES_MS_VAR_Class
     Set msVar = GetMSVarFromVariant(var)
     If msVar.key = "" Then
@@ -191,7 +218,10 @@ ErrorHandler:
     RemoveMSVar = False
 End Function
 
+' Function to reset all MS variables
 Public Function ResetAllMSVar() As Boolean
+    On Error GoTo ErrorHandler
+
     Dim var As Variant
     Dim success As Boolean
     success = True
@@ -203,9 +233,17 @@ Public Function ResetAllMSVar() As Boolean
     Next var
 
     ResetAllMSVar = success
+    Exit Function
+
+ErrorHandler:
+    ShowStatus GetTranslation("VarResetAllError")
+    ResetAllMSVar = False
 End Function
 
+' Function to remove all MS variables
 Public Function RemoveAllMSVar() As Boolean
+    On Error GoTo ErrorHandler
+
     Dim var As Variant
     Dim success As Boolean
 
@@ -223,4 +261,9 @@ Public Function RemoveAllMSVar() As Boolean
     Next var
 
     RemoveAllMSVar = success
+    Exit Function
+
+ErrorHandler:
+    ShowStatus GetTranslation("VarRemoveAllError")
+    RemoveAllMSVar = False
 End Function
