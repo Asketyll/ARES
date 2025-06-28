@@ -1,6 +1,7 @@
 ' Module: StringsInEl
 ' Description: This module provides functions to get and set texts within elements in MicroStation.
-
+' It handles text manipulation for TextElement, TextNodeElement, and CellElement types.
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARES_VAR
 
                     'Color Property is eras if y use TextLine Write Property
@@ -12,6 +13,7 @@
 
 Option Explicit
 
+' Public function to get and set texts within elements
 Public Function GetSetTextsInEl(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
 
@@ -22,11 +24,9 @@ Public Function GetSetTextsInEl(ByVal TextElement As Element, Optional txt As St
         Case TextElement.IsTextElement
             ' Process as a single text element
             result = ProcessTextElement(TextElement, txt, Triggers)
-
         Case TextElement.IsTextNodeElement
             ' Process as a text node element
             result = ProcessTextNodeElement(TextElement, txt, Triggers)
-
         Case TextElement.IsCellElement
             ' Process as a cell element, which may contain nested elements
             result = ProcessCellElement(TextElement, txt, Triggers)
@@ -45,7 +45,6 @@ End Function
 Private Function ProcessTextElement(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
     
-    ' Process a single text element
     Dim OldTxt As String
     Dim NewTxt As String
     Dim trigger() As String
@@ -80,16 +79,17 @@ Private Function ProcessTextElement(ByVal TextElement As Element, Optional txt A
         ' Return the new text as an array
         ProcessTextElement = Split(NewTxt, "")
     End If
+    
     Exit Function
     
 ErrorHandler:
     ProcessTextElement = Array("")
 End Function
 
+' Private function to process a text node element
 Private Function ProcessTextNodeElement(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
     
-    ' Process a text node element
     Dim i As Long, j As Long
     Dim OldTxts() As String
     Dim NewTxts() As String
@@ -112,12 +112,10 @@ Private Function ProcessTextNodeElement(ByVal TextElement As Element, Optional t
         ReDim NewTxts(TextElement.AsTextNodeElement.TextLinesCount - 1)
         ' Split the Triggers into an array using the delimiter
         trigger = Split(Triggers, ARES_VAR.ARES_VAR_DELIMITER)
-
         ' Loop through each text line and process replacements
         For i = 0 To UBound(OldTxts)
             OldTxts(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
             NewTxts(i) = OldTxts(i)
-
             ' Loop through each Trigger and process replacements
             For j = LBound(trigger) To UBound(trigger)
                 ' Split the Trigger into parts using the trigger ID
@@ -128,7 +126,6 @@ Private Function ProcessTextNodeElement(ByVal TextElement As Element, Optional t
                 End If
             Next j
         Next i
-
         ' Update the text of each sub-element if it has changed
         Set SubTxtEnum = TextElement.AsTextNodeElement.GetSubElements
         For i = 0 To UBound(NewTxts)
@@ -142,16 +139,17 @@ Private Function ProcessTextNodeElement(ByVal TextElement As Element, Optional t
         ' Return the new text lines as an array
         ProcessTextNodeElement = NewTxts
     End If
+
     Exit Function
     
 ErrorHandler:
     ProcessTextNodeElement = Array("")
 End Function
 
+' Private function to process a cell element, including nested cells
 Private Function ProcessCellElement(ByVal TextElement As Element, Optional txt As String, Optional Triggers As String) As String()
     On Error GoTo ErrorHandler
     
-    ' Process a cell element, including nested cells
     Dim ElEnum As ElementEnumerator
     Dim SubEl As Element
     Dim result() As String
@@ -171,6 +169,7 @@ Private Function ProcessCellElement(ByVal TextElement As Element, Optional txt A
                 result = ProcessCellElement(SubEl, txt, Triggers)
         End Select
     Loop
+
     ' Return the result of processing the cell element
     ProcessCellElement = result
     Exit Function
