@@ -1,6 +1,7 @@
 ' Module: MicroStationDefinition
 ' Description: This module provides functions to manipulate MsdElementType of MicroStation.
-
+' It includes functions to convert strings to MsdElementType and validate MsdElementType values.
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARES_VAR
 
 Option Explicit
@@ -31,6 +32,7 @@ Public Function StringToMsdElementType(ByVal TypeName As String, Optional CaseSe
     Next ElementType
 
 ErrorHandler:
+    ' Return error value in case of an error
     StringToMsdElementType = ARES_VAR.ARES_MSDETYPE_ERROR
 End Function
 
@@ -45,11 +47,15 @@ Public Function IsValidElementType(ByVal intValue As Integer) As Boolean
     End If
 
 ErrorHandler:
+    ' Return False in case of an error
     IsValidElementType = False
 End Function
 
 ' Private Function to initialize the element types dictionary
 Private Function InitializeElementTypes(ByRef elementTypes As Object)
+    On Error GoTo ErrorHandler
+
+    ' Add MsdElementType values to the dictionary
     elementTypes.Add "CellLibraryHeader", msdElementTypeCellLibraryHeader
     elementTypes.Add "CellHeader", msdElementTypeCellHeader
     elementTypes.Add "Line", msdElementTypeLine
@@ -104,10 +110,19 @@ Private Function InitializeElementTypes(ByRef elementTypes As Object)
     elementTypes.Add "ReferenceOverride", msdElementTypeReferenceOverride
     elementTypes.Add "NamedGroupHeader", msdElementTypeNamedGroupHeader
     elementTypes.Add "NamedGroupComponent", msdElementTypeNamedGroupComponent
+
+    Exit Function
+
+ErrorHandler:
+    ' Handle any errors silently or log them as needed
+    Err.Clear
 End Function
 
 ' Private function to check if the value is within the valid range of MsdElementType
 Private Function IsWithinValidRange(ByVal intValue As Integer) As Boolean
+    On Error GoTo ErrorHandler
+
+    ' Check if the value is within the valid range of MsdElementType enum
     IsWithinValidRange = (intValue >= msdElementTypeCellLibraryHeader And intValue <= msdElementTypeSolid) _
         Or (intValue >= msdElementTypeBsplinePole And intValue <= msdElementTypeBsplineWeight) _
         Or (intValue >= msdElementTypeDimension And intValue <= msdElementTypeDgnStoreHeader) _
@@ -120,4 +135,10 @@ Private Function IsWithinValidRange(ByVal intValue As Integer) As Boolean
         Or intValue = msdElementTypeReferenceOverride _
         Or intValue = msdElementTypeNamedGroupHeader _
         Or intValue = msdElementTypeNamedGroupComponent
+
+    Exit Function
+
+ErrorHandler:
+    ' Return False in case of an error
+    IsWithinValidRange = False
 End Function
