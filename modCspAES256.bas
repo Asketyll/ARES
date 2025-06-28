@@ -1,6 +1,7 @@
 ' Module: modCspAES256
-' Description: This module provides functions for AES256
+' Description: This module provides functions for AES256 encryption and decryption.
 ' Modified code of https://github.com/EszopiCoder/vba-crypto with MIT License
+' License: This project is licensed under the AGPL-3.0.
 '
 '********************************************************************************
 ' MIT License
@@ -49,8 +50,8 @@ Private Const ISO10126 = 5
 Public Const Base64 = 0 ' Default
 Public Const HexAES = 1
 
+' Test function to encrypt and decrypt a string using AES
 Private Sub TestEncryptAES()
-
     Dim StrEncrypted As String, StrDecrypted As String
     
     ' Encrypt string and hash key with SHA256 algorithm
@@ -63,8 +64,11 @@ Private Sub TestEncryptAES()
     Debug.Print "Decrypted string: " & StrDecrypted
     
 End Sub
+
+' Function to generate SHA256 hash of a string
 Public Function SHA256(StrText As String) As String
-    
+    On Error GoTo ErrorHandler
+
     Dim ObjUTF8 As Object, ObjSHA256 As Object
     Dim BytesText() As Byte, BytesHash() As Byte
     
@@ -78,14 +82,20 @@ Public Function SHA256(StrText As String) As String
     
     Set ObjUTF8 = Nothing
     Set ObjSHA256 = Nothing
-    
+
+    Exit Function
+
+ErrorHandler:
+    SHA256 = ""
 End Function
 
+' Function to get CSP (Cryptographic Service Provider) information
 Private Function GetCSPInfo(ObjCSP As Object) As String
-    'Display block size, key size, mode, and padding information
+    On Error GoTo ErrorHandler
     
     Dim StrCipherMode As String, StrPaddingMode As String
-    
+
+    ' Display block size, key size, mode, and padding information
     Select Case ObjCSP.Mode
         Case CBC
             StrCipherMode = "Mode: Cipher Block Chaining (CBC)"
@@ -122,11 +132,18 @@ Private Function GetCSPInfo(ObjCSP As Object) As String
         StrCipherMode & vbNewLine & StrPaddingMode
 
     Set ObjCSP = Nothing
-    
+
+    Exit Function
+
+ErrorHandler:
+    GetCSPInfo = "Error: Unable to get CSP information"
 End Function
+
+' Function to encrypt a string using AES
 Public Function EncryptStringAES(StrText As String, StrKey As String, _
     Optional Encoding As Integer = Base64) As Variant
-
+    On Error GoTo ErrorHandler
+    
     Dim ObjCSP As Object
     Dim ByteIV() As Byte
     Dim ByteText() As Byte
@@ -134,11 +151,10 @@ Public Function EncryptStringAES(StrText As String, StrKey As String, _
     Dim ByteEncryptedIV() As Byte
     Dim StrEncryptedIV As String
     Dim RandomIV As String
-    
+    Dim i As Long
+
     EncryptStringAES = Null
     
-    On Error GoTo FunctionError
-
     Set ObjCSP = CreateObject("System.Security.Cryptography.RijndaelManaged")
     
     ' Check arguments
@@ -150,7 +166,7 @@ Public Function EncryptStringAES(StrText As String, StrKey As String, _
     
     ' Encryption Settings:
     ObjCSP.Padding = Zeros
-    ObjCSP.Key = Base64toBytes(StrKey) ' NOTE: Convert SHA256 hash to bytes
+    ObjCSP.Key = Base64toBytes(StrKey) ' Convert SHA256 hash to bytes
     ObjCSP.IV = ByteIV
     
     ' Convert from string to bytes (strText and strIV)
@@ -161,7 +177,6 @@ Public Function EncryptStringAES(StrText As String, StrKey As String, _
     
     ' Concatenate byteEncrypted and byteIV
     ReDim ByteEncryptedIV(UBound(ByteIV) + UBound(ByteEncrypted) + 1)
-    Dim i As Long
     For i = 0 To UBound(ByteIV)
         ByteEncryptedIV(i) = ByteIV(i)
     Next i
@@ -185,24 +200,26 @@ Public Function EncryptStringAES(StrText As String, StrKey As String, _
     Set ObjCSP = Nothing
     
     Exit Function
-    
-FunctionError:
 
+ErrorHandler:
     MsgBox "Error: AES encryption failed" & vbNewLine & Err.Description
-    
+    EncryptStringAES = Null
 End Function
+
+' Function to decrypt a string using AES
 Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     Optional Encoding As Integer = Base64) As Variant
+    On Error GoTo ErrorHandler
 
     Dim ObjCSP As Object
     Dim ByteEncryptedIV() As Byte
     Dim ByteIV(0 To 15) As Byte
     Dim StrIV As String
-    
     Dim ByteEncrypted() As Byte
     Dim ByteText() As Byte
     Dim StrText As String
-    
+    Dim i As Integer
+
     DecryptStringAES = Null
 
     On Error GoTo FunctionError
@@ -220,11 +237,14 @@ Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     End Select
     
     ' Check arguments (Part 1)
-    If StrEncryptedIV = Null Or Len(StrEncryptedIV) <= 0 Then Err.Raise vbObjectError + 513, "strEncryptedIV", "Argument 'strEncryptedIV' cannot be null"
-    If StrKey = Null Or Len(StrKey) <= 0 Then Err.Raise vbObjectError + 514, "strKey", "Argument 'strKey' cannot be null"
+    If StrEncryptedIV = Null Or Len(StrEncryptedIV) <= 0 Then
+        Err.Raise vbObjectError + 513, "strEncryptedIV", "Argument 'strEncryptedIV' cannot be null"
+    End If
+    If StrKey = Null Or Len(StrKey) <= 0 Then
+        Err.Raise vbObjectError + 514, "strKey", "Argument 'strKey' cannot be null"
+    End If
     
     ' Extract IV from strEncrypted
-    Dim i As Integer
     For i = LBound(ByteIV) To UBound(ByteIV)
         ByteIV(i) = ByteEncryptedIV(i)
     Next i
@@ -241,7 +261,7 @@ Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     
     ' Decryption Settings:
     ObjCSP.Padding = Zeros
-    ObjCSP.Key = Base64toBytes(StrKey) ' NOTE: Convert SHA256 hash to bytes
+    ObjCSP.Key = Base64toBytes(StrKey) ' Convert SHA256 hash to bytes
     ObjCSP.IV = ByteIV
     
     ' Decrypt byte data
@@ -249,7 +269,6 @@ Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     
     ' Convert from bytes to string
     StrText = CreateObject("System.Text.UTF8Encoding").GetString(ByteText)
-
     ' Remove padding
     StrText = RemovePadding(StrText, ObjCSP.Padding)
     
@@ -260,20 +279,21 @@ Public Function DecryptStringAES(StrEncryptedIV As String, StrKey As String, _
     
     Exit Function
 
-FunctionError:
-
+ErrorHandler:
     MsgBox "Error: AES decryption failed" & vbNewLine & Err.Description
-
+    DecryptStringAES = Null
 End Function
+
+' Function to get the IV from an encrypted string
 Private Function GetDecryptStringIV(StrEncryptedIV As String, _
     Optional Encoding As Integer = Base64) As String
+    On Error GoTo ErrorHandler
 
     Dim ByteEncryptedIV() As Byte
     Dim ByteIV(0 To 15) As Byte
     Dim StrIV As String
-
-    On Error GoTo FunctionError
-
+    Dim i As Integer
+    
     ' Convert encoded string to bytes
     Select Case Encoding
         Case Base64
@@ -285,10 +305,11 @@ Private Function GetDecryptStringIV(StrEncryptedIV As String, _
     End Select
 
     ' Check arguments
-    If StrEncryptedIV = Null Or Len(StrEncryptedIV) <= 0 Then Err.Raise vbObjectError + 513, "strEncryptedIV", "Argument 'strEncryptedIV' cannot be null"
+    If StrEncryptedIV = Null Or Len(StrEncryptedIV) <= 0 Then
+        Err.Raise vbObjectError + 513, "strEncryptedIV", "Argument 'strEncryptedIV' cannot be null"
+    End If
 
     ' Extract IV from strEncrypted
-    Dim i As Integer
     For i = LBound(ByteIV) To UBound(ByteIV)
         ByteIV(i) = ByteEncryptedIV(i)
     Next i
@@ -301,8 +322,9 @@ Private Function GetDecryptStringIV(StrEncryptedIV As String, _
 
     Exit Function
 
-FunctionError:
+ErrorHandler:
     MsgBox "Error: GetDecryptStringIV failed" & vbNewLine & Err.Description
+    GetDecryptStringIV = ""
 End Function
 
 ' Internal Base64 Conversion Functions
@@ -313,6 +335,7 @@ Private Function BytesToBase64(VarBytes() As Byte) As String
         BytesToBase64 = Replace(.Text, vbLf, "")
     End With
 End Function
+
 Private Function Base64toBytes(VarStr As String) As Byte()
     With CreateObject("MSXML2.DOMDocument").createElement("b64")
          .DataType = "bin.base64"
@@ -320,6 +343,7 @@ Private Function Base64toBytes(VarStr As String) As Byte()
          Base64toBytes = .nodeTypedValue
     End With
 End Function
+
 ' Internal Hex Conversion Functions
 Private Function BytesToHex(VarBytes() As Byte) As String
     With CreateObject("MSXML2.DomDocument").createElement("hex")
@@ -328,6 +352,7 @@ Private Function BytesToHex(VarBytes() As Byte) As String
         BytesToHex = Replace(.Text, vbLf, "")
     End With
 End Function
+
 Private Function HextoBytes(VarStr As String) As Byte()
     With CreateObject("MSXML2.DOMDocument").createElement("hex")
          .DataType = "bin.hex"
@@ -341,11 +366,14 @@ End Function
 ' the code in MIT License is modified
 '********************************************************************************
 
+' Function to remove padding from a string based on the specified padding mode
 Private Function RemovePadding(StrText As String, PaddingMode As Integer) As String
-    ' Remove padding based on the specified padding mode
+    On Error GoTo ErrorHandler
+    
     Dim i As Integer
     i = Len(StrText)
 
+    ' Remove padding based on the specified padding mode
     Select Case PaddingMode
         Case Zeros
             Do While i > 0 And Asc(Mid(StrText, i, 1)) = 0
@@ -374,9 +402,17 @@ Private Function RemovePadding(StrText As String, PaddingMode As Integer) As Str
     End Select
 
     RemovePadding = Left(StrText, i)
+
+    Exit Function
+
+ErrorHandler:
+    RemovePadding = StrText
 End Function
 
+' Function to generate a random IV for AES encryption
 Private Function GenerateRandomIV() As String
+    On Error GoTo ErrorHandler
+
     Dim i As Integer
     Dim RandomIV(15) As Byte
     Dim RandomString As String
@@ -388,14 +424,26 @@ Private Function GenerateRandomIV() As String
 
     RandomString = BytesToBase64(RandomIV)
     GenerateRandomIV = RandomString
+
+    Exit Function
+
+ErrorHandler:
+    GenerateRandomIV = ""
 End Function
 
+' Function to decode a Base64 string
 Public Function Base64Decode(base64String As String) As String
+    On Error GoTo ErrorHandler
+
     Dim Bytes() As Byte
     Dim DecodedString As String
 
     Bytes = Base64toBytes(base64String)
     DecodedString = CreateObject("System.Text.UTF8Encoding").GetString(Bytes)
-
     Base64Decode = DecodedString
+
+    Exit Function
+
+ErrorHandler:
+    Base64Decode = ""
 End Function
