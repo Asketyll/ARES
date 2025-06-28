@@ -2,8 +2,8 @@
 ' Description: This module provides functions to calculate lengths of elements in MicroStation with silent error handling.
 ' The module includes functions to determine the length of various element types, handle rounding logic,
 ' and manage configuration variables for rounding.
-' NEVER USE Rnd = 255 in GetLength function ! it reserved for error
-
+' NEVER USE Rnd = 255 in GetLength function! It is reserved for errors.
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: Config, ARES_VAR, LangManager
 
 Option Explicit
@@ -34,13 +34,14 @@ Public Function GetLength(ByVal El As Element, Optional RND As Variant, Optional
     Exit Function
 
 ErrorHandler:
+    ' Return 0 in case of an error
     GetLength = 0
 End Function
 
 ' Private function to get the length of an element based on its type
 Private Function GetElementLength(ByVal El As Element) As Double
     On Error GoTo ErrorHandler
-    
+
     ' Determine the length based on the element type
     Select Case True
         Case El.IsComplexStringElement
@@ -60,16 +61,17 @@ Private Function GetElementLength(ByVal El As Element) As Double
     Exit Function
 
 ErrorHandler:
+    ' Return 0 in case of an error
     GetElementLength = 0
 End Function
 
 ' Private function to handle rounding logic
 Private Function HandleRounding(Optional RND As Variant, Optional ErasRnd As Boolean) As Variant
     On Error GoTo ErrorHandler
-    
+
     ' Handle missing rounding value
     If IsMissing(RND) Then
-        RND = ARES_VAR.ARES_ROUNDS.Value
+        RND = GetRoundValue()
     ElseIf ErasRnd And (VarType(RND) = vbByte Or VarType(RND) = vbInteger) Then
         ' Set rounding value if erase rounding is true
         If Not SetRound(CByte(RND)) Then
@@ -77,32 +79,36 @@ Private Function HandleRounding(Optional RND As Variant, Optional ErasRnd As Boo
             Exit Function
         End If
     End If
+
     HandleRounding = RND
-    
+
     Exit Function
 
 ErrorHandler:
+    ' Return error value in case of an error
     HandleRounding = ARES_VAR.ARES_RND_ERROR_VALUE
 End Function
 
 ' Private function to handle rounding logic for erase
 Private Function HandleRoundingForErase(Optional RND As Variant) As Boolean
     On Error GoTo ErrorHandler
-    
+
     HandleRoundingForErase = False
-    
+
     ' Set default rounding if Rnd is missing
     If IsMissing(RND) Then
-        If Not ResetRound Then Exit Function
+        If Not ResetRound() Then Exit Function
     ElseIf VarType(RND) = vbByte Or VarType(RND) = vbInteger Then
         ' Set rounding value if Rnd is provided
         If Not SetRound(CByte(RND)) Then Exit Function
     End If
-    
+
     HandleRoundingForErase = True
+
     Exit Function
 
 ErrorHandler:
+    ' Return False in case of an error
     HandleRoundingForErase = False
 End Function
 
@@ -123,6 +129,7 @@ Private Function LengthComplexShape(ByVal El As ComplexShapeElement) As Double
     Next
 
     Set SubEl = ElEnum.Current
+
     If SubEl.IsLineElement Then
         LengthComplexShape = (LengthComplexShape - (SubEl.AsLineElement.Length * 2)) / 2
     Else
@@ -132,20 +139,22 @@ Private Function LengthComplexShape(ByVal El As ComplexShapeElement) As Double
     Exit Function
 
 ErrorHandler:
+    ' Return 0 in case of an error
     LengthComplexShape = 0
 End Function
 
 ' Private function to round the length to a specified number of decimal places
 Private Function RoundedLength(Length As Double, RND As Byte) As Double
     On Error GoTo ErrorHandler
-    
+
     RoundedLength = Round(Length, RND)
+
     Exit Function
-    
+
 ErrorHandler:
+    ' Return 0 in case of an error
     RoundedLength = 0
 End Function
-
 
 ' Private function to get the rounding value
 Private Function GetRoundValue() As Variant
@@ -153,37 +162,48 @@ Private Function GetRoundValue() As Variant
 
     Dim roundValue As String
     roundValue = ARES_VAR.ARES_ROUNDS.Value
-    
+
     ' Handle empty rounding value
     If roundValue = "" Then
         ResetRound
     End If
+
     GetRoundValue = CByte(roundValue)
 
     Exit Function
 
 ErrorHandler:
+    ' Return error value in case of an error
     GetRoundValue = ARES_VAR.ARES_RND_ERROR_VALUE
 End Function
 
-' Private function to set the rounding configuration variable
+' Public function to set the rounding configuration variable
 Public Function SetRound(RND As Byte) As Boolean
-    SetRound = False
+    On Error GoTo ErrorHandler
+
     If RND <> ARES_VAR.ARES_RND_ERROR_VALUE Then
         SetRound = Config.SetVar(ARES_VAR.ARES_ROUNDS.key, RND)
     Else
         ShowStatus GetTranslation("LengthRoundError") & ARES_VAR.ARES_RND_ERROR_VALUE
     End If
+
+    Exit Function
+
+ErrorHandler:
+    ' Return False in case of an error
+    SetRound = False
 End Function
 
-
+' Public function to reset the rounding configuration variable
 Public Function ResetRound() As Boolean
-    ResetRound = False
-    
+    On Error GoTo ErrorHandler
+
     ARES_VAR.ResetMSVar ARES_VAR.ARES_ROUNDS
-    If ARES_VAR.ARES_ROUNDS.Value = ARES_VAR.ARES_ROUNDS.Default Then
-        ResetRound = True
-    Else
-        ResetRound = False
-    End If
+    ResetRound = (ARES_VAR.ARES_ROUNDS.Value = ARES_VAR.ARES_ROUNDS.Default)
+
+    Exit Function
+
+ErrorHandler:
+    ' Return False in case of an error
+    ResetRound = False
 End Function
