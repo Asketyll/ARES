@@ -1,6 +1,6 @@
 ' Module: UserAndEnvironmentValidator
 ' Description: This module provides functions to verify if user(s) and environment are allowed.
-
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: modCspAES256
 
 Option Explicit
@@ -13,20 +13,21 @@ Private Declare PtrSafe Function GetModuleBaseNameA Lib "psapi" (ByVal hProcess 
 ' Main function to check authorization
 Public Function IsAuthorized() As Boolean
     On Error GoTo ErrorHandler
+    
     IsAuthorized = False
-
-    Dim userList As Variant
+    
+    Dim UserList As Variant
+    Dim User As Variant
     userList = GetUserList()
 
-    If IsNull(userList) Then Exit Function
+    If IsNull(UserList) Then Exit Function
 
-    Dim user As Variant
-    For Each user In userList
-        If IsMicroStationRunning And IsValidUser(CStr(user)) Then
+    For Each User In UserList
+        If IsMicroStationRunning And IsValidUser(CStr(User)) Then
             IsAuthorized = True
             Exit Function
         End If
-    Next user
+    Next User
 
     Exit Function
 
@@ -37,10 +38,12 @@ End Function
 ' Check if MicroStation is running
 Private Function IsMicroStationRunning() As Boolean
     On Error GoTo ErrorHandler
+
     IsMicroStationRunning = False
 
     Dim processName As String
     Dim expectedVersion As String
+
     processName = DecryptStringAES(mycrypto.ENCRYPTED_PROCESS_NAME, SHA256(Base64Decode(mycrypto.AES_KEY)))
     expectedVersion = DecryptStringAES(mycrypto.ENCRYPTED_EXPECTED_VERSION, SHA256(Base64Decode(mycrypto.AES_KEY)))
 
@@ -65,7 +68,9 @@ End Function
 ' Check if the user is valid
 Private Function IsValidUser(ID As String) As Boolean
     On Error GoTo ErrorHandler
+
     IsValidUser = (ID = Application.UserName)
+
     Exit Function
 
 ErrorHandler:
@@ -75,6 +80,7 @@ End Function
 ' Check if the ProcessID is valid
 Private Function IsValidProcessID(ID As Long) As Boolean
     On Error GoTo ErrorHandler
+
     IsValidProcessID = False
 
     Dim hProcess As Long
@@ -118,6 +124,7 @@ Private Function GetUserList() As Variant
 
     userArray = Split(decryptedList, "|")
     GetUserList = userArray
+
     Exit Function
 
 ErrorHandler:
