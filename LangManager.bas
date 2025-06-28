@@ -1,6 +1,6 @@
 ' Module: LangManager
 ' Description: This module manages translations for different languages in GUI.
-
+' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: Config, ARES_VAR
 
 Option Explicit
@@ -9,7 +9,10 @@ Private mSupportedLanguages As Collection
 Private mTranslations As Object
 Private mUserLanguage As String
 
+' Initialize translations and supported languages
 Sub InitializeTranslations()
+    On Error GoTo ErrorHandler
+
     Set mSupportedLanguages = New Collection
     Set mTranslations = CreateObject("Scripting.Dictionary")
     
@@ -65,9 +68,17 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_DGNOpenCloseEventsInitialized", "Evénements de suivi d'objet initialisé."
     mTranslations.Add "FR_AutoLengthsGUIInvalidSelectedElement", "L'élément sélectionné n'est pas valide."
     mTranslations.Add "FR_AutoLengthsGUICaption", "Sélectionner:"
+
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "An error occurred while initializing translations.", vbOKOnly
 End Sub
 
+' Function to get translation based on key and parameters
 Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
+    On Error GoTo ErrorHandler
+
     Dim baseKey As String
     Dim formattedMessage As String
     Dim i As Integer
@@ -96,17 +107,27 @@ Public Function GetTranslation(key As String, ParamArray params() As Variant) As
         Next i
         GetTranslation = formattedMessage
     End If
+
+    Exit Function
+
+ErrorHandler:
+    GetTranslation = "Error retrieving translation for key: " & key
 End Function
 
+' Function to get the user language
 Private Function GetUserLanguage() As String
+    On Error GoTo ErrorHandler
+
     Dim Prompt As String
     Dim lang As Variant
     
     GetUserLanguage = Config.GetVar("CONNECTUSER_LANGUAGE")
+
     If GetUserLanguage = "" Or GetUserLanguage = ARES_VAR.ARES_NAVD Then
         If ARES_VAR.ARES_LANGUAGE Is Nothing Then
             ARES_VAR.InitMSVars
         End If
+
         If ARES_VAR.ARES_LANGUAGE.Value = "" Then
             Prompt = "Unable to retrieve your user language." & vbCrLf & _
             "We invite you to declare it in the MicroStation environment variable, key: ARES_Language" & vbCrLf & _
@@ -124,7 +145,14 @@ Private Function GetUserLanguage() As String
             GetUserLanguage = ARES_VAR.ARES_LANGUAGE.Value
         End If
     End If
+
+    Exit Function
+
+ErrorHandler:
+    GetUserLanguage = "English" ' Default language in case of error
 End Function
+
+' Sub to set language to English
 Sub English()
     If Config.SetVar(ARES.ARES_LANGUAGE.key, "English") Then
         ShowStatus ARES.ARES_LANGUAGE.key & " set to English, please restart."
@@ -132,6 +160,8 @@ Sub English()
         ShowStatus "Imposible to set " & ARES.ARES_LANGUAGE.key & ", please try manualy."
     End If
 End Sub
+
+' Sub to set language to French
 Sub Français()
     If Config.SetVar(ARES.ARES_LANGUAGE.key, "Français") Then
         ShowStatus ARES.ARES_LANGUAGE.key & " défini à Français, veuillez redémarrer."
