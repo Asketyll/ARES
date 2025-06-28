@@ -1,9 +1,14 @@
 ' Module: UUID
 ' Description: This module provides functions to generate a Version 1 UUID.
+' License: This project is licensed under the AGPL-3.0.
+' Dependencies: None
+
+Option Explicit
 
 ' Function to generate a Version 1 UUID
 Public Function GenerateV1() As String
-    ' Declare variables
+    On Error GoTo ErrorHandler
+
     Dim macAddress As String
     Dim timePart As String
     Dim uuid As String
@@ -17,11 +22,17 @@ Public Function GenerateV1() As String
 
     ' Return the generated UUID
     GenerateV1 = uuid
+    Exit Function
+
+ErrorHandler:
+    ' Return an empty string in case of an error
+    GenerateV1 = ""
 End Function
 
 ' Function to get the MAC address using WMI
 Private Function GetMacAddress() As String
-    ' Declare variables
+    On Error GoTo ErrorHandler
+
     Dim objWMIService As Object
     Dim colNetworkAdapters As Object
     Dim objNetworkAdapter As Object
@@ -43,11 +54,17 @@ Private Function GetMacAddress() As String
 
     ' Return the MAC address without colons
     GetMacAddress = Replace(macAddress, ":", "")
+    Exit Function
+
+ErrorHandler:
+    ' Return an empty string in case of an error
+    GetMacAddress = ""
 End Function
 
 ' Function to generate a time-based part for the UUID
 Private Function GetTimePart() As String
-    ' Declare variables
+    On Error GoTo ErrorHandler
+
     Dim currentTime As Double
     Dim secondsToday As Long
     Dim timeHex As String
@@ -63,11 +80,17 @@ Private Function GetTimePart() As String
 
     ' Ensure the hex string is 8 characters long
     GetTimePart = Right("00000000" & timeHex, 8)
+    Exit Function
+
+ErrorHandler:
+    ' Return an empty string in case of an error
+    GetTimePart = ""
 End Function
 
 ' Function to format the UUID string
 Private Function FormatUUID(macAddress As String, timePart As String) As String
-    ' Declare variables
+    On Error GoTo ErrorHandler
+
     Dim uuid As String
     Dim randomPart As String
     Dim i As Integer
@@ -92,4 +115,9 @@ Private Function FormatUUID(macAddress As String, timePart As String) As String
 
     ' Return the formatted UUID
     FormatUUID = uuid
+    Exit Function
+
+ErrorHandler:
+    ' Return an empty string in case of an error
+    FormatUUID = ""
 End Function
