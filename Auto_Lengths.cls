@@ -124,7 +124,7 @@ Private Sub ShowElementSelectionForm()
 
     Set frm.AutoLengthsInstance = Me
     frm.SetLinkedElements pLinkedElements
-    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.Id)
+    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.ID)
     frm.Show vbModeless
 
     Exit Sub
