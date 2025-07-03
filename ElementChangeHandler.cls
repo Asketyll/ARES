@@ -2,7 +2,7 @@
 ' Description: Handles element change events.
 ' This class module is responsible for managing events related to changes in elements within MicroStation.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, Auto_Lengths, ARES_VAR, LangManager
+' Dependencies: Config, Auto_Lengths, ARES_VAR, LangManager, StringsInEl
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -28,6 +28,7 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As Element, ByVa
     If Action = msdChangeTrackActionAdd Then
         ' Adding an element. BeforeChange is Nothing
         ' Call a sub or function when an element is added
+        
         HandleElementAdded AfterChange
     End If
 
@@ -79,15 +80,15 @@ Private Sub HandleElementAdded(ByVal NewElement As Element)
     If AUTO_LENGTH And NewElement.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
         Txts = StringsInEl.GetSetTextsInEl(NewElement)
         For i = LBound(Txts) To UBound(Txts)
-            If InStr(1, Txts(i), ARES_VAR.ARES_LENGTH_TRIGGER.Value, vbBinaryCompare) > 0 Then
+            If InStr(1, Txts(i), StringsInEl.RemovePattern(ARES_VAR.ARES_LENGTH_TRIGGER.Value, ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)) > 0 Then
                 TriggerFinded = True
                 Exit For
             End If
         Next i
         If TriggerFinded Then
-            Dim autoLengths As New autoLengths
-            autoLengths.Initialize NewElement
-            autoLengths.UpdateLengths
+            Dim AutoLengths As New AutoLengths
+            AutoLengths.Initialize NewElement
+            AutoLengths.UpdateLengths
         End If
     End If
 
