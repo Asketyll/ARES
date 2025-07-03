@@ -289,3 +289,7 @@ Sub ResetARES()
         ShowStatus "Reset ARES var failed"
     End If
 End Sub
+
+Sub RemoveARES()
+
+End Sub
