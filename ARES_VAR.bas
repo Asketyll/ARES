@@ -235,6 +235,10 @@ Public Function ResetAllMSVar() As Boolean
     Dim success As Boolean
     success = True
 
+    If MSVarsCollection Is Nothing Then
+        success = False
+        Exit Function
+    End If
     For Each var In MSVarsCollection
         If Not ResetMSVar(var.key) Then
             success = False
@@ -279,5 +283,9 @@ End Function
 
 ' Sub to reset all ARES var in MS
 Sub ResetARES()
-    ResetAllMSVar
+    If ResetAllMSVar = True Then
+        ShowStatus "Reset ARES var is a success"
+    Else
+        ShowStatus "Reset ARES var failed"
+    End If
 End Sub
