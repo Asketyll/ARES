@@ -276,3 +276,8 @@ ErrorHandler:
     ShowStatus GetTranslation("VarRemoveAllError")
     RemoveAllMSVar = False
 End Function
+
+' Sub to reset all ARES var in MS
+Sub ResetARES()
+    ResetAllMSVar
+End Sub
