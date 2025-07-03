@@ -12,21 +12,22 @@ Dim oOpenClose As DGNOpenClose
 Sub OnProjectLoad()
     On Error GoTo ErrorHandler
 
-    ' Initialize translations
-    LangManager.InitializeTranslations
-    
-    ' Check if ARES_LANGUAGE is initialized
-    If ARES_VAR.ARES_LANGUAGE Is Nothing Then
-        ' Initialize MS variables if not already done, LangManager can initialize ARES_VAR if it needs to
-        ARES_VAR.InitMSVars
-    End If
-    
     ' Initialize DGNOpenClose
     Set oOpenClose = New DGNOpenClose
+
+    ' Create an instance of the IdleEventHandler
+    Dim oIdleEventHandler As New IdleEventHandler
+
+    ' Register the idle event handler
+    AddEnterIdleEventHandler oIdleEventHandler
     
     Exit Sub
 
 ErrorHandler:
     ' Notify user about failure and error description
-    MsgBox GetTranslation("BootFail") & Err.Description, vbOKOnly
+    If LangManager.IsInit Then
+        MsgBox GetTranslation("BootFail") & Err.Description, vbOKOnly
+    Else
+        MsgBox "Error in automatic loading of VBA." & Err.Description, vbOKOnly
+    End If
 End Sub
