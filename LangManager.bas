@@ -8,6 +8,7 @@ Option Explicit
 Private mSupportedLanguages As Collection
 Private mTranslations As Object
 Private mUserLanguage As String
+Public IsInit As Boolean
 
 ' Initialize translations and supported languages
 Sub InitializeTranslations()
@@ -15,6 +16,7 @@ Sub InitializeTranslations()
 
     Set mSupportedLanguages = New Collection
     Set mTranslations = CreateObject("Scripting.Dictionary")
+    IsInit = False
     
     ' Add supported languages to the collection
     mSupportedLanguages.Add "English"
@@ -53,7 +55,8 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_AutoLengthsSetTriggerError", "Error setting trigger: "
     mTranslations.Add "EN_AutoLengthsAddTriggerError", "Error adding trigger: "
     mTranslations.Add "EN_AutoLengthsResetTriggerError", "Error resetting trigger: "
-
+    mTranslations.Add "EN_UnitTesting", "Unit Testing Translation."
+    
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
     mTranslations.Add "FR_VarResetError", "Impossible de réinitialiser la variable."
@@ -84,10 +87,12 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_AutoLengthsSetTriggerError", "Erreur lors de la définition du déclencheur: "
     mTranslations.Add "FR_AutoLengthsAddTriggerError", "Erreur lors de l'ajout du déclencheur: "
     mTranslations.Add "FR_AutoLengthsResetTriggerError", "Erreur lors de la réinitialisation du déclencheur: "
-
+    IsInit = True
+    
     Exit Sub
 
 ErrorHandler:
+    IsInit = False
     MsgBox "An error occurred while initializing translations.", vbOKOnly
 End Sub
 
