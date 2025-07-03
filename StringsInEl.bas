@@ -67,7 +67,7 @@ Private Function ProcessTextElement(ByVal TextElement As Element, Optional txt A
             SplitedTriggers = Split(trigger(i), ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)
             ' If the Trigger is valid (contains the ID), perform the replacement
             If UBound(SplitedTriggers) = 1 Then
-                NewTxt = Replace(NewTxt, SplitedTriggers(0) & ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
+                NewTxt = Replace(NewTxt, SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
             End If
         Next i
 
@@ -176,4 +176,17 @@ Private Function ProcessCellElement(ByVal TextElement As Element, Optional txt A
     
 ErrorHandler:
     ProcessCellElement = Array("")
+End Function
+' Function to remove a specific pattern from a string
+Public Function RemovePattern(ByVal originalString As String, ByVal pattern As String) As String
+    On Error GoTo ErrorHandler
+
+    ' Use the Replace function to remove the pattern
+    RemovePattern = Replace(originalString, pattern, "")
+
+    Exit Function
+
+ErrorHandler:
+    ' In case of an error, return the original string or handle it as needed
+    RemovePattern = originalString
 End Function
