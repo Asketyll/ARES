@@ -72,18 +72,23 @@ Private Sub HandleElementAdded(ByVal NewElement As Element)
     Dim AUTO_LENGTH As Boolean
     Dim TriggerFinded As Boolean
     Dim Txts() As String
+    Dim Triggers() As String
     Dim i As Long
-
+    Dim j As Long
+    
     TriggerFinded = False
     AUTO_LENGTH = ARES_VAR.ARES_AUTO_LENGTHS.Value
 
     If AUTO_LENGTH And NewElement.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
         Txts = StringsInEl.GetSetTextsInEl(NewElement)
+        Triggers = Split(ARES_VAR.ARES_LENGTH_TRIGGER.Value, ARES_VAR.ARES_VAR_DELIMITER)
         For i = LBound(Txts) To UBound(Txts)
-            If InStr(1, Txts(i), StringsInEl.RemovePattern(ARES_VAR.ARES_LENGTH_TRIGGER.Value, ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)) > 0 Then
-                TriggerFinded = True
-                Exit For
-            End If
+            For j = LBound(Triggers) To UBound(Triggers)
+                If InStr(1, Txts(i), StringsInEl.RemovePattern(Triggers(j), ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)) > 0 Then
+                    TriggerFinded = True
+                    Exit For
+                End If
+            Next j
         Next i
         If TriggerFinded Then
             Dim AutoLengths As New AutoLengths
