@@ -17,9 +17,16 @@ Private pLengths() As Double
 ' Method to initialize the class with the new element
 Public Sub Initialize(ByVal NewElement As Element)
     On Error GoTo ErrorHandler
-
+    Static ElType(4) As Long
+    ElType(0) = 12 'Complexe Line
+    ElType(1) = 4 'Brised Line
+    ElType(2) = 16 'Arc
+    ElType(3) = 3 'Line
+    ElType(4) = 6 'Shape
+    ElType(5) = 14 'Complexe Shape
+    
     Set pNewElement = NewElement
-    pLinkedElements = Link.GetLink(NewElement)
+    pLinkedElements = Link.GetLink(NewElement, , ElType)
     ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
     CalculateLengths
 
