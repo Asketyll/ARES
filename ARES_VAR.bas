@@ -282,7 +282,7 @@ ErrorHandler:
 End Function
 
 ' Sub to reset all ARES var in MS
-Sub ResetARES()
+Sub ResetARESVariable()
     If ResetAllMSVar = True Then
         ShowStatus "Reset ARES var is a success"
     Else
@@ -291,7 +291,7 @@ Sub ResetARES()
 End Sub
 
 ' Sub to remove all ARES var in MS
-Sub RemoveARES()
+Sub RemoveARESVariable()
     If RemoveAllMSVar = True Then
         ShowStatus "Remove ARES var is a success"
     Else
