@@ -17,7 +17,7 @@ Private pLengths() As Double
 ' Method to initialize the class with the new element
 Public Sub Initialize(ByVal NewElement As Element)
     On Error GoTo ErrorHandler
-    Static ElType(4) As Long
+    Static ElType(5) As Long
     ElType(0) = 12 'Complexe Line
     ElType(1) = 4 'Brised Line
     ElType(2) = 16 'Arc
