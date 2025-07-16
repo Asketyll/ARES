@@ -9,11 +9,11 @@
 Option Explicit
 
 ' Public function to get the length of an element
-Public Function GetLength(ByVal El As Element, Optional RND As Variant, Optional RndLength As Boolean = True, Optional ErasRnd As Boolean = False) As Double
+Public Function GetLength(ByVal el As Element, Optional RND As Variant, Optional RndLength As Boolean = True, Optional ErasRnd As Boolean = False) As Double
     On Error GoTo ErrorHandler
 
     ' Determine the length based on the element type
-    GetLength = GetElementLength(El)
+    GetLength = GetElementLength(el)
 
     ' Handle rounding if required
     If RndLength Then
@@ -39,23 +39,22 @@ ErrorHandler:
 End Function
 
 ' Private function to get the length of an element based on its type
-Private Function GetElementLength(ByVal El As Element) As Double
+Private Function GetElementLength(ByVal el As Element) As Double
     On Error GoTo ErrorHandler
 
     ' Determine the length based on the element type
     Select Case True
-        Case El.IsComplexStringElement
-            GetElementLength = El.AsComplexStringElement.Length
-        Case El.IsComplexShapeElement
-            GetElementLength = LengthComplexShape(El)
-        Case El.IsLineElement
-            GetElementLength = El.AsLineElement.Length
-        Case El.IsArcElement
-            GetElementLength = El.AsArcElement.Length
+        Case el.IsComplexStringElement
+            GetElementLength = el.AsComplexStringElement.Length
+        Case el.IsComplexShapeElement
+            GetElementLength = LengthComplexShape(el)
+        Case el.IsLineElement
+            GetElementLength = el.AsLineElement.Length
+        Case el.IsArcElement
+            GetElementLength = el.AsArcElement.Length
         Case Else
             GetElementLength = 0
-            MSGraphicalInteraction.ZoomEl El
-            ShowStatus GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(El.Id), El.Type)
+            ShowStatus GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(el.ID), el.Type)
     End Select
 
     Exit Function
@@ -113,15 +112,15 @@ ErrorHandler:
 End Function
 
 ' Private function to calculate the length of a complex shape element
-Private Function LengthComplexShape(ByVal El As ComplexShapeElement) As Double
+Private Function LengthComplexShape(ByVal el As ComplexShapeElement) As Double
     On Error GoTo ErrorHandler
 
     Dim ElEnum As ElementEnumerator
     Dim SubEl As Element
     Dim i As Long
 
-    LengthComplexShape = El.Perimeter
-    Set ElEnum = El.GetSubElements
+    LengthComplexShape = el.Perimeter
+    Set ElEnum = el.GetSubElements
 
     ' Iterate through sub-elements
     For i = 0 To UBound(ElEnum.BuildArrayFromContents)
