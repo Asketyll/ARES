@@ -52,11 +52,13 @@ Private Function GetElementLength(ByVal el As Element) As Double
             GetElementLength = el.AsLineElement.Length
         Case el.IsArcElement
             GetElementLength = el.AsArcElement.Length
+        Case el.IsShapeElement
+            GetElementLength = LengthShape(el)
         Case Else
             GetElementLength = 0
             ShowStatus GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(el.ID), el.Type)
     End Select
-
+    
     Exit Function
 
 ErrorHandler:
@@ -140,6 +142,36 @@ Private Function LengthComplexShape(ByVal el As ComplexShapeElement) As Double
 ErrorHandler:
     ' Return 0 in case of an error
     LengthComplexShape = 0
+End Function
+' Private function to calculate the length of a shape element
+Private Function LengthShape(ByVal el As ShapeElement) As Double
+    On Error GoTo ErrorHandler
+
+    Dim ElEnum As ElementEnumerator
+    Dim SubEl As Element
+    Dim i As Long
+    
+    LengthShape = el.Perimeter
+    Set ElEnum = el.GetSubElements
+
+    ' Iterate through sub-elements
+    For i = 0 To UBound(ElEnum.BuildArrayFromContents)
+        ElEnum.MoveNext
+    Next
+
+    Set SubEl = ElEnum.Current
+
+    If SubEl.IsLineElement Then
+        LengthShape = (LengthShape - (SubEl.AsLineElement.Length * 2)) / 2
+    Else
+        LengthShape = 0
+    End If
+
+    Exit Function
+
+ErrorHandler:
+    ' Return 0 in case of an error
+    LengthShape = 0
 End Function
 
 ' Private function to round the length to a specified number of decimal places
