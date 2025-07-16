@@ -290,6 +290,11 @@ Sub ResetARES()
     End If
 End Sub
 
+' Sub to remove all ARES var in MS
 Sub RemoveARES()
-
+    If RemoveAllMSVar = True Then
+        ShowStatus "Remove ARES var is a success"
+    Else
+        ShowStatus "Remove ARES var failed"
+    End If
 End Sub
