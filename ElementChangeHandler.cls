@@ -31,7 +31,12 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As Element, ByVa
         
         HandleElementAdded AfterChange
     End If
-
+    
+    If Action = msdChangeTrackActionModify Then
+        ' Call a sub or function when an element is modified
+        HandleElementModified AfterChange
+    End If
+    
     Exit Sub
 
 ErrorHandler:
@@ -96,6 +101,17 @@ Private Sub HandleElementAdded(ByVal NewElement As Element)
             AutoLengths.UpdateLengths
         End If
     End If
+
+    Exit Sub
+
+ErrorHandler:
+    ' Handle any errors silently or log them as needed
+    Err.Clear
+End Sub
+
+' Handle the addition of a new element
+Private Sub HandleElementModified(ByVal NewElement As Element)
+    On Error GoTo ErrorHandler
 
     Exit Sub
 
