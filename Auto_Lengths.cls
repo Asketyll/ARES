@@ -60,6 +60,7 @@ Public Sub UpdateLengths()
     Exit Sub
 
 ErrorHandler:
+    ElementInProcesse.Remove pNewElement
     ShowStatus GetTranslation("AutoLengthsUpdateError") & Err.Description
 End Sub
 
@@ -81,6 +82,7 @@ End Function
 Private Sub HandleSingleElement()
     Dim Results() As String
     Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(UBound(pLinkedElements))), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
+    ElementInProcesse.Remove pNewElement
 End Sub
 
 ' Method to handle the case of multiple linked elements
@@ -110,6 +112,7 @@ Private Sub UpdateSingleNonZeroLength()
     For j = LBound(pLengths) To UBound(pLengths)
         If pLengths(j) <> 0 Then
             Results = StringsInEl.GetSetTextsInEl(pNewElement, CStr(pLengths(j)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
+            ElementInProcesse.Remove pNewElement
             Exit For
         End If
     Next j
@@ -131,7 +134,7 @@ Private Sub ShowElementSelectionForm()
 
     Set frm.AutoLengthsInstance = Me
     frm.SetLinkedElements pLinkedElements
-    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.ID)
+    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.id)
     frm.Show vbModeless
 
     Exit Sub
@@ -146,7 +149,8 @@ Public Sub OnElementSelected(ByVal selectedElement As Element, ByVal MasterEleme
 
     Dim Results() As String
     Results = StringsInEl.GetSetTextsInEl(MasterElement, CStr(Length.GetLength(selectedElement, ARES_VAR.ARES_LENGTH_ROUND.Value)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
-
+    
+    ElementInProcesse.Remove MasterElement
     Exit Sub
 
 ErrorHandler:
