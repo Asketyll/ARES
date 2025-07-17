@@ -36,16 +36,18 @@ Public MSVarsCollection As Collection
 Public ARES_ROUNDS As ARES_MS_VAR_Class 'Default Value: 2  Range 0 to 254 (Byte -1)    #255 it reserved for error (ARES_RND_ERROR_VALUE)
 
 ' Used in ElementChangeHandler ClassModule for automatically enable adding length to a text if the conditions are met.
-Public ARES_AUTO_LENGTHS As ARES_MS_VAR_Class 'Dafault Value: True (ARES_AUTO_LENGTHS_DEFAULT)     True or False (Boolean)
+Public ARES_AUTO_LENGTHS As ARES_MS_VAR_Class 'Dafault Value: True          True or False (Boolean)
+
+Public ARES_UPDATE_LENGTHS As ARES_MS_VAR_Class 'Dafault Value: True        True or False (Boolean)
 
 ' Used in Auto_Lengths module For length-specific rounding in text.
-Public ARES_LENGTH_ROUND As ARES_MS_VAR_Class 'Default Value: 1 (ARES_LENGTH_RND_DEFAULT) Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
+Public ARES_LENGTH_ROUND As ARES_MS_VAR_Class 'Default Value: 1             Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
 
 ' Used in Auto_Lengths and StringsInEl module For Triggers in text.
-Public ARES_LENGTH_TRIGGER As ARES_MS_VAR_Class 'Default Value: (Xx_m) (ARES_LENGTH_TRIGGER_DEFAULT) can a array use | (ARES_VAR_DELIMITER) like (Xx_m)|(Xx_cm)|(Xx_km)
+Public ARES_LENGTH_TRIGGER As ARES_MS_VAR_Class 'Default Value: (Xx_m)      can a array use | (ARES_VAR_DELIMITER) like (Xx_m)|(Xx_cm)|(Xx_km)
 
 ' Used in AutoLengths and StringsInEl module for replace this triger with the length of element
-Public ARES_LENGTH_TRIGGER_ID As ARES_MS_VAR_Class 'Default Value: Xx_  (ARES_LENGTH_TRIGGER_ID_DEFAULT)
+Public ARES_LENGTH_TRIGGER_ID As ARES_MS_VAR_Class 'Default Value: Xx_      Must be present in triggers
 
 ' Used in CustomPropertyHandler module for default name of Library Type object
 Public ARES_NAME_LIBRARY_TYPE As ARES_MS_VAR_Class 'Default Value: ARES
@@ -68,6 +70,7 @@ Public Function InitMSVars() As Boolean
     Set MSVarsCollection = New Collection
     Set ARES_ROUNDS = New ARES_MS_VAR_Class
     Set ARES_AUTO_LENGTHS = New ARES_MS_VAR_Class
+    Set ARES_UPDATE_LENGTHS = New ARES_MS_VAR_Class
     Set ARES_LENGTH_ROUND = New ARES_MS_VAR_Class
     Set ARES_LENGTH_TRIGGER = New ARES_MS_VAR_Class
     Set ARES_LENGTH_TRIGGER_ID = New ARES_MS_VAR_Class
@@ -78,6 +81,7 @@ Public Function InitMSVars() As Boolean
     
     InitializeMSVar ARES_ROUNDS, "ARES_Round", "2"
     InitializeMSVar ARES_AUTO_LENGTHS, "ARES_Auto_Lengths", "True"
+    InitializeMSVar ARES_UPDATE_LENGTHS, "ARES_Update_Lengths", "True"
     InitializeMSVar ARES_LENGTH_ROUND, "ARES_Length_Round", "1"
     InitializeMSVar ARES_LENGTH_TRIGGER, "ARES_Length_Triggers", "(Xx_m)"
     InitializeMSVar ARES_LENGTH_TRIGGER_ID, "ARES_Length_Trigger_ID", "Xx_"
@@ -235,6 +239,7 @@ Public Function ResetAllMSVar() As Boolean
     Dim success As Boolean
     success = True
 
+    If MSVarsCollection Is Nothing Then InitMSVars
     If MSVarsCollection Is Nothing Then
         success = False
         Exit Function
