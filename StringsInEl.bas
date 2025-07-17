@@ -54,6 +54,9 @@ Private Function ProcessTextElement(ByVal TextElement As Element, Optional txt A
     ' If no Triggers are provided, split the text element's text into an array
     If Triggers = "" And txt = "" Then
         ProcessTextElement = Split(TextElement.AsTextElement.Text, "")
+    ElseIf Triggers = "" Then
+        TextElement.AsTextElement.Text = txt
+        TextElement.Rewrite
     Else
         ' Retrieve the current text of the element
         OldTxt = TextElement.AsTextElement.Text
@@ -111,35 +114,45 @@ Private Function ProcessTextNodeElement(ByVal TextElement As Element, Optional t
         ReDim OldTxts(TextElement.AsTextNodeElement.TextLinesCount - 1)
         ReDim NewTxts(TextElement.AsTextNodeElement.TextLinesCount - 1)
         ' Split the Triggers into an array using the delimiter
-        trigger = Split(Triggers, ARES_VAR.ARES_VAR_DELIMITER)
-        ' Loop through each text line and process replacements
-        For i = 0 To UBound(OldTxts)
-            OldTxts(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
-            NewTxts(i) = OldTxts(i)
-            ' Loop through each Trigger and process replacements
-            For j = LBound(trigger) To UBound(trigger)
-                ' Split the Trigger into parts using the trigger ID
-                SplitedTriggers = Split(trigger(i), ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)
-                ' If the Trigger is valid (contains the ID), perform the replacement
-                If UBound(SplitedTriggers) = 1 Then
-                    NewTxts(i) = Replace(NewTxts(i), SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
-                End If
-            Next j
-        Next i
-        ' Update the text of each sub-element if it has changed
-        Set SubTxtEnum = TextElement.AsTextNodeElement.GetSubElements
-        For i = 0 To UBound(NewTxts)
-            SubTxtEnum.MoveNext
-            Set SubTxt = SubTxtEnum.Current
-            If SubTxt.Text <> NewTxts(i) Then
-                SubTxt.Text = NewTxts(i)
-                SubTxt.Rewrite
+        If Triggers = "" Then
+            trigger = Split(txt, ARES_VAR.ARES_VAR_DELIMITER)
+            If UBound(trigger) = UBound(OldTxts) + 1 Then
+                For i = 0 To UBound(OldTxts)
+                    OldTxts(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
+                    NewTxts(i) = trigger(i)
+                Next i
             End If
-        Next i
-        ' Return the new text lines as an array
-        ProcessTextNodeElement = NewTxts
+        Else
+            trigger = Split(Triggers, ARES_VAR.ARES_VAR_DELIMITER)
+            ' Loop through each text line and process replacements
+            For i = 0 To UBound(OldTxts)
+                OldTxts(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
+                NewTxts(i) = OldTxts(i)
+                ' Loop through each Trigger and process replacements
+                For j = LBound(trigger) To UBound(trigger)
+                    ' Split the Trigger into parts using the trigger ID
+                    SplitedTriggers = Split(trigger(i), ARES_VAR.ARES_LENGTH_TRIGGER_ID.Value)
+                    ' If the Trigger is valid (contains the ID), perform the replacement
+                    If UBound(SplitedTriggers) = 1 Then
+                        NewTxts(i) = Replace(NewTxts(i), SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
+                    End If
+                Next j
+            Next i
+            ' Update the text of each sub-element if it has changed
+            Set SubTxtEnum = TextElement.AsTextNodeElement.GetSubElements
+            For i = 0 To UBound(NewTxts)
+                SubTxtEnum.MoveNext
+                Set SubTxt = SubTxtEnum.Current
+                If SubTxt.Text <> NewTxts(i) Then
+                    SubTxt.Text = NewTxts(i)
+                    SubTxt.Rewrite
+                End If
+            Next i
+            ' Return the new text lines as an array
+            ProcessTextNodeElement = NewTxts
+        End If
     End If
-
+    
     Exit Function
     
 ErrorHandler:
