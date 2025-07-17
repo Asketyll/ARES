@@ -110,9 +110,14 @@ ErrorHandler:
 End Sub
 
 ' Handle the addition of a new element
-Private Sub HandleElementModified(ByVal NewElement As Element)
+Private Sub HandleElementModified(ByVal ModifiedElement As Element)
     On Error GoTo ErrorHandler
-
+    
+    Dim UPDATE_LENGTH As Boolean
+    UPDATE_LENGTH = ARES_VAR.ARES_UPDATE_LENGTHS.Value
+    
+    If UPDATE_LENGTH Then HandleElementAdded ModifiedElement
+    
     Exit Sub
 
 ErrorHandler:
