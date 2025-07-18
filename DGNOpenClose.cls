@@ -2,7 +2,7 @@
 ' Description: Manages events when design files are opened or closed.
 ' This class module handles the events triggered when a design file is opened or closed in MicroStation.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ElementChangeHandler, LangManager, IdleEventHandler
+' Dependencies: ElementChangeHandler, LangManager, IdleEventHandler, ElementInProcesse
 
 Option Explicit
 
@@ -30,7 +30,7 @@ Private Sub Hooks_OnDesignFileClosed(ByVal DesignFileName As String)
     ' Call a sub or function when a DGN file is closed
     ' Example: CleanupResources
     ' MsgBox "Hey! I'm an autorun VBA project of ARES!"
-
+    ARES_VAR.InitMSVars
     Exit Sub
 
 ErrorHandler:
@@ -51,6 +51,7 @@ Private Sub Hooks_OnDesignFileOpened(ByVal DesignFileName As String)
     ' Register the idle event handler
     AddEnterIdleEventHandler oIdleEventHandler
     
+    ElementInProcesse.Reset
     Exit Sub
     
 ErrorHandler:
