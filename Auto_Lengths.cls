@@ -1,7 +1,7 @@
 ' Class Module: AutoLengths
 ' Description: This module provides functions to add length with rounding to a text if they are graphically linked and the trigger is present in the text.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, Length, ARES_VAR, AutoLengths_GUI_SelectElements, LangManager
+' Dependencies: Config, Length, ARES_VAR, AutoLengths_GUI_SelectElements, LangManager, ElementInProcesse
 
 Option Explicit
 
