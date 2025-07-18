@@ -141,11 +141,14 @@ Private Sub HandleElementAdded(ByVal NewElement As Element, Optional Recalculate
         Else
             ElementInProcesse.Remove NewElement
         End If
+    Else
+        ElementInProcesse.Remove NewElement
     End If
 
     Exit Sub
 
 ErrorHandler:
+    ElementInProcesse.Remove NewElement
     ' Handle any errors silently or log them as needed
     Err.Clear
 End Sub
@@ -176,6 +179,7 @@ Private Sub HandleElementModified(ByVal ModifiedElement As Element)
     Exit Sub
 
 ErrorHandler:
+    ElementInProcesse.Remove ModifiedElement
     ' Handle any errors silently or log them as needed
     Err.Clear
 End Sub
