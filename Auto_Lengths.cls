@@ -148,9 +148,13 @@ Public Sub OnElementSelected(ByVal selectedElement As Element, ByVal MasterEleme
     On Error GoTo ErrorHandler
 
     Dim Results() As String
+    Dim el As Variant
     Results = StringsInEl.GetSetTextsInEl(MasterElement, CStr(Length.GetLength(selectedElement, ARES_VAR.ARES_LENGTH_ROUND.Value)), ARES_VAR.ARES_LENGTH_TRIGGER.Value)
     
     ElementInProcesse.Remove MasterElement
+    For Each el In pLinkedElements
+        ElementInProcesse.Remove el
+    Next el
     Exit Sub
 
 ErrorHandler:
