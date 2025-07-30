@@ -9,7 +9,7 @@ Option Explicit
 Public TEC As TransientElementContainer
 
 ' Function to zoom on an element in a specified view
-Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3, Optional intView As Integer = 1) As Boolean
+Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3) As Boolean
     On Error GoTo ErrorHandler
 
     Dim Rng As Range3d
@@ -22,9 +22,8 @@ Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3, Opt
 
     ' Check if the element is graphical
     If el.IsGraphical Then
-        ' Get the specified view
-        Set oView = ActiveDesignFile.Views(intView)
-
+        ' Get the Last View
+        Set oView = CommandState.LastView
         ' Get the range of the element
         Rng = el.Range
 
