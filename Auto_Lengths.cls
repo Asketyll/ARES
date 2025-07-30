@@ -1,7 +1,7 @@
 ' Class Module: AutoLengths
 ' Description: This module provides functions to add length with rounding to a text if they are graphically linked and the trigger is present in the text.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, Length, ARES_VAR, AutoLengths_GUI_SelectElements, LangManager, ElementInProcesse
+' Dependencies: Config, Length, ARES_VAR, AutoLengths_GUI_SelectElements, LangManager, ElementInProcesse, ElementChangeHandler
 
 Option Explicit
 
@@ -213,3 +213,63 @@ ErrorHandler:
     ShowStatus GetTranslation("AutoLengthsResetTriggerError") & Err.Description
     ResetTrigger = False
 End Function
+
+
+
+' Class to handle selection
+Implements ILocateCommandEvents
+
+Private Sub ILocateCommandEvents_Accept(ByVal Element As Element, Point As Point3d, ByVal View As View)
+    ' Call the function with the selected object
+    ChangeHandler.HandleElementModified Element
+End Sub
+
+Private Sub ILocateCommandEvents_Cleanup()
+    ' Cleanup after the command
+End Sub
+
+Private Sub ILocateCommandEvents_Dynamics(Point As Point3d, ByVal View As View, ByVal DrawMode As MsdDrawingMode)
+    ' Handle dynamics
+End Sub
+
+Private Sub ILocateCommandEvents_LocateFailed()
+    ' Handle selection failure
+    ShowStatus GetTranslation("AutoLengthsNoValidElement")
+End Sub
+
+Private Sub ILocateCommandEvents_LocateFilter(ByVal Element As Element, Point As Point3d, Accepted As Boolean)
+    ' Accept only specified elements
+    Accepted = False
+    Select Case True
+        Case Element.IsComplexStringElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+        Case Element.IsLineElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+        Case Element.IsArcElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+        Case Element.IsShapeElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+        Case Element.IsComplexShapeElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+        Case Element.IsTextElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+        Case Element.IsTextNodeElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+        Case Element.IsCellElement And Element.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID
+            Accepted = True
+    End Select
+    If Accepted Then ILocateCommandEvents_Accept Element, Point, CommandState.LastView
+End Sub
+
+Private Sub ILocateCommandEvents_LocateReset()
+    ' Reset the command
+End Sub
+
+Private Sub ILocateCommandEvents_Start()
+    Dim lc As LocateCriteria
+    ' Configure selection criteria
+    Set lc = CommandState.CreateLocateCriteria(False)
+    CommandState.SetLocateCriteria lc
+    ShowCommand GetTranslation("AutoLengthsSelectanelementC")
+    ShowPrompt GetTranslation("AutoLengthsSelectanelementP")
+End Sub
