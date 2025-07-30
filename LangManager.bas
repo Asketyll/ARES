@@ -16,7 +16,6 @@ Sub InitializeTranslations()
 
     Set mSupportedLanguages = New Collection
     Set mTranslations = CreateObject("Scripting.Dictionary")
-    IsInit = False
     
     ' Add supported languages to the collection
     mSupportedLanguages.Add "English"
@@ -55,7 +54,9 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_AutoLengthsSetTriggerError", "Error setting trigger: "
     mTranslations.Add "EN_AutoLengthsAddTriggerError", "Error adding trigger: "
     mTranslations.Add "EN_AutoLengthsResetTriggerError", "Error resetting trigger: "
-    mTranslations.Add "EN_UnitTesting", "Unit Testing Translation."
+    mTranslations.Add "EN_AutoLengthsNoValidElement", "No valid element selected"
+    mTranslations.Add "EN_AutoLengthsSelectanelementC", "Select an element"
+    mTranslations.Add "EN_AutoLengthsSelectanelementP", "Select a valid and linked element"
     
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -87,6 +88,9 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_AutoLengthsSetTriggerError", "Erreur lors de la définition du déclencheur: "
     mTranslations.Add "FR_AutoLengthsAddTriggerError", "Erreur lors de l'ajout du déclencheur: "
     mTranslations.Add "FR_AutoLengthsResetTriggerError", "Erreur lors de la réinitialisation du déclencheur: "
+    mTranslations.Add "FR_AutoLengthsNoValidElement", "Aucun élément valide sélectionné"
+    mTranslations.Add "FR_AutoLengthsSelectanelementC", "Sélectionner un élément"
+    mTranslations.Add "FR_AutoLengthsSelectanelementP", "Sélectionner un élément valide et groupé"
     IsInit = True
     
     Exit Sub
