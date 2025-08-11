@@ -1,26 +1,26 @@
 ' Module: BootLoader
 ' Description: Initializes the VBA project on load.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: DGNOpenClose, ElementChangeHandler, LangManager
-
+' Dependencies: DGNOpenClose, ElementChangeHandler, LangManager, ErrorHandlerClass, ElementInProcesseClass, ARESConfigClass
 Option Explicit
 
 Public ChangeHandler As ElementChangeHandler
+Public ErrorHandler As ErrorHandlerClass
+Public ElementInProcesse As ElementInProcesseClass
+Public ARESConfig As New ARESConfigClass
 Dim oOpenClose As DGNOpenClose
 
 ' Entry point when the project is loaded
 Sub OnProjectLoad()
     On Error GoTo ErrorHandler
-
+    ' Initialize the global error handler
+    Set ErrorHandler = New ErrorHandlerClass
     ' Initialize DGNOpenClose
     Set oOpenClose = New DGNOpenClose
-
     ' Create an instance of the IdleEventHandler
     Dim oIdleEventHandler As New IdleEventHandler
-
     ' Register the idle event handler
     AddEnterIdleEventHandler oIdleEventHandler
-    
     Exit Sub
 
 ErrorHandler:
