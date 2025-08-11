@@ -1,5 +1,7 @@
 ' Module: ARESConstants
 ' Description: Contains all constants used in the ARES application
+' License: This project is licensed under the AGPL-3.0.
+' Dependencies: None
 Option Explicit
 
 '######################################################################################################################
