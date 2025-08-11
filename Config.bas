@@ -4,7 +4,7 @@
 ' without interrupting the workflow in case of errors.
 ' Delete a configuration variable is possible but not saved if you restart MS, use RemoveValue instead.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfig, ARESConstants ,ErrorHandlerClass
+' Dependencies: ARESConfigClass, ARESConstants ,ErrorHandlerClass
 Option Explicit
 
 ' Function to get the value of a configuration variable
