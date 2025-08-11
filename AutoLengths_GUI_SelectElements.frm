@@ -2,15 +2,12 @@
 ' Description: This UserForm is used for selecting an element in a list and returning it.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: MSGraphicalInteraction, AutoLengths, LangManager
-
 Option Explicit
 
 ' Array to store the linked elements
 Private pLinkedElements() As Element
-
 ' Variable to store the master element
 Private pMasterElement As Element
-
 ' Instance of the AutoLengths class to handle auto-length operations
 Private pAutoLengths As autoLengths
 
@@ -32,6 +29,7 @@ End Property
 ' Event handler for clicking an item in the ListBox
 ' Zooms and highlights the selected element in the graphical interface
 Private Sub ListBox1_Click()
+    On Error GoTo ErrorHandler
     Dim selectedIndex As Long
 
     ' Check if an item is selected
@@ -48,11 +46,17 @@ Private Sub ListBox1_Click()
             MsgBox GetTranslation("AutoLengthsGUIInvalidSelectedElement"), vbExclamation
         End If
     End If
+
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox1_Click"
 End Sub
 
 ' Event handler for double-clicking an item in the ListBox
 ' Hides the form and triggers the selection of the element
 Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
+    On Error GoTo ErrorHandler
     Dim selectedIndex As Long
 
     ' Check if an item is selected
@@ -66,26 +70,44 @@ Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
         ' Call the method to handle the selected element
         OnElementSelected pLinkedElements(selectedIndex)
     End If
+
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox1_DblClick"
 End Sub
 
 ' Event handler for initializing the UserForm
 ' Sets the caption of the form using a translation key
 Private Sub UserForm_Initialize()
+    On Error GoTo ErrorHandler
     Me.Caption = GetTranslation("AutoLengthsGUICaption")
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.UserForm_Initialize"
 End Sub
 
 ' Event handler for querying the close action of the UserForm
 ' Clears the transient element collection when the form is closed
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    'If CloseMode = 0 Then MsgBox "Nop!"
-    'Cancel = CloseMode = 0
+    On Error GoTo ErrorHandler
     ' Clear the transient element collection
-    Set TEC = Nothing   'Is public, Used in MSGraphicalInteraction for TransientElement
+    Set TEC = Nothing
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.UserForm_QueryClose"
 End Sub
 
 ' Method to handle the selected element
 ' Calls the method in the AutoLengths instance to continue the execution with the selected element
 Private Sub OnElementSelected(ByVal selectedElement As Element)
+    On Error GoTo ErrorHandler
     ' Call the method in the existing AutoLengths instance to continue the execution
     pAutoLengths.OnElementSelected selectedElement, pMasterElement
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.OnElementSelected"
 End Sub
