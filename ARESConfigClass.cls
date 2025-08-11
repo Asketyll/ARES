@@ -1,7 +1,7 @@
 ' Class Module: ARESConfigClass
 ' Description: Manages all ARES configuration variables
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, ARES_MS_VAR_Class, ErrorHandler
+' Dependencies: Config, ARES_MS_VAR_Class, ErrorHandlerClass
 Option Explicit
 
 Private pConfigVariables As Collection
