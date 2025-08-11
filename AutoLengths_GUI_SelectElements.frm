@@ -1,7 +1,7 @@
 ' UserForm: AutoLengths_GUI_SelectElements
 ' Description: This UserForm is used for selecting an element in a list and returning it.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: MSGraphicalInteraction, AutoLengths, LangManager
+' Dependencies: MSGraphicalInteraction, AutoLengths, LangManager, ErrorHandlerClass
 Option Explicit
 
 ' Array to store the linked elements
