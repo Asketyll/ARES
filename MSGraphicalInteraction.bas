@@ -1,17 +1,15 @@
 ' Module: MSGraphicalInteraction
 ' Description: This module provides functions to interact with views, zoom, and highlight elements in MicroStation.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: None
-
+' Dependencies: ErrorHandlerClass
 Option Explicit
 
 ' Container for transient elements
 Public TEC As TransientElementContainer
 
 ' Function to zoom on an element in a specified view
-Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3) As Boolean
+Public Function ZoomEl(ByVal El As element, Optional Factor As Single = 1.3) As Boolean
     On Error GoTo ErrorHandler
-
     Dim Rng As Range3d
     Dim PntZoom As Point3d
     Dim oView As View
@@ -21,31 +19,27 @@ Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3) As 
     ZoomEl = False
 
     ' Check if the element is graphical
-    If el.IsGraphical Then
+    If El.IsGraphical Then
         ' Get the Last View
         Set oView = CommandState.LastView
         ' Get the range of the element
-        Rng = el.Range
-
+        Rng = El.Range
         ' Calculate the zoom point based on the range of the element
         With Rng
             PntZoom.X = .High.X - .Low.X
             PntZoom.Y = .High.Y - .Low.Y
             PntZoom.Z = .High.Z - .Low.Z
         End With
-
         ' Set the point for zooming
         With Pnt
             .X = PntZoom.X * Factor
             .Y = PntZoom.Y * Factor
             .Z = PntZoom.Z * Factor
         End With
-
         ' Set the view area and zoom
         oView.SetArea Rng.Low, Pnt, oView.Rotation, Rng.High.Z
         oView.ZoomAboutPoint Point3dAddScaled(Rng.Low, PntZoom, 0.5), 1
         oView.Redraw
-
         ZoomEl = True
     End If
 
@@ -54,12 +48,12 @@ Public Function ZoomEl(ByVal el As Element, Optional Factor As Single = 1.3) As 
 ErrorHandler:
     ' Return False in case of an error
     ZoomEl = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MSGraphicalInteraction.ZoomEl"
 End Function
 
 ' Function to highlight an element
-Public Function HighlightEl(ByVal el As Element) As Boolean
+Public Function HighlightEl(ByVal El As element) As Boolean
     On Error GoTo ErrorHandler
-
     Dim Flags As MsdTransientFlags
 
     HighlightEl = False
@@ -71,10 +65,9 @@ Public Function HighlightEl(ByVal el As Element) As Boolean
     Flags = msdTransientFlagsOverlay + msdTransientFlagsSnappable
 
     ' Highlight the element
-    el.IsHighlighted = True
-    Set TEC = CreateTransientElementContainer1(el, Flags, msdViewAll, msdDrawingModeHilite)
-    el.IsHighlighted = False
-
+    El.IsHighlighted = True
+    Set TEC = CreateTransientElementContainer1(El, Flags, msdViewAll, msdDrawingModeHilite)
+    El.IsHighlighted = False
     HighlightEl = True
 
     Exit Function
@@ -82,4 +75,5 @@ Public Function HighlightEl(ByVal el As Element) As Boolean
 ErrorHandler:
     ' Return False in case of an error
     HighlightEl = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MSGraphicalInteraction.HighlightEl"
 End Function
