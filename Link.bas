@@ -2,56 +2,78 @@
 ' Description: This module provides functions to retrieve linked elements in MicroStation.
 ' It includes functions to scan for elements in a specified graphic group and filter them by type.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: MicroStationDefinition, ARES_VAR
-
+' Dependencies: MicroStationDefinition, ARESConfigClass, ARESConstants, ErrorHandlerClass
 Option Explicit
 
 ' Public function to get the linked elements of a graphical element
-Public Function GetLink(ByRef El As Element, _
+Public Function GetLink(ByRef El As element, _
                         Optional ReturnMe As Boolean = False, _
                         Optional FilterByTypes As Variant, _
                         Optional MaxCount As Byte = 255) As Variant
     On Error GoTo ErrorHandler
-
-    Dim LinkedElements() As Element
+    Dim LinkedElements() As element
     Dim MSDEType() As MsdElementType
     Dim Esc As ElementScanCriteria
     Dim i As Long
-    Dim EE As ElementEnumerator
+    Dim ee As ElementEnumerator
+    Dim Count As Byte
+    Dim subel As element
     
     ' Check if there is an active model reference
     If Not Application.HasActiveModelReference Then Exit Function
 
     ' Check if the element is graphical and has a valid graphic group ID
-    If El.IsGraphical And El.GraphicGroup <> ARES_VAR.ARES_DEFAULT_GRAPHIC_GROUP_ID Then
-        ' Initialize the element scan criteria
-        Set Esc = New ElementScanCriteria
-
-        ' Include only the specified graphic group
-        Esc.IncludeOnlyGraphicGroup El.GraphicGroup
-
-        ' Include the specified element types if provided
-        If Not IsMissing(FilterByTypes) Then
-            ' Ensure FilterByTypes is an array of MsdElementType
-            MSDEType = EnsureArray(FilterByTypes)
-            Esc.ExcludeAllTypes
-            For i = LBound(MSDEType) To UBound(MSDEType)
-                If IsValidElementType(MSDEType(i)) And MSDEType(i) <> ARES_VAR.ARES_MSDETYPE_ERROR Then
-                    Esc.IncludeType MSDEType(i)
+    If El.IsGraphical Then
+        If El.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID Then
+            ' Initialize the element scan criteria
+            Set Esc = New ElementScanCriteria
+            ' Include only the specified graphic group
+            Esc.IncludeOnlyGraphicGroup El.GraphicGroup
+    
+            ' Include the specified element types if provided
+            If Not IsMissing(FilterByTypes) Then
+                MSDEType = EnsureArray(FilterByTypes)
+                Esc.ExcludeAllTypes
+                For i = LBound(MSDEType) To UBound(MSDEType)
+                    If IsValidElementType(MSDEType(i)) And MSDEType(i) <> ARES_MSDETYPE_ERROR Then
+                        Esc.IncludeType MSDEType(i)
+                    End If
+                Next i
+            End If
+    
+            ' Scan for elements in the specified graphic group
+            Set ee = ActiveModelReference.Scan(Esc)
+    
+            If ReturnMe Then
+                ' Return all elements in the enumerator as an array
+                GetLink = ee.BuildArrayFromContents
+                Exit Function
+            Else
+                ' Count the number of valid elements
+                Count = 0
+                Do While ee.MoveNext
+                    Set subel = ee.Current
+                    If DLongComp(El.id, subel.id) <> 0 Then
+                        Count = Count + 1
+                        If Count = MaxCount Then Exit Do
+                    End If
+                Loop
+    
+                ' If valid elements were found, collect them
+                If Count > 0 Then
+                    ReDim LinkedElements(1 To Count)
+                    Count = 0
+                    ' Reset the enumerator and populate the array
+                    ee.Reset
+                    Do While ee.MoveNext And Count < MaxCount
+                        Set subel = ee.Current
+                        If DLongComp(El.id, subel.id) <> 0 Then
+                            Count = Count + 1
+                            Set LinkedElements(Count) = subel
+                        End If
+                    Loop
                 End If
-            Next i
-        End If
-
-        ' Scan for elements in the specified graphic group
-        Set EE = ActiveModelReference.Scan(Esc)
-
-        If ReturnMe Then
-            ' Return all elements in the enumerator as an array
-            GetLink = EE.BuildArrayFromContents
-            Exit Function
-        Else
-            ' Collect linked elements excluding the original element
-            LinkedElements = CollectLinkedElements(EE, El, MaxCount)
+            End If
         End If
     End If
 
@@ -60,15 +82,15 @@ Public Function GetLink(ByRef El As Element, _
     Exit Function
 
 ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Link.GetLink"
     ' Handle errors by returning an empty array of Element type
-    ReDim LinkedElements(0) As Element
+    ReDim LinkedElements(0) As element
     GetLink = LinkedElements
 End Function
 
 ' Private function to ensure a variant is an array of MsdElementType
 Private Function EnsureArray(ByVal Value As Variant) As Variant
     On Error GoTo ErrorHandler
-
     Dim tempArray() As MsdElementType
     Dim i As Long
 
@@ -87,7 +109,7 @@ Private Function EnsureArray(ByVal Value As Variant) As Variant
                 Case Else
                     ' Return error value if type is not recognized
                     ReDim tempArray(0)
-                    tempArray(0) = ARES_VAR.ARES_MSDETYPE_ERROR
+                    tempArray(0) = ARES_MSDETYPE_ERROR
                     EnsureArray = tempArray
                     Exit Function
             End Select
@@ -107,50 +129,50 @@ Private Function EnsureArray(ByVal Value As Variant) As Variant
             Case Else
                 ' Return error value if type is not recognized
                 ReDim tempArray(0)
-                tempArray(0) = ARES_VAR.ARES_MSDETYPE_ERROR
+                tempArray(0) = ARES_MSDETYPE_ERROR
                 EnsureArray = tempArray
                 Exit Function
         End Select
         EnsureArray = tempArray
     Else
-        EnsureArray = Array(ARES_VAR.ARES_MSDETYPE_ERROR)
+        EnsureArray = Array(ARES_MSDETYPE_ERROR)
     End If
-
     Exit Function
 
 ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Link.EnsureArray"
     ' Handle errors by returning an array with one MSDETYPE_ERROR
     ReDim tempArray(0)
-    tempArray(0) = ARES_VAR.ARES_MSDETYPE_ERROR
+    tempArray(0) = ARES_MSDETYPE_ERROR
     EnsureArray = tempArray
 End Function
 
 ' Private function to collect linked elements excluding the original element
-Private Function CollectLinkedElements(ByRef EE As ElementEnumerator, _
-                                      ByRef El As Element, _
+Private Function CollectLinkedElements(ByRef ee As ElementEnumerator, _
+                                      ByRef El As element, _
                                       ByVal MaxCount As Byte) As Variant
     On Error GoTo ErrorHandler
 
-    Dim LinkedElements() As Element
-    Dim count As Byte
-    Dim SubEl As Element
+    Dim LinkedElements() As element
+    Dim Count As Byte
+    Dim subel As element
 
     ' Count the number of elements to size the array
-    count = CountValidElements(EE, El, MaxCount)
+    Count = CountValidElements(ee, El, MaxCount)
 
     ' Initialize the array with the correct size if count is greater than 0
-    If count > 0 Then
-        ReDim LinkedElements(1 To count)
-        count = 0
+    If Count > 0 Then
+        ReDim LinkedElements(1 To Count)
+        Count = 0
         ' Reset the enumerator and populate the array
-        EE.Reset
-        Do While EE.MoveNext
-            Set SubEl = EE.Current
-            If IsValidElement(El, SubEl) Then
-                count = count + 1
-                Set LinkedElements(count) = SubEl
+        ee.Reset
+        Do While ee.MoveNext
+            Set subel = ee.Current
+            If isValidElement(El, subel) Then
+                Count = Count + 1
+                Set LinkedElements(Count) = subel
                 ' Stop if max count is reached
-                If count = MaxCount Then Exit Do
+                If Count = MaxCount Then Exit Do
             End If
         Loop
     End If
@@ -164,24 +186,24 @@ ErrorHandler:
 End Function
 
 ' Private function to count valid elements excluding the original element
-Private Function CountValidElements(ByRef EE As ElementEnumerator, _
-                                    ByRef El As Element, _
+Private Function CountValidElements(ByRef ee As ElementEnumerator, _
+                                    ByRef El As element, _
                                     ByVal MaxCount As Byte) As Byte
     On Error GoTo ErrorHandler
 
-    Dim count As Byte
-    Dim SubEl As Element
+    Dim Count As Byte
+    Dim subel As element
 
-    Do While EE.MoveNext
-        Set SubEl = EE.Current
-        If IsValidElement(El, SubEl) Then
-            count = count + 1
+    Do While ee.MoveNext
+        Set subel = ee.Current
+        If isValidElement(El, subel) Then
+            Count = Count + 1
             ' Stop if max count is reached
-            If count = MaxCount Then Exit Do
+            If Count = MaxCount Then Exit Do
         End If
     Loop
 
-    CountValidElements = count
+    CountValidElements = Count
     Exit Function
 
 ErrorHandler:
@@ -189,6 +211,6 @@ ErrorHandler:
 End Function
 
 ' Private function to check if an element is valid (not the original element)
-Private Function IsValidElement(ByRef El As Element, ByRef SubEl As Element) As Boolean
-    IsValidElement = (DLongComp(El.ID, SubEl.ID) <> 0)
+Private Function isValidElement(ByRef El As element, ByRef subel As element) As Boolean
+    isValidElement = (DLongComp(El.id, subel.id) <> 0)
 End Function
