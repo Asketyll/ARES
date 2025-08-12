@@ -8,9 +8,9 @@ Option Explicit
 Implements ILocateCommandEvents
 
 ' Variable to store the new element
-Private pNewElement As Element
+Private pNewElement As element
 ' Array to store the linked elements
-Private pLinkedElements() As Element
+Private pLinkedElements() As element
 ' Array to store the lengths of the linked elements
 Private pLengths() As Double
 
@@ -21,7 +21,7 @@ Public Sub Initialize(ByVal NewElement As element)
     Set pNewElement = NewElement
     pLinkedElements = GetLinkedElements()
 
-    If Not IsEmpty(pLinkedElements) Then
+    If Not UBound(pLinkedElements) = -1 Then
         ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
         CalculateLengths
     Else
@@ -92,10 +92,12 @@ End Sub
 
 ' Method to handle the selection logic for elements
 Private Sub HandleElementSelection()
-    If HasSingleLinkedElement() Then
-        HandleSingleElement
-    Else
-        HandleMultipleElements
+    If Not UBound(pLinkedElements) = -1 Then
+        If HasSingleLinkedElement() Then
+            HandleSingleElement
+        Else
+            HandleMultipleElements
+        End If
     End If
 End Sub
 
