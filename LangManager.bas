@@ -1,8 +1,7 @@
 ' Module: LangManager
 ' Description: This module manages translations for different languages in GUI.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, ARES_VAR
-
+' Dependencies: Config, ARESConfigClass, ARESConstants, ErrorHandlerClass
 Option Explicit
 
 Private mSupportedLanguages As Collection
@@ -13,7 +12,6 @@ Public IsInit As Boolean
 ' Initialize translations and supported languages
 Sub InitializeTranslations()
     On Error GoTo ErrorHandler
-
     Set mSupportedLanguages = New Collection
     Set mTranslations = CreateObject("Scripting.Dictionary")
     
@@ -26,7 +24,9 @@ Sub InitializeTranslations()
     
     ' Add English translations
     mTranslations.Add "EN_VarResetSuccess", "Reset to default value: {0}"
+    mTranslations.Add "EN_VarResetAllSuccess", "All is reset to default value."
     mTranslations.Add "EN_VarResetError", "Unable to reset the variable."
+    mTranslations.Add "EN_VarResetAllFailed", "Unable to reset all variables."
     mTranslations.Add "EN_VarRemoveConfirm", "Do you really want to remove the variable {0} ?"
     mTranslations.Add "EN_VarRemoveSuccess", "Removed."
     mTranslations.Add "EN_VarRemoveError", "Unable to remove the variable."
@@ -60,7 +60,9 @@ Sub InitializeTranslations()
     
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
+    mTranslations.Add "FR_VarResetAllSuccess", "Toutes les variables ont été remises à leur valeur par défaut."
     mTranslations.Add "FR_VarResetError", "Impossible de réinitialiser la variable."
+    mTranslations.Add "FR_VarResetAllFailed", "Impossible de réinitialiser les variables."
     mTranslations.Add "FR_VarRemoveConfirm", "Voulez-vous vraiment supprimer la variable {0}?"
     mTranslations.Add "FR_VarRemoveSuccess", "Supprimé."
     mTranslations.Add "FR_VarRemoveError", "Impossible de supprimer la variable."
@@ -91,19 +93,19 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_AutoLengthsNoValidElement", "Aucun élément valide sélectionné"
     mTranslations.Add "FR_AutoLengthsSelectanelementC", "Sélectionner un élément"
     mTranslations.Add "FR_AutoLengthsSelectanelementP", "Sélectionner un élément valide et groupé"
-    IsInit = True
     
+    IsInit = True
     Exit Sub
 
 ErrorHandler:
     IsInit = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.InitializeTranslations"
     MsgBox "An error occurred while initializing translations.", vbOKOnly
 End Sub
 
 ' Function to get translation based on key and parameters
 Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
     On Error GoTo ErrorHandler
-
     Dim baseKey As String
     Dim formattedMessage As String
     Dim i As Integer
@@ -136,24 +138,22 @@ Public Function GetTranslation(key As String, ParamArray params() As Variant) As
     Exit Function
 
 ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetTranslation"
     GetTranslation = "Error retrieving translation for key: " & key
 End Function
 
 ' Function to get the user language
 Private Function GetUserLanguage() As String
     On Error GoTo ErrorHandler
-
     Dim Prompt As String
     Dim lang As Variant
     
     GetUserLanguage = Config.GetVar("CONNECTUSER_LANGUAGE")
-
-    If GetUserLanguage = "" Or GetUserLanguage = ARES_VAR.ARES_NAVD Then
-        If ARES_VAR.ARES_LANGUAGE Is Nothing Then
-            ARES_VAR.InitMSVars
+    If GetUserLanguage = "" Or GetUserLanguage = ARES_NAVD Then
+        If Not ARESConfig.IsInitialized Then
+            ARESConfig.Initialize
         End If
-
-        If ARES_VAR.ARES_LANGUAGE.Value = "" Then
+        If ARESConfig.ARES_LANGUAGE.Value = "" Then
             Prompt = "Unable to retrieve your user language." & vbCrLf & _
             "We invite you to declare it in the MicroStation environment variable, key: ARES_Language" & vbCrLf & _
             "The supported languages are:"
@@ -164,10 +164,9 @@ Private Function GetUserLanguage() As String
             Next lang
             
             Prompt = Prompt & vbCrLf & vbCrLf & "You can use the keyin: '""macro vba run [ARES]English'"" or '""macro vba run [ARES]Français'"""
-            'macro vba run Ares.SetLanguage
             MsgBox Prompt, vbOKOnly, "User language"
         Else
-            GetUserLanguage = ARES_VAR.ARES_LANGUAGE.Value
+            GetUserLanguage = ARESConfig.ARES_LANGUAGE.Value
         End If
     End If
 
@@ -175,6 +174,7 @@ Private Function GetUserLanguage() As String
 
 ErrorHandler:
     GetUserLanguage = "English" ' Default language in case of error
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetUserLanguage"
 End Function
 
 ' Sub to set language to English
