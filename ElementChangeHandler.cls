@@ -205,15 +205,19 @@ Sub HandleElementDeleted(ByVal DeletedElement As element)
     
     Dim UPDATE_LENGTH As Boolean
     Dim els() As element
+    Dim i As Integer
     
     UPDATE_LENGTH = ARESConfig.ARES_UPDATE_LENGTHS.Value
     
     If UPDATE_LENGTH Then
         els = Link.GetLink(DeletedElement)
         If UBound(els) > 1 Then
-            If ElementInProcesse.Add(els(1)) Then
-                HandleElementModified els(1)
-            End If
+            For i = 0 To UBound(els)
+                If ElementInProcesse.Add(els(1)) Then
+                    HandleElementModified els(1)
+                    ElementInProcesse.Remove els(1)
+                End If
+            Next i
         End If
     End If
     
