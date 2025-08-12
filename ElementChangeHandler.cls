@@ -2,7 +2,7 @@
 ' Description: Handles element change events.
 ' This class module is responsible for managing events related to changes in elements within MicroStation.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, Auto_Lengths, ARESConfigClass, ARESConstants, LangManager, StringsInEl, ElementInProcesseClass, ErrorHandlerClass
+' Dependencies: ARESConfigClass, AutoLengths, ARESConfigClass, ARESConstants, LangManager, StringsInEl, ElementInProcesseClass, ErrorHandlerClass
 Option Explicit
 Implements IChangeTrackEvents
 
