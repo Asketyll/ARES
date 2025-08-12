@@ -1,82 +1,58 @@
-' Module: ElementInProcesse
-' Description: This module provides functions to ensure a element is (not) in a ARES processe.
+' Class Module: ElementInProcesseClass
+' Description: Manages a collection of elements being processed.
 ' License: This project is licensed under the AGPL-3.0.
-
+' Dependencies: None
 Option Explicit
 
-'store all id of element in processe
-Dim ElementInPro() As DLong
+Private pElements As Collection
 
-'Add a element to ElementInProcesse
-Public Function Add(ByVal el As Element) As Boolean
-    Add = False
-    If Not IsIn(el) Then
-        If UBound(ElementInPro) <> -1 Then
-            If DLongToLong(ElementInPro(UBound(ElementInPro))) <> 0 Then
-                ReDim Preserve ElementInPro(LBound(ElementInPro) To UBound(ElementInPro) + 1)
-            End If
-            ElementInPro(UBound(ElementInPro)) = el.id
-            Add = True
-            Exit Function
-        Else
-            ReDim ElementInPro(0)
-            ElementInPro(0) = el.id
-            Add = True
-            Exit Function
-        End If
-    End If
-End Function
-
-'Remove a element from ElementInProcesse
-Public Function Remove(ByVal el As Element) As Boolean
-    Dim i As Integer
-    Dim indexToRemove As Integer
-    Dim arrayLength As Integer
-    Remove = False
-
-    If Not IsArray(ElementInPro) Then Exit Function
-
-    ' Find the index of the element to remove
-    For i = LBound(ElementInPro) To UBound(ElementInPro)
-        If DLongComp(ElementInPro(i), el.id) = 0 Then
-            indexToRemove = i
-            Remove = True
-            Exit For
-        End If
-    Next i
-
-    ' If the element was found, remove it by shifting elements
-    If Remove Then
-        arrayLength = UBound(ElementInPro) - LBound(ElementInPro) + 1
-        ' Shift elements to the left of the index to remove
-        For i = indexToRemove To arrayLength - 2
-            ElementInPro(i) = ElementInPro(i + 1)
-        Next i
-
-        ' Resize the array
-        If arrayLength - 1 > 0 Then
-            ReDim Preserve ElementInPro(LBound(ElementInPro) To arrayLength - 2)
-        Else
-            ' If the array has only one element, erase the array
-            Erase ElementInPro
-        End If
-    End If
-End Function
-
-'Check if a element is in ElementInProcesse
-Public Function IsIn(ByVal el As Element) As Boolean
-    Dim i As Integer
-    IsIn = False
-    
-    If Not IsArray(ElementInPro) Then Exit Function
-    For i = LBound(ElementInPro) To UBound(ElementInPro)
-        If DLongComp(ElementInPro(i), el.id) = 0 Then
-            IsIn = True
-            Exit For
-        End If
-    Next i
-End Function
-' Reset the ElementInPro array
-Public Sub Reset()
-    Erase ElementInPro
+Private Sub Class_Initialize()
+    Set pElements = New Collection
 End Sub
+
+' Method to add an element to the collection
+Public Function Add(ByVal element As element) As Boolean
+    On Error Resume Next
+    Dim elementId As String
+    elementId = DLongToString(element.id)
+    pElements.Add element, elementId
+    If Err.Number = 0 Then
+        Add = True
+    Else
+        Add = False
+        Err.Clear
+    End If
+End Function
+
+' Method to remove an element from the collection
+Public Sub Remove(ByVal element As element)
+    On Error Resume Next
+    Dim elementId As String
+    elementId = DLongToString(element.id)
+    pElements.Remove elementId
+End Sub
+
+' Method to check if an element is in the collection
+Public Function IsIn(ByVal element As element) As Boolean
+    On Error Resume Next
+    Dim elementId As String
+    elementId = DLongToString(element.id)
+    Dim temp As element
+    temp = pElements(elementId)
+    If Err.Number = 0 Then
+        IsIn = True
+    Else
+        IsIn = False
+        Err.Clear
+    End If
+End Function
+
+' Method to reset the collection
+Public Sub Reset()
+    Set pElements = New Collection
+End Sub
+
+' Method to get the count of elements in the collection
+Public Function Count() As Long
+    Count = pElements.Count
+End Function
