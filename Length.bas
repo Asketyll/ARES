@@ -1,7 +1,6 @@
 ' Module: Length
 ' Description: This module provides functions to calculate lengths of elements in MicroStation with silent error handling.
 ' The module includes functions to determine the length of various element types, handle rounding logic,
-' and manage configuration variables for rounding.
 ' NEVER USE Rnd = 255 in GetLength function! It is reserved for errors.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: Config, ARESConfigClass, ARESConstants, LangManager, ErrorHandlerClass
@@ -185,33 +184,4 @@ ErrorHandler:
     ' Return error value in case of an error
     GetRoundValue = ARES_RND_ERROR_VALUE
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.GetRoundValue"
-End Function
-
-' Public function to set the rounding configuration variable
-Public Function SetRound(RND As Byte) As Boolean
-    On Error GoTo ErrorHandler
-    If RND <> ARES_RND_ERROR_VALUE Then
-        SetRound = Config.SetVar(ARESConfig.ARES_ROUNDS.key, RND)
-    Else
-        ShowStatus GetTranslation("LengthRoundError") & ARES_RND_ERROR_VALUE
-    End If
-    Exit Function
-
-ErrorHandler:
-    ' Return False in case of an error
-    SetRound = False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.SetRound"
-End Function
-
-' Public function to reset the rounding configuration variable
-Public Function ResetRound() As Boolean
-    On Error GoTo ErrorHandler
-    ARESConfig.ResetMSVar ARESConfig.ARES_ROUNDS
-    ResetRound = (ARESConfig.ARES_ROUNDS.Value = ARESConfig.ARES_ROUNDS.Default)
-    Exit Function
-
-ErrorHandler:
-    ' Return False in case of an error
-    ResetRound = False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.ResetRound"
 End Function
