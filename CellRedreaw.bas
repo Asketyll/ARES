@@ -1,8 +1,7 @@
 ' Module: CellRedreaw
 ' Description: This module provides functions to update and manage ATLAS cell labels in MicroStation.
 ' It includes functions to calculate the size and origin of text elements, find connector indices between elements,
-' move vertices and elements, and rotate elements within a cell. The module ensures that operations are performed
-' with silent error handling to avoid interrupting the workflow.
+' move vertices and elements, and rotate elements within a cell.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass
 
