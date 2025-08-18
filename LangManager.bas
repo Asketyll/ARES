@@ -45,7 +45,17 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_DGNOpenCloseEventsInitialized", "Track events element initialized."
     mTranslations.Add "EN_DGNOpenCloseInitError", "Error initializing DGN Open/Close events: "
     mTranslations.Add "EN_AutoLengthsGUIInvalidSelectedElement", "The selected item is invalid."
-    mTranslations.Add "EN_AutoLengthsGUICaption", "Select:"
+    mTranslations.Add "EN_AutoLengthsGUISelectElementsCaption", "Select:"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsCaption", "Edit auto lengths options:"
+    
+    mTranslations.Add "EN_AutoLengthsGUIOptionsMain_LabelCaption", "Enable auto Lenght"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsColor_LabelCaption", "Enable color update"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsCell_LabelCaption", "Enable ATLAS cell update"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Trigger_CommandCaption", "Edit value {0}"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Triggers_List_CommandCaption", "Edit triggers list"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsRound_LabelCaption", "Number after the decimal point:"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Cells_List_CommandCaption", "Edit ATLAS cell list"
+    
     mTranslations.Add "EN_AutoLengthsInitError", "Error initializing AutoLengths: "
     mTranslations.Add "EN_AutoLengthsCalculationError", "Error calculating lengths: "
     mTranslations.Add "EN_AutoLengthsUpdateError", "An error occurred while updating lengths: "
@@ -81,7 +91,17 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_DGNOpenCloseEventsInitialized", "Evénements de suivi d'objet initialisé."
     mTranslations.Add "FR_DGNOpenCloseInitError", "Erreur lors de l'initialisation des événements d'ouverture/fermeture DGN: "
     mTranslations.Add "FR_AutoLengthsGUIInvalidSelectedElement", "L'élément sélectionné n'est pas valide."
-    mTranslations.Add "FR_AutoLengthsGUICaption", "Sélectionner:"
+    mTranslations.Add "FR_AutoLengthsGUISelectElementsCaption", "Sélectionner:"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsCaption", "Modifier les options de longueurs automatiques :"
+    
+    mTranslations.Add "FR_AutoLengthsGUIOptionsMain_LabelCaption", "Activer les longueurs auto."
+    mTranslations.Add "FR_AutoLengthsGUIOptionsColor_LabelCaption", "Activer la MAJ de la couleur"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsCell_LabelCaption", "Activer la MAJ des cellules ATLAS"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Trigger_CommandCaption", "Editer la valeur {0}"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Triggers_List_CommandCaption", "Editer la liste des déclencheurs"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsRound_LabelCaption", "Nombre après la virgule:"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Cells_List_CommandCaption", "Editer la liste des cellules ATLAS"
+    
     mTranslations.Add "FR_AutoLengthsInitError", "Erreur lors de l'initialisation d'AutoLengths: "
     mTranslations.Add "FR_AutoLengthsCalculationError", "Erreur lors du calcul des longueurs: "
     mTranslations.Add "FR_AutoLengthsUpdateError", "Une erreur s'est produite lors de la mise à jour des longueurs: "
@@ -179,18 +199,18 @@ End Function
 
 ' Sub to set language to English
 Sub English()
-    If Config.SetVar(ARES.ARES_LANGUAGE.key, "English") Then
-        ShowStatus ARES.ARES_LANGUAGE.key & " set to English, please restart."
+    If Config.SetVar(ARESConfig.ARES_LANGUAGE.key, "English") Then
+        ShowStatus ARESConfig.ARES_LANGUAGE.key & " set to English, please restart."
     Else
-        ShowStatus "Imposible to set " & ARES.ARES_LANGUAGE.key & ", please try manualy."
+        ShowStatus "Imposible to set " & ARESConfig.ARES_LANGUAGE.key & ", please try manualy."
     End If
 End Sub
 
 ' Sub to set language to French
 Sub Français()
-    If Config.SetVar(ARES.ARES_LANGUAGE.key, "Français") Then
-        ShowStatus ARES.ARES_LANGUAGE.key & " défini à Français, veuillez redémarrer."
+    If Config.SetVar(ARESConfig.ARES_LANGUAGE.key, "Français") Then
+        ShowStatus ARESConfig.ARES_LANGUAGE.key & " défini à Français, veuillez redémarrer."
     Else
-        ShowStatus "Impossible de définir " & ARES.ARES_LANGUAGE.key & ", veuillez essayer manuellement."
+        ShowStatus "Impossible de définir " & ARESConfig.ARES_LANGUAGE.key & ", veuillez essayer manuellement."
     End If
 End Sub
