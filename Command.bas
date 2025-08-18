@@ -41,6 +41,19 @@ Sub RemoveARESVariables()
     End If
 End Sub
 
+' Sub to call GUI Options of AutoLenghts
+Sub EditAutoLenghtsOptions()
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+    If Not LangManager.IsInit Then
+        LangManager.InitializeTranslations
+    End If
+    Dim frm As New AutoLenghts_GUI_Options
+    frm.Show vbModeless
+End Sub
+
 ' Sub to set language to English
 Sub English()
     If Config.SetVar(ARESConfig.ARES_LANGUAGE.key, "English") Then
