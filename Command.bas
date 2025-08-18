@@ -40,3 +40,21 @@ Sub RemoveARESVariables()
         ShowStatus GetTranslation("VarRemoveError")
     End If
 End Sub
+
+' Sub to set language to English
+Sub English()
+    If Config.SetVar(ARESConfig.ARES_LANGUAGE.key, "English") Then
+        ShowStatus ARESConfig.ARES_LANGUAGE.key & " set to English, please restart."
+    Else
+        ShowStatus "Imposible to set " & ARESConfig.ARES_LANGUAGE.key & ", please try manualy."
+    End If
+End Sub
+
+' Sub to set language to French
+Sub Français()
+    If Config.SetVar(ARESConfig.ARES_LANGUAGE.key, "Français") Then
+        ShowStatus ARESConfig.ARES_LANGUAGE.key & " défini à Français, veuillez redémarrer."
+    Else
+        ShowStatus "Impossible de définir " & ARESConfig.ARES_LANGUAGE.key & ", veuillez essayer manuellement."
+    End If
+End Sub
