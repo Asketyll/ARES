@@ -5,25 +5,25 @@
 Option Explicit
 
 ' Array to store the linked elements
-Private pLinkedElements() As Element
+Private pLinkedElements() As element
 ' Variable to store the master element
-Private pMasterElement As Element
+Private pMasterElement As element
 ' Instance of the AutoLengths class to handle auto-length operations
-Private pAutoLengths As autoLengths
+Private pAutoLengths As AutoLengths
 
 ' Method to set the linked elements from an external array
-Public Sub SetLinkedElements(elements() As Element)
+Public Sub SetLinkedElements(elements() As element)
     pLinkedElements = elements
 End Sub
 
 ' Property to set the master element
-Public Property Set SetMasterElement(ByVal El As Element)
+Public Property Set SetMasterElement(ByVal El As element)
     Set pMasterElement = El
 End Property
 
 ' Property to set the instance of AutoLengths
-Public Property Set AutoLengthsInstance(ByVal autoLengths As autoLengths)
-    Set pAutoLengths = autoLengths
+Public Property Set AutoLengthsInstance(ByVal AutoLengths As AutoLengths)
+    Set pAutoLengths = AutoLengths
 End Property
 
 ' Event handler for clicking an item in the ListBox
@@ -81,7 +81,7 @@ End Sub
 ' Sets the caption of the form using a translation key
 Private Sub UserForm_Initialize()
     On Error GoTo ErrorHandler
-    Me.Caption = GetTranslation("AutoLengthsGUICaption")
+    Me.Caption = GetTranslation("AutoLengthsGUISelectElementsCaption")
     Exit Sub
 
 ErrorHandler:
@@ -102,7 +102,7 @@ End Sub
 
 ' Method to handle the selected element
 ' Calls the method in the AutoLengths instance to continue the execution with the selected element
-Private Sub OnElementSelected(ByVal selectedElement As Element)
+Private Sub OnElementSelected(ByVal selectedElement As element)
     On Error GoTo ErrorHandler
     ' Call the method in the existing AutoLengths instance to continue the execution
     pAutoLengths.OnElementSelected selectedElement, pMasterElement
