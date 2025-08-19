@@ -47,7 +47,6 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_AutoLengthsGUIInvalidSelectedElement", "The selected item is invalid."
     mTranslations.Add "EN_AutoLengthsGUISelectElementsCaption", "Select:"
     mTranslations.Add "EN_AutoLengthsGUIOptionsCaption", "Edit auto lengths options:"
-    
     mTranslations.Add "EN_AutoLengthsGUIOptionsMain_LabelCaption", "Enable auto Lenght"
     mTranslations.Add "EN_AutoLengthsGUIOptionsColor_LabelCaption", "Enable color update"
     mTranslations.Add "EN_AutoLengthsGUIOptionsCell_LabelCaption", "Enable ATLAS cell update"
@@ -55,7 +54,7 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Triggers_List_CommandCaption", "Edit triggers list"
     mTranslations.Add "EN_AutoLengthsGUIOptionsRound_LabelCaption", "Number after the decimal point:"
     mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Cells_List_CommandCaption", "Edit ATLAS cell list"
-    
+    mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Triggers_List_Error", "All your triggers should include: "
     mTranslations.Add "EN_AutoLengthsInitError", "Error initializing AutoLengths: "
     mTranslations.Add "EN_AutoLengthsCalculationError", "Error calculating lengths: "
     mTranslations.Add "EN_AutoLengthsUpdateError", "An error occurred while updating lengths: "
@@ -93,7 +92,6 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_AutoLengthsGUIInvalidSelectedElement", "L'élément sélectionné n'est pas valide."
     mTranslations.Add "FR_AutoLengthsGUISelectElementsCaption", "Sélectionner:"
     mTranslations.Add "FR_AutoLengthsGUIOptionsCaption", "Modifier les options de longueurs automatiques :"
-    
     mTranslations.Add "FR_AutoLengthsGUIOptionsMain_LabelCaption", "Activer les longueurs auto."
     mTranslations.Add "FR_AutoLengthsGUIOptionsColor_LabelCaption", "Activer la MAJ de la couleur"
     mTranslations.Add "FR_AutoLengthsGUIOptionsCell_LabelCaption", "Activer la MAJ des cellules ATLAS"
@@ -101,7 +99,7 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Triggers_List_CommandCaption", "Editer la liste des déclencheurs"
     mTranslations.Add "FR_AutoLengthsGUIOptionsRound_LabelCaption", "Nombre après la virgule:"
     mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Cells_List_CommandCaption", "Editer la liste des cellules ATLAS"
-    
+    mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Triggers_List_Error", "Tout vos déclencheurs doivent comporter: "
     mTranslations.Add "FR_AutoLengthsInitError", "Erreur lors de l'initialisation d'AutoLengths: "
     mTranslations.Add "FR_AutoLengthsCalculationError", "Erreur lors du calcul des longueurs: "
     mTranslations.Add "FR_AutoLengthsUpdateError", "Une erreur s'est produite lors de la mise à jour des longueurs: "
