@@ -123,16 +123,16 @@ End Sub
 
 ' Get translation for specified key with optional parameter substitution
 ' Returns localized string based on user language preference
-Public Function GetTranslation(strKey As String, ParamArray params() As Variant) As String
+Public Function GetTranslation(StrKey As String, ParamArray params() As Variant) As String
     On Error GoTo ErrorHandler
     
     ' Validate inputs
     If Not IsInit Then
-        GetTranslation = "[Translation system not initialized] " & strKey
+        GetTranslation = "[Translation system not initialized] " & StrKey
         Exit Function
     End If
     
-    If Len(Trim(strKey)) = 0 Then
+    If Len(Trim(StrKey)) = 0 Then
         GetTranslation = "[Empty translation key]"
         Exit Function
     End If
@@ -142,19 +142,19 @@ Public Function GetTranslation(strKey As String, ParamArray params() As Variant)
     Dim i As Long
     
     ' Construct language-specific key
-    strBaseKey = UCase(Left(mUserLanguage, 2)) & "_" & strKey
+    strBaseKey = UCase(Left(mUserLanguage, 2)) & "_" & StrKey
     
     ' Try to find translation in user's language
     If mTranslations.Exists(strBaseKey) Then
         strTranslatedText = mTranslations(strBaseKey)
     Else
         ' Fallback to English if user language not available
-        strBaseKey = "EN_" & strKey
+        strBaseKey = "EN_" & StrKey
         If mTranslations.Exists(strBaseKey) Then
             strTranslatedText = mTranslations(strBaseKey)
         Else
             ' Last resort: return error message with key
-            GetTranslation = "[Missing translation: " & strKey & "]"
+            GetTranslation = "[Missing translation: " & StrKey & "]"
             Exit Function
         End If
     End If
@@ -171,7 +171,7 @@ Public Function GetTranslation(strKey As String, ParamArray params() As Variant)
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetTranslation"
-    GetTranslation = "[Translation error for: " & strKey & "]"
+    GetTranslation = "[Translation error for: " & StrKey & "]"
 End Function
 
 ' Determine user's preferred language from various sources

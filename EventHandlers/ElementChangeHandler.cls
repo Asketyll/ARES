@@ -82,7 +82,7 @@ Private Sub HandleElementAdded(ByVal NewElement As element, Optional Recalculate
 
     Dim AUTO_LENGTH As Boolean
     Dim TriggerFinded As Boolean
-    Dim Txts() As String
+    Dim txts() As String
     Dim Triggers() As String
     Dim i As Long, j As Long
     Dim SplitedTrigger() As String
@@ -101,14 +101,14 @@ Private Sub HandleElementAdded(ByVal NewElement As element, Optional Recalculate
     End If
 
     ' Get the texts in the element
-    Txts = StringsInEl.GetSetTextsInEl(NewElement)
-    If Not IsArray(Txts) Then
+    txts = StringsInEl.GetSetTextsInEl(NewElement)
+    If Not IsArray(txts) Then
         ElementInProcesse.Remove NewElement
         Exit Sub
     End If
     
     On Error Resume Next
-    If UBound(Txts) < LBound(Txts) Then
+    If UBound(txts) < LBound(txts) Then
         ElementInProcesse.Remove NewElement
         Exit Sub
     End If
@@ -119,18 +119,18 @@ Private Sub HandleElementAdded(ByVal NewElement As element, Optional Recalculate
 
     ' If Recalculate is True, process the triggers in the texts
     If Recalculate Then
-        For i = LBound(Txts) To UBound(Txts)
+        For i = LBound(txts) To UBound(txts)
             For j = LBound(Triggers) To UBound(Triggers)
                 SplitedTrigger = Split(Triggers(j), ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)
                 If UBound(SplitedTrigger) = 1 Then ' Ensure it splits into exactly two parts
-                    FirstPartIndex = InStr(1, Txts(i), SplitedTrigger(0))
-                    SecondPartIndex = InStr(1, Txts(i), SplitedTrigger(1))
+                    FirstPartIndex = InStr(1, txts(i), SplitedTrigger(0))
+                    SecondPartIndex = InStr(1, txts(i), SplitedTrigger(1))
                     If FirstPartIndex > 0 And SecondPartIndex > FirstPartIndex Then
-                        MiddleText = Mid(Txts(i), FirstPartIndex + Len(SplitedTrigger(0)), SecondPartIndex - FirstPartIndex - Len(SplitedTrigger(0)))
+                        MiddleText = Mid(txts(i), FirstPartIndex + Len(SplitedTrigger(0)), SecondPartIndex - FirstPartIndex - Len(SplitedTrigger(0)))
                         ' Check if MiddleText contains only numbers, spaces, commas, or points
                         If IsNumericText(MiddleText) Then
-                            Txts(i) = Left(Txts(i), FirstPartIndex + Len(SplitedTrigger(0)) - 1) & Mid(Txts(i), SecondPartIndex)
-                            StringsInEl.GetSetTextsInEl NewElement, Join(Txts, ARES_VAR_DELIMITER)
+                            txts(i) = Left(txts(i), FirstPartIndex + Len(SplitedTrigger(0)) - 1) & Mid(txts(i), SecondPartIndex)
+                            StringsInEl.GetSetTextsInEl NewElement, Join(txts, ARES_VAR_DELIMITER)
                             TriggerFinded = True
                         End If
                     End If
@@ -140,9 +140,9 @@ Private Sub HandleElementAdded(ByVal NewElement As element, Optional Recalculate
     End If
 
     ' Search for triggers in the texts
-    For i = LBound(Txts) To UBound(Txts)
+    For i = LBound(txts) To UBound(txts)
         For j = LBound(Triggers) To UBound(Triggers)
-            If InStr(1, Txts(i), StringsInEl.RemovePattern(Triggers(j), ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)) > 0 Then
+            If InStr(1, txts(i), StringsInEl.RemovePattern(Triggers(j), ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)) > 0 Then
                 TriggerFinded = True
                 Exit For
             End If

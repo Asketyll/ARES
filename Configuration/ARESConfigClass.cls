@@ -133,25 +133,25 @@ ErrorHandler:
 End Function
 
 ' Create and initialize a single configuration variable
-Private Function CreateConfigVar(ByVal strKey As String, ByVal strDefaultValue As String) As ARES_MS_VAR_Class
+Private Function CreateConfigVar(ByVal StrKey As String, ByVal strDefaultValue As String) As ARES_MS_VAR_Class
     On Error GoTo ErrorHandler
     
     Dim oConfigVar As ARES_MS_VAR_Class
     Set oConfigVar = New ARES_MS_VAR_Class
     
     ' Initialize the variable with key and default
-    oConfigVar.Initialize strKey, strDefaultValue
+    oConfigVar.Initialize StrKey, strDefaultValue
     
     ' Get current value from MicroStation configuration
     Dim strCurrentValue As String
-    strCurrentValue = Config.GetVar(strKey)
+    strCurrentValue = Config.GetVar(StrKey)
     
     ' If variable is not defined in MicroStation, create it with default value
     If strCurrentValue = ARESConstants.ARES_NAVD Then
         strCurrentValue = strDefaultValue
-        If Not Config.SetVar(strKey, strDefaultValue) Then
+        If Not Config.SetVar(StrKey, strDefaultValue) Then
             ' Log warning if we can't set the variable but continue
-            ErrorHandler.HandleError "Failed to set default value for: " & strKey, 0, "ARESConfig.CreateConfigVar", "WARNING"
+            ErrorHandler.HandleError "Failed to set default value for: " & StrKey, 0, "ARESConfig.CreateConfigVar", "WARNING"
         End If
     End If
     
@@ -159,7 +159,7 @@ Private Function CreateConfigVar(ByVal strKey As String, ByVal strDefaultValue A
     oConfigVar.Value = strCurrentValue
     
     ' Add to collection
-    moConfigVariables.Add oConfigVar, strKey
+    moConfigVariables.Add oConfigVar, StrKey
     Set CreateConfigVar = oConfigVar
     
     Exit Function
@@ -170,7 +170,7 @@ ErrorHandler:
 End Function
 
 ' Get a configuration variable by key
-Public Function GetConfigVar(ByVal strKey As String) As ARES_MS_VAR_Class
+Public Function GetConfigVar(ByVal StrKey As String) As ARES_MS_VAR_Class
     On Error GoTo ErrorHandler
     
     ' Validate inputs
@@ -180,13 +180,13 @@ Public Function GetConfigVar(ByVal strKey As String) As ARES_MS_VAR_Class
         Exit Function
     End If
     
-    If Len(Trim(strKey)) = 0 Then
+    If Len(Trim(StrKey)) = 0 Then
         ErrorHandler.HandleError "Empty key provided", 0, "ARESConfig.GetConfigVar", "ERROR"
         Set GetConfigVar = Nothing
         Exit Function
     End If
     
-    Set GetConfigVar = moConfigVariables(strKey)
+    Set GetConfigVar = moConfigVariables(StrKey)
     Exit Function
     
 ErrorHandler:
@@ -195,11 +195,11 @@ ErrorHandler:
 End Function
 
 ' Reset a configuration variable to its default value
-Public Function ResetConfigVar(ByVal key As String) As Boolean
+Public Function ResetConfigVar(ByVal Key As String) As Boolean
     On Error GoTo ErrorHandler
 
     Dim configVar As ARES_MS_VAR_Class
-    Set configVar = pConfigVariables(key)
+    Set configVar = pConfigVariables(Key)
 
     If configVar Is Nothing Then
         ResetConfigVar = False
@@ -207,7 +207,7 @@ Public Function ResetConfigVar(ByVal key As String) As Boolean
     End If
 
     ' Reset in MicroStation
-    If Not Config.SetVar(key, configVar.Default) Then
+    If Not Config.SetVar(Key, configVar.Default) Then
         ResetConfigVar = False
         Exit Function
     End If
@@ -224,11 +224,11 @@ ErrorHandler:
 End Function
 
 ' Remove a configuration variable
-Public Function RemoveConfigVar(ByVal key As String, Optional showConfirmation As Boolean = True) As Boolean
+Public Function RemoveConfigVar(ByVal Key As String, Optional showConfirmation As Boolean = True) As Boolean
     On Error GoTo ErrorHandler
 
     Dim configVar As ARES_MS_VAR_Class
-    Set configVar = pConfigVariables(key)
+    Set configVar = pConfigVariables(Key)
 
     If configVar Is Nothing Then
         RemoveConfigVar = False
@@ -237,20 +237,20 @@ Public Function RemoveConfigVar(ByVal key As String, Optional showConfirmation A
 
     ' Ask for confirmation
     If showConfirmation Then
-        If MsgBox(GetTranslation("VarRemoveConfirm", key), vbYesNo) = vbNo Then
+        If MsgBox(GetTranslation("VarRemoveConfirm", Key), vbYesNo) = vbNo Then
             RemoveConfigVar = False
             Exit Function
         End If
     End If
 
     ' Remove from MicroStation
-    If Not Config.RemoveValue(key) Then
+    If Not Config.RemoveValue(Key) Then
         RemoveConfigVar = False
         Exit Function
     End If
 
     ' Remove from collection
-    pConfigVariables.Remove key
+    pConfigVariables.Remove Key
     RemoveConfigVar = True
 
     Exit Function
@@ -269,7 +269,7 @@ Public Function ResetAllConfigVars() As Boolean
 
     Success = True
     For Each var In pConfigVariables
-        If Not ResetConfigVar(var.key) Then
+        If Not ResetConfigVar(var.Key) Then
             Success = False
         End If
     Next var
@@ -297,7 +297,7 @@ Public Function RemoveAllConfigVars() As Boolean
 
     Success = True
     For Each var In pConfigVariables
-        If Not RemoveConfigVar(var.key, False) Then
+        If Not RemoveConfigVar(var.Key, False) Then
             Success = False
         End If
     Next var

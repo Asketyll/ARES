@@ -25,7 +25,7 @@ Public Sub Initialize(ByVal NewElement As element)
         ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
         CalculateLengths
     Else
-        ShowStatus "No linked elements found for element ID: " & DLongToString(pNewElement.id)
+        ShowStatus "No linked elements found for element ID: " & DLongToString(pNewElement.ID)
     End If
     Exit Sub
     
@@ -56,7 +56,7 @@ Private Sub CalculateLengths()
     Dim linkedElement As element
 
     ' Check if the array pLinkedElements is initialized and not empty
-    If Not IsArrayInitialized(pLinkedElements) Then Exit Sub
+    'If Not IsArrayInitialized(pLinkedElements) Then Exit Sub
 
     ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
 
@@ -127,7 +127,7 @@ Private Sub HandleSingleElement()
     If Not IsEmpty(Results) Then
         ElementInProcesse.Remove pNewElement
     Else
-        ShowStatus "Failed to update texts in element with ID: " & DLongToString(pNewElement.id)
+        ShowStatus "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID)
     End If
 End Sub
 
@@ -169,14 +169,14 @@ Private Sub UpdateSingleNonZeroLength()
                 ElementInProcesse.Remove pNewElement
                 Success = True
             Else
-                ShowStatus "Failed to update texts in element with ID: " & DLongToString(pNewElement.id)
+                ShowStatus "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID)
             End If
             Exit For
         End If
     Next j
 
     If Not Success Then
-        ErrorHandler.LogWarning "No non-zero length found to update in element with ID: " & DLongToString(pNewElement.id), "AutoLengths.UpdateSingleNonZeroLength"
+        ErrorHandler.LogWarning "No non-zero length found to update in element with ID: " & DLongToString(pNewElement.ID), "AutoLengths.UpdateSingleNonZeroLength"
     End If
 End Sub
 
@@ -210,7 +210,7 @@ Private Sub ShowElementSelectionForm()
     ' Configure and show the form
     Set frm.AutoLengthsInstance = Me
     frm.SetLinkedElements pLinkedElements
-    Set frm.SetMasterElement = ActiveModelReference.GetElementByID(pNewElement.id)
+    Set frm.SetMasterElement = ActiveModelReference.GetElementById(pNewElement.ID)
     frm.Show vbModeless
 
     Exit Sub
@@ -245,7 +245,7 @@ Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterEleme
             ElementInProcesse.Remove linkedElement
         Next linkedElement
     Else
-        ShowStatus "Failed to update texts in master element with ID: " & DLongToString(MasterElement.id)
+        ShowStatus "Failed to update texts in master element with ID: " & DLongToString(MasterElement.ID)
     End If
 
     Exit Sub
