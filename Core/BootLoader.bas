@@ -7,7 +7,7 @@ Option Explicit
 ' === GLOBAL OBJECT INSTANCES ===
 Public ChangeHandler As ElementChangeHandler
 Public ErrorHandler As ErrorHandlerClass
-Public ElementInProcesse As ElementInProcesseClass
+Public ElementInProcesse As New ElementInProcesseClass
 Public ARESConfig As New ARESConfigClass
 
 ' === PRIVATE OBJECTS ===

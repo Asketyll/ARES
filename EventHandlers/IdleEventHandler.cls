@@ -1,7 +1,7 @@
 ' Class Module: IdleEventHandler
 ' Description: This class handles the IEnterIdleEvent to execute code when MicroStation is idle.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: LangManager, ErrorHandlerClass
+' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass
 Option Explicit
 
 Implements IEnterIdleEvent
@@ -22,9 +22,9 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
     LangManager.InitializeTranslations
     
     ' Check if ARES_LANGUAGE is initialized
-    If ARES_VAR.ARES_LANGUAGE Is Nothing Then
+    If ARESConfig.IsInitialized Then
         ' Initialize MS variables if not already done, LangManager can initialize ARES_VAR if it needs to
-        ARES_VAR.InitMSVars
+        ARESConfig.Initialize
     End If
     Exit Sub
 

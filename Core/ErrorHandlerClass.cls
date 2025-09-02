@@ -5,7 +5,7 @@
 Option Explicit
 
 ' Enum for log levels
-Public Enum LogLevel
+Public Enum logLevel
     LOG_LEVEL_DEBUG = 0
     LOG_LEVEL_INFO = 1
     LOG_LEVEL_WARNING = 2
@@ -21,10 +21,10 @@ Private Const BACKUP_EXTENSION As String = ".old"
 ' === PRIVATE MEMBERS ===
 Private mstrLogFilePath As String
 Private mbLoggingEnabled As Boolean
-Private mCurrentLogLevel As LogLevel
+Private mCurrentLogLevel As logLevel
 
 ' Initialize the error handler with logging preferences
-Public Sub Initialize(Optional ByVal bEnableLogging As Boolean = True, Optional ByVal logLevel As LogLevel = LOG_LEVEL_INFO)
+Public Sub Initialize(Optional ByVal bEnableLogging As Boolean = True, Optional ByVal logLevel As logLevel = LOG_LEVEL_INFO)
     On Error Resume Next
     
     mbLoggingEnabled = bEnableLogging
@@ -40,7 +40,7 @@ Public Sub Initialize(Optional ByVal bEnableLogging As Boolean = True, Optional 
 End Sub
 
 ' Main logging method with level filtering
-Public Sub LogMessage(ByVal strMessage As String, ByVal level As LogLevel, Optional ByVal strModuleName As String = "")
+Public Sub LogMessage(ByVal strMessage As String, ByVal level As logLevel, Optional ByVal strModuleName As String = "")
     On Error Resume Next ' Do not interrupt execution in case of logging error
     
     ' Check if logging is enabled and level is appropriate
@@ -52,7 +52,7 @@ Public Sub LogMessage(ByVal strMessage As String, ByVal level As LogLevel, Optio
 End Sub
 
 ' Internal method to write to log file
-Private Sub WriteToLog(ByVal strMessage As String, ByVal level As LogLevel, ByVal strModuleName As String)
+Private Sub WriteToLog(ByVal strMessage As String, ByVal level As logLevel, ByVal strModuleName As String)
     On Error Resume Next
     
     Dim intLogFile As Integer
@@ -104,7 +104,7 @@ Public Sub LogCritical(ByVal strMessage As String, Optional ByVal strModuleName 
 End Sub
 
 ' Get string representation of log level
-Private Function GetLogLevelString(ByVal level As LogLevel) As String
+Private Function GetLogLevelString(ByVal level As logLevel) As String
     Select Case level
         Case LOG_LEVEL_DEBUG
             GetLogLevelString = "DEBUG"
@@ -191,7 +191,7 @@ Public Sub HandleError(ByVal strErrorDescription As String, _
     On Error Resume Next
     
     Dim strErrorMessage As String
-    Dim logLevel As LogLevel
+    Dim logLevel As logLevel
     
     ' Determine log level based on severity or error number
     logLevel = DetermineLogLevel(lngErrorNumber, strSeverity)
@@ -209,7 +209,7 @@ Public Sub HandleError(ByVal strErrorDescription As String, _
 End Sub
 
 ' Determine appropriate log level based on error info
-Private Function DetermineLogLevel(ByVal lngErrorNumber As Long, ByVal strSeverity As String) As LogLevel
+Private Function DetermineLogLevel(ByVal lngErrorNumber As Long, ByVal strSeverity As String) As logLevel
     On Error Resume Next
     
     ' Check explicit severity first

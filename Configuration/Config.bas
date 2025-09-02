@@ -9,11 +9,11 @@ Option Explicit
 
 ' Function to get the value of a configuration variable
 ' Returns ARESConstants.ARES_NAVD if configuration variable is not defined
-Public Function GetVar(ByVal strKey As String) As String
+Public Function GetVar(ByVal StrKey As String) As String
     On Error GoTo ErrorHandler
 
     ' Validate input parameter
-    If Not IsValidKey(strKey) Then
+    If Not IsValidKey(StrKey) Then
         GetVar = ARESConstants.ARES_NAVD
         Exit Function
     End If
@@ -22,9 +22,9 @@ Public Function GetVar(ByVal strKey As String) As String
     GetVar = ARESConstants.ARES_NAVD
 
     ' Check if the configuration variable is defined
-    If Application.ActiveWorkspace.IsConfigurationVariableDefined(strKey) Then
+    If Application.ActiveWorkspace.IsConfigurationVariableDefined(StrKey) Then
         ' Retrieve the value of the configuration variable
-        GetVar = Application.ActiveWorkspace.ConfigurationVariableValue(strKey)
+        GetVar = Application.ActiveWorkspace.ConfigurationVariableValue(StrKey)
     End If
 
     Exit Function
@@ -37,18 +37,18 @@ End Function
 
 ' Function to set the value of a configuration variable
 ' Creates the variable and sets the definition. If the configuration is already defined, it just updates the definition.
-Public Function SetVar(ByVal strKey As String, ByVal strValue As String) As Boolean
+Public Function SetVar(ByVal StrKey As String, ByVal strValue As String) As Boolean
     On Error GoTo ErrorHandler
     
     ' Initialize the return value
     SetVar = False
     
     ' Validate input parameters
-    If Not IsValidKey(strKey) Then Exit Function
+    If Not IsValidKey(StrKey) Then Exit Function
     If strValue = vbNullString Then strValue = ""
     
     ' Set the configuration variable value
-    Application.ActiveWorkspace.AddConfigurationVariable strKey, strValue, True
+    Application.ActiveWorkspace.AddConfigurationVariable StrKey, strValue, True
     SetVar = True
     
     Exit Function
@@ -60,19 +60,19 @@ ErrorHandler:
 End Function
 
 ' Function to remove a value of a configuration variable
-Public Function RemoveValue(ByVal strKey As String) As Boolean
+Public Function RemoveValue(ByVal StrKey As String) As Boolean
     On Error GoTo ErrorHandler
     
     ' Initialize the return value
     RemoveValue = False
     
     ' Validate input parameter
-    If Not IsValidKey(strKey) Then Exit Function
+    If Not IsValidKey(StrKey) Then Exit Function
     
     ' Check if the configuration variable is defined
-    If Application.ActiveWorkspace.IsConfigurationVariableDefined(strKey) Then
+    If Application.ActiveWorkspace.IsConfigurationVariableDefined(StrKey) Then
         ' Remove the configuration variable value by setting it to an empty string
-        RemoveValue = SetVar(strKey, "")
+        RemoveValue = SetVar(StrKey, "")
     End If
     
     Exit Function
@@ -85,13 +85,13 @@ End Function
 
 ' Function to check if a key is valid
 ' Returns True if key is not empty, null, or only whitespace
-Private Function IsValidKey(ByVal strKey As String) As Boolean
+Private Function IsValidKey(ByVal StrKey As String) As Boolean
     On Error GoTo ErrorHandler
     
     IsValidKey = False
     
     ' Check for null, empty, or whitespace-only strings
-    If strKey <> vbNullString And Len(Trim(strKey)) > 0 Then
+    If StrKey <> vbNullString And Len(Trim(StrKey)) > 0 Then
         IsValidKey = True
     End If
     

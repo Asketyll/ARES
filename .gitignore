@@ -1,0 +1,17 @@
+# ===================================
+# Configuration Claude Code - Ne pas committer
+# ===================================
+
+# Configuration Claude
+.claude/
+CLAUDE.md
+
+# Fichiers temporaires Claude
+*.claude-backup
+.claude-temp/
+
+# ===================================
+# Documentation MVBA - Ne pas committer
+# ===================================
+
+docs/

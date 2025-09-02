@@ -92,10 +92,10 @@ ErrorHandler:
 End Function
 
 ' Initialize the variable with key and default value
-Public Sub Initialize(ByVal strKey As String, ByVal strDefaultValue As String)
+Public Sub Initialize(ByVal StrKey As String, ByVal strDefaultValue As String)
     On Error GoTo ErrorHandler
     
-    Key = strKey
+    Key = StrKey
     DefaultValue = strDefaultValue
     mstrValue = strDefaultValue
     mbIsModified = False

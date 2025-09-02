@@ -27,7 +27,7 @@ End Sub
 
 ' Add an element to the processing collection
 ' Returns True if added successfully, False if already exists or error
-Public Function Add(ByVal oElement As Element) As Boolean
+Public Function Add(ByVal oElement As element) As Boolean
     On Error GoTo ErrorHandler
     
     Add = False
@@ -44,7 +44,7 @@ Public Function Add(ByVal oElement As Element) As Boolean
     End If
     
     Dim strElementId As String
-    strElementId = ConvertElementIdToString(oElement.ID)
+    strElementId = DLongToString(oElement.ID)
     
     ' Check if element already exists
     If ContainsElementId(strElementId) Then
@@ -68,7 +68,7 @@ ErrorHandler:
 End Function
 
 ' Remove an element from the processing collection
-Public Function Remove(ByVal oElement As Element) As Boolean
+Public Function Remove(ByVal oElement As element) As Boolean
     On Error GoTo ErrorHandler
     
     Remove = False
@@ -85,7 +85,7 @@ Public Function Remove(ByVal oElement As Element) As Boolean
     End If
     
     Dim strElementId As String
-    strElementId = ConvertElementIdToString(oElement.ID)
+    strElementId = DLongToString(oElement.ID)
     
     ' Remove element if it exists
     If ContainsElementId(strElementId) Then
@@ -123,7 +123,7 @@ ErrorHandler:
 End Function
 
 ' Check if an element is currently being processed
-Public Function Contains(ByVal oElement As Element) As Boolean
+Public Function Contains(ByVal oElement As element) As Boolean
     On Error GoTo ErrorHandler
     
     Contains = False
@@ -132,7 +132,7 @@ Public Function Contains(ByVal oElement As Element) As Boolean
     If Not mbInitialized Or oElement Is Nothing Then Exit Function
     
     Dim strElementId As String
-    strElementId = ConvertElementIdToString(oElement.ID)
+    strElementId = DLongToString(oElement.ID)
     
     Contains = ContainsElementId(strElementId)
     Exit Function
@@ -162,7 +162,7 @@ End Function
 Private Function ContainsElementId(ByVal strElementId As String) As Boolean
     On Error GoTo ErrorHandler
     
-    Dim oTempElement As Element
+    Dim oTempElement As element
     Set oTempElement = moElements(strElementId)
     ContainsElementId = True
     Exit Function
@@ -214,7 +214,7 @@ Public Property Get IsEmpty() As Boolean
 End Property
 
 ' Get element by ID string
-Public Function GetElementById(ByVal strElementId As String) As Element
+Public Function GetElementById(ByVal strElementId As String) As element
     On Error GoTo ErrorHandler
     
     Set GetElementById = Nothing
@@ -230,24 +230,12 @@ ErrorHandler:
     Set GetElementById = Nothing
 End Function
 
-' Convert Element ID to string representation
-Private Function ConvertElementIdToString(ByVal lngElementId As Long) As String
-    On Error GoTo ErrorHandler
-    
-    ConvertElementIdToString = CStr(lngElementId)
-    Exit Function
-    
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementInProcesseClass.ConvertElementIdToString"
-    ConvertElementIdToString = "0"
-End Function
-
 ' Get all element IDs as an array (for debugging)
 Public Function GetAllElementIds() As String()
     On Error GoTo ErrorHandler
     
     Dim strIds() As String
-    Dim oElement As Element
+    Dim oElement As element
     Dim intIndex As Integer
     
     If Count = 0 Then
@@ -261,7 +249,7 @@ Public Function GetAllElementIds() As String()
     intIndex = 0
     
     For Each oElement In moElements
-        strIds(intIndex) = ConvertElementIdToString(oElement.ID)
+        strIds(intIndex) = DLongToString(oElement.ID)
         intIndex = intIndex + 1
     Next oElement
     
