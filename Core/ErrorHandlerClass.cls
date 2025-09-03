@@ -1,302 +1,189 @@
 ' Class Module: ErrorHandlerClass
-' Description: Centralized error handling and logging system for ARES application
+' Description: Centralized error handling and logging for ARES application
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConstants
+' Dependencies: None
 Option Explicit
-
-' Enum for log levels
-Public Enum logLevel
-    LOG_LEVEL_DEBUG = 0
-    LOG_LEVEL_INFO = 1
-    LOG_LEVEL_WARNING = 2
-    LOG_LEVEL_ERROR = 3
-    LOG_LEVEL_CRITICAL = 4
-End Enum
 
 ' === CONSTANTS ===
 Private Const MAX_LOG_FILE_SIZE As Long = 1048576    ' 1 MB
-Private Const LOG_FILE_EXTENSION As String = ".log"
-Private Const BACKUP_EXTENSION As String = ".old"
 
 ' === PRIVATE MEMBERS ===
-Private mstrLogFilePath As String
-Private mbLoggingEnabled As Boolean
-Private mCurrentLogLevel As logLevel
+Private mLogFilePath As String
 
-' Initialize the error handler with logging preferences
-Public Sub Initialize(Optional ByVal bEnableLogging As Boolean = True, Optional ByVal logLevel As logLevel = LOG_LEVEL_INFO)
+' === CLASS INITIALIZATION ===
+Private Sub Class_Initialize()
     On Error Resume Next
-    
-    mbLoggingEnabled = bEnableLogging
-    mCurrentLogLevel = logLevel
-    
-    ' Set up log file path
-    mstrLogFilePath = GetLogFilePath()
-    
-    ' Log initialization
-    If mbLoggingEnabled Then
-        WriteToLog "ErrorHandler initialized", LOG_LEVEL_INFO, "ErrorHandlerClass.Initialize"
-    End If
+    mLogFilePath = GetLogFilePath()
 End Sub
 
-' Main logging method with level filtering
-Public Sub LogMessage(ByVal strMessage As String, ByVal level As logLevel, Optional ByVal strModuleName As String = "")
-    On Error Resume Next ' Do not interrupt execution in case of logging error
+' === PUBLIC METHODS ===
+' Main error handling and logging method
+' Returns: True if successfully logged, False otherwise
+Public Function HandleError(ByVal Description As String, _
+                          ByVal Number As Long, _
+                          ByVal Source As String, _
+                          Optional ByVal ModuleName As String = "") As Boolean
+    On Error GoTo ErrorHandler
     
-    ' Check if logging is enabled and level is appropriate
-    If Not mbLoggingEnabled Or level < mCurrentLogLevel Then
-        Exit Sub
-    End If
+    Dim ErrorMessage As String
+    Dim FileNum As Integer
     
-    WriteToLog strMessage, level, strModuleName
-End Sub
-
-' Internal method to write to log file
-Private Sub WriteToLog(ByVal strMessage As String, ByVal level As logLevel, ByVal strModuleName As String)
-    On Error Resume Next
+    HandleError = False
     
-    Dim intLogFile As Integer
-    Dim strFormattedMessage As String
-    Dim strCurrentLogPath As String
+    ' Build and format complete error message
+    ErrorMessage = FormatErrorMessage(Description, Number, Source, ModuleName)
     
-    ' Get current log file path
-    strCurrentLogPath = GetLogFilePath()
+    ' Check log rotation
+    RotateIfNeeded
     
-    ' Build the formatted log message
-    strFormattedMessage = "[" & Format(Now, "yyyy-mm-dd hh:nn:ss") & "] " & _
-                         "[" & GetLogLevelString(level) & "]"
-                         
-    If Len(strModuleName) > 0 Then
-        strFormattedMessage = strFormattedMessage & " [" & strModuleName & "]"
+    ' Write to log file
+    FileNum = FreeFile
+    Open mLogFilePath For Append As #FileNum
+    Print #FileNum, ErrorMessage
+    Close #FileNum
+    
+    ' Show to user in debug mode
+    If Application.VBE.ActiveVBProject.Mode = vbext_vm_Design Then
+        ShowError Description, Number, Source
     End If
     
-    strFormattedMessage = strFormattedMessage & " " & strMessage
+    HandleError = True
+    Exit Function
     
-    ' Check log file size before writing
-    CheckAndRotateLogFile strCurrentLogPath
-
-    ' Write to the log file
-    intLogFile = FreeFile
-    Open strCurrentLogPath For Append As #intLogFile
-    Print #intLogFile, strFormattedMessage
-    Close #intLogFile
-End Sub
-
-' Convenience methods for different log levels
-Public Sub LogDebug(ByVal strMessage As String, Optional ByVal strModuleName As String = "")
-    LogMessage strMessage, LOG_LEVEL_DEBUG, strModuleName
-End Sub
-
-Public Sub LogInfo(ByVal strMessage As String, Optional ByVal strModuleName As String = "")
-    LogMessage strMessage, LOG_LEVEL_INFO, strModuleName
-End Sub
-
-Public Sub LogWarning(ByVal strMessage As String, Optional ByVal strModuleName As String = "")
-    LogMessage strMessage, LOG_LEVEL_WARNING, strModuleName
-End Sub
-
-Public Sub LogError(ByVal strMessage As String, Optional ByVal strModuleName As String = "")
-    LogMessage strMessage, LOG_LEVEL_ERROR, strModuleName
-End Sub
-
-Public Sub LogCritical(ByVal strMessage As String, Optional ByVal strModuleName As String = "")
-    LogMessage strMessage, LOG_LEVEL_CRITICAL, strModuleName
-End Sub
-
-' Get string representation of log level
-Private Function GetLogLevelString(ByVal level As logLevel) As String
-    Select Case level
-        Case LOG_LEVEL_DEBUG
-            GetLogLevelString = "DEBUG"
-        Case LOG_LEVEL_INFO
-            GetLogLevelString = "INFO"
-        Case LOG_LEVEL_WARNING
-            GetLogLevelString = "WARN"
-        Case LOG_LEVEL_ERROR
-            GetLogLevelString = "ERROR"
-        Case LOG_LEVEL_CRITICAL
-            GetLogLevelString = "CRIT"
-        Case Else
-            GetLogLevelString = "UNKNOWN"
-    End Select
+ErrorHandler:
+    HandleError = False
 End Function
 
-' Clear the current log file
+' Clear log file
 Public Sub ClearLogFile()
     On Error Resume Next
-    Dim intLogFile As Integer
-    Dim strCurrentLogPath As String
     
-    strCurrentLogPath = GetLogFilePath()
-    
-    intLogFile = FreeFile
-    Open strCurrentLogPath For Output As #intLogFile
-    Close #intLogFile
-    
-    If mbLoggingEnabled Then
-        WriteToLog "Log file cleared", LOG_LEVEL_INFO, "ErrorHandlerClass.ClearLogFile"
-    End If
+    Dim FileNum As Integer
+    FileNum = FreeFile
+    Open mLogFilePath For Output As #FileNum
+    Close #FileNum
 End Sub
 
-' Check log file size and rotate if necessary
-Private Sub CheckAndRotateLogFile(ByVal strLogPath As String)
-    On Error Resume Next
-    
-    Dim lngFileSize As Long
-    Dim intFileNum As Integer
-    
-    ' Check if the log file exists and get its size
-    If Len(Dir(strLogPath)) > 0 Then
-        intFileNum = FreeFile
-        Open strLogPath For Binary Access Read As #intFileNum
-        lngFileSize = LOF(intFileNum)
-        Close #intFileNum
+' Get current log file path (for testing)
+Public Property Get LogFilePath() As String
+    LogFilePath = mLogFilePath
+End Property
 
-        ' If the file is too large, rotate it
-        If lngFileSize > MAX_LOG_FILE_SIZE Then
-            RotateLogFile strLogPath
-        End If
-    End If
-End Sub
-
-' Rotate log file by renaming to backup
-Private Sub RotateLogFile(ByVal strLogPath As String)
-    On Error Resume Next
+' Get last log entry (for testing)
+Public Function GetLastLogEntry() As String
+    On Error GoTo ErrorHandler
     
-    Dim strBackupPath As String
-    Dim intCounter As Integer
+    Dim FileNum As Integer
+    Dim Line As String
+    Dim LastLine As String
     
-    ' Create backup file name with timestamp
-    strBackupPath = Left(strLogPath, InStrRev(strLogPath, ".") - 1) & _
-                   "_" & Format(Now, "yyyymmdd_hhnnss") & BACKUP_EXTENSION
-    
-    ' If backup already exists, add counter
-    intCounter = 1
-    Do While Len(Dir(strBackupPath)) > 0
-        strBackupPath = Left(strLogPath, InStrRev(strLogPath, ".") - 1) & _
-                       "_" & Format(Now, "yyyymmdd_hhnnss") & "_" & intCounter & BACKUP_EXTENSION
-        intCounter = intCounter + 1
-    Loop
-    
-    ' Rename current log to backup
-    Name strLogPath As strBackupPath
-End Sub
-
-' Main error handling method with flexible severity detection
-Public Sub HandleError(ByVal strErrorDescription As String, _
-                      Optional ByVal lngErrorNumber As Long = 0, _
-                      Optional ByVal strErrorSource As String = "", _
-                      Optional ByVal strModuleName As String = "", _
-                      Optional ByVal strSeverity As String = "")
-    On Error Resume Next
-    
-    Dim strErrorMessage As String
-    Dim logLevel As logLevel
-    
-    ' Determine log level based on severity or error number
-    logLevel = DetermineLogLevel(lngErrorNumber, strSeverity)
-    
-    ' Build comprehensive error message
-    strErrorMessage = BuildErrorMessage(strErrorDescription, lngErrorNumber, strErrorSource)
-    
-    ' Log the error
-    LogMessage strErrorMessage, logLevel, strModuleName
-    
-    ' For critical errors, also show message to user in development mode
-    If logLevel = LOG_LEVEL_CRITICAL And Application.VBE.ActiveVBProject.Mode = vbext_vm_Design Then
-        MsgBox "Critical Error in ARES: " & strErrorMessage, vbCritical + vbOKOnly, "ARES Error Handler"
-    End If
-End Sub
-
-' Determine appropriate log level based on error info
-Private Function DetermineLogLevel(ByVal lngErrorNumber As Long, ByVal strSeverity As String) As logLevel
-    On Error Resume Next
-    
-    ' Check explicit severity first
-    Select Case UCase(Trim(strSeverity))
-        Case "DEBUG"
-            DetermineLogLevel = LOG_LEVEL_DEBUG
-        Case "INFO"
-            DetermineLogLevel = LOG_LEVEL_INFO
-        Case "WARNING", "WARN"
-            DetermineLogLevel = LOG_LEVEL_WARNING
-        Case "ERROR"
-            DetermineLogLevel = LOG_LEVEL_ERROR
-        Case "CRITICAL", "CRIT"
-            DetermineLogLevel = LOG_LEVEL_CRITICAL
-        Case Else
-            ' Determine by error number if no explicit severity
-            If lngErrorNumber = 0 Then
-                DetermineLogLevel = LOG_LEVEL_INFO
-            ElseIf lngErrorNumber >= 1000 Then
-                DetermineLogLevel = LOG_LEVEL_CRITICAL
-            ElseIf lngErrorNumber >= 100 Then
-                DetermineLogLevel = LOG_LEVEL_ERROR
-            Else
-                DetermineLogLevel = LOG_LEVEL_WARNING
-            End If
-    End Select
-End Function
-
-' Build formatted error message
-Private Function BuildErrorMessage(ByVal strDescription As String, ByVal lngNumber As Long, ByVal strSource As String) As String
-    On Error Resume Next
-    
-    Dim strResult As String
-    
-    If lngNumber > 0 Then
-        strResult = "Error " & lngNumber
-    Else
-        strResult = "Event"
-    End If
-    
-    If Len(strSource) > 0 Then
-        strResult = strResult & " (" & strSource & ")"
-    End If
-    
-    strResult = strResult & ": " & strDescription
-    
-    BuildErrorMessage = strResult
-End Function
-
-' Get appropriate log file path
-Private Function GetLogFilePath() As String
-    On Error Resume Next
-    
-    Dim strPath As String
-    
-    If Len(mstrLogFilePath) > 0 Then
-        GetLogFilePath = mstrLogFilePath
+    If Len(Dir(mLogFilePath)) = 0 Then
+        GetLastLogEntry = ""
         Exit Function
     End If
     
-    If Not ActiveDesignFile Is Nothing Then
-        ' Use design file path
-        strPath = ActiveDesignFile.FullName & "_ARES" & LOG_FILE_EXTENSION
+    FileNum = FreeFile
+    Open mLogFilePath For Input As #FileNum
+    Do While Not EOF(FileNum)
+        Line Input #FileNum, Line
+        If Len(Line) > 0 Then LastLine = Line
+    Loop
+    Close #FileNum
+    
+    GetLastLogEntry = LastLine
+    Exit Function
+    
+ErrorHandler:
+    GetLastLogEntry = ""
+End Function
+
+' === PRIVATE METHODS ===
+' Format complete error message with timestamp
+Private Function FormatErrorMessage(ByVal Description As String, _
+                                   ByVal Number As Long, _
+                                   ByVal Source As String, _
+                                   ByVal ModuleName As String) As String
+    Dim Result As String
+    
+    ' Timestamp
+    Result = "[" & Format(Now, "yyyy-mm-dd hh:nn:ss") & "]"
+    
+    ' Module name if provided
+    If Len(ModuleName) > 0 Then
+        Result = Result & " [" & ModuleName & "]"
+    End If
+    
+    ' Error details
+    If Number > 0 Then
+        Result = Result & " Error " & Number
+        If Len(Source) > 0 Then
+            Result = Result & " (" & Source & ")"
+        End If
+        Result = Result & ": "
     Else
-        ' Use VBA project path as fallback
-        Dim oVBProj As Object
-        Set oVBProj = Application.VBE.ActiveVBProject
-        If Not oVBProj Is Nothing And Len(oVBProj.FileName) > 0 Then
-            strPath = Left(oVBProj.FileName, InStrRev(oVBProj.FileName, "\")) & "ARES_Default" & LOG_FILE_EXTENSION
-        Else
-            ' Last resort: temp directory
-            strPath = Environ("TEMP") & "\ARES_" & Format(Now, "yyyymmdd") & LOG_FILE_EXTENSION
+        Result = Result & " "
+    End If
+    
+    Result = Result & Description
+    FormatErrorMessage = Result
+End Function
+
+' Check and rotate log file if too large
+Private Sub RotateIfNeeded()
+    On Error Resume Next
+    
+    Dim FileNum As Integer
+    Dim FileSize As Long
+    
+    If Len(Dir(mLogFilePath)) = 0 Then Exit Sub
+    
+    FileNum = FreeFile
+    Open mLogFilePath For Binary Access Read As #FileNum
+    FileSize = LOF(FileNum)
+    Close #FileNum
+    
+    If FileSize > MAX_LOG_FILE_SIZE Then
+        Dim BackupPath As String
+        BackupPath = Replace(mLogFilePath, ".log", "_" & Format(Now, "yyyymmdd_hhnnss") & ".old")
+        Name mLogFilePath As BackupPath
+    End If
+End Sub
+
+' Get log file path
+Private Function GetLogFilePath() As String
+    On Error Resume Next
+    
+    Dim Path As String
+    
+    If Not ActiveDesignFile Is Nothing Then
+        Path = ActiveDesignFile.FullName & "_ARES.log"
+    ElseIf Not Application.VBE.ActiveVBProject Is Nothing Then
+        Path = Application.VBE.ActiveVBProject.FileName
+        If Len(Path) > 0 Then
+            Path = Left(Path, InStrRev(Path, "\")) & "ARES.log"
         End If
     End If
     
-    mstrLogFilePath = strPath
-    GetLogFilePath = strPath
-End Function
-
-' Clean up when class is destroyed
-Private Sub Class_Terminate()
-    On Error Resume Next
-    
-    If mbLoggingEnabled Then
-        WriteToLog "ErrorHandler terminating", LOG_LEVEL_INFO, "ErrorHandlerClass.Class_Terminate"
+    If Len(Path) = 0 Then
+        Path = Environ("TEMP") & "\ARES_" & Format(Date, "yyyymmdd") & ".log"
     End If
     
-    mstrLogFilePath = ""
-    mbLoggingEnabled = False
+    GetLogFilePath = Path
+End Function
+
+' Show error to user in debug mode
+Private Sub ShowError(ByVal Description As String, ByVal Number As Long, ByVal Source As String)
+    On Error Resume Next
+    
+    Dim Message As String
+    
+    If Number > 0 Then
+        Message = "Error " & Number
+        If Len(Source) > 0 Then Message = Message & " in " & Source
+        Message = Message & vbCrLf & vbCrLf & Description
+    Else
+        Message = Description
+    End If
+    
+    MsgBox Message, vbCritical + vbOKOnly, "ARES Error"
 End Sub
