@@ -26,9 +26,6 @@ Public Sub OnProjectLoad()
     If Not InitializeDGNHandlers() Then Exit Sub
     If Not InitializeEventHandlers() Then Exit Sub
     
-    ' Log successful initialization
-    ErrorHandler.HandleError "ARES VBA project loaded successfully", 0, "BootLoader.OnProjectLoad", "INFO"
-    
     Exit Sub
 
 ErrorHandler:
