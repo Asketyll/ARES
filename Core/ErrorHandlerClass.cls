@@ -54,6 +54,11 @@ ErrorHandler:
     HandleError = False
 End Function
 
+Public Sub UpdateLogFilePath()
+    On Error Resume Next
+    mLogFilePath = GetLogFilePath()
+End Sub
+
 ' Clear log file
 Public Sub ClearLogFile()
     On Error Resume Next
@@ -144,7 +149,7 @@ Private Sub RotateIfNeeded()
     
     If FileSize > MAX_LOG_FILE_SIZE Then
         Dim BackupPath As String
-        BackupPath = Replace(mLogFilePath, ".log", "_" & Format(Now, "yyyymmdd_hhnnss") & ".old")
+        BackupPath = Replace(mLogFilePath, ".log", "-" & Format(Now, "yyyymmdd_hhnnss") & ".old")
         Name mLogFilePath As BackupPath
     End If
 End Sub
@@ -154,18 +159,20 @@ Private Function GetLogFilePath() As String
     On Error Resume Next
     
     Dim Path As String
-    
-    If Not ActiveDesignFile Is Nothing Then
-        Path = ActiveDesignFile.FullName & "_ARES.log"
-    ElseIf Not Application.VBE.ActiveVBProject Is Nothing Then
-        Path = Application.VBE.ActiveVBProject.FileName
-        If Len(Path) > 0 Then
-            Path = Left(Path, InStrRev(Path, "\")) & "ARES.log"
+    If ActiveDesignFile Is Nothing Then
+    If Err.Number = -2147221504 Then Err.Clear
+        If Not Application.VBE.ActiveVBProject Is Nothing Then
+            Path = Application.VBE.ActiveVBProject.FileName
+            If Len(Path) > 0 Then
+                Path = Left(Path, InStrRev(Path, "\")) & "ARES - LogFile.log"
+            End If
         End If
+    Else
+    Path = ActiveDesignFile.FullName & " - ARESLogFile.log"
     End If
     
     If Len(Path) = 0 Then
-        Path = Environ("TEMP") & "\ARES_" & Format(Date, "yyyymmdd") & ".log"
+        Path = Environ("TEMP") & "\ARES - " & Format(Date, "yyyymmdd") & ".log"
     End If
     
     GetLogFilePath = Path
