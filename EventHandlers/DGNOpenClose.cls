@@ -24,6 +24,7 @@ Private Sub Hooks_OnDesignFileClosed(ByVal DesignFileName As String)
     On Error GoTo ErrorHandler
     ' Call a sub or function when a DGN file is closed
     ARESConfig.Initialize
+    ErrorHandler.UpdateLogFilePath
     Exit Sub
 
 ErrorHandler:
@@ -40,6 +41,7 @@ Private Sub Hooks_OnDesignFileOpened(ByVal DesignFileName As String)
     ' Register the idle event handler
     AddEnterIdleEventHandler oIdleEventHandler
     ElementInProcesse.Reset
+    ErrorHandler.UpdateLogFilePath
     Exit Sub
     
 ErrorHandler:

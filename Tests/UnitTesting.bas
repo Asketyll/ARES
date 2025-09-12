@@ -209,7 +209,7 @@ Sub ErrorHandlerTest()
     ' Summary
     Results = Results & vbCrLf & "=== SUMMARY ===" & vbCrLf
     Results = Results & "Tests Passed: " & TestsPassed & "/" & TotalTests & vbCrLf
-    Results = Results & "Success Rate: " & Format(TestsPassed / TotalTests * 100, "0.0") & " %"
-    
+    Results = Results & "Success Rate: " & Format(TestsPassed / TotalTests * 100, "0.0") & " %" & vbCrLf
+    Results = Results & TestErrorHandler.LogFilePath
     MsgBox Results, vbOKOnly + vbInformation, "Error Handler Test Results"
 End Sub
