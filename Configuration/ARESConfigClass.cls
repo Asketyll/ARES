@@ -93,7 +93,7 @@ Private Function CreateConfigVar(ByVal key As String, ByVal defaultValue As Stri
     Set configVar = New ARES_MS_VAR_Class
 
     configVar.key = key
-    configVar.Default = defaultValue
+    configVar.defaultValue = defaultValue
 
     ' Get current value from MicroStation
     Dim currentValue As String
@@ -133,7 +133,7 @@ Public Function ResetConfigVar(ByVal key As String) As Boolean
     End If
 
     ' Reset in MicroStation
-    If Not Config.SetVar(key, configVar.Default) Then
+    If Not Config.SetVar(key, configVar.defaultValue) Then
         ResetConfigVar = False
         Exit Function
     End If
