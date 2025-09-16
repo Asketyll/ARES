@@ -112,7 +112,7 @@ Public Function ATLASCellLabelUpdate(El As element) As Boolean
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedraw.ATLASCellLabelUpdate"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.ATLASCellLabelUpdate"
     ATLASCellLabelUpdate = False
 End Function
 
@@ -163,7 +163,7 @@ Private Function UpdateShapes(El As element, ShapesIndexByArea() As Integer, Cor
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedraw.UpdateShapes"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.UpdateShapes"
     UpdateShapes = False
 End Function
 
@@ -193,7 +193,7 @@ Private Function CheckInitialConditions(El As element) As Boolean
     Next i
 
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedraw.CheckInitialConditions"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.CheckInitialConditions"
     CheckInitialConditions = False
 End Function
 
@@ -232,7 +232,7 @@ Private Function GetLineIndicesInCell(CellEl As CellElement) As Integer()
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedraw.GetLineIndicesInCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.GetLineIndicesInCell"
     Dim ErrorIndices(-1 To 0) As Integer
     ErrorIndices(0) = ARESConstants.ARES_CELL_INDEX_ERROR_VALUE
     GetLineIndicesInCell = ErrorIndices
@@ -275,7 +275,7 @@ Private Function GetRectangleIndicesInCell(CellEl As CellElement) As Integer()
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedraw.GetRectangleIndicesInCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.GetRectangleIndicesInCell"
     Dim ErrorIndices(-1 To 0) As Integer
     ErrorIndices(0) = ARESConstants.ARES_CELL_INDEX_ERROR_VALUE
     GetRectangleIndicesInCell = ErrorIndices
@@ -329,7 +329,7 @@ Private Function GetTextSize(CellEl As CellElement) As Double()
 
 ErrorHandler:
     ' Log the error and return an array with error values
-    ErrorHandler.LogError Err.Description, "CellRedraw.GetTextSize"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.GetTextSize"
     GetTextSize = Array(CDbl(ARESConstants.ARES_CELL_INDEX_ERROR_VALUE), CDbl(ARESConstants.ARES_CELL_INDEX_ERROR_VALUE))
 End Function
 
@@ -365,7 +365,7 @@ Private Function GetTextOrigin(CellEl As CellElement) As Point3d
 
 ErrorHandler:
     ' Log the error and return a Point3d with zero values
-    ErrorHandler.LogError Err.Description, "CellRedraw.GetTextOrigin"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.GetTextOrigin"
     GetTextOrigin = Point3dZero
 End Function
 
@@ -406,7 +406,7 @@ Private Function GetCoordinate(El As element, index As Integer) As Point3d
 
 ErrorHandler:
     ' Log the error and return a Point3d with error values
-    ErrorHandler.LogError Err.Description, "ElementUtils.GetCoordinate"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementUtils.GetCoordinate"
     GetCoordinate = Point3dZero
 End Function
 
@@ -456,7 +456,7 @@ Private Function GetQuadrilateralIndicesByArea(CellEl As CellElement) As Integer
 
 ErrorHandler:
     ' Log the error and return an array with error values
-    ErrorHandler.LogError Err.Description, "CellElementUtils.GetQuadrilateralIndicesByArea"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellElementUtils.GetQuadrilateralIndicesByArea"
     GetQuadrilateralIndicesByArea = Array(ARESConstants.ARES_CELL_INDEX_ERROR_VALUE)
 End Function
 
@@ -489,7 +489,7 @@ Private Function CountQuadrilaterals(CellEl As CellElement) As Integer
 
 ErrorHandler:
     ' Log the error and return an error value
-    ErrorHandler.LogError Err.Description, "CellElementUtils.CountQuadrilaterals"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellElementUtils.CountQuadrilaterals"
     CountQuadrilaterals = ARESConstants.ARES_CELL_INDEX_ERROR_VALUE
 End Function
 
@@ -526,7 +526,7 @@ Private Function CollectQuadrilateralData(CellEl As CellElement, Areas() As Doub
 
 ErrorHandler:
     ' Log the error and return an error value
-    ErrorHandler.LogError Err.Description, "CellElementUtils.CollectQuadrilateralData"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellElementUtils.CollectQuadrilateralData"
     CollectQuadrilateralData = ARESConstants.ARES_CELL_INDEX_ERROR_VALUE
 End Function
 
@@ -560,7 +560,7 @@ Private Function SortAreasAndIndices(Areas() As Double, Indices() As Integer, El
 
 ErrorHandler:
     ' Log the error and return False to indicate failure
-    ErrorHandler.LogError Err.Description, "CellElementUtils.SortAreasAndIndices"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellElementUtils.SortAreasAndIndices"
     SortAreasAndIndices = False
 End Function
 
@@ -585,7 +585,7 @@ Private Function GetElementAtIndex(CellEl As CellElement, index As Integer) As e
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedreaw.GetElementAtIndex"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.GetElementAtIndex"
     Set GetElementAtIndex = Nothing
 End Function
 
@@ -630,7 +630,7 @@ Private Function UpdateShapeInCell(CellEl As CellElement, ShapeIndex As Integer,
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedreaw.UpdateShapeInCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.UpdateShapeInCell"
     UpdateShapeInCell = False
 End Function
 
@@ -680,7 +680,7 @@ Private Function CalculateCorners(oOrigine As Point3d, TextSize() As Double, Ang
     
 ErrorHandler:
     ' Log the error and return False to indicate failure
-    ErrorHandler.LogError Err.Description, "CellRedreaw.CalculateCorners"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.CalculateCorners"
     CalculateCorners = False
 End Function
 
@@ -737,7 +737,7 @@ Private Function GetConnector(MasterEl As ShapeElement, ChidrenEl As element, Op
     
 ErrorHandler:
     ' Log the error and return an array with error values
-    ErrorHandler.LogError Err.Description, "CellRedreaw.GetConnector"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.GetConnector"
     GetConnector = Connector
 End Function
 
@@ -803,7 +803,7 @@ Private Function MoveVertexToVertexInCell(CellEl As CellElement, MasterIndex As 
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedreaw.MoveVertexToVertexInCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.MoveVertexToVertexInCell"
     MoveVertexToVertexInCell = False
 End Function
 
@@ -865,7 +865,7 @@ Private Function MoveElementToVertexInCell(CellEl As CellElement, MasterIndex As
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedreaw.MoveElementToVertexInCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.MoveElementToVertexInCell"
     MoveElementToVertexInCell = False
 End Function
 
@@ -922,7 +922,7 @@ Private Function RotateElementLikeElementInCell(CellEl As CellElement, ElementTo
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedreaw.RotateElementLikeElementInCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.RotateElementLikeElementInCell"
     RotateElementLikeElementInCell = False
 End Function
 
@@ -943,7 +943,7 @@ Private Function CalculateCoordinateDelta(el1 As element, index1 As Integer, el2
     
 ErrorHandler:
         ' Log the error and return Point3dZero to indicate failure
-        ErrorHandler.LogError Err.Description, "CellRedreaw.CalculateCoordinateDelta"
+        ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.CalculateCoordinateDelta"
         CalculateCoordinateDelta = Point3dZero
 End Function
 Private Function MoveVertexToCoordinateInCell(CellEl As CellElement, SubElIndex As Integer, VertexIndex As Integer, Coordinate As Point3d) As Boolean
@@ -975,7 +975,7 @@ Private Function MoveVertexToCoordinateInCell(CellEl As CellElement, SubElIndex 
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedreaw.MoveVertexToCoordinateInCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.MoveVertexToCoordinateInCell"
     MoveVertexToCoordinateInCell = False
 End Function
 
@@ -1008,6 +1008,6 @@ Private Function FindClosestVertex(Point As Point3d, Vertices() As Point3d) As I
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.LogError Err.Description, "CellRedreaw.FindClosestVertex"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedreaw.FindClosestVertex"
     FindClosestVertex = ARESConstants.ARES_CELL_INDEX_ERROR_VALUE
 End Function

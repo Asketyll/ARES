@@ -183,6 +183,7 @@ Private Function CollectLinkedElements(ByRef ee As ElementEnumerator, _
 ErrorHandler:
     ' Return an empty array in case of any error
     CollectLinkedElements = LinkedElements
+	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Link.CollectLinkedElements"
 End Function
 
 ' Private function to count valid elements excluding the original element
@@ -208,6 +209,7 @@ Private Function CountValidElements(ByRef ee As ElementEnumerator, _
 
 ErrorHandler:
     CountValidElements = 0
+	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Link.CountValidElements"
 End Function
 
 ' Private function to check if an element is valid (not the original element)

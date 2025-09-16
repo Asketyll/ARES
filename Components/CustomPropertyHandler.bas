@@ -28,6 +28,7 @@ Public Function GetItemTypeLibrary(Optional LibraryName As String = ARESConfig.A
     Exit Function
 
 ErrorHandler:
+	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetItemTypeLibrary"
     Set GetItemTypeLibrary = Nothing
 End Function
 
@@ -66,6 +67,7 @@ Private Function CreateItemTypeLibrary(Optional LibraryName As String = ARESConf
     Exit Function
 
 ErrorHandler:
+	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.CreateItemTypeLibrary"
     Set CreateItemTypeLibrary = Nothing
 End Function
 
@@ -94,6 +96,7 @@ Public Function DeleteItemTypeLibrary(Optional LibraryName As String = ARESConfi
     Exit Function
 
 ErrorHandler:
+	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.DeleteItemTypeLibrary"
     DeleteItemTypeLibrary = False
 End Function
 
@@ -129,6 +132,7 @@ Public Function AttachItemToElement(ByVal El As element, Optional LibraryName As
     Exit Function
     
 ErrorHandler:
+	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.AttachItemToElement"
     AttachItemToElement = False
 End Function
 
@@ -163,5 +167,6 @@ Public Function RemoveItemToElement(ByVal El As element, Optional LibraryName As
     Exit Function
     
 ErrorHandler:
+	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.RemoveItemToElement"
     RemoveItemToElement = False
 End Function
