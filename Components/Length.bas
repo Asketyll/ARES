@@ -51,7 +51,7 @@ Private Function GetElementLength(ByVal El As element) As Double
             GetElementLength = LengthShape(El)
         Case Else
             GetElementLength = 0
-            ShowStatus GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(El.id), El.Type)
+            ShowStatus GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(El.ID), El.Type)
     End Select
     
     Exit Function
@@ -184,4 +184,16 @@ ErrorHandler:
     ' Return error value in case of an error
     GetRoundValue = ARES_RND_ERROR_VALUE
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.GetRoundValue"
+End Function
+
+' Public function to set the rounding configuration variable
+Public Function SetRound(RND As Byte) As Boolean
+    SetRound = False
+    On Error GoTo ErrorHandler
+
+    If RND <> ARES_VAR.ARES_RND_ERROR_VALUE Then
+        SetRound = Config.SetVar(ARES_VAR.ARES_ROUNDS.Key, RND)
+    Else
+        ShowStatus GetTranslation("LengthRoundError") & ARES_VAR.ARES_RND_ERROR_VALUE
+    End If
 End Function

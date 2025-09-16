@@ -121,76 +121,123 @@ ErrorHandler:
     MsgBox "An error occurred while initializing translations.", vbOKOnly
 End Sub
 
-' Function to get translation based on key and parameters
-Public Function GetTranslation(key As String, ParamArray params() As Variant) As String
+' Get translation for specified key with optional parameter substitution
+' Returns localized string based on user language preference
+Public Function GetTranslation(StrKey As String, ParamArray params() As Variant) As String
     On Error GoTo ErrorHandler
-    Dim baseKey As String
-    Dim formattedMessage As String
-    Dim i As Integer
     
-    baseKey = UCase(Left(mUserLanguage, 2)) & "_" & key
+    ' Validate inputs
+    If Not IsInit Then
+        GetTranslation = "[Translation system not initialized] " & StrKey
+        Exit Function
+    End If
     
-    ' Retrieve the message based on the constructed key
-    If mTranslations.Exists(baseKey) Then
-        GetTranslation = mTranslations(baseKey)
+    If Len(Trim(StrKey)) = 0 Then
+        GetTranslation = "[Empty translation key]"
+        Exit Function
+    End If
+    
+    Dim strBaseKey As String
+    Dim strTranslatedText As String
+    Dim i As Long
+    
+    ' Construct language-specific key
+    strBaseKey = UCase(Left(mUserLanguage, 2)) & "_" & StrKey
+    
+    ' Try to find translation in user's language
+    If mTranslations.Exists(strBaseKey) Then
+        strTranslatedText = mTranslations(strBaseKey)
     Else
-        ' Default to English if translation not found
-        baseKey = "EN_" & key
-        If mTranslations.Exists(baseKey) Then
-            GetTranslation = mTranslations(baseKey)
+        ' Fallback to English if user language not available
+        strBaseKey = "EN_" & StrKey
+        If mTranslations.Exists(strBaseKey) Then
+            strTranslatedText = mTranslations(strBaseKey)
         Else
-            GetTranslation = GetTranslation("LangFail") & key
+            ' Last resort: return error message with key
+            GetTranslation = "[Missing translation: " & StrKey & "]"
             Exit Function
         End If
     End If
 
-    ' Format the message with parameters if any are provided
-    If UBound(params) - LBound(params) >= 0 Then
-        formattedMessage = GetTranslation
+    ' Apply parameter substitution if parameters provided
+    If UBound(params) >= LBound(params) Then
         For i = LBound(params) To UBound(params)
-            formattedMessage = Replace(formattedMessage, "{" & i & "}", params(i))
+            strTranslatedText = Replace(strTranslatedText, "{" & i & "}", CStr(params(i)))
         Next i
-        GetTranslation = formattedMessage
     End If
-
+    
+    GetTranslation = strTranslatedText
     Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetTranslation"
-    GetTranslation = "Error retrieving translation for key: " & key
+    GetTranslation = "[Translation error for: " & StrKey & "]"
 End Function
 
-' Function to get the user language
+' Determine user's preferred language from various sources
+' Priority: MicroStation config > ARES config > user prompt > default (English)
 Private Function GetUserLanguage() As String
     On Error GoTo ErrorHandler
-    Dim Prompt As String
-    Dim lang As Variant
     
-    GetUserLanguage = Config.GetVar("CONNECTUSER_LANGUAGE")
-    If GetUserLanguage = "" Or GetUserLanguage = ARES_NAVD Then
-        If Not ARESConfig.IsInitialized Then
-            ARESConfig.Initialize
-        End If
-        If ARESConfig.ARES_LANGUAGE.Value = "" Then
-            Prompt = "Unable to retrieve your user language." & vbCrLf & _
-            "We invite you to declare it in the MicroStation environment variable, key: ARES_Language" & vbCrLf & _
-            "The supported languages are:"
-            
-            ' Loop through the enum values and append them to the message
-            For Each lang In mSupportedLanguages
-                Prompt = Prompt & vbCrLf & "- " & lang
-            Next lang
-            
-            Prompt = Prompt & vbCrLf & vbCrLf & "You can use the keyin: '""macro vba run [ARES]English'"" or '""macro vba run [ARES]Français'"""
-            MsgBox Prompt, vbOKOnly, "User language"
-        Else
-            GetUserLanguage = ARESConfig.ARES_LANGUAGE.Value
-        End If
+    Dim strLanguage As String
+    
+    ' First try: MicroStation CONNECT user language setting
+    strLanguage = Config.GetVar("CONNECTUSER_LANGUAGE")
+    If strLanguage <> "" And strLanguage <> ARESConstants.ARES_NAVD Then
+        GetUserLanguage = strLanguage
+        Exit Function
     End If
-
+    
+    ' Second try: ARES configuration
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+    If ARESConfig.ARES_LANGUAGE.Value <> "" Then
+        GetUserLanguage = ARESConfig.ARES_LANGUAGE.Value
+        Exit Function
+    End If
+    
+    ' Third try: Prompt user for language selection
+    strLanguage = PromptForLanguageSelection()
+    If strLanguage <> "" Then
+        GetUserLanguage = strLanguage
+        Exit Function
+    End If
+    
+    ' Default fallback
+    GetUserLanguage = "English"
     Exit Function
 
 ErrorHandler:
-    GetUserLanguage = "English" ' Default language in case of error
+    GetUserLanguage = "English"
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetUserLanguage"
+End Function
+
+' Prompt user to select their preferred language
+Private Function PromptForLanguageSelection() As String
+    On Error GoTo ErrorHandler
+    
+    Dim strPrompt As String
+    Dim varLang As Variant
+    
+    strPrompt = "Language Detection Failed" & vbCrLf & vbCrLf & _
+                "Unable to detect your preferred language." & vbCrLf & _
+                "Please set the ARES_Language environment variable." & vbCrLf & vbCrLf & _
+                "Supported languages:" & vbCrLf
+    
+    ' Add supported languages to prompt
+    For Each varLang In mSupportedLanguages
+        strPrompt = strPrompt & "• " & varLang & vbCrLf
+    Next varLang
+    
+    strPrompt = strPrompt & vbCrLf & "Available commands:" & vbCrLf & _
+                "• macro vba run [ARES]English" & vbCrLf & _
+                "• macro vba run [ARES]Français"
+    
+    MsgBox strPrompt, vbInformation + vbOKOnly, "ARES Language Configuration"
+    
+    PromptForLanguageSelection = "" ' User must set manually
+    Exit Function
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.PromptForLanguageSelection"
+    PromptForLanguageSelection = ""
 End Function
