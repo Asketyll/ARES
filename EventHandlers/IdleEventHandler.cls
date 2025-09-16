@@ -29,6 +29,6 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
     Exit Sub
 
 ErrorHandler:
-    ' Handle any errors silently or log them as needed
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "IdleEventHandler.IEnterIdleEvent_EnterIdle"
     Err.Clear
 End Sub

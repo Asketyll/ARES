@@ -176,7 +176,7 @@ Private Sub UpdateSingleNonZeroLength()
     Next j
 
     If Not Success Then
-        ErrorHandler.LogWarning "No non-zero length found to update in element with ID: " & DLongToString(pNewElement.ID), "AutoLengths.UpdateSingleNonZeroLength"
+        ErrorHandler.HandleError "No non-zero length found to update in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.UpdateSingleNonZeroLength", "AutoLengths"
     End If
 End Sub
 
