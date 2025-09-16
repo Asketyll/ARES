@@ -188,12 +188,29 @@ End Function
 
 ' Public function to set the rounding configuration variable
 Public Function SetRound(RND As Byte) As Boolean
-    SetRound = False
     On Error GoTo ErrorHandler
-
-    If RND <> ARES_VAR.ARES_RND_ERROR_VALUE Then
-        SetRound = Config.SetVar(ARES_VAR.ARES_ROUNDS.Key, RND)
+    If RND <> ARES_RND_ERROR_VALUE Then
+        SetRound = Config.SetVar(ARESConfig.ARES_ROUNDS.key, RND)
     Else
-        ShowStatus GetTranslation("LengthRoundError") & ARES_VAR.ARES_RND_ERROR_VALUE
+        ShowStatus GetTranslation("LengthRoundError") & ARES_RND_ERROR_VALUE
     End If
+    Exit Function
+
+ErrorHandler:
+    ' Return False in case of an error
+    SetRound = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.SetRound"
+End Function
+
+' Public function to reset the rounding configuration variable
+Public Function ResetRound() As Boolean
+    On Error GoTo ErrorHandler
+    ARESConfig.ResetMSVar ARESConfig.ARES_ROUNDS
+    ResetRound = (ARESConfig.ARES_ROUNDS.Value = ARESConfig.ARES_ROUNDS.Default)
+    Exit Function
+
+ErrorHandler:
+    ' Return False in case of an error
+    ResetRound = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.ResetRound"
 End Function
