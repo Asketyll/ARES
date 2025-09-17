@@ -25,10 +25,6 @@ Public ARES_LENGTH_ROUND As ARES_MS_VAR_Class 'Default Value: 1             Rang
 Public ARES_LENGTH_TRIGGER As ARES_MS_VAR_Class 'Default Value: (Xx_m)      can a array use | (ARES_VAR_DELIMITER) like (Xx_m)|(Xx_cm)|(Xx_km)
 ' Used in AutoLengths and StringsInEl module for replace this triger with the length of element
 Public ARES_LENGTH_TRIGGER_ID As ARES_MS_VAR_Class 'Default Value: Xx_      Must be present in triggers
-' Used in CustomPropertyHandler module for default name of Library Type object
-Public ARES_NAME_LIBRARY_TYPE As ARES_MS_VAR_Class 'Default Value: ARES
-' Used in CustomPropertyHandler module for default name of Item Type object
-Public ARES_NAME_ITEM_TYPE As ARES_MS_VAR_Class 'Default Value: ARESAutoLengthObject
 ' Used in LangManager module to force language if CONNECTUSER_LANGUAGE configuration variable is not set
 Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
 ' Used in CellRedreaw module to chek if cell is like label (use cell name)
@@ -71,8 +67,6 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_LENGTH_ROUND = CreateConfigVar("ARES_Length_Round", "1")
     Set ARES_LENGTH_TRIGGER = CreateConfigVar("ARES_Length_Triggers", "(Xx_m)")
     Set ARES_LENGTH_TRIGGER_ID = CreateConfigVar("ARES_Length_Trigger_ID", "Xx_")
-    Set ARES_NAME_LIBRARY_TYPE = CreateConfigVar("ARES_Library_Type_Name", "ARES")
-    Set ARES_NAME_ITEM_TYPE = CreateConfigVar("ARES_Item_Type_Name", "ARESAutoLengthObject")
     Set ARES_LANGUAGE = CreateConfigVar("ARES_Language", "")
     Set ARES_UnitTesting = CreateConfigVar("ARES_Unit_testing", "I'm a ARES test unit variable")
     Set ARES_UPDATE_COLOR_WITH_LENGTH = CreateConfigVar("ARES_Update_Color_With_Length", "True")
@@ -89,11 +83,11 @@ End Function
 
 ' Create a single configuration variable
 Private Function CreateConfigVar(ByVal key As String, ByVal defaultValue As String) As ARES_MS_VAR_Class
-    Dim configVar As ARES_MS_VAR_Class
-    Set configVar = New ARES_MS_VAR_Class
+    Dim ConfigVar As ARES_MS_VAR_Class
+    Set ConfigVar = New ARES_MS_VAR_Class
 
-    configVar.key = key
-    configVar.defaultValue = defaultValue
+    ConfigVar.key = key
+    ConfigVar.defaultValue = defaultValue
 
     ' Get current value from MicroStation
     Dim currentValue As String
@@ -105,9 +99,9 @@ Private Function CreateConfigVar(ByVal key As String, ByVal defaultValue As Stri
         Config.SetVar key, defaultValue
     End If
 
-    configVar.Value = currentValue
-    pConfigVariables.Add configVar, key
-    Set CreateConfigVar = configVar
+    ConfigVar.Value = currentValue
+    pConfigVariables.Add ConfigVar, key
+    Set CreateConfigVar = ConfigVar
 End Function
 
 ' Get a configuration variable by key
@@ -124,22 +118,22 @@ End Function
 Public Function ResetConfigVar(ByVal key As String) As Boolean
     On Error GoTo ErrorHandler
 
-    Dim configVar As ARES_MS_VAR_Class
-    Set configVar = pConfigVariables(key)
+    Dim ConfigVar As ARES_MS_VAR_Class
+    Set ConfigVar = pConfigVariables(key)
 
-    If configVar Is Nothing Then
+    If ConfigVar Is Nothing Then
         ResetConfigVar = False
         Exit Function
     End If
 
     ' Reset in MicroStation
-    If Not Config.SetVar(key, configVar.defaultValue) Then
+    If Not Config.SetVar(key, ConfigVar.defaultValue) Then
         ResetConfigVar = False
         Exit Function
     End If
 
     ' Update in memory
-    configVar.ResetToDefault
+    ConfigVar.ResetToDefault
     ResetConfigVar = True
 
     Exit Function
@@ -153,10 +147,10 @@ End Function
 Public Function RemoveConfigVar(ByVal key As String, Optional showConfirmation As Boolean = True) As Boolean
     On Error GoTo ErrorHandler
 
-    Dim configVar As ARES_MS_VAR_Class
-    Set configVar = pConfigVariables(key)
+    Dim ConfigVar As ARES_MS_VAR_Class
+    Set ConfigVar = pConfigVariables(key)
 
-    If configVar Is Nothing Then
+    If ConfigVar Is Nothing Then
         RemoveConfigVar = False
         Exit Function
     End If

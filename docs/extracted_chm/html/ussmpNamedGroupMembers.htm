@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Change NamedGroupMembers</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Change NamedGroupMembers</H1>
+
+<P class=T>
+This example shows how to use NamedGroupMember.
+</P>
+<PRE class=CT><CODE>
+Sub SetAllPropagation(ngElement As <A href="usobjNamedGroupElement.htm">NamedGroupElement</A>, prop As <A href="usenmMsdChangePropagation.htm">MsdChangePropagation</A>)
+    Dim index As Long
+    Dim ngms() As <A href="usobjNamedGroupMember.htm">NamedGroupMember</A>
+
+    ngms = ngElement.<A href="usmthGetMembers.htm">GetMembers</A>
+
+    For index = LBound(ngms) To UBound(ngms)
+        With ngms(index)
+            Dim ele As <A href="usobjElement.htm">Element</A>
+
+            '  Display the current values of the propagation flags
+            Set ele = .<A href="usmthGetElement.htm">GetElement</A>
+            Debug.Print "old values for element ID " & <A href="usmthDLongToString.htm">DLongToString</A>(ele.<A href="usproID.htm">ID</A>)
+            Debug.Print "    To:    " & .<A href="usproPropagationToOtherMembers.htm">PropagationToOtherMembers</A>
+            Debug.Print "    From:  " & .<A href="usproPropagationFromOtherMembers.htm">PropagationFromOtherMembers</A>
+            Debug.Print "    Group: " & .<A href="usproPropagationToOtherGroups.htm">PropagationToOtherGroups</A>
+
+            '  Now set the new values
+            .PropagationFromOtherMembers = prop
+            .PropagationToOtherGroups = prop
+            .PropagationToOtherMembers = prop
+        End With
+    Next
+
+    '  Changes to the members are not permanent until the NamedGroupElement is
+    '  rewritten
+    ngElement.<A href="usmthRewrite.htm">Rewrite</A>
+End Sub
+
+Sub RunMove()
+    Dim ng As NamedGroupElement
+
+    Set ng = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetNamedGroup.htm">GetNamedGroup</A>("Arcs")
+    SetAllPropagation ng, msdChangePropagationAlways
+End Sub
+
+</CODE></PRE>

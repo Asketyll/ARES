@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Offset3d Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthoffset3d"></A>Offset3d Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_3743" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOffset3dC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3744" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOffset3dX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3745" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOffset3dA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3746" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOffset3dS">
+</OBJECT>
+</P>
+
+<P class=T>
+Creates and returns an object that is an approximation of the offset of this object that passes through the given point(s).
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><A href="usobjBsplineCurve.htm">BsplineCurve</A></I> = <I>object</I>.<B>Offset3d</B> (<I>ThroughPoint0</I>, <I>ThroughPoint1</I> [, <I>SamplesCount</I> [, <I>TurnsCount</I> [, <I>Tolerance</I>]]])
+<P class=T>The <B>Offset3d</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ThroughPoint0</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. A point through which the returned offset must pass.  If ThroughPoint0 does not equal ThroughPoint1, then the
+                            returned offset starts at this point; otherwise, this entire length of this object is offset.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ThroughPoint1</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. A point through which the returned offset must pass.  If ThroughPoint1 does not equal ThroughPoint0, then the
+                            returned offset ends at this point; otherwise, the entire length of this object is offset.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>SamplesCount</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Long</B> expression. The number of offset samples (per full/partial turn) to approximate.  If nonpositive, then a default value of 10
+                            times the <A href="usproPolesCount.htm">PolesCount</A> of this object is used (times the absolute value of TurnsCount if nonzero).
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>TurnsCount</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Long</B> expression. The signed number of full/partial turns of the resulting offset around this object.  If negative, then the
+                            returned offset spins counter-clockwise in the direction of parametrization (a positive value results in
+                            clockwise spin).  If zero, then the smallest possible turn angle is used; if plus/minus one, then either this
+                            angle or its 360-degree complement are used, depending on the spin direction dictated by sign; other values
+                            yield additional full turns in the returned offset.  This value is only relevant if ThroughPoint0 and
+                            ThroughPoint1 are unique.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Tolerance</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The absolute distance tolerance for offset sample approximation, knot removal and point equality.  If omitted or
+                            negative, a default tolerance of 1.0e-3 times the largest coordinate difference of the unweighted <A href="usproPole.htm">Pole</A>s of
+                            this object is used.  If zero, the offset samples are interpolated, no knots are removed, and the aforementioned
+                            default tolerance is used for point equality.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+If this object is a <B>BsplineCurve</B>, it should be G1-continuous (e.g., no corners or cusps) for best results.  <EM>If the curve
+             is not G1-continuous, then the entire curve is offset through ThroughPoint0 without regard to ThroughPoint1, SamplesCount or
+             TurnsCount.</EM>
+</P>
+<P>
+Cusps and self-intersections may appear in the returned offset, especially if the offset distance anywhere exceeds the radius
+             of curvature of this object.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.02
+</P>
+</BODY>
+</HTML>

@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CreateSharedCellElement4 Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcreatesharedcellelement4"></A>CreateSharedCellElement4 Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2115" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateSharedCellElement4C">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2116" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateSharedCellElement4X">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2117" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateSharedCellElement4A">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2118" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateSharedCellElement4S">
+</OBJECT>
+</P>
+
+<P class=T>
+Creates a <A href="usobjSharedCellElement.htm">SharedCellElement</A>.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><B>SharedCellElement</B></I> = <I>object</I>.<B>CreateSharedCellElement4</B> (<I>CellName</I>, <I>DestinationModel</I>, <I>TrueScale</I>, <I>SearchControl</I>)
+<P class=T>The <B>CreateSharedCellElement4</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>CellName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. Name of the cell to search for.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>DestinationModel</I></TD>
+<TD class=TT width=79%>
+A <A href="usobjModelReference.htm">ModelReference</A> expression. This parameter is normally <A href="usproActiveModelReference.htm">ActiveModelReference</A>. If it is <B>Nothing</B> <B>CreateSharedCellElement4</B> uses the active model reference.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>SearchControl</I></TD>
+<TD class=TT width=79%>
+An <A href="usenmMsdSharedCellSearch.htm">MsdSharedCellSearch</A> expression. A set of flags telling <B>CreateSharedCellElement4</B> where to search for the shared cell definition.  Values can be combined with <B>Or</b> as in
+    <B>msdSharedCellSearchDestinationModel Or msdSharedCellSearchLibraries</B>.  Typically this will be <B>msdSharedCellSearchDefaultFlags</B>.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>TrueScale</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+Unlike the other <B>CreateSharedCellElement</B> methods, <B>CreateSharedCellElement4</B> lets the caller specify where to search for the shared cell defintion.
+    The other <B>CreateSharedCellElement</B> methods use <B>msdSharedCellSearchDestinationModel Or msdSharedCellSearchReferences Or msdSharedCellSearchLibraries</B>
+    as the SearchControl.  Notice that set of flags does not include <B>msdSharedCellSearchActiveLibary</B>.  <B>msdSharedCellSearchActiveLibary</B> is required
+    to find the shared cell definition in the active library if the active library does not also include the normal cell of the same name.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.11.07
+</P>
+</BODY>
+</HTML>

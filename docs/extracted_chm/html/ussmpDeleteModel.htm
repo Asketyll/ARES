@@ -1,0 +1,29 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Deleting a Model</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Deleting a Model</H1>
+
+<P class=T>
+This examples illustrates deleting a model.
+</P>
+<PRE class=CT><CODE>
+Sub DeleteModel(dgn As <A href="usobjDesignFile.htm">DesignFile</A>, strName As String)
+    Dim index As Integer
+
+    For index = dgn.<A href="usproModels.htm">Models</A>.<A href="usproCount.htm">Count</A> To 1 Step -1
+        Dim mdl As <A href="usobjModelReference.htm">ModelReference</A>
+
+        Set mdl = dgn.Models(index)
+        If mdl.<A href="usproName.htm">Name</A> Like strName Then
+            dgn.Models.<A href="usmthDelete.htm">Delete</A> mdl
+        End If
+    Next
+End Sub
+
+</CODE></PRE>

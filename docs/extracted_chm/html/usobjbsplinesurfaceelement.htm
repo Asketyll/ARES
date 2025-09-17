@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BsplineSurfaceElement Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjbsplinesurfaceelement"></A>BsplineSurfaceElement Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_365" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineSurfaceElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_366" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineSurfaceElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_367" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineSurfaceElementP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_368" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineSurfaceElementM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_369" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineSurfaceElementE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_370" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineSurfaceElementS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_371" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineSurfaceElementI">
+</OBJECT>
+</P>
+
+<P class=T>
+A kind of <A href="usobjElement.htm">Element</A> that corresponds to a MicroStation B-spline surface element.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+If you have a generic <B>Element</B> object (as the result of a <A href="usmthScan.htm">Scan</A>, for example), you can determine whether it's a
+             <B>BsplineSurfaceElement</B> by examining the element's <A href="usproIsBsplineSurfaceElement.htm">IsBsplineSurfaceElement</A> property.  If this property returns <B>True</B>,
+             you can extract the element's implementation of <B>BsplineSurfaceElement</B> by calling the element's <A href="usproAsBsplineSurfaceElement.htm">AsBsplineSurfaceElement</A>
+             property.  (You can accomplish the same thing by assigning the element to a variable of the type <B>BsplineSurfaceElement</B>.  But
+             <B>Element</B>.<B>AsBsplineSurfaceElement</B> saves you a step.)
+</P>
+<P>
+You cannot use the <B>New</B> keyword to create a <B>BsplineSurfaceElement</B> object.  Rather, use <B>New</B> to create a
+             <A href="usobjBsplineSurface.htm">BsplineSurface</A> object, populate its properties, then create the <B>BsplineSurfaceElement</B> using <A href="usmthCreateBsplineSurfaceElement1.htm">CreateBsplineSurfaceElement1</A>.
+</P>
+<P>
+The new element will not become part of the design file until it is added to a model (using <A href="usmthAddElement.htm">AddElement</A> on the appropriate
+             <A href="usobjModelReference.htm">ModelReference</A> object).
+</P>
+<PRE class=CT><CODE>
+    Dim oBsplineSurface As New <B>BsplineSurface</B>
+    With oBsplineSurface
+        ' Set properties of oBsplineSurface here...
+    End With
+
+    ' Create the element
+    Dim oBsplineSurfaceElement As <B>BsplineSurfaceElement</B>
+    Set oBsplineSurfaceElement = <B>CreateBsplineSurfaceElement1</B>(Nothing, oBsplineSurface)
+
+    ' Add the element to the active model (whether or not it's displayed)
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<B>AddElement</B> oBsplineSurfaceElement
+
+    ' Modify and update the element in its model
+    With oBsplineSurface
+        ' Modify properties of oBsplineSurface here...
+    End With
+    oBsplineSurfaceElement.<A href="usmthUpdateFromBsplineSurface.htm">UpdateFromBsplineSurface</A> oBsplineSurface
+
+    ' Display the element (whether or not it's in a model)
+    oBsplineSurfaceElement.<A href="usmthRedraw.htm">Redraw</A>
+</CODE></PRE>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SaveAs Event Handler Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>SaveAs Event Handler Example</H1>
+
+<P class=T>
+This example shows how to implement a class that remaps element properties as part of a MicroStation
+            SaveAs operation.
+</P>
+<P class=T>
+The class is an event handler that handles the events that are defined by <A href="usobjISaveAsEvents.htm">ISaveAsEvents</A>.  To implement
+            <B>ISaveAsEvents</B>, a class must implement the <A href="usevtBeforeRemap.htm">BeforeRemap</A>, <A href="usevtAfterRemap.htm">AfterRemap</A>, and <A href="usevtAfterSaveAs.htm">AfterSaveAs</A> event methods.
+</P>
+<P class=T>
+The following method installs the event handler by creating an object that is an instance of the
+            the class clsSaveAsEventsHandler and calling <A href="usmthAddSaveAsEventsHandler.htm">AddSaveAsEventsHandler</A> to register the event handler with MicroStation.
+            The name of the class is not important.  The person who implements the project is free to select any name.
+</P>
+<P class=T>
+The method that registers the event handler is named OnProjectLoad.  MicroStation always executes
+            a project's OnProjectLoad method as soon as it loads the project. Therefore, putting this code in the method
+            OnProjectLoad guarantees that the event handler is set up as soon as the project is loaded.  If the project
+            is one of MicroStation's autoload projects, then the event handler will be set up everytime MicroStation starts.
+</P>
+<PRE class=CT><CODE>
+Dim eventHandler As clsSaveAsEventsHandler
+
+Sub OnProjectLoad()
+    Set eventHandler = New clsSaveAsEventsHandler
+    AddSaveAsEventsHandler eventHandler
+End Sub
+
+</CODE></PRE>
+<P class=T>
+The is the class that implements the <B>ISaveAsEvents</B> interface.  A class that implements an interface
+        must have an Implements declaration and must implement every method in the interface.
+</P>
+<PRE class=CT><CODE>
+Implements ISaveAsEvents
+Private Sub ISaveAsEvents_AfterRemap(ByVal TheDesignFile As <A href="usobjDesignFile.htm">DesignFile</A>, ByVal SavedFormat As <A href="usenmMsdDesignFileFormat.htm">MsdDesignFileFormat</A>, ByVal DestinationFilename As String)
+    ShowMessage "Saved to " & DestinationFilename
+End Sub
+Private Sub ISaveAsEvents_AfterSaveAs()
+    ShowMessage "Save is complete, ActiveDesignFile is " & <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproFullName.htm">FullName</A> & ", the format is " & ActiveDesignFile.<A href="usproFormat.htm">Format</A>
+End Sub
+Private Sub ISaveAsEvents_BeforeRemap(ByVal TheDesignFile As DesignFile, ByVal SavedFormat As MsdDesignFileFormat, ByVal DestinationFilename As String)
+    Dim model As <A href="usobjModelReference.htm">ModelReference</A>
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+    Dim strMessage As String
+    Dim theLevels As <A href="usobjLevels.htm">Levels</A>
+    Dim counter As Long
+
+    If SavedFormat &lt;&gt; msdDesignFileFormatV7 Then Exit Sub
+
+    Set theLevels = ActiveDesignFile.<A href="usproLevels.htm">Levels</A>
+    ShowMessage "Saving to " & DestinationFilename
+
+    For Each model In TheDesignFile.<A href="usproModels.htm">Models</A>
+        strMessage = "Remap Hook processing model " & model.<A href="usproName.htm">Name</A>
+        counter = 0
+        <A href="usmthShowPrompt.htm">ShowPrompt</A> strMessage
+
+        Set ee = model.<A href="usproGraphicalElementCache.htm">GraphicalElementCache</A>.<A href="usmthScan.htm">Scan</A>
+        Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+            Dim ele As <A href="usobjElement.htm">Element</A>
+            Dim lvl As <A href="usobjLevel.htm">Level</A>
+
+            Set ele = ee.<A href="usproCurrent.htm">Current</A>
+            If ele.<A href="usproType.htm">Type</A> &lt;&gt; msdElementTypeCellHeader Then
+                Set lvl = ele.<A href="usproLevel.htm">Level</A>
+                <A href="usmthSelect.htm">Select</A> Case lvl.Name
+                    Case "Level 1"
+                        Set lvl = theLevels.FindByCode(1)
+                    Case "TitleBlockT"
+                        Set lvl = theLevels.FindByCode(2)
+                    Case "BorderPlot"
+                        Set lvl = theLevels.FindByCode(3)
+                    Case "Level 5"
+                        Set lvl = theLevels.FindByCode(5)
+                    Case "Level 6"
+                        Set lvl = theLevels.FindByCode(6)
+                    Case "ANNO-DIMS"
+                        Set lvl = theLevels.FindByCode(7)
+                    Case "Level 8"
+                        Set lvl = theLevels.FindByCode(8)
+                    Case Else
+                        Set lvl = theLevels("Default")
+                End Select
+                Set ele.Level = lvl
+                ele.<A href="usmthRewrite.htm">Rewrite</A>
+            End If
+            counter = counter + 1
+            If counter Mod 100 = 0 Then
+                ShowPrompt strMessage & " -- " & counter & " elements"
+            End If
+        Loop
+    Next
+
+End Sub
+
+</CODE></PRE>

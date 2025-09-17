@@ -1,0 +1,43 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Ellipse/Circle Properties</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Ellipse/Circle Properties</H1>
+
+<PRE class=CT><CODE>
+Sub ShowEllipsePropertyStrings(ele As <A href="usobjEllipticalElement.htm">EllipticalElement</A>)
+    Dim oPH As <A href="usobjPropertyHandler.htm">PropertyHandler</A>
+    Set oPH = <A href="usmthCreatePropertyHandler.htm">CreatePropertyHandler</A>(ele)
+
+    ShowDisplayString oPH, "PrimaryAxis"
+    ShowDisplayString oPH, "SecondaryAxis"
+    ShowDisplayString oPH, "Center"
+    ShowDisplayString oPH, "PrimaryVector"
+    ShowDisplayString oPH, "SecondaryVector"
+    ShowDisplayString oPH, "AxisRatio"
+    ShowDisplayString oPH, "Perimeter"
+    ShowDisplayString oPH, "Area"
+    ShowDisplayString oPH, "Radius"
+End Sub
+
+Private Sub ShowDisplayString(oPH As PropertyHandler, accessString As String)
+    On Error GoTo HandleError
+
+    If Not oPH.<A href="usmthSelectByAccessString.htm">SelectByAccessString</A>(accessString) Then
+        Debug.Print "NOT FOUND!!"
+    Else
+        Debug.Print oPH.<A href="usmthGetDisplayString.htm">GetDisplayString</A>
+    End If
+
+    Exit Sub
+HandleError:
+    Debug.Print Err.<A href="usproDescription.htm">Description</A>
+End Sub
+
+
+</CODE></PRE>

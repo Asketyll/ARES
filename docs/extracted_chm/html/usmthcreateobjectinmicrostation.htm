@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CreateObjectInMicroStation Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcreateobjectinmicrostation"></A>CreateObjectInMicroStation Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2051" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateObjectInMicroStationC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2052" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateObjectInMicroStationX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2053" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateObjectInMicroStationA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2054" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateObjectInMicroStationS">
+</OBJECT>
+</P>
+
+<P class=T>
+Creates an object in MicroStation's address space.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><B>Object</B></I> = <I>object</I>.<B>CreateObjectInMicroStation</B> (<I>ProgID</I>)
+<P class=T>The <B>CreateObjectInMicroStation</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ProgID</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<B>CreateObjectInMicroStation</B> calls the Win32 function <B>CLSIDFromProgID</B> to translate <I>ProgID</I> into a CLSID, and then
+    uses that CLSID as an argument to the Win32 function <B>CoCreateInstance</B> to create the object.
+</P>
+<P>
+<B>CreateObjectInMicroStation</B> is useful for an out-of-proc program that needs to create objects from a server that must run in
+    MicroStation's address space.
+</P>
+<P>
+A program that needs to create a <A href="usobjCopyContext.htm">CopyContext</A>, <A href="usobjDataBlock.htm">DataBlock</A>, or <A href="usobjElementScanCriteria.htm">ElementScanCriteria</A>  object in a
+    separate process should use an expression like app.<B>CreateObjectInMicroStation</B> ("MicroStationDGN.CopyContext")
+    where app is an object reference to the <A href="usobjApplication.htm">Application</A> object for that process. Creating the object this way guarantees that
+    the object is created in the correct process.
+</P>
+<P>
+Using an expression like <b>new CopyElement</b> in a VBA program running in MicroStation
+    works correctly to create a <B>CopyContext</B> object in the current process. Therefore, it is the
+    proper thing to do in a VBA application. However, using the expression
+    <b>new CopyElement</b> to create a <B>CopyContext</B> object from a separate process while there are
+    multiple copies of MicroStation running may create an object for the wrong process.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

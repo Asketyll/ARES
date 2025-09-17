@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Arc Properties</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Arc Properties</H1>
+
+<PRE class=CT><CODE>
+Sub ShowArcPropertyStrings(ele As <A href="usobjArcElement.htm">ArcElement</A>)
+    Dim oPH As <A href="usobjPropertyHandler.htm">PropertyHandler</A>
+    Set oPH = <A href="usmthCreatePropertyHandler.htm">CreatePropertyHandler</A>(ele)
+
+    ShowDisplayString oPH, "PrimaryAxis"
+    ShowDisplayString oPH, "SecondaryAxis"
+    ShowDisplayString oPH, "Center"
+    ShowDisplayString oPH, "StartAngle"
+    ShowDisplayString oPH, "SweepAngle"
+    ShowDisplayString oPH, "EndAngle"
+    ShowDisplayString oPH, "RotationAngle"
+    ShowDisplayString oPH, "RotationPlane"     ' Orientation in Element Info
+    ShowDisplayString oPH, "PrimaryVector"
+    ShowDisplayString oPH, "SecondaryVector"
+    ShowDisplayString oPH, "StartPoint"
+    ShowDisplayString oPH, "EndPoint"
+    ShowDisplayString oPH, "AxisRatio"
+    ShowDisplayString oPH, "Normal"
+    ShowDisplayString oPH, "Length"
+    ShowDisplayString oPH, "Area"
+End Sub
+Sub ShowArcPropertyValues(ele As ArcElement)
+    Dim oPH As PropertyHandler
+    Set oPH = CreatePropertyHandler(ele)
+
+    ShowValue oPH, "PrimaryAxis", False, False
+    ShowValue oPH, "SecondaryAxis", False, False
+    ShowValue oPH, "Center", False, True
+    ShowValue oPH, "StartAngle", False, False
+    ShowValue oPH, "SweepAngle", False, False
+    ShowValue oPH, "EndAngle", False, False
+    ShowValue oPH, "RotationAngle", False, False
+    ShowValue oPH, "RotationPlane", False, False
+    ShowValue oPH, "PrimaryVector", False, False
+    ShowValue oPH, "SecondaryVector", False, False
+    ShowValue oPH, "StartPoint", False, True
+    ShowValue oPH, "EndPoint", False, True
+    ShowValue oPH, "AxisRatio", False, False
+    ShowValue oPH, "Normal", False, True
+    ShowValue oPH, "Length", False, False
+    ShowValue oPH, "Area", False, False
+End Sub
+Private Sub ShowDisplayString(oPH As PropertyHandler, accessString As String)
+    On Error GoTo HandleError
+
+    If Not oPH.<A href="usmthSelectByAccessString.htm">SelectByAccessString</A>(accessString) Then
+        Debug.Print "NOT FOUND!!"
+    Else
+        Debug.Print oPH.<A href="usmthGetDisplayString.htm">GetDisplayString</A>
+    End If
+
+    Exit Sub
+HandleError:
+    Debug.Print Err.<A href="usproDescription.htm">Description</A>
+End Sub
+Private Sub ShowValue(oPH As PropertyHandler, accessString As String, isDlong As Boolean, isPoint As Boolean)
+    On Error GoTo HandleError
+
+    If Not oPH.SelectByAccessString(accessString) Then
+        Debug.Print "NOT FOUND!!"
+    Else
+        If isPoint Then
+            Dim pnt As <A href="usudtPoint3d.htm">Point3d</A>
+
+            pnt = oPH.<A href="usmthGetValueAsPoint3d.htm">GetValueAsPoint3d</A>
+            Debug.Print "(" & pnt.X & "," & pnt.Y & "," & pnt.Z & ")"
+        ElseIf isDlong Then
+            Debug.Print <A href="usmthDLongToString.htm">DLongToString</A>(oPH.<A href="usmthGetValueAsDLong.htm">GetValueAsDLong</A>)
+        Else
+            Debug.Print oPH.<A href="usmthGetValue.htm">GetValue</A>
+        End If
+    End If
+
+    Exit Sub
+HandleError:
+    Debug.Print Err.Description
+End Sub
+Sub TestSetValue(ele As ArcElement)
+    Dim oPH As PropertyHandler
+
+    Set oPH = CreatePropertyHandler(ele)
+    oPH.SelectByAccessString "Center"
+
+    Dim center As Point3d
+    center = oPH.GetValueAsPoint3d
+    center.X = center.X + 20
+    oPH.<A href="usmthSetValueAsPoint3d.htm">SetValueAsPoint3d</A> center
+End Sub
+
+
+</CODE></PRE>

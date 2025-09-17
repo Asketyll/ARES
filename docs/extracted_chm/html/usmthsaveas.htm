@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SaveAs Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthsaveas"></A>SaveAs Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_4607" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSaveAsC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4608" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSaveAsX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4609" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSaveAsA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4610" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSaveAsS">
+</OBJECT>
+</P>
+
+<P class=T>
+Saves the current file under a different file name and, optionally, in a different file format.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P>For the <B>DesignFile</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>SaveAs</B> <I>NewFileName</I> [, <I>Overwrite</I> [, <I>NewFormat</I>]]
+<P>For the <B>Raster</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>SaveAs</B> <I>Filename</I> [, <I>NewFormatSpecifier</I> [, <I>NewColorModeSpecifier</I> [, <I>NewCompressionModeSpecifier</I> [, <I>NewBlockTypeSpecifier</I> [, <I>CompressionLevel</I> [, <I>MaxNumberOfColors</I> [, <I>NewSizeInX</I> [, <I>NewSizeInY</I> [, <I>ResampleImage</I> [, <I>SisterFileType</I>]]]]]]]]]]
+<P class=T>The <B>SaveAs</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewFileName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. The new file name.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Overwrite</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. Relevant only if the new design file already exists. How <B>SaveAs</B> behaves in this case. If <B>True</B>, the new design file is overwritten with the copy of the existing design file.
+    If <B>False</B>, <B>SaveAs</B> raises an error.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewFormat</I></TD>
+<TD class=TT width=79%>
+Optional. An <A href="usenmMsdDesignFileFormat.htm">MsdDesignFileFormat</A> expression. The new file format. By default, the file is saved in its current format.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Filename</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. Full name (including path) of the file to use to save the raster.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewFormatSpecifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>VARIANT</B> expression. Format identification number or a <A href="usobjRasterFormat.htm">RasterFormat</A> object to use for the copy.
+    Use values -1 or <B>Nothing</B> to make a copy using the same format as the original file.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewColorModeSpecifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>VARIANT</B> expression. Color mode identification number or a <A href="usobjRasterColorMode.htm">RasterColorMode</A> object to use for
+    the copy. Use values -1 or <B>Nothing</B> to make a copy using the same color mode as the original file.
+    Make sure the color mode is supported by the copy's format.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewCompressionModeSpecifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>VARIANT</B> expression. Compression mode identification number or a <A href="usobjRasterCompressionMode.htm">RasterCompressionMode</A>
+    object to use for the copy. Use values -1 or <B>Nothing</B> to make a copy using the same compression
+    mode as the original file. Make sure the compresssion mode is supported by the copy's color mode.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewBlockTypeSpecifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>VARIANT</B> expression. Block type identification number or a <A href="usobjRasterBlockType.htm">RasterBlockType</A> object to use for
+    the copy. Use values -1 or <B>Nothing</B> to make a copy using the same block type as the original file.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>CompressionLevel</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Byte</B> expression. Level of compression when applicable. 0 min and 255 max.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>MaxNumberOfColors</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Long</B> expression. Limits the number of colors used in the destination raster. Valid with palleted
+    color mode only except 1bit. A value of 0 will set the limit to the maximum number of colors available.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewSizeInX</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Long</B> expression. Desired size in X of the destination raster. Use -1, to keep the same size as the original file.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewSizeInY</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Long</B> expression. Desired size in Y of the destination raster. Use -1, to keep the same size as the original file.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ResampleImage</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. If <B>True</B> the raster will be resampled.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>SisterFileType</I></TD>
+<TD class=TT width=79%>
+Optional. An <A href="usenmMsdGeoReferenceSisterFileType.htm">MsdGeoReferenceSisterFileType</A> expression. Sister file type to use to keep information relative to georeferencing. Ignored if no
+    support for sister file available.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

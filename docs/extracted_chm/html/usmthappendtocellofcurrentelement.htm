@@ -1,0 +1,155 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AppendToCellOfCurrentElement Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthappendtocellofcurrentelement"></A>AppendToCellOfCurrentElement Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1559" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAppendToCellOfCurrentElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1560" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAppendToCellOfCurrentElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1561" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAppendToCellOfCurrentElementA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1562" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAppendToCellOfCurrentElementS">
+</OBJECT>
+</P>
+
+<P class=T>
+Appends the element to the current element if the current element is a cell. Otherwise, it appends
+    the element to the innermost cell that contains the current element.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>AppendToCellOfCurrentElement</B> <I>NewElement</I>
+<P class=T>The <B>AppendToCellOfCurrentElement</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewElement</I></TD>
+<TD class=TT width=79%>
+An <A href="usobjElement.htm">Element</A> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+The function AddElementsToCell changes a cell from:
+<pre><code>
+Cell Outer
+    Cell Inner1
+        Text Element # 1
+        Text Element # 2
+    Cell Inner2
+        Text Element # 3
+        Text Element # 4
+</code></pre>
+    to:
+<pre><code>
+Cell Outer
+    Cell Inner1
+        Text Element # 1
+        Text Element # 2
+        Text Element # 6
+        Text Element # 7
+    Cell Inner2
+        Text Element # 3
+        Text Element # 4
+        Text Element # 8
+    Text Element # 5
+</code></pre>
+</P>
+<P>
+The function that produces this change is:
+<pre><code>
+Sub AddElementsToCell(ele As <A href="usobjCellElement.htm">CellElement</A>)
+    Dim textElement5 As <A href="usobjTextElement.htm">TextElement</A>, textElement6 As <B>TextElement</B>
+    Dim textElement7 As <B>TextElement</B>, textElement8 As <B>TextElement</B>
+    Dim nesting As Long
+
+    Set textElement5 = <A href="usmthCreateTextElement1.htm">CreateTextElement1</A>(Nothing, "Text element # 5", <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(5, 3, 0), <A href="usmthMatrix3dIdentity.htm">Matrix3dIdentity</A>)
+    Set textElement6 = <B>CreateTextElement1</B>(Nothing, "Text element # 6", <B>Point3dFromXYZ</B>(5, 2, 0), <B>Matrix3dIdentity</B>)
+    Set textElement7 = <B>CreateTextElement1</B>(Nothing, "Text element # 7", <B>Point3dFromXYZ</B>(5, 1, 0), <B>Matrix3dIdentity</B>)
+    Set textElement8 = <B>CreateTextElement1</B>(Nothing, "Text element # 8", <B>Point3dFromXYZ</B>(5, 0, 0), <B>Matrix3dIdentity</B>)
+
+    '  Since the program has not called MoveToNextElement, this appends
+    '  the textElement to the outer most cell
+    ele.<B>AppendToCellOfCurrentElement</B> textElement5
+
+    '  This moves to the first component. It is the
+    '  first nested cell
+    ele.<A href="usmthMoveToNextElement.htm">MoveToNextElement</A> True
+
+    '  This appends the TextElement to the first nested cell
+    ele.<B>AppendToCellOfCurrentElement</B> textElement6
+
+    '  This moves to the first component of the nested cell
+    ele.<B>MoveToNextElement</B> True
+
+    '  This appends the TextElement to the first nested cell
+    ele.<B>AppendToCellOfCurrentElement</B> textElement7
+
+    '  Loops until it exits the first nested cell
+    Do While ele.<B>MoveToNextElement</B>(True, nesting)
+        '  If nesting was decremented, it has exited the cell
+        If nesting < 0 Then Exit Do
+    Loop
+
+    '  Now loop until it steps into the next cell
+    nesting = 0
+    Do While ele.<B>MoveToNextElement</B>(True, nesting)
+        If nesting > 0 Then Exit Do
+    Loop
+
+    ele.<B>AppendToCellOfCurrentElement</B> textElement8
+
+    ele.<A href="usmthRewrite.htm">Rewrite</A>
+    ele.<A href="usmthRedraw.htm">Redraw</A>
+End Sub
+</code></pre>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

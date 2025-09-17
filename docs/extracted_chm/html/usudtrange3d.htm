@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Range3d Type</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usudtrange3d"></A>Range3d Type</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_29" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtRange3dC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_30" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtRange3dX">
+</OBJECT>
+<P class=T>
+Represents an axis-aligned box in three dimensional space.
+</P>
+<P class=T>The <B>Range3d</B> type has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Low</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> value that represents the corner of the box with the smallest coordinates.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>High</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> value that represents the corner of the box with the largest coordinates.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+For points in a <A href="usobjModelReference.htm">ModelReference</A>'s geometry, the values are measured in the model's coordinate system, unless stated otherwise.
+</P>
+<P>
+For a non-null <A href="usudtRange3d.htm">Range3d</A>, each coordinate (<B>X</B>,<B>Y</B>,<B>Z</B>) of <B>Low</B> is less than or equal to the corresponding coordinate of <B>High</B>.
+</P>
+<P>
+The <B>Point3d</B>s of a null <B>Range3d</B> are initialized by <A href="usmthRange3dInit.htm">Range3dInit</A> to large magnitude values, with <B>Low</B> <I>greater</I> than
+         <B>High</B>.
+</P>
+<P>
+There are a number of global utility functions for managing <B>Point3d</B> values:
+<UL>
+<LI>Initializes a range: <B>Range3dInit</B></LI>
+<LI>Returns the squared length of the diagonal of a range: <A href="usmthRange3dExtentSquared.htm">Range3dExtentSquared</A></LI>
+<LI>Returns a range from a point: <A href="usmthRange3dFromPoint3d.htm">Range3dFromPoint3d</A></LI>
+<LI>Returns a range from a point specified by its coordinates: <A href="usmthRange3dFromXYZ.htm">Range3dFromXYZ</A></LI>
+<LI>Returns a range from two points: <A href="usmthRange3dFromPoint3dPoint3d.htm">Range3dFromPoint3dPoint3d</A></LI>
+<LI>Returns a range from two points specified by their coordinates: <A href="usmthRange3dFromXYZXYZ.htm">Range3dFromXYZXYZ</A></LI>
+<LI>Returns a range from three points: <A href="usmthRange3dFromPoint3dPoint3dPoint3d.htm">Range3dFromPoint3dPoint3dPoint3d</A></LI>
+<LI>Returns a range from a range expanded by a margin: <A href="usmthRange3dFromRange3dMargin.htm">Range3dFromRange3dMargin</A></LI>
+<LI>Returns a range from a range extended by a point: <A href="usmthRange3dUnionPoint3d.htm">Range3dUnionPoint3d</A></LI>
+<LI>Returns a range from a range extended by a point specified by its coordinates: <A href="usmthRange3dUnionXYZ.htm">Range3dUnionXYZ</A></LI>
+<LI>Returns a range from the union of two ranges: <A href="usmthRange3dUnion.htm">Range3dUnion</A></LI>
+<LI>Returns a range from the intersection of two ranges: <A href="usmthRange3dIntersect.htm">Range3dIntersect</A></LI>
+<LI>Returns a range from a range scaled about its center point: <A href="usmthRange3dScaleAboutCenter.htm">Range3dScaleAboutCenter</A></LI>
+<LI>Tests whether a range has just been initialized: <A href="usmthRange3dIsNull.htm">Range3dIsNull</A></LI>
+<LI>Tests whether a range is contained in another range: <A href="usmthRange3dIsContainedInRange3d.htm">Range3dIsContainedInRange3d</A></LI>
+<LI>Tests whether a range contains a point: <A href="usmthRange3dContainsPoint3d.htm">Range3dContainsPoint3d</A></LI>
+<LI>Tests whether a range contains a point specified by its coordinates: <A href="usmthRange3dContainsXYZ.htm">Range3dContainsXYZ</A></LI>
+<LI>Tests whether two ranges are exactly equal: <A href="usmthRange3dEqual.htm">Range3dEqual</A></LI>
+<LI>Tests whether two ranges are equal within tolerance: <A href="usmthRange3dEqualTolerance.htm">Range3dEqualTolerance</A></LI>
+</UL>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

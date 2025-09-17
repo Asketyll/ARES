@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>StandardsCheckerProblem Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjstandardscheckerproblem"></A>StandardsCheckerProblem Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_1002" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjStandardsCheckerProblemC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1003" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjStandardsCheckerProblemX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1004" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjStandardsCheckerProblemP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1005" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjStandardsCheckerProblemM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1006" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjStandardsCheckerProblemE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1007" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjStandardsCheckerProblemS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1008" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjStandardsCheckerProblemI">
+</OBJECT>
+</P>
+
+<P class=T>
+A <B>StandardsCheckerProblem</B> object represents a Problem node in the <A href="usobjStandardsCheckerController.htm">StandardsCheckerController</A>'s report.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+A standards checker can use <A href="usobjStandardsCheckerReport.htm">StandardsCheckerReport</A>.<A href="usmthAddProblem.htm">AddProblem</A> or <A href="usmthAddIgnoredProblem.htm">AddIgnoredProblem</A> to add a problem to a
+    report.  Both of these methods return a <B>StandardsCheckerProblem</B> object that the standards checker can use to add
+    more information to the entry in the report.
+</P>
+<P>
+A problem entry in the report looks like:
+    <PRE><CODE>    &lt;Problem fileId="1" modelId="0" appId="bentley.com.ByLevel" ignored="1"
+                                ignoredBy="Larry LeRue" ignoredAt="2003/10/29 10:51:20" fixed="0" type="Element"&gt;
+      &lt;Description&gt;The element does not meet the 'ByLevel' requirements&lt;/Description&gt;
+      &lt;Standard&gt;Line&lt;/Standard&gt;
+      &lt;ElemId&gt;788&lt;/ElemId&gt;
+      &lt;Variances&gt;
+         &lt;Variance Property="Color" expected="ByLevel" found=" 12"/&gt;
+         &lt;Variance Property="Style" expected="ByLevel" found="0"/&gt;
+      &lt;/Variances&gt;
+    &lt;/Problem&gt;
+    </CODE></PRE>
+</P>
+<P>
+The <B>AddProblem</B> methods insert the fileID and modelID that corresponds to the <A href="usobjModelReference.htm">ModelReference</A> argument passed into <A href="usmthRunCheck.htm">RunCheck</A>.
+    The <B>AddProblem</B> methods use the standards checker's <A href="usproIdentityString.htm">IdentityString</A> property to get the value for appID.
+    The standards checker provides the values for Ignored, IgnoredBy, and IgnoredWhen as arguments to <B>AddIgnoredProblem</B>.
+    The standards checker provides a value for Description as an argument to the <B>AddProblem</B> method.
+    The standards checker provides a value for type via the ObjectType parameter of the <B>AddProblem</B> method.
+</P>
+<P>
+A standards checker can call <A href="usmthAddAction.htm">AddAction</A>, <A href="usmthAddElementID.htm">AddElementID</A>, <A href="usmthAddSeverity.htm">AddSeverity</A>, <A href="usmthAddStandard.htm">AddStandard</A>, or <A href="usmthAddVariance.htm">AddVariance</A> to
+    add detail to the report. It can call these methods in any order. These methods keep the nodes in the proper order.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

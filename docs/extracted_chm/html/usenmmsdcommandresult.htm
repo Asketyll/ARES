@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MsdCommandResult Enum</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usenmmsdcommandresult"></A>MsdCommandResult Enum</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_75" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdCommandResultC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_76" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdCommandResultX">
+</OBJECT>
+<P class=T>
+Defines constants that represent common status codes set by MicroStation commands.
+</P>
+<P class=T>The <B>MsdCommandResult</B> enum has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultSuccess</I></TD>
+<TD class=TT width=79%>
+0 (&H0)  Successful processing.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultReferenceNotFound</I></TD>
+<TD class=TT width=79%>
+7 (&H7)  Could not find the reference
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultCellLibraryNotFound</I></TD>
+<TD class=TT width=79%>
+12 (&HC)  Could not find the cell library
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultNoFenceActive</I></TD>
+<TD class=TT width=79%>
+15 (&HF)  Operation requires a fence, but there is no active fence
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultUnknownCommand</I></TD>
+<TD class=TT width=79%>
+16 (&H10)  Command not recognized
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultViewNotFound</I></TD>
+<TD class=TT width=79%>
+18 (&H12)  Could not find the named view
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultNoActiveCell</I></TD>
+<TD class=TT width=79%>
+19 (&H13)  Attempt to place cell with no active cell
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultElementNotFound</I></TD>
+<TD class=TT width=79%>
+21 (&H15)  Tried to locate the element, but could not
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultOffDesignPlane</I></TD>
+<TD class=TT width=79%>
+22 (&H16)  Data point put element off the design plane
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultIllegalDefinition</I></TD>
+<TD class=TT width=79%>
+23 (&H17)  Data point resulted in an illegal element definition
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultEmptyFence</I></TD>
+<TD class=TT width=79%>
+27 (&H1B)  No elements found within the fence
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultNeedCharacters</I></TD>
+<TD class=TT width=79%>
+27 (&H1B)  Text data point before entering string
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResult3dOnly</I></TD>
+<TD class=TT width=79%>
+39 (&H27)  2D file, 3D command
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultCellNestingError</I></TD>
+<TD class=TT width=79%>
+43 (&H2B)  Cell nesting error (nests itself)
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultCellNotFound</I></TD>
+<TD class=TT width=79%>
+44 (&H2C)  Cell not found
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultBadCellName</I></TD>
+<TD class=TT width=79%>
+47 (&H2F)  Invalid cell name when creating a cell
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResult3dLibrary2dFile</I></TD>
+<TD class=TT width=79%>
+50 (&H32)  Attempt to create 3D cell in 2D library
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultNoCellLibrary</I></TD>
+<TD class=TT width=79%>
+54 (&H36)  No cell library is attached
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultCellExists</I></TD>
+<TD class=TT width=79%>
+55 (&H37)  Cell already in library
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultNoOrigin</I></TD>
+<TD class=TT width=79%>
+56 (&H38)  No cell origin defined when creating cell
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultCellDeleted</I></TD>
+<TD class=TT width=79%>
+59 (&H3B)  Cell successfully deleted
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultAcceptQuery</I></TD>
+<TD class=TT width=79%>
+68 (&H44)  Element found, prompting "Accept/Query"
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultFileReadOnly</I></TD>
+<TD class=TT width=79%>
+287 (&H11F)  Tried to write to read-only design file
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdCommandResultInvalidReferenceOperation</I></TD>
+<TD class=TT width=79%>
+481 (&H1E1)  Invalid reference file operation
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+Use <A href="usproCommandState.htm">CommandState</A>.<A href="usproCommandResult.htm">CommandResult</A> to retrieve the result of the most recently executed MicroStation
+command.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

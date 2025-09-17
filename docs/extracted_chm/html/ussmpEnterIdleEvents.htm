@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Open, Close, and Idle Events Handler Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Open, Close, and Idle Events Handler Example</H1>
+
+<P class=T>
+This example shows how a program can be notified when a design file is opened or closed.
+              It also shows how a program can be notified when MicroStation enters idle mode.
+</P>
+<PRE class=CT><CODE>
+Dim oOpenClose As clsOpenCloseEventHandler
+Sub SetupHooks()
+    Set oOpenClose = New clsOpenCloseEventHandler
+End Sub
+</CODE></PRE>
+<P class=T>
+The is the class that implements the event handlers.
+</P>
+<PRE class=CT><CODE>
+Implements <A href="usobjIEnterIdleEvent.htm">IEnterIdleEvent</A> '  for EnterIdle events
+Dim WithEvents hooks As <A href="usobjApplication.htm">Application</A>  ' for open and close events
+
+Private Sub Class_Initialize()
+    hooks = <A href="usproApplication.htm">Application</A>
+End Sub
+
+' See <A href="usevtOnDesignFileClosed.htm">OnDesignFileClosed</A>
+Private Sub hooks_OnDesignFileClosed(ByVal DesignFileName As String)
+    Debug.Print "Closed design file " & DesignFileName
+End Sub
+
+' See <A href="usevtOnDesignFileOpened.htm">OnDesignFileOpened</A>
+Private Sub hooks_OnDesignFileOpened(ByVal DesignFileName As String)
+    Debug.Print "Opened design file " & DesignFileName
+    <A href="usmthAddEnterIdleEventHandler.htm">AddEnterIdleEventHandler</A> Me
+End Sub
+
+
+Private Sub IEnterIdleEvent_<A href="usmthEnterIdle.htm">EnterIdle</A>(ByVal Reserved As Long)
+    Debug.Print "In enter idle event handler"
+
+    ' So it is only called once
+    <A href="usmthRemoveEnterIdleEventHandler.htm">RemoveEnterIdleEventHandler</A> Me
+End Sub
+
+</CODE></PRE>
