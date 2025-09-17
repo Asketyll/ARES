@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GetContents Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthgetcontents"></A>GetContents Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2771" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthGetContentsC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2772" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthGetContentsX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2773" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthGetContentsA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2774" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthGetContentsS">
+</OBJECT>
+</P>
+
+<P class=T>
+Creates and returns an <A href="usobjElementEnumerator.htm">ElementEnumerator</A> that represents the set of elements defined by the the fence.
+    <P><I>This method can change the contents of the design file.</I> See Remarks for more information.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><B>ElementEnumerator</B></I> = <I>object</I>.<B>GetContents</B> [(<I>CloneElementsIfClipping</I> [, <I>IncludeLockedElements</I>])]
+<P class=T>The <B>GetContents</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>IncludeLockedElements</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. Controls whether read-only elements (elements that are locked and elements that are from attachments) are
+    included in the result.  It is common to specify <B>True</B> if the elements will not be modified. The default value is <B>True</B>.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>CloneElementsIfClipping</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. How to handle the elements if fence clipping is turned on. The default value is <B>False</B>.
+    See Remarks for more information.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+The behavior of <B>GetContents</B> depends on several factors, as summarized in the following table. The table uses the following terminology:
+    <ul><li>The <I>fence containment area</I> is the graphical region defined by the fence.
+    <P>If <A href="usproActiveSettings.htm">ActiveSettings</A>.<A href="usproFenceVoid.htm">FenceVoid</A> = <B>False</B>, the fence containment area is the interior of fence boundary.</P>
+    <P>If <B>ActiveSettings</B>.<B>FenceVoid</B> = <B>True</B>, the fence containment area is the exterior of the fence boundary (that is, everything <I>except</I> the interior).</P></li>
+    <li>An element is <I>wholly contained</I> if it lies entirely within the fence containment area.</li>
+    <li>An element is <I>partially contained</I> if it overlaps the fence boundary.</li></ul>
+    <table border="1" cellspacing="1">
+      <tr>
+        <td bgcolor="#C0C0C0">Value of <B>ActiveSettings</B> .<A href="usproFenceClip.htm">FenceClip</A></td>
+        <td bgcolor="#C0C0C0">Value of <B>ActiveSettings</B> .<A href="usproFenceOverlap.htm">FenceOverlap</A></td>
+        <td bgcolor="#C0C0C0">Value of <B>GetContents</B>' argument, <b>CloneElementsIfClipping</b></td>
+        <td bgcolor="#C0C0C0">Effect of calling <B>GetContents</B></td>
+      </tr>
+      <tr>
+        <td><b>False</b></td>
+        <td><b>False</b></td>
+        <td><i>(irrelevant)</i></td>
+        <td><B>GetContents</B> does not change or create any elements. It returns all of
+          (and only) those elements that are wholly contained. </td>
+      </tr>
+      <tr>
+        <td><b>False</b></td>
+        <td><b>True</b></td>
+        <td><i>(irrelevant)</i></td>
+        <td><B>GetContents</B> does not change or create any elements. It returns all of
+          (and only) those elements that are either wholly or partially contained.</td>
+      </tr>
+      <tr>
+        <td><b>True</b></td>
+        <td><i>(irrelevant)</i></td>
+        <td><b>False</b></td>
+        <td><B>GetContents</B> does not change any wholly-contained elements. However, for
+          each partially-contained element, it slices that element at the fence
+          boundary into two or more smaller elements, which replace the original
+          element in the design file. It then returns all contained elements,
+          including those that are a result of slicing.</td>
+      </tr>
+      <tr>
+        <td><b>True</b></td>
+        <td><i>(irrelevant)</i></td>
+        <td><b>True</b></td>
+        <td><B>GetContents</B> does not change any existing elements, but it creates new
+          elements as follows: It copies (clones) each wholly-contained element. For
+          each partially-contained element, it creates one or more smaller elements
+          that represent only the contained portion(s) of the original element. It
+          adds all of the newly-created elements to the design file, and returns
+          them.</td>
+      </tr>
+    </table>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

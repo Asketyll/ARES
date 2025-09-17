@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Extracting Mirroring Information from Rotation</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Extracting Mirroring Information from Rotation</H1>
+
+<PRE class=CT><CODE>
+'   ReportRotationAndMirroring evaluates an attachment's rotation matrix.
+'   The rotation matrix provides information on rotation and mirroring.  To
+'   extract the information on mirroring, use Matrix3dIsRotateScaleRotate.
+'   The Rotation1 matrix it returns gives the rotation. The ScaleFactors
+'   point it returns indicates whether it is mirrored. If the Attachment
+'   is mirrored, then the scale factor is (1,1,-1); otherwise it is (1,1,1).
+'
+Sub ReportRotationAndMirroring(att As <A href="usobjAttachment.htm">Attachment</A>)
+    Dim mtrx As <A href="usudtMatrix3d.htm">Matrix3d</A>
+    Dim Rotation1 As Matrix3d
+    Dim Rotation2 As Matrix3d
+    Dim scaleFactors As <A href="usudtPoint3d.htm">Point3d</A>
+    Dim xRot As Double, yRot As Double, zRot As Double, uniformScale As Double
+
+    mtrx = att.<A href="usproRotation.htm">Rotation</A>
+    Debug.Print att.<A href="usproLogicalName.htm">LogicalName</A>
+    <A href="usmthMatrix3dIsRotateScaleRotate.htm">Matrix3dIsRotateScaleRotate</A> mtrx, Rotation1, scaleFactors, Rotation2
+    Debug.Print "     IsMirrored = " & (scaleFactors.Z = -1)
+    <A href="usmthMatrix3dIsXRotationYRotationZRotationScale.htm">Matrix3dIsXRotationYRotationZRotationScale</A> Rotation1, xRot, yRot, zRot, uniformScale
+    Debug.Print "     rotation is " & xRot & ", " & yRot & ", " & zRot
+End Sub
+
+
+</CODE></PRE>

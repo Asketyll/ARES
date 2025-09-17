@@ -6,7 +6,7 @@
 Option Explicit
 
 ' Function to get or create an ItemTypeLibrary by name
-Public Function GetItemTypeLibrary(Optional LibraryName As String = ARESConfig.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARESConfig.ARES_NAME_ITEM_TYPE.Value) As ItemTypeLibrary
+Public Function GetItemTypeLibrary(Optional LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ItemName As String = ARESConstants.ARES_NAME_ITEM_TYPE) As ItemTypeLibrary
     On Error GoTo ErrorHandler
 
     Dim ItemLibs As ItemTypeLibraries
@@ -28,12 +28,12 @@ Public Function GetItemTypeLibrary(Optional LibraryName As String = ARESConfig.A
     Exit Function
 
 ErrorHandler:
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetItemTypeLibrary"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetItemTypeLibrary"
     Set GetItemTypeLibrary = Nothing
 End Function
 
 ' Function to create a new ItemTypeLibrary and its associated ItemType
-Private Function CreateItemTypeLibrary(Optional LibraryName As String = ARESConfig.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARESConfig.ARES_NAME_ITEM_TYPE.Value) As ItemTypeLibrary
+Private Function CreateItemTypeLibrary(Optional LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ItemName As String = ARESConstants.ARES_NAME_ITEM_TYPE) As ItemTypeLibrary
     On Error GoTo ErrorHandler
 
     Dim item As ItemType
@@ -67,12 +67,12 @@ Private Function CreateItemTypeLibrary(Optional LibraryName As String = ARESConf
     Exit Function
 
 ErrorHandler:
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.CreateItemTypeLibrary"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.CreateItemTypeLibrary"
     Set CreateItemTypeLibrary = Nothing
 End Function
 
 ' Function to delete an ItemTypeLibrary by name
-Public Function DeleteItemTypeLibrary(Optional LibraryName As String = ARESConfig.ARES_NAME_LIBRARY_TYPE.Value) As Boolean
+Public Function DeleteItemTypeLibrary(Optional LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
     On Error GoTo ErrorHandler
 
     Dim oItemLibs As ItemTypeLibraries
@@ -96,12 +96,12 @@ Public Function DeleteItemTypeLibrary(Optional LibraryName As String = ARESConfi
     Exit Function
 
 ErrorHandler:
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.DeleteItemTypeLibrary"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.DeleteItemTypeLibrary"
     DeleteItemTypeLibrary = False
 End Function
 
 ' Function to attach an ItemType to an Element
-Public Function AttachItemToElement(ByVal El As element, Optional LibraryName As String = ARESConfig.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARESConfig.ARES_NAME_ITEM_TYPE.Value) As Boolean
+Public Function AttachItemToElement(ByVal El As element, Optional LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ItemName As String = ARESConstants.ARES_NAME_ITEM_TYPE) As Boolean
     On Error GoTo ErrorHandler
 
     Dim ITL As ItemTypeLibrary
@@ -132,12 +132,12 @@ Public Function AttachItemToElement(ByVal El As element, Optional LibraryName As
     Exit Function
     
 ErrorHandler:
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.AttachItemToElement"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.AttachItemToElement"
     AttachItemToElement = False
 End Function
 
 ' Function to remove an ItemType to an Element
-Public Function RemoveItemToElement(ByVal El As element, Optional LibraryName As String = ARESConfig.ARES_NAME_LIBRARY_TYPE.Value, Optional ItemName As String = ARESConfig.ARES_NAME_ITEM_TYPE.Value) As Boolean
+Public Function RemoveItemToElement(ByVal El As element, Optional LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ItemName As String = ARESConstants.ARES_NAME_ITEM_TYPE) As Boolean
     On Error GoTo ErrorHandler
 
     Dim ITL As ItemTypeLibrary
@@ -167,6 +167,6 @@ Public Function RemoveItemToElement(ByVal El As element, Optional LibraryName As
     Exit Function
     
 ErrorHandler:
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.RemoveItemToElement"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.RemoveItemToElement"
     RemoveItemToElement = False
 End Function

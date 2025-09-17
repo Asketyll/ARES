@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Scans the DesignFile Looking for Saved Views</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Scans the DesignFile Looking for Saved Views</H1>
+
+<P class=T>
+
+</P>
+<PRE class=CT><CODE>
+Function ScanForSavedViewsForActiveModel() As Collection
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+    Dim esc As <A href="usobjElementScanCriteria.htm">ElementScanCriteria</A>
+
+    Set esc = New ElementScanCriteria
+
+    esc.<A href="usmthExcludeAllTypes.htm">ExcludeAllTypes</A>
+    esc.<A href="usmthIncludeType.htm">IncludeType</A> msdElementTypeView
+
+    Set ScanForSavedViewsForActiveModel = New Collection
+
+    Set ee = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthScan.htm">Scan</A>(esc)
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        '   The saved views are stored in the non-model part of the design file, but each saved
+        '   view only applies to a given model.  The SavedElementElement has a property SavedViewModelReference
+        '   that indicates what model the SavedViewElement is for.
+        If ee.<A href="usproCurrent.htm">Current</A>.<A href="usproAsSavedViewElement.htm">AsSavedViewElement</A>.<A href="usproSavedViewModelReference.htm">SavedViewModelReference</A> Is ActiveModelReference Then
+            ScanForSavedViewsForActiveModel.<A href="usmthAdd.htm">Add</A> ee.Current
+        End If
+    Loop
+End Function
+
+Sub RunScan()
+    Dim eleSV As <A href="usobjSavedViewElement.htm">SavedViewElement</A>
+    Dim oColl As Collection
+
+    Set oColl = ScanForSavedViewsForActiveModel
+    For Each eleSV In oColl
+        Debug.Print "Found saved view element " & eleSV.<A href="usproName.htm">Name</A>
+    Next
+End Sub
+
+</CODE></PRE>

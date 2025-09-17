@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>FromRailAndSweptRigidSection Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthfromrailandsweptrigidsection"></A>FromRailAndSweptRigidSection Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2675" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptRigidSectionC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2676" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptRigidSectionX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2677" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptRigidSectionA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2678" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptRigidSectionS">
+</OBJECT>
+</P>
+
+<P class=T>
+Initializes this object by sweeping, scaling and spinning the given Section along the given Rail path, orienting each cross
+                 section with Rail's Frenet frame (cf. <A href="usmthEvaluatePointFrame.htm">EvaluatePointFrame</A>), modified to keep the binormal vector constant at FixedFrameY.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>FromRailAndSweptRigidSection</B> <I>Rail</I>, <I>Section</I>, <I>FixedFrameY</I> [, <I>ScaleX</I> [, <I>ScaleY</I> [, <I>SpinRadians</I> [, <I>Tolerance</I>]]]]
+<P class=T>The <B>FromRailAndSweptRigidSection</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Rail</I></TD>
+<TD class=TT width=79%>
+A <A href="usobjBsplineCurve.htm">BsplineCurve</A> expression. The path along which Section is swept and spun.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Section</I></TD>
+<TD class=TT width=79%>
+A <B>BsplineCurve</B> expression. The cross-sectional profile to sweep and scale along Rail.  For best results, Section should be planar.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>FixedFrameY</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. The vector to preserve in the modified Frenet frame.  This is the y-axis of the local coordinate system in which
+                        each transformed Section is placed along Rail.  For example, to preserve the "up" direction of Section, set
+                        FixedFrameY to the local y-axis of Section.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ScaleX</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The ending scale factor along the modified Frenet frame's x-axis.  The starting scale is 1.0 and progresses linearly
+                        with each cross section.  If omitted, a default scale of 1.0 is used.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ScaleY</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The ending scale factor along the modified Frenet frame's constant y-axis.  The starting scale is 1.0 and progresses
+                        linearly with each cross section.  If omitted, a default scale of 1.0 is used.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>SpinRadians</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The ending spin angle around the modified Frenet frame's z-axis.  The starting spin is zero radians and progresses
+                        linearly with each cross section.  If omitted, a default spin of 0 radians is used.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Tolerance</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. This is currently not used.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineSurface.htm">BsplineSurface</A> objects, if the Rail and Section curves' start tangents are not perpendicular or if Rail does not start in
+             Section's initial osculating plane, then Section is rotated internally so that its start binormal is parallel to Rail's start
+             tangent, and it is translated so that its start point lies on Rail's start point if these points were initially close, or if
+             not, so that the projection of Rail's start point onto Section's initial osculating plane lies on Rail's start point
+             (cf. <B>EvaluatePointFrame</B>).
+</P>
+<P>
+For <B>BsplineSurface</B> objects, the Section is first mapped to the world xy-plane with rotation <I>R</I>(0), given
+             below.  For the <I>i</I>th cross section starting with <I>i</I> = 0, this xy-curve is incrementally scaled
+             and spun, and then mapped onto the Rail with rotation <I>R(i)</I> below.  Let<BR><BR>
+             <I>y</I> = FixedFrameY,<BR>
+             <I>t<SUB>i</SUB></I> = the tangent vector of Rail at the <I>i</I>th cross section location,<BR>
+             U() = the vector normalization operator, and<BR>
+             <I>a</I> x <I>b</I> = the cross product of vectors <I>a</I> and <I>b</I>.<BR><BR>
+             Then this rotation is given by:<BR><BR>
+             <I>R(i)</I> = <A href="usmthMatrix3dFromPoint3dRows.htm">Matrix3dFromPoint3dRows</A>(U(<I>y</I> x <I>t<SUB>i</SUB></I>),U(<I>y</I>),U((<I>y</I> x <I>t<SUB>i</SUB></I>) x <I>y</I>))
+</P>
+<P>
+For <B>BsplineSurface</B> objects, if Rail is G1-continuous (continuity of the normalized tangent) and linear control over scale and
+             spin is not desired, then a method with more options and greater rail approximation accuracy is <A href="usmthFromRailsAndSweptSections.htm">FromRailsAndSweptSections</A>.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

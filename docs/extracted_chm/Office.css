@@ -1,0 +1,184 @@
+<!-- Style Sheet Last updated - 4/20/98 -->
+<!-- This style sheet is for IE 4.02 and up -->
+
+<style>
+
+<!-- BODY = default paragraph font -->
+	body		{background: #ffffff; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 70%; }
+	
+<!-- HYPERLINKS -->
+	a:link		{color: #0000cc;}
+	a:active	{color: #0000cc;}
+	a:visited	{color: #990099;}
+
+<!-- LISTS -->
+	ol		{font-size: 100%; margin-top: .5em; margin-bottom: 0em; margin-left: 4em;}
+	ul		{font-size: 100%; margin-top: .5em; margin-bottom: 0em;}
+	ol ul	{list-style: disc; margin-top: .5em;}
+	ul ul	{list-style: disc; margin-top: .5em;}
+	li		{margin-bottom: .7em; margin-left: -2em;}
+
+<!-- PREFORMATTING/CODE -->
+	pre		 {font-size: 100%; margin-top: 1.2em; margin-bottom: 1.5em;}
+	code	 {font-family: courier new, courier; font-size: 125%; }
+	
+<!-- TABLES -->
+	table	{font-size: 100%; margin-top: 1em; margin-bottom: 1em;}
+	th		{text-align: left; background: #DDDDDD; margin: .25em; vertical-align: bottom;}
+	tr		{vertical-align: top;}
+	td		{margin: .25em; vertical-align: top;}
+
+<!-- PARAGRAPH -->
+	p		{margin-top: .6em; margin-bottom: .6em;}
+
+<!-- No Character Styles at all!-------------------------------------------------------------------------- -->
+	
+
+<!-- Paragraph styles ------------------------------------------------------------------------- -->
+
+	.at			{ } 
+	.ab			{ } 
+	.ac			{font-size: 90%;} 
+	.a			{ } 
+	.alnsr		{ }
+	.callkt		{text-indent: -2em; margin-left: 2em;}
+	.cae		{ }
+	.cas		{ }
+	.cat		{ }
+	.cmdn		{font-weight: bold;} 
+	.compt		{font-size: 80%;}
+	.cha		{ }
+	.chsum		{ }
+	.ct			{ }
+	.ctnsr		{ }
+	.cri		{text-align: right;}
+	.crt		{}
+	.dt1		{text-indent: -2em; margin-left: 2em;}
+	.dt2		{margin-left: 0em;}
+	.errd		{text-indent: -2em; margin-left: 2em;}
+	.errm		{font-weight: bold;}
+	.errt		{font-style: italic;}
+	.xend		{font-weight: bold;}
+	.xs			{font-weight: bold;}
+	.ft			{font-weight: bold;}
+	.fixp		{color: #00ff00;}	<!-- *fix this paragraph for incorrectly used styles / green -->
+	.foot		{font-size: 80%;}
+
+<!-- Heading 2,Chapter Number/Appendix Letter,chn -->
+	.chn		{text-align: right; margin-right: -2em; font-weight: bold; font-size: 80%;  text-transform: uppercase;}
+<!-- Heading 3, Org Heading 1,h1 -->
+	h1			{font-size: 125%; margin-bottom: .5em;}
+	.cht		{font-size: 125%; margin-bottom: .5em;} <!--Chapter/Appendix Title-->
+	.gt			{font-size: 125%; margin-bottom: .5em;} <!--Glossary Title-->
+	.ixt		{font-size: 125%; margin-bottom: .5em;} <!--Index Title-->
+	.int		{font-size: 125%; margin-bottom: .5em;} <!--Intro Title-->
+<!-- Heading 4, Ref Heading 1,rh1 -->
+	.rh1		{font-size: 125%; margin-bottom: .5em;}
+
+<!-- Heading 4, Org Heading 2,h2 -->
+	h2			{font-size: 110%; margin-top: 2em; margin-bottom: .5em;}
+<!-- Heading 5, Ref Heading 2,rh2 -->
+	.rh2		{font-size: 110%; margin-top: 1.2em; margin-bottom: .5em;}
+
+	h3			{font-size: 100%; margin-top: 1.2em; margin-bottom: .5em; font-weight: bold;}	<!-- Heading 5,Org Heading 3,h3 tugo/p -->
+<!-- Heading 6, Ref Heading 3,rh3 -->
+	.rh3		{font-size: 100%; margin-top: 1.2em; font-weight: bold;}
+	h4			{font-size: 100%; margin-top: 1.2em; font-weight: bold;}	<!-- Heading 6,Org Heading 4,h4 tugo/p -->
+	h5			{font-size: 100%; margin-top: 1.2em; font-weight: bold;}	<!-- Heading 7,Org Heading 5,h5, tugo/p -->
+<!-- Heading 9,List Procedure Heading,lproch -->
+	.lproch		{font-weight: bold ;margin-top: 1.2em; }
+
+	.ict		{ } 
+	.ilb		{ } 
+	.ils		{ } 
+	.it			{ } 
+	.lalph2		{ } 
+	.la			{ }
+	.la2		{ }
+	.lbr1		{text-indent: -2em; margin-left: 2em;}
+	.lbr2		{ }
+	.lb1		{ }
+	.lb2		{ }
+	.lcae		{ }
+	.lcas		{ }
+	.lcat		{ }
+	.lct1		{ }
+	.lct2		{ }
+	.lct3		{ }
+	.ft1		{font-weight: bold;}
+	.ft2		{font-weight: bold;}
+	.lmc		{ }
+	.lnt		{ }
+	.lnt2		{ }
+	.lproc		{ }
+	.lproc2		{ }
+	.lprocs		{ }
+	.lproct		{ }
+	.ls			{ }
+	.ls2		{ }
+	.lsyn1		{text-indent: -2em; margin-left: 2em;}
+	.lsyn2		{text-indent: -2em; margin-left: 2em;}
+	.lt1		{ }
+	.lt2		{ }
+	.ltpt		{}
+	.mt			{margin-top:  2em;}
+	.nav		{ }
+	.nct		{ } 
+	.nlb		{ }
+	.nls		{ }
+	.nt			{ } 
+	.nsrnh		{font-size: 80%; text-transform: uppercase; }
+	.nsrt		{font-size: 80%;}
+	.relatedtopic	{margin-left: 2em;}
+	.web		{text-indent: -2em; margin-left: 2em;}
+	.rtt		{text-align: right; font-size: 90%; }
+	.rlnsr		{font-weight: bold;}
+	.rl			{font-weight: bold;}
+	.slug		{ }	<!-- cc-do we need this? -->
+
+<!-- spacing styles -->
+	.4			{line-height: 4pt;}
+	.6			{line-height: 6pt;}
+	.sansr		{line-height: 6pt;}
+	.satow		{line-height: 6pt;}
+	.satownsr	{line-height: 6pt;}
+<!-- end of spacing styles -->
+
+	.synnsr		{ }
+	.syn		{text-indent: -2em; margin-left: 2em;}	
+	.tart		{ }
+	.tct		{ }
+	.tcrt		{ }
+	.tft		{text-indent: -2em; margin-left: 2em; font-size: 75%}
+	.tlart		{ }
+	.tlb		{ }
+	.tlb2		{ }
+	.tls		{ }
+	.tnt		{ }
+	.tr			{ }
+	.tt			{ }
+	.tti		{margin-left: 2em;}
+	.ttl		{font-weight: bold;}
+	.t			{ }
+	.tof		{text-align: right;}
+	.tplb		{ } 
+	.tpls		{}
+	.tpt		{ } 
+	.tproct		{ } 
+	.tproct2	{ } 
+	.tsyn		{text-indent: -2em; margin-left: 2em;}
+	.toc3		{text-indent: -2em; margin-left: 2em;}	
+	.toc4		{text-indent: -2em; margin-left: 4em;}	
+	.toc5		{text-indent: -2em; margin-left: 6em;}	
+	.toch		{font-weight: bold;}	
+	.we			{ }
+	.wi			{ }
+	.ws			{ }
+	.wt			{ }
+	
+<! -- Show Me Styles -->		
+	.Highlight	{background-color: lightblue;}
+	.Normal 	{background-color: white;}
+
+	
+</style>

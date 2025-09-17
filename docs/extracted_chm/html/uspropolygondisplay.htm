@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PolygonDisplay Property</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="uspropolygondisplay"></A>PolygonDisplay Property</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_8267" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproPolygonDisplayC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_8268" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproPolygonDisplayX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_8269" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproPolygonDisplayA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_8270" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproPolygonDisplayS">
+</OBJECT>
+</P>
+
+<P class=T> Read/Write <B>Boolean</B>.
+<P class=T>
+Gets or sets a value indicating whether this object's control polygon should be displayed.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P><I>object</I>.<B>PolygonDisplay</B> [= <I>Boolean</I>]
+<P class=T>The <B>PolygonDisplay</B> property syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Boolean</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineCurve.htm">BsplineCurve</A> objects, if <B>PolygonDisplay</B> is <B>True</B>, then line segments between successive pairs of <A href="usproPole.htm">Pole</A>s are
+             displayed whenever this object is displayed.
+</P>
+<P>
+For <A href="usobjBsplineSurface.htm">BsplineSurface</A> objects, if <B>PolygonDisplay</B> is <B>True</B>, then line segments between successive pairs of <B>Pole</B>s (in
+             both u- and v-parameter directions) are displayed whenever this object is displayed.
+</P>
+<P>
+For <A href="usobjInterpolationCurve.htm">InterpolationCurve</A> objects, if <B>PolygonDisplay</B> is <B>True</B>, then line segments between successive pairs of
+             <A href="usproFitPoint.htm">FitPoint</A>s are displayed whenever the object is displayed, as is a line segment joining the first (last) <B>FitPoint</B>
+             to a point along the <A href="usproStartTangent.htm">StartTangent</A> (<A href="usproEndTangent.htm">EndTangent</A>).
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

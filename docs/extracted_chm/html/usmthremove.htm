@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Remove Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthremove"></A>Remove Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_4427" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRemoveC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4428" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRemoveX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4429" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRemoveA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4430" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRemoveS">
+</OBJECT>
+</P>
+
+<P class=RL><B>Syntax</B></P>
+<P>For the <B>Attachments</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>Remove</B> <I>AttachmentSpecifier</I>
+<P>For the <B>RasterClipMasks</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I><B>Boolean</B></I> = <I>object</I>.<B>Remove</B> (<I>ClipMaskDescriptor</I>)
+<P>For the <B>TagSets</B> object and <B>TagDefinitions</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>Remove</B> <I>IndexOrName</I>
+<P class=T>The <B>Remove</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>AttachmentSpecifier</I></TD>
+<TD class=TT width=79%>
+A <B>VARIANT</B> expression. May be the index into the <A href="usproAttachments.htm">Attachments</A> collection, the name of the attached model, or the <A href="usobjAttachment.htm">Attachment</A> object.
+    If an <B>Attachment</B> object, it must be a member of the <B>Attachments</B> collection used to call <B>Remove</B>.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ClipMaskDescriptor</I></TD>
+<TD class=TT width=79%>
+A <B>VARIANT</B> expression. Index or a <A href="usobjRasterClipMask.htm">RasterClipMask</A> object to remove.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>IndexOrName</I></TD>
+<TD class=TT width=79%>
+A <B>VARIANT</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<P><B>Remove</B> generates an error if the <I>IndexOrName</I> does not refer to an object in the collection.</P>
+</P>
+<P>
+<A href="usobjRasterClipMasks.htm">RasterClipMasks</A>.<B>Remove</B> removes the clip mask from the list at the position given by Index.
+</P>
+<P>
+<A href="usobjTagDefinitions.htm">TagDefinitions</A>.<B>Remove</B> removes the <A href="usobjTagDefinition.htm">TagDefinition</A> from the collection. It also deletes every <A href="usobjTagElement.htm">TagElement</A> that is based on
+    that <B>TagDefinition</B>.
+</P>
+<P>
+<A href="usobjTagSets.htm">TagSets</A>.<B>Remove</B> removes all of the <A href="usobjTagSet.htm">TagSet</A>'s <B>TagDefinition</B>s and every <B>TagElement</B> that is based
+    on one of the deleted <B>TagDefinition</B>s.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CopyString Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcopystring"></A>CopyString Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1867" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyStringC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1868" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyStringX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1869" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyStringA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1870" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyStringS">
+</OBJECT>
+</P>
+
+<P class=T>
+Copies a <B>String</B> to or from the <A href="usobjDataBlock.htm">DataBlock</A> object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>CopyString</B> <I>StringReference</I>, <I>CopyToDataBlock</I>
+<P class=T>The <B>CopyString</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>StringReference</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>CopyToDataBlock</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+If <I>CopyToDataBlock</I> is <B>True</B>, it copies <I>StringReference</I> to the data block.
+    Otherwise, it copies from the data block to <I>StringReference</I>.
+    <P>When transferring data to the <B>DataBlock</B>, <B>CopyString</B> first stores 2 bytes that give the length of the
+    string in bytes.  Next it transfers the string itself.  Each character of the string occupies 2 bytes in the
+    <B>DataBlock</B>.</P>
+    <P>When transferring date from the <B>DataBlock</B>, <B>CopyString</B> first copies the size of the string from the
+    <B>DataBlock</B> and then it transfers the string itself.  It creates a <B>String</B> that is the same length
+    as the <B>String</B> that was saved in the <B>DataBlock</B>. If <I>StringReference</I> is a fixed length <I>String</I>,
+    then Visual Basic adjusts the string as necessary.<P>
+    <P>To save space, you may want to convert the string to an array of bytes and use <A href="usmthCopyByteArray.htm">CopyByteArray</A> to copy
+    the <B>Byte</B> array to the data block.</P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

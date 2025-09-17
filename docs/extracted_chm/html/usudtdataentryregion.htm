@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DataEntryRegion Type</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usudtdataentryregion"></A>DataEntryRegion Type</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtDataEntryRegionC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtDataEntryRegionX">
+</OBJECT>
+<P class=T>
+Represents a data entry region within a text element.
+</P>
+<P class=T>The <B>DataEntryRegion</B> type has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>StartPosition</I></TD>
+<TD class=TT width=79%>
+A <B>Long</B> expression
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Length</I></TD>
+<TD class=TT width=79%>
+A <B>Long</B> expression
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Justification</I></TD>
+<TD class=TT width=79%>
+An <A href="usenmMsdDataEntryRegionJustification.htm">MsdDataEntryRegionJustification</A> expression
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+See <a href="../vbaconcept/html/usvba_common_mistakes.htm#UDTs">User Defined Types as Property Values</a> for an explanation of why the following
+expression does not do anything:
+<pre><code>    Element.AsTextElement.DataEntryRegion(1) = msdDataEntryRegionJustificationRight
+</code></pre>
+but the following code works as expected:
+<pre><code>    Dim rgn As DataEntryRegion
+    rgn = Element.AsTextElement.DataEntryRegion(1)
+    rgn.Justification = msdDataEntryRegionJustificationRight
+    Element.AsTextElement.DataEntryRegion(1) = rgn
+</code></pre>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

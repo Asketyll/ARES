@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Type Property</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usprotype"></A>Type Property</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_9123" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproTypeC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9124" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproTypeX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9125" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproTypeA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9126" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproTypeS">
+</OBJECT>
+</P>
+
+<P class=T> Read-only <A href="usenmMsdElementType.htm">MsdElementType</A> for <A href="usobjApplicationElement.htm">ApplicationElement</A>, <A href="usobjArcElement.htm">ArcElement</A>, <A href="usobjAuxiliaryCoordinateSystemElement.htm">AuxiliaryCoordinateSystemElement</A>, <A href="usobjBsplineCurveElement.htm">BsplineCurveElement</A>, <A href="usobjBsplineSurfaceElement.htm">BsplineSurfaceElement</A>, <A href="usobjCellElement.htm">CellElement</A>, <A href="usobjComplexShapeElement.htm">ComplexShapeElement</A>, <A href="usobjComplexStringElement.htm">ComplexStringElement</A>, <A href="usobjConeElement.htm">ConeElement</A>, <A href="usobjCurveElement.htm">CurveElement</A>, <A href="usobjDimensionElement.htm">DimensionElement</A>, <A href="usobjElement.htm">Element</A>, <A href="usobjEllipseElement.htm">EllipseElement</A>, <A href="usobjLineElement.htm">LineElement</A>, <A href="usobjMultiLineElement.htm">MultiLineElement</A>, <A href="usobjNamedGroupElement.htm">NamedGroupElement</A>, <A href="usobjPointStringElement.htm">PointStringElement</A>, <A href="usobjSavedViewElement.htm">SavedViewElement</A>, <A href="usobjShapeElement.htm">ShapeElement</A>, <A href="usobjSharedCellDefinitionElement.htm">SharedCellDefinitionElement</A>, <A href="usobjSharedCellElement.htm">SharedCellElement</A>, <A href="usobjSmartSolidElement.htm">SmartSolidElement</A>, <A href="usobjTagElement.htm">TagElement</A>, <A href="usobjTextElement.htm">TextElement</A>, <A href="usobjTextNodeElement.htm">TextNodeElement</A>.</P>
+<P class=T> Read/Write <A href="usenmMsdModelType.htm">MsdModelType</A> for <A href="usobjAttachment.htm">Attachment</A>, <A href="usobjModelReference.htm">ModelReference</A>.</P>
+<P class=T> Read-only <A href="usenmMsdFontType.htm">MsdFontType</A> for <A href="usobjFont.htm">Font</A>.</P>
+<P class=T> Read-only <A href="usenmMsdRasterBlockType.htm">MsdRasterBlockType</A> for <A href="usobjRasterBlockType.htm">RasterBlockType</A>.</P>
+<P class=T>
+Gets (and, for some objects, sets) a value that identifies this object's fundamental type.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P><I>object</I>.<B>Type</B> 
+<P class=T>The <B>Type</B> property syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>MsdModelType</I></TD>
+<TD class=TT width=79%>
+An <B>MsdModelType</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+The significance of "fundamental type" depends on the object:
+</P>
+<P>
+For an element, the value (of the type <B>MsdElementType</B>) indicates which type of element it is: <B>ArcElement</B>, <B>TextElement</B>, etc.
+    <blockquote>
+    <P>Element.<B>Type</B> is an alternative to the various Element.<B>Is...</B> properties (such as Element.<A href="usproIsArcElement.htm">IsArcElement</A>).</P>
+    <P>Generally, the Element.<B>Is...</B> property is preferred when testing one or two element types with <B>If...Then</B> statements.
+    Element.<B>Type</B> is preferred when testing a large number of element types with a <B>Select Case</B> statement.
+    </blockquote>
+</P>
+<P>
+For a <B>ModelReference</B> object, the value (of the type <B>MsdModelType</B>) indicates whether it is a normal model, a sheet model, or an extraction model.
+</P>
+<P>
+For a <B>Font</B> object, the value (of the type <B>MsdFontType</B>) indicates whether it is a MicroStation native font, an AutoCAD SHX font, or a Windows TrueType font.
+</P>
+<P>
+For a <B>RasterBlockType</B>, gets the <B>MsdRasterBlockType</B> value associated with the block type.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

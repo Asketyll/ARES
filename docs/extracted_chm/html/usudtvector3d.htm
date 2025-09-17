@@ -1,0 +1,175 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Vector3d Type</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usudtvector3d"></A>Vector3d Type</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_39" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtVector3dC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_40" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtVector3dX">
+</OBJECT>
+<P class=T>
+Represents the Cartesian coordinates of a vector in three-dimensional space.
+</P>
+<P class=T>The <B>Vector3d</B> type has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>X</I></TD>
+<TD class=TT width=79%>
+A <B>double</B> value that represents the X-axis component of the vector.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Y</I></TD>
+<TD class=TT width=79%>
+A <B>double</B> value that represents the Y-axis component of the vector.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Z</I></TD>
+<TD class=TT width=79%>
+A <B>double</B> value that represents the Z-axis component of the vector.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+<ul>
+
+  <li>Direct constructions
+      <ul>
+          <li>Return a vector with given X, Y and Z components: <A href="usmthVector3dFromXYZ.htm">Vector3dFromXYZ</A>.</li>
+          <li>Return a vector with given X and Y components, with Z component of zero: <A href="usmthVector3dFromXY.htm">Vector3dFromXY</A>.</li>
+          <li>Return a vector with X, Y, Z components copied from a <A href="usudtPoint3d.htm">Point3d</A>: <A href="usmthVector3dFromPoint3d.htm">Vector3dFromPoint3d</A>.</li>
+          <li>Return a vector with X, Y, and Z all zeros: <A href="usmthVector3dZero.htm">Vector3dZero</A>.</li>
+          <li>Return a vector with X, Y, and Z all ones: <A href="usmthVector3dOne.htm">Vector3dOne</A>.</li>
+          <li>Return an X, Y, or Z component of a vector, selected by an integer 0, 1, or 2: <A href="usmthVector3dGetComponent.htm">Vector3dGetComponent</A>.</li>
+      </ul>
+  </li>
+
+  <li>Magnitude and distance queries
+      <ul>
+          <li>Return the magnitude of a vector: <A href="usmthVector3dMagnitude.htm">Vector3dMagnitude</A>.</li>
+          <li>Get the squared magnitude of a vector: <A href="usmthVector3dMagnitudeSquared.htm">Vector3dMagnitudeSquared</A>.</li>
+          <li>Return the magnitude of the XY parts of a vector: <A href="usmthVector3dMagnitudeXY.htm">Vector3dMagnitudeXY</A>.</li>
+          <li>Return the squared magnitude of the XY parts of a vector: <A href="usmthVector3dMagnitudeSquaredXY.htm">Vector3dMagnitudeSquaredXY</A>.</li>
+
+          <li>Return the distance between two vectors (considering them both to be based at a common point): <A href="usmthVector3dDistance.htm">Vector3dDistance</A>.</li>
+          <li>Return the squared distance between two vectors: <A href="usmthVector3dDistanceSquared.htm">Vector3dDistanceSquared</A>.</li>
+          <li>Return the squared distance between the XY parts of two vectors: <A href="usmthVector3dDistanceSquaredXY.htm">Vector3dDistanceSquaredXY</A>.</li>
+          <li>Return the distance between the XY parts of two vectors: <A href="usmthVector3dDistanceXY.htm">Vector3dDistanceXY</A>.</li>
+
+          <li>Return the largest absolute value among the components of a vector: <A href="usmthVector3dMaxAbs.htm">Vector3dMaxAbs</A>.</li>
+          <li>Return the largest absolute value among the components of the difference of two vectors: <A href="usmthVector3dMaxAbsDifference.htm">Vector3dMaxAbsDifference</A>.</li>
+      </ul>
+  </li>
+
+  <li>Addition, subtraction, and scaling
+      <ul>
+            <li>Interpolate between two vectors: <A href="usmthVector3dInterpolate.htm">Vector3dInterpolate</A>.</li>
+            <li>Add two vectors: <A href="usmthVector3dAdd.htm">Vector3dAdd</A>.</li>
+            <li>Add a vector and a scaled second vector: <A href="usmthVector3dAddScaled.htm">Vector3dAddScaled</A>.</li>
+            <li>Add a vector and two scaled vectors: <A href="usmthVector3dAdd2Scaled.htm">Vector3dAdd2Scaled</A>.</li>
+            <li>Add a vector and three scaled vectors: <A href="usmthVector3dAdd3Scaled.htm">Vector3dAdd3Scaled</A>.</li>
+            <li>Subtract two vectors: <A href="usmthVector3dSubtract.htm">Vector3dSubtract</A>.</li>
+            <li>Subtract two points (i.e. get the vector from second to first): <A href="usmthVector3dSubtractPoint3dPoint3d.htm">Vector3dSubtractPoint3dPoint3d</A>.</li>
+            <li>Return a scaled vector: <A href="usmthVector3dScale.htm">Vector3dScale</A>.</li>
+            <li>Return a negated vector: <A href="usmthVector3dNegate.htm">Vector3dNegate</A>.</li>
+            <li>Return a unit vector in given direction: <A href="usmthVector3dNormalize.htm">Vector3dNormalize</A>.</li>
+            <li>Return a unit vector perpendicular to the XY parts of a given vector: <A href="usmthVector3dUnitPerpendicularXY.htm">Vector3dUnitPerpendicularXY</A>.</li>
+      </ul>
+  </li>
+
+  <li><A href="usudtVector3d.htm">Vector3d</A> and <A href="usudtMatrix3d.htm">Matrix3d</A>
+      <ul>
+          <li>Return a vector from a matrix times a vector which is expressed as its XYZ components:
+                                        <A href="usmthVector3dFromMatrix3dTimesXYZ.htm">Vector3dFromMatrix3dTimesXYZ</A>.</li>
+          <li>Return a vector from a matrix times a vector:
+                                        <A href="usmthVector3dFromMatrix3dTimesVector3d.htm">Vector3dFromMatrix3dTimesVector3d</A>.</li>
+          <li>Return a vector from a matrix transpose times a vector which is expressed as its XYZ components:
+                                        <A href="usmthVector3dFromMatrix3dTransposeTimesXYZ.htm">Vector3dFromMatrix3dTransposeTimesXYZ</A></li>
+          <li>Return a vector from a matrix transpose times a vector:
+                                        <A href="usmthVector3dFromMatrix3dTransposeTimesVector3d.htm">Vector3dFromMatrix3dTransposeTimesVector3d</A>.</li>
+          <li>Return a vector from a column of a <B>Matrix3d</B>:
+                                        <A href="usmthVector3dFromMatrix3dColumn.htm">Vector3dFromMatrix3dColumn</A>.</li>
+          <li>Return a vector from a row of a <B>Matrix3d</B>:
+                                        <A href="usmthVector3dFromMatrix3dRow.htm">Vector3dFromMatrix3dRow</A>.</li>
+      </ul>
+  </li>
+
+  <li>Perpendicular, parallel, and equality tests
+      <ul>
+          <li>Test if two vectors are parallel: <A href="usmthVector3dAreVectorsParallel.htm">Vector3dAreVectorsParallel</A>.</li>
+          <li>Test if two vectors are perpendicular: <A href="usmthVector3dAreVectorsPerpendicular.htm">Vector3dAreVectorsPerpendicular</A>.</li>
+      </ul>
+  </li>
+
+  <li>Vector products
+      <ul>
+          <li>Return the (scalar) dot product of two vectors: <A href="usmthVector3dDotProduct.htm">Vector3dDotProduct</A>.</li>
+          <li>Return the (scalar) dot product of the XY parts of two vectors: <A href="usmthVector3dDotProductXY.htm">Vector3dDotProductXY</A>.</li>
+          <li>Return the (scalar) dot product of a <B>Vector3d</B> and a second vector given as X,Y, and Z values: <A href="usmthVector3dDotProductXYZ.htm">Vector3dDotProductXYZ</A>.</li>
+
+          <li>Return the (vector) cross product of two vectors: <A href="usmthVector3dCrossProduct.htm">Vector3dCrossProduct</A>.</li>
+          <li>Return the (vector) cross product of vectors from a base point to each of two target points: <A href="usmthVector3dCrossProduct3Points.htm">Vector3dCrossProduct3Points</A>.</li>
+          <li>Return the (scalar) cross product of the XY parts of two vectors: <A href="usmthVector3dCrossProductXY.htm">Vector3dCrossProductXY</A>.</li>
+          <li>Return the (scalar) triple product of three points: <A href="usmthVector3dTripleProduct.htm">Vector3dTripleProduct</A>.</li>
+      </ul>
+  </li>
+
+  <li>Angles
+      <ul>
+          <li>Return the angle between two vectors: <A href="usmthVector3dAngleBetweenVectors.htm">Vector3dAngleBetweenVectors</A>.</li>
+          <li>Return the smaller of two angles between unoriented vectors: <A href="usmthVector3dSmallerAngleBetweenUnorientedVectors.htm">Vector3dSmallerAngleBetweenUnorientedVectors</A>.</li>
+          <li>Return the counterclockwise angle between vectors, using only XY parts: <A href="usmthVector3dAngleBetweenVectorsXY.htm">Vector3dAngleBetweenVectorsXY</A>.</li>
+          <li>Return the smaller of two angles between XY parts of unoriented vectors: <A href="usmthVector3dSmallerAngleBetweenUnorientedVectorsXY.htm">Vector3dSmallerAngleBetweenUnorientedVectorsXY</A>.</li>
+          <li>Return a vector by rotating only the XY parts of a given vector: <A href="usmthVector3dRotateXY.htm">Vector3dRotateXY</A>.</li>
+          <li>Return the angle between two vectors, using a third vector to point to the positive side of the plane
+                defined by the two vectors: <A href="usmthVector3dSignedAngleBetweenVectors.htm">Vector3dSignedAngleBetweenVectors</A>.</li>
+
+          <li>Test if a vector lies between two other vectors, considering the smaller of two possible
+                sweeps from first bounding vector to second bounding vector: <A href="usmthVector3dIsVectorInSmallerSector.htm">Vector3dIsVectorInSmallerSector</A>.</li>
+          <li>Test if a vector lies between two other vectors, considering only XY parts
+                and counterclockwise sweep from first bounding vector to second bounding vector: <A href="usmthVector3dIsVectorInCCWSector.htm">Vector3dIsVectorInCCWSector</A>.</li>
+
+          <li>Return the angle between projections of two vectors to a plane with given normal: <A href="usmthVector3dPlanarAngleBetweenVectors.htm">Vector3dPlanarAngleBetweenVectors</A>.</li>
+          <li>Return the angle from the X axis to the XY parts of a vector: <A href="usmthVector3dPolarAngle.htm">Vector3dPolarAngle</A>.</li>
+      </ul>
+  </li>
+
+  <li>Equality tests
+      <ul>
+          <li>Test for exact (bitwise) equality between components of two vectors: <A href="usmthVector3dEqual.htm">Vector3dEqual</A>.</li>
+          <li>Test : <A href="usmthVector3dEqualTolerance.htm">Vector3dEqualTolerance</A>.</li>
+      </ul>
+  </li>
+
+</ul>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

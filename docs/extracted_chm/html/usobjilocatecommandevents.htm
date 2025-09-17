@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ILocateCommandEvents Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjilocatecommandevents"></A>ILocateCommandEvents Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_1317" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjILocateCommandEventsC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1318" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjILocateCommandEventsX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1319" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjILocateCommandEventsA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1320" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjILocateCommandEventsP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1321" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjILocateCommandEventsM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1322" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjILocateCommandEventsE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1323" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjILocateCommandEventsS">
+</OBJECT>
+</P>
+
+<P class=T>
+A program that implements a new element-modification command should implement the interface <B>ILocateCommandEvents</B>.
+    It is also possible to implement element-modification commands using the <A href="usobjIPrimitiveCommandEvents.htm">IPrimitiveCommandEvents</A>. In fact, it is necessary to
+    use <B>IPrimitiveCommandEvents</B> for commands that deviate from the standard flow.
+    <P>To start a command that is implemented by a class that implements <B>ILocateCommandEvents</B>, a program has to create an instance of the class that implements <B>ILocateCommandEvents</B>. It
+    must then call <A href="usobjCommandState.htm">CommandState</A>.<A href="usmthStartLocate.htm">StartLocate</A> supplying that object as the argument to the method.  The command
+    remains the current command until another command is started. If the command does not keep another reference to
+    that object, then the object is destroyed when MicroStation terminates the command.  Therefore, the class can use
+    the class's <B>Terminate</B> method to learn when the command terminates.</P>
+    <P>The event-handling methods of the <B>ILocateCommandEvents</B> interface are <A href="usevtAccept.htm">Accept</A>, <A href="usevtLocateFailed.htm">LocateFailed</A>, <A href="usevtLocateFilter.htm">LocateFilter</A>,
+    <A href="usevtLocateReset.htm">LocateReset</A>, <A href="usevtCleanup.htm">Cleanup</A>, <A href="usevtDynamics.htm">Dynamics</A> and <A href="usevtStart.htm">Start</A>.</P>
+    <P>MicroStation calls <B>Start</B> when the command is started. The typical sequence for a program to start a command is
+    for the program to create an instance of the object, and then call <B>StartLocate</B>. <B>StartLocate</B> establishes the
+    object as the current command handler, resets all locate information, terminates the currently active command, changes the
+    cursor to the locate cursor, and calls <B>Start</B> on that object.<P>
+    <P>After the command is started, MicroStation calls the command's <B>LocateFilter</B> when the user selects an element.  If the event
+    handler rejects the element, MicroStation looks for another element within the locate tolerance. If it finds another element, then MicroStation
+    calls the <B>LocateFilter</B> again. It if fails, then MicroStation calls the <B>LocateFailed</B> event handler.<P>
+    <P>Once the class accepts an element, MicroStation highlights the element and displays a description of the element in the status
+    area.  It then waits for the user to enter a datapoint to accept the element, or to press a reset to reject the element.
+    If the user presses a datapoint, then MicroStation calls the class's <B>Accept</B> event handler. If the user presses reset, then MicroStation
+    looks for another element within the locate tolerance.</P>
+    <P>After the <B>Accept</B> event handler returns, MicroStation redraws the selected element without the highlight.  It does not redraw the
+    element if the file position has changed or if the element has been deleted.</P>
+    <P>If the user rejects all elements in the locate tolerance, then MicroStation calls the <B>LocateFailed</B> event handler.</P>
+    <P>MicroStation does not call the <B>LocateReset</B> event handler when the user presses reset to reject the currently highlighted element.
+    MicroStation only calls <B>LocateReset</B> when there is no element to reject.  At that point, there is no standard behavior so MicroStation
+    calls the <B>LocateReset</B> event handler.</P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

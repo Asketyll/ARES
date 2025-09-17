@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Point2d Type</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usudtpoint2d"></A>Point2d Type</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_25" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtPoint2dC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_26" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtPoint2dX">
+</OBJECT>
+<P class=T>
+Represents the Cartesian coordinates of a point or a vector in a plane.
+</P>
+<P class=T>The <B>Point2d</B> type has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>X</I></TD>
+<TD class=TT width=79%>
+A <B>double</B> value that represents the X-axis coordinate of the point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Y</I></TD>
+<TD class=TT width=79%>
+A <B>double</B> value that represents the Y-axis coordinate of the point.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+For points in a <A href="usobjModelReference.htm">ModelReference</A>'s geometry, the values are measured in the model's coordinate system, unless stated otherwise.
+<P>There are a number of global utility functions for managing <A href="usudtPoint2d.htm">Point2d</A> values:</P>
+<ul>
+  <li>Returns a point from given X and Y components: <A href="usmthPoint2dFromXY.htm">Point2dFromXY</A>.</li>
+  <li>Returns a point with all components zero: <A href="usmthPoint2dZero.htm">Point2dZero</A>.</li>
+  <LI>Returns a vector with all components one: <A href="usmthPoint2dOne.htm">Point2dOne</A>.</LI>
+  <li>Returns a unit vector in the same direction as a given vector: <A href="usmthPoint2dNormalize.htm">Point2dNormalize</A>.</li>
+  <li>Returns an X, Y or Z component of a point: <A href="usmthPoint2dGetComponent.htm">Point2dGetComponent</A>.</li>
+  <li>Returns the (scalar) cross product of two vectors relative to a given origin: <A href="usmthPoint2dCrossProduct3Points.htm">Point2dCrossProduct3Points</A>.</li>
+  <li>Returns the (scalar) cross product of two vectors: <A href="usmthPoint2dCrossProduct.htm">Point2dCrossProduct</A>.</li>
+  <li>Returns the angle between two vectors: <A href="usmthPoint2dSignedAngleBetweenVectors.htm">Point2dSignedAngleBetweenVectors</A>.</li>
+  <li>Returns the difference of two vectors: <A href="usmthPoint2dSubtract.htm">Point2dSubtract</A>.</li>
+  <li>Returns the distance between two points: <A href="usmthPoint2dDistance.htm">Point2dDistance</A>.</li>
+  <li>Returns the dot product of a two vectors, one of which is relative to a given origin: <A href="usmthPoint2dDotDifference.htm">Point2dDotDifference</A>.</li>
+  <li>Returns the dot product of two vectors relative to a given origin: <A href="usmthPoint2dDotProduct3Points.htm">Point2dDotProduct3Points</A>.</li>
+  <li>Returns the dot product of two vectors: <A href="usmthPoint2dDotProduct.htm">Point2dDotProduct</A>.</li>
+  <li>Returns the largest absolute value among the components of a vector: <A href="usmthPoint2dMaxAbs.htm">Point2dMaxAbs</A>.</li>
+  <li>Returns the magnitude (length) of a vector: <A href="usmthPoint2dMagnitude.htm">Point2dMagnitude</A>.</li>
+  <li>Returns the negative of a vector: <A href="usmthPoint2dNegate.htm">Point2dNegate</A>.</li>
+  <li>Returns the point at an interpolated position between a start and an end point: <A href="usmthPoint2dInterpolate.htm">Point2dInterpolate</A>.</li>
+  <li>Returns the squared distance between two vectors: <A href="usmthPoint2dDistanceSquared.htm">Point2dDistanceSquared</A>.</li>
+  <li>Returns the squared magnitude of a vector: <A href="usmthPoint2dMagnitudeSquared.htm">Point2dMagnitudeSquared</A>.</li>
+  <li>Returns the sum of an origin and a scaled vector: <A href="usmthPoint2dAddScaled.htm">Point2dAddScaled</A>.</li>
+  <li>Returns the sum of an origin and three scaled vectors: <A href="usmthPoint2dAdd3Scaled.htm">Point2dAdd3Scaled</A>.</li>
+  <li>Returns the sum of an origin and two scaled vectors: <A href="usmthPoint2dAdd2Scaled.htm">Point2dAdd2Scaled</A>.</li>
+  <li>Returns the sum of two vectors: <A href="usmthPoint2dAdd.htm">Point2dAdd</A>.</li>
+  <li>Tests whether two vectors are equal within a given tolerance: <A href="usmthPoint2dEqualTolerance.htm">Point2dEqualTolerance</A>.</li>
+  <li>Tests whether two vectors are equal: <A href="usmthPoint2dEqual.htm">Point2dEqual</A>.</li>
+  <li>Tests whether two vectors are parallel: <A href="usmthPoint2dAreVectorsParallel.htm">Point2dAreVectorsParallel</A>.</li>
+  <li>Tests whether two vectors are perpendicular: <A href="usmthPoint2dAreVectorsPerpendicular.htm">Point2dAreVectorsPerpendicular</A>.</li>
+</ul>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

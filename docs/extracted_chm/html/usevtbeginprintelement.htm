@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BeginPrintElement Event</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usevtbeginprintelement"></A>BeginPrintElement Event</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_9515" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtBeginPrintElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9516" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtBeginPrintElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9517" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtBeginPrintElementA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9518" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtBeginPrintElementS">
+</OBJECT>
+</P>
+
+<P class=T>
+This event gives applications the opportunity to modify the element being printed.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>BeginPrintElement</B> <I>param</I>
+<P class=T>The <B>BeginPrintElement</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>param</I></TD>
+<TD class=TT width=79%>
+A <A href="usobjPrintBeginElementParam.htm">PrintBeginElementParam</A> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<P>Example:
+    <PRE><CODE>
+        Private Sub IPrintEvents_BeginPrintElement(ByVal param As PrintBeginElementParam)
+
+            'The element reference is *READ-ONLY* and *NON-COPYABLE*!
+            'It is not legal to add, remove, or modify elements within a model while printing.
+            Dim ele As Element
+            Set ele = param.Element
+
+            Dim eleType As MsdElementType
+            eleType = ele.Type
+
+            'Note that some elements, such as cell headers, may not have a valid level.
+            Dim level As level
+            Dim levelName As String
+            Set level = ele.level
+            If (level Is Nothing) Then
+                levelName = vbNullString
+            Else
+                levelName = level.Name
+            End If
+
+            Dim newText As String
+            newText = vbNullString
+
+            Dim newEle As Element
+            Set newEle = Nothing
+
+            If ((levelName = "Border") And (eleType = msdElementTypeText)) Then
+    
+                If (ele.AsTextElement.Text = "$PrintNotes") Then
+            
+                    newText = "IsPreview=" & PrintManager.IsPreview & ", " & _
+                              "IsPrintSet=" & PrintManager.IsPrintSet
+
+                End If
+
+            ElseIf ((levelName = "TitleBlock") And (eleType = msdElementTypeText)) Then
+    
+                Dim originalText As String
+                originalText = ele.AsTextElement.Text
+            
+                If (Left(originalText, 1) = "$") Then
+            
+                    Select Case originalText
+                        Case "$ProjectNumber": newText = g_titleBlockProjectNumber
+                        Case "$ProjectManager": newText = g_titleBlockProjectManager
+                        Case "$ProjectEngineer": newText = g_titleBlockProjectEngineer
+                        Case "$County": newText = g_titleBlockCounty
+                        Case "$District": newText = g_titleBlockDistrict
+                        Case "$ApprovalDate": newText = g_titleBlockApprovalDate
+                        Case Else: newText = "Undefined"
+                    End Select
+                
+                End If
+
+            ElseIf (levelName = "Anno") Then
+            
+                If ((eleType = msdElementTypeText) Or (eleType = msdElementTypeTextNode)) Then
+
+                    'Print text elements above everything else.  This element sorting technique
+                    'is valid only when printing in non-rasterized mode, but supports both 2D and
+                    '3D data.  This call has no effect unless PrintManager.EnableSortOrder is
+                    'first called inside BeginPrintPage.  It is not recommended to set the sort
+                    'order for every element, as doing so increases the amount of memory used
+                    'during printing.  All unsorted elements print before any sorted elements.
+                    param.SetSortOrder 100
+    
+                ElseIf (eleType = msdElementTypeEllipse) Then
+
+                    param.IgnoreElement
+
+                End If
+
+            ElseIf ((levelName = "Arc") And (eleType = msdElementTypeArc)) Then
+
+                If (Degrees(ele.AsArcElement.SweepAngle) = 180) Then
+    
+                    'PrintBeginElementParam.CloneElement is the *ONLY* legal method to clone the
+                    'element provided inside IPrintEvents.BeginPrintElement.  It not legal to
+                    'call Element.Clone or Element.Copy on this element, to duplicate the cloned
+                    'element, or to assign either the original or cloned element reference to a
+                    'variable outside the scope of BeginPrintElement.
+                    Set newEle = param.CloneElement
+    
+                    'Change the arc sweep angle from 180 degrees to 150 degrees.
+                    newEle.AsArcElement.SweepAngle = Radians(150)
+    
+                End If
+    
+            End If
+
+            If (Not newEle Is Nothing) Then
+    
+                'SubstituteElement should be called after all modifications to the cloned
+                'element are complete.  The substituted element will be printed instead of the
+                'original one.  The input element *must* have been created using
+                'PrintBeginElementParam.CloneElement.  This resymbolization technique is
+                'inefficient and leads to increased memory consumption during printing.
+                'It should be avoided if possible.
+                param.SubstituteElement newEle
+    
+            ElseIf (newText &lt;> vbNullString) Then
+    
+                'This is the preferred technique for print text substitution, as it does not
+                'requiring cloning the original element. It is valid for text and tag elements.
+                param.SubstituteText newText
+    
+            End If
+
+        End Sub
+    </CODE></PRE>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+23.00.02
+</P>
+</BODY>
+</HTML>

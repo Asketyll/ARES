@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IEnterIdleEvent Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjienteridleevent"></A>IEnterIdleEvent Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_1226" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjIEnterIdleEventC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1227" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjIEnterIdleEventX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1228" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjIEnterIdleEventA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1229" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjIEnterIdleEventP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1230" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjIEnterIdleEventM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1231" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjIEnterIdleEventE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1232" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjIEnterIdleEventS">
+</OBJECT>
+</P>
+
+<P class=T>
+Defines the methods MicroStation uses to notify a program of <B>IEnterIdleEvent</B> events.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+To receive these events, a program must have a class that implements <B>IEnterIdleEvent</B>.
+    The program must create an instance of the class, and register it with MicroStation
+    by calling <A href="usmthAddEnterIdleEventHandler.htm">AddEnterIdleEventHandler</A>.
+</P>
+<P>
+Since a new MicroStation process does not enter the idle state until it has finished initializing, a program can use this event
+    to be notified when initialization is complete. This is sometimes very important for a program that starts a new
+    MicroStation process.
+</P>
+<P>
+This event can also be useful for an <A href="usmthOnDesignFileOpened.htm">OnDesignFileOpened</A> event handler that needs to be notified
+    the next time MicroStation becomes idle.
+</P>
+<P>
+MicroStation performs a lot of work based on timer events even when there is no user input. After every timer
+    event, MicroStation briefly returns to the idle state causing it to call the enter-idle event handlers again. Consequently, it will call
+    the enter-idle event handlers very frequently.  To prevent this from happening, a normal enter-idle event
+    handler should remove itself the first time it is called.
+</P>
+<P>
+MicroStation does not call the <A href="usevtEnterIdle.htm">EnterIdle</A> event handlers when it is waiting for input for a modal dialog box.
+    For example, it does not call <B>EnterIdle</B> event handlers while the file open dialog box is open.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.11.05
+</P>
+</BODY>
+</HTML>
