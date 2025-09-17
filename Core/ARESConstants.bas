@@ -34,10 +34,10 @@ Public Const ARES_RND_ERROR_VALUE As Byte = 255
 ' Used in CellRedraw module for error handling
 Public Const ARES_CELL_INDEX_ERROR_VALUE As Integer = -1
 
-' === PERFORMANCE CONSTANTS ===
-' Maximum number of elements to process in a single batch to avoid UI freezing
-Public Const ARES_MAX_BATCH_SIZE As Long = 1000
+' === CUSTOMPROPERTY LIB NAME CONSTANTS ===
+' Used in CustomPropertyHandler module
+Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"
 
-' === TIMING CONSTANTS ===
-' Delay in milliseconds for UI updates during long operations
-Public Const ARES_UI_UPDATE_DELAY As Long = 100
+' === CUSTOMPROPERTY ITEM NAME CONSTANTS ===
+' Used in CustomPropertyHandler module
+Public Const ARES_NAME_ITEM_TYPE As String = "ARESAutoLengthObject"

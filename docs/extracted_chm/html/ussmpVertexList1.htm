@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Highlighting the Closest Segment</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Highlighting the Closest Segment</H1>
+
+<P class=T>
+This example illustrates some of the methods of the <A href="usobjVertexList.htm">VertexList</A> interface.
+            Given an <A href="usobjElement.htm">Element</A> that is a <B>VertexList</B>, it gets the vertices of the closest segment.
+            Then it creates and draws a line to show the range of the vertices. It does not add the line to the
+            model, so the highlight will disappear the next time the view is redrawn.
+</P>
+<PRE class=CT><CODE>
+Sub ShowClosestSegment(ele As Element, pnt As <A href="usudtPoint3d.htm">Point3d</A>)
+    Dim vertices() As Point3d
+    Dim vertexIndex As Integer, segmentIndex As Integer
+    Dim eleLine As <A href="usobjLineElement.htm">LineElement</A>
+
+    On Error GoTo done
+    With ele.<A href="usproAsVertexList.htm">AsVertexList</A>
+        vertices = .<A href="usmthGetVertices.htm">GetVertices</A>
+        vertexIndex = .<A href="usmthGetClosestVertex.htm">GetClosestVertex</A>(pnt)
+        segmentIndex = .<A href="usmthGetClosestSegment.htm">GetClosestSegment</A>(pnt)
+
+        If vertexIndex = segmentIndex Then
+            Debug.Print "The closest vertex is at the beginning of the closest segment"
+        Else
+            Debug.Print "The closest vertex is at the end of the closest segment"
+        End If
+
+        Set eleLine = <A href="usmthCreateLineElement2.htm">CreateLineElement2</A>(Nothing, vertices(segmentIndex), vertices(segmentIndex + 1))
+        eleLine.<A href="usmthRedraw.htm">Redraw</A> msdDrawingModeHilite
+    End With
+
+done:
+
+End Sub
+
+</CODE></PRE>

@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using DROP SHARECELL Command</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Using DROP SHARECELL Command</H1>
+
+<P class=T>
+This example uses SendDataPointForLocate to select a SharedCellElement to drop.
+        It has 2 implementations. The first uses GetLastValidElement to find the new
+        CellElement. The second implements an IChangeTrackEvents event handler in clsFindCell
+        to find the new CellElement by detecting when it is written to the model.
+</P>
+<PRE class=CT><CODE>
+'
+'  This implementation uses GetLastValidElement to find the new CellElement
+'
+Sub DropSharedCell(eleID As <A href="usudtDLong.htm">DLong</A>)
+    Dim eleSC As <A href="usobjSharedCellElement.htm">SharedCellElement</A>
+    Dim eleCell As <A href="usobjCellElement.htm">CellElement</A>
+
+    Set eleSC = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetElementByID.htm">GetElementByID</A>(eleID)
+
+    '  Now execute the DROP SHARE CELL COMMAND
+    With <A href="usproCadInputQueue.htm">CadInputQueue</A>
+        .<A href="usmthSendCommand.htm">SendCommand</A> "DROP SHARECELL"
+        '  The values for the data points are not important.  The first data point just selects
+        '  the element. SendDataPointForLocate selects the element regardless of the
+        '  point that is specified. The second data point accepts.
+        .<A href="usmthSendDataPointForLocate.htm">SendDataPointForLocate</A> eleSC, <A href="usmthPoint3dZero.htm">Point3dZero</A>  ' Select the element
+        .<A href="usmthSendDataPoint.htm">SendDataPoint</A> Point3dZero  ' Data point to accept the operation
+        <A href="usproCommandState.htm">CommandState</A>.<A href="usmthStartDefaultCommand.htm">StartDefaultCommand</A> '  Back to a standard state
+    End With
+
+    '  Get the new cell and manipulate it
+    Set eleCell = ActiveModelReference.<A href="usproGraphicalElementCache.htm">GraphicalElementCache</A>.<A href="usmthGetLastValidElement.htm">GetLastValidElement</A>
+    eleCell.<A href="usmthMove.htm">Move</A> <A href="usmthPoint3dSubtract.htm">Point3dSubtract</A>(eleCell.<A href="usmthRange.htm">Range</A>.High, eleCell.Range.Low)
+    eleCell.<A href="usmthRedraw.htm">Redraw</A>
+End Sub
+'
+'  This implementation uses clsFindCell to find the new CellElement
+'
+Sub DropSharedCell1(eleID As DLong)
+    Dim eleSC As SharedCellElement
+    Dim oCellFinder As New clsFindCell
+    Dim eleCell As CellElement
+    Dim cellID As DLong
+
+    Set eleSC = ActiveModelReference.GetElementByID(eleID)
+
+    '   Use the change track handler to detect when MicroStation writes the cell
+    '   to the model.
+    <A href="usmthAddChangeTrackEventsHandler.htm">AddChangeTrackEventsHandler</A> oCellFinder
+
+    '  Now execute the DROP SHARE CELL COMMAND
+    With CadInputQueue
+        .SendCommand "DROP SHARECELL"
+        '  The values for the data points are not important.  The first data point just selects
+        '  the element. SendDataPointForLocate selects the element regardless of the
+        '  point that is specified. The second data point accepts.
+        .SendDataPointForLocate eleSC, Point3dZero  ' Select the element
+        .SendDataPoint Point3dZero  ' Data point to accept the operation
+        CommandState.StartDefaultCommand '  Back to a standard state
+    End With
+
+    '  Don't filter any more writes
+    <A href="usmthRemoveChangeTrackEventsHandler.htm">RemoveChangeTrackEventsHandler</A> oCellFinder
+
+    '  Get the new cell and manipulate it
+    Set eleCell = ActiveModelReference.GetElementByID(oCellFinder.GetNewCellID)
+
+    eleCell.Move Point3dSubtract(eleCell.Range.High, eleCell.Range.Low)
+    eleCell.Redraw
+End Sub
+
+
+</CODE></PRE>
+<PRE class=CT><CODE>
+'
+'  Implementation of clsFindCell
+'
+Implements <A href="usobjIChangeTrackEvents.htm">IChangeTrackEvents</A>
+Private m_eleID As DLong
+Private m_setID As Boolean
+
+Function GetNewCellID() As DLong
+    GetNewCellID = m_eleID
+End Function
+Private Sub IChangeTrackEvents_<A href="usevtBeginUndoRedo.htm">BeginUndoRedo</A>(ByVal AfterUndoRedo As <A href="usobjElement.htm">Element</A>, ByVal BeforeUndoRedo As Element, ByVal Action As <A href="usenmMsdChangeTrackAction.htm">MsdChangeTrackAction</A>, ByVal IsUndo As Boolean)
+
+End Sub
+
+Private Sub IChangeTrackEvents_<A href="usevtElementChanged.htm">ElementChanged</A>(ByVal AfterChange As Element, ByVal BeforeChange As Element, ByVal Action As MsdChangeTrackAction, CantBeUndone As Boolean)
+    If Not m_setID And Not AfterChange Is Nothing Then
+        If AfterChange.<A href="usproIsCellElement.htm">IsCellElement</A> Then
+            '  AfterChange will not be valid after IChangeTrackEvents_ElementChanged returns.
+            '  Save the ID so it possible to retrieve the element later.
+            m_eleID = AfterChange.<A href="usproID.htm">ID</A>
+            m_setID = True
+        End If
+    End If
+End Sub
+
+Private Sub IChangeTrackEvents_<A href="usevtFinishUndoRedo.htm">FinishUndoRedo</A>(ByVal IsUndo As Boolean)
+
+End Sub
+
+Private Sub IChangeTrackEvents_<A href="usevtMark.htm">Mark</A>()
+
+End Sub
+
+</CODE></PRE>

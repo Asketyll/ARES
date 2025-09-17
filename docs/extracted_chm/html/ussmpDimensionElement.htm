@@ -1,0 +1,202 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Modifying Dimension Element Examples</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Modifying Dimension Element Examples</H1>
+
+<P class=T>
+The following subroutines illustrate how to modify a Dimension Element. All of them can be run individually.
+            Note : Majority of dimension's settings are accessed by extracting the dimension's style object,
+            changing it and putting it back on the dimension element. There are other settings that
+            are accessed directly.
+</P>
+<PRE class=CT><CODE>
+Sub PrintDimensionInfo()
+    Dim oDimStyle As <A href="usobjDimensionStyle.htm">DimensionStyle</A>
+    Dim oDim As <A href="usobjDimensionElement.htm">DimensionElement</A>
+    Dim rm As <A href="usudtMatrix3d.htm">Matrix3d</A>
+    Dim iPoint As Integer
+
+    Set ee = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usproGraphicalElementCache.htm">GraphicalElementCache</A>.<A href="usmthScan.htm">Scan</A>
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        If ee.<A href="usproCurrent.htm">Current</A>.<A href="usproIsDimensionElement.htm">IsDimensionElement</A> Then
+            Set oDim = ee.Current
+            Debug.Print "====================================================="
+
+            ' Output General Info
+            Debug.Print "Dimension Element ID '" & oDim.ID.Low & "'"
+            Debug.Print "General Information"
+            Debug.Print "   Dimension type '" & oDim.DimensionType & "'"
+            Debug.Print "   Number of segments in dimension '" & oDim.SegmentsCount & "'"
+            Debug.Print "   Number of points in dimension '" & oDim.ReferencePointsCount&; "'"
+            For iPoint = 1 To oDim.<A href="usproReferencePointsCount.htm">ReferencePointsCount</A>
+                Debug.Print "      Point(" & iPoint & ") '" & oDim.Point(iPoint).X & ", " & oDim.Point(iPoint).Y & ", " & oDim.Point(iPoint).Z & "'"
+            Next iPoint
+            Debug.Print "   Actual value of dimension is '" & oDim.ActualValue(1) & "'"
+            Debug.Print "   Primary text (overridden) of dimension is '" & oDim.PrimaryText(1) & "'"
+            Debug.Print "   Primary text (overridden) of dimension is '" & oDim.SecondaryText(1) & "'"
+            Debug.Print "   Model Annotation Scale '" & oDim.ModelAnnotationScale & "'"
+            Debug.Print "   Reference Scale '" & oDim.ReferenceScale & "'"
+
+            ' Output settings that are derived from dimension's style
+            Set oDimStyle = oDim.<A href="usproDimensionStyle.htm">DimensionStyle</A>
+            Debug.Print "Settings Derived From Dimension Style"
+            Debug.Print "   Horizontal text orientation is '" & oDimStyle.TextOrientation & "'"
+            Debug.Print "   Dimension Line Color is '" & oDimStyle.OverallColor & "'"
+
+            ' Output Rotation Matrices
+            rm = oDim.<A href="usproRotation.htm">Rotation</A>
+            Debug.Print "Dimension Rotation Matrix"
+            Debug.Print "   X Row " & rm.RowX.X & "," & rm.RowX.Y & "," & rm.RowX.Z & "'"
+            Debug.Print "   Y Row " & rm.RowY.X & "," & rm.RowY.Y & "," & rm.RowY.Z & "'"
+            Debug.Print "   Z Row " & rm.RowZ.X & "," & rm.RowZ.Y & "," & rm.RowZ.Z & "'"
+            rm = oDim.<A href="usproViewUsedForTextOrientation.htm">ViewUsedForTextOrientation</A>.Rotation
+            Debug.Print "View Matrix Used For Text Orientation'"
+            Debug.Print "   X Row " & rm.RowX.X & "," & rm.RowX.Y & "," & rm.RowX.Z & "'"
+            Debug.Print "   Y Row " & rm.RowY.X & "," & rm.RowY.Y & "," & rm.RowY.Z & "'"
+            Debug.Print "   Z Row " & rm.RowZ.X & "," & rm.RowZ.Y & "," & rm.RowZ.Z & "'"
+
+            ' Output Values overridden per point
+            Debug.Print "Settings Specific to Point 1"
+            Debug.Print "   WitnessLineOffset  '" & oDim.ExtensionLineOffsetPerPoint(1) & "'"
+            Debug.Print "   WitnessLineExtension  '" & oDim.ExtensionLineExtensionPerPoint(1) & "'"
+            Debug.Print "   WitnessLineColor  '" & oDim.ExtensionLineColorPerPoint(1) & "'"
+            Debug.Print "   WitnessLineWeightOffset  '" & oDim.ExtensionLineWeightPerPoint(1) & "'"
+            Debug.Print "   WitnessLineStyleOffset  '" & oDim.ExtensionLineStylePerPoint(1).Name & "'"
+
+            ' Output Values overridden per segment
+            Debug.Print "Settings Specific to Segment 1"
+            Debug.Print "   TextRotationPerSegment  '" & oDim.TextRotationPerSegment(1) & "'"
+            Debug.Print "   TextJustificationPerSegment  '" & oDim.TextJustificationPerSegment(1) & "'"
+            Debug.Print "   CurveLeaderStartTangentPerSegment  '" & oDim.CurveLeaderStartTangentPerSegment(1).X & ", " & oDim.CurveLeaderStartTangentPerSegment(1).Y & ", " & oDim.CurveLeaderStartTangentPerSegment(1).Z & "'"
+            Debug.Print "   CurveLeaderEndTangentPerSegment  '" & oDim.CurveLeaderEndTangentPerSegment(1).X & ", " & oDim.CurveLeaderEndTangentPerSegment(1).Y & ", " & oDim.CurveLeaderEndTangentPerSegment(1).Z & "'"
+            Debug.Print "   UnderlineTextPerSegment  '" & oDim.UnderlineTextPerSegment(1) & "'"
+            Debug.Print "   SuppressLeftExtensionLinePerSegment  '" & oDim.SuppressStartExtensionLinePerSegment(1) & "'"
+            Debug.Print "   SuppressRightExtensionLinePerSegment  '" & oDim.SuppressEndExtensionLinePerSegment(1) & "'"
+            Debug.Print "   PrimaryIsReferencePerSegment  '" & oDim.PrimaryIsReferencePerSegment(1) & "'"
+            Debug.Print "   SecondaryIsReferencePerSegment  '" & oDim.SecondaryIsReferencePerSegment(1) & "'"
+
+            ' Output Override-Flags (Shields)
+            Debug.Print "Override Flags"
+            Debug.Print "   Any Overrides Set '" & oDim.AnyPropertyOverridden; "'"
+            Debug.Print "   Text Justification Override '" & oDim.PropertyOverridden(msdDimStylePropTextJustification); "'"
+            Debug.Print "   Show Left Extension (Template flag) Override '" & oDim.PropertyOverridden(msdDimStylePropExtensionLineLeft); "'"
+            Debug.Print "   Vertical Text (Template flag) Override '" & oDim.PropertyOverridden(msdDimStylePropTextVerticalOpts); "'"
+            Debug.Print "====================================================="
+        End If
+    Loop
+End Sub
+
+
+Sub ChangeDimensionAnnotationScale()
+    Dim oDimStyle As DimensionStyle
+    Dim oDim As DimensionElement
+
+    ' This subroutine illustrates the procedure to change a dimension's property that is derived from the dimension's style.
+    ' 1. Extract the dimension's style object
+    ' 2. Change the setting on the style object
+    ' 3. Put the style object back on the dimension
+
+    Set ee = ActiveModelReference.GraphicalElementCache.Scan
+    Do While ee.MoveNext
+        If ee.Current.IsDimensionElement Then
+            Set oDim = ee.Current
+            Set oDimStyle = oDim.DimensionStyle
+
+            ' Dump the original values
+            Debug.Print "====================================================="
+            Debug.Print "Original annotation scale override flag is '" & oDimStyle.OverrideAnnotationScale & "'"
+            Debug.Print "Original annotation scale override value is '" & oDimStyle.AnnotationScale & "'"
+
+            ' Change the values
+            oDimStyle.<A href="usproOverrideAnnotationScale.htm">OverrideAnnotationScale</A> = True
+            oDimStyle.<A href="usproAnnotationScale.htm">AnnotationScale</A> = 3.0
+            oDim.DimensionStyle = oDimStyle
+            oDim.<A href="usmthRewrite.htm">Rewrite</A>
+            oDim.<A href="usmthRedraw.htm">Redraw</A>
+
+            ' Dump the values after changing
+            Set oDimStyle = oDim.DimensionStyle
+            Debug.Print "Changed annotation scale override flag is '" & oDimStyle.OverrideAnnotationScale & "'"
+            Debug.Print "Changed annotation scale override value is '" & oDimStyle.AnnotationScale & "'"
+            Debug.Print "====================================================="
+        End If
+    Loop
+End Sub
+
+Sub ChangeDimensionTerminatorSymbol()
+    Dim oDimStyle As DimensionStyle
+    Dim oDim As DimensionElement
+
+    ' This subroutine illustrates the procedure to change a dimension's property that is derived from the dimension's style.
+    ' 1. Extract the dimension's style object
+    ' 2. Change the setting on the style object
+    ' 3. Put the style object back on the dimension
+
+    Set ee = ActiveModelReference.GraphicalElementCache.Scan
+    Do While ee.MoveNext
+        If ee.Current.IsDimensionElement Then
+            Set oDim = ee.Current
+            Set oDimStyle = oDim.DimensionStyle
+
+            ' Dump the original values
+            Debug.Print "====================================================="
+            Debug.Print "Original Arrow Terminator Symbol Type is '" & oDimStyle.ArrowTerminatorSymbolType & "'"
+            Debug.Print "Original Arrow Terminator cell is '" & oDimStyle.ArrowSymbolCellName & "'"
+
+            ' Change the values
+            oDimStyle.<A href="usproArrowTerminatorSymbolType.htm">ArrowTerminatorSymbolType</A> = msdDimSymbolTypeCell
+            oDimStyle.<A href="usproArrowSymbolCellName.htm">ArrowSymbolCellName</A> = "ellipse"
+            oDim.DimensionStyle = oDimStyle
+            oDim.Rewrite
+            oDim.Redraw
+
+            ' Dump the values after changing
+            Set oDimStyle = oDim.DimensionStyle
+            Debug.Print "Changed Arrow Terminator Symbol Type is '" & oDimStyle.ArrowTerminatorSymbolType & "'"
+            Debug.Print "Changed Arrow Terminator cell is '" & oDimStyle.ArrowSymbolCellName & "'"
+            Debug.Print "====================================================="
+        End If
+    Loop
+End Sub
+
+Sub ChangeDimensionTextOrientation()
+    Dim oDimStyle As DimensionStyle
+    Dim oDim As DimensionElement
+
+    ' This subroutine illustrates the procedure to change a dimension's property that is derived from the dimension's style.
+    ' 1. Extract the dimension's style object
+    ' 2. Change the setting on the style object
+    ' 3. Put the style object back on the dimension
+
+    Set ee = ActiveModelReference.GraphicalElementCache.Scan
+    Do While ee.MoveNext
+        If ee.Current.IsDimensionElement Then
+            Set oDim = ee.Current
+            Set oDimStyle = oDim.DimensionStyle
+
+            ' Dump the original values
+            Debug.Print "====================================================="
+            Debug.Print "Original text orientation is '" & oDimStyle.TextOrientation & "'"
+
+            ' Change the values
+            oDimStyle.<A href="usproTextOrientation.htm">TextOrientation</A> = False
+            oDim.DimensionStyle = oDimStyle
+            oDim.Rewrite
+            oDim.Redraw
+
+            ' Dump the values after changing
+            Set oDimStyle = oDim.DimensionStyle
+            Debug.Print "Changed text orientation is '" & oDimStyle.TextOrientation & "'"
+            Debug.Print "====================================================="
+        End If
+    Loop
+End Sub
+
+
+</CODE></PRE>

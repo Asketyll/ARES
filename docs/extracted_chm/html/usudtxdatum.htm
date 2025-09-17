@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>XDatum Type</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usudtxdatum"></A>XDatum Type</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_41" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtXDatumC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_42" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtXDatumX">
+</OBJECT>
+<P class=T>
+Represents an item of XData that is attached to an <A href="usobjElement.htm">Element</A>.
+</P>
+<P class=T>The <B>XDatum</B> type has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Type</I></TD>
+<TD class=TT width=79%>
+An <A href="usenmMsdXDatumType.htm">MsdXDatumType</A> value that specifies the meaning of the data contained in the Value field.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Value</I></TD>
+<TD class=TT width=79%>
+A <B>Variant</B> value that contains the data itself. The type of this data depends upon the value of the Type field.
+See the Remarks section for more information.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+See <A href="usobjXDataObject.htm">XDataObject</A> for a discussion of why the MicroStationDGN object model supports two techniques for accessing XData.
+This information is particularly important for .NET programs using .NET COM interop to access the MicroStationDGN object model.
+</P>
+<P>
+Any graphical element can have one or more occurrences of XData attached to it. XData is represented as an array of <A href="usudtXDatum.htm">XDatum</A> values.
+<P>The data type of the <B>Value</B> field depends upon the value of the <B>Type</B> field, as described in the following table:
+<table border="1" cellpadding="0" cellspacing="0" width="371">
+  <tr>
+    <th width="265">&nbsp;Type</th>
+    <th width="100">&nbsp;Value</th>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeBinaryData</td>
+    <td width="100">&nbsp;Byte()</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeControlString</td>
+    <td width="100">&nbsp;String</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeDatabaseHandle</td>
+    <td width="100">&nbsp;Hex String</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeDistance</td>
+    <td width="100">&nbsp;Double</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeInt16</td>
+    <td width="100">&nbsp;Integer</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeInt32</td>
+    <td width="100">&nbsp;Long</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeLevel</td>
+    <td width="100">&nbsp;String</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypePoint</td>
+    <td width="100">&nbsp;<A href="usudtPoint3d.htm">Point3d</A></td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeReal</td>
+    <td width="100">&nbsp;Double</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeScaleFactor</td>
+    <td width="100">&nbsp;Double</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeString</td>
+    <td width="100">&nbsp;String</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeUnsupported</td>
+    <td width="100">&nbsp;Byte()</td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeWorldDirection</td>
+    <td width="100">&nbsp;<B>Point3d</B></td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeWorldSpaceDisplacement</td>
+    <td width="100">&nbsp;<B>Point3d</B></td>
+  </tr>
+  <tr>
+    <td width="265">
+      <p style="margin-top: 0; margin-bottom: 0">&nbsp;msdXDatumTypeWorldSpacePosition</td>
+    <td width="100">&nbsp;<B>Point3d</B></td>
+  </tr>
+</table>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

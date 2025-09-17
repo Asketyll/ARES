@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Add the Contents of a Fence to a Named Group</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Add the Contents of a Fence to a Named Group</H1>
+
+<P class=T>
+This example copies the contents of a fence to a named group.
+</P>
+<PRE class=CT><CODE>
+Sub AddFenceToNamedGroup(GroupName As String)
+    Dim ng As <A href="usobjNamedGroupElement.htm">NamedGroupElement</A>
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+
+    Set ng = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetNamedGroup.htm">GetNamedGroup</A>(GroupName)
+    If ng Is Nothing Then
+        <A href="usmthShowError.htm">ShowError</A> "Could not find named group " & GroupName
+        Exit Sub
+    End If
+
+    If <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproFence.htm">Fence</A>.<A href="usproIsDefined.htm">IsDefined</A> = False Then
+        ShowError "There is no fence"
+        Exit Sub
+    End If
+
+    Set ee = ActiveDesignFile.Fence.<A href="usmthGetContents.htm">GetContents</A>(False)
+
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        Dim ngm As <A href="usobjNamedGroupMember.htm">NamedGroupMember</A>
+
+        '  Get the NamedGroupMember object that defines
+        '  how this element behaves in the group.  If the
+        '  object does not exist, then add the element to the named group
+        Set ngm = ng.<A href="usmthGetMember.htm">GetMember</A>(ee.<A href="usproCurrent.htm">Current</A>)
+        If ngm Is Nothing Then
+            ng.<A href="usmthAddMember.htm">AddMember</A> ee.Current
+        End If
+    Loop
+
+    '  The addition don't become permanent until the program
+    '  rewrites the named group.
+    ng.<A href="usmthRewrite.htm">Rewrite</A>
+End Sub
+
+</CODE></PRE>

@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GetInput Method Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>GetInput Method Example</H1>
+
+<P class=T>
+This example illustrates a technique for waiting for input.  It uses the <A href="usmthGetInput.htm">GetInput</A> method
+            of <A href="usobjCadInputQueue.htm">CadInputQueue</A> to wait for the input. The input is returned in a <A href="usobjCadInputMessage.htm">CadInputMessage</A>
+            object.  This examples uses the <A href="usproInputType.htm">InputType</A> property of <B>CadInputMessage</B> to determine what type of input occurred. Then it uses
+            the <A href="usproKeyin.htm">Keyin</A>, <A href="usproCommandKeyin.htm">CommandKeyin</A>, and <A href="usproPoint.htm">Point</A> properties to examine the input.
+</P>
+<PRE class=CT><CODE>
+Sub GetInput()
+    Dim oMessage As CadInputMessage
+
+    <A href="usproApplication.htm">Application</A>.<A href="usmthShowCommand.htm">ShowCommand</A> "Running GetInput example"
+    Application.<A href="usmthShowPrompt.htm">ShowPrompt</A> "Enter any input. Enter reset to exit"
+    Application.<A href="usmthShowStatus.htm">ShowStatus</A> ""
+
+    Do While True
+        '
+        '  Wait for input.  To limit the types of input allowed, specify
+        '  the desired types.  For example,
+        '
+  '       GetInput (msdCadInputTypeDataPoint, msdCadInputTypeKeyin)
+        '
+        Set oMessage = <A href="usproCadInputQueue.htm">CadInputQueue</A>.GetInput
+
+        '
+        '   Now process the message
+        '
+        <A href="usmthSelect.htm">Select</A> Case oMessage.InputType
+
+        Case msdCadInputTypeKeyin
+            ShowStatus "Got the keyin: " & oMessage.Keyin
+
+        Case msdCadInputTypeCommand
+            ShowStatus "Got the command: " & oMessage.CommandKeyin
+
+        Case msdCadInputTypeReset
+            ShowStatus "got reset, will exit now"
+            <A href="usproCommandState.htm">CommandState</A>.<A href="usmthStartDefaultCommand.htm">StartDefaultCommand</A>
+            Exit Sub
+
+        Case msdCadInputTypeDataPoint
+            Dim point As <A href="usudtPoint3d.htm">Point3d</A>
+            point = oMessage.point
+
+            With point
+                ShowStatus "x = " & .X & ", y = " & .Y & ", z = " & .Z
+            End With
+
+        End Select
+    Loop
+
+End Sub
+
+</CODE></PRE>

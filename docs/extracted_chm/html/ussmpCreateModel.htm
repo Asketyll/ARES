@@ -1,0 +1,25 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating a New Model</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Creating a New Model</H1>
+
+<P class=T>
+
+</P>
+<PRE class=CT><CODE>
+Function CreateNewModel(strName As String) As <A href="usobjModelReference.htm">ModelReference</A>
+    Dim template As ModelReference
+
+    Set template = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproDefaultModelReference.htm">DefaultModelReference</A>
+    With template
+        Set CreateNewModel = ActiveDesignFile.<A href="usproModels.htm">Models</A>.<A href="usmthAdd.htm">Add</A>(template, strName, "Added " & Now, .<A href="usproType.htm">Type</A>, .<A href="usproIs3D.htm">Is3D</A>)
+    End With
+End Function
+
+</CODE></PRE>

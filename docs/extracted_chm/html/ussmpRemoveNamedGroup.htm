@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Removing a Named Group, Removing a Named Group Member</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Removing a Named Group, Removing a Named Group Member</H1>
+
+<P class=T>
+This example shows how to remove a named group and a member of a named group.
+</P>
+<PRE class=CT><CODE>
+Sub <A href="usmthRemoveMember.htm">RemoveMember</A>(ele As <A href="usobjElement.htm">Element</A>, ng As <A href="usobjNamedGroupElement.htm">NamedGroupElement</A>)
+    Dim member As <A href="usobjNamedGroupMember.htm">NamedGroupMember</A>
+
+    On Error GoTo RemoveFailed
+    Set member = ng.<A href="usmthGetMember.htm">GetMember</A>(ele)
+    ng.RemoveMember member
+    ng.<A href="usmthRewrite.htm">Rewrite</A>
+    Exit Sub
+
+RemoveFailed:
+    MsgBox "Failed with " & Err.<A href="usproDescription.htm">Description</A>
+    Exit Sub
+End Sub
+
+Sub RemoveNamedGroup(ng As NamedGroupElement)
+    ng.<A href="usproModelReference.htm">ModelReference</A>.<A href="usmthRemoveElement.htm">RemoveElement</A> ng
+End Sub
+
+</CODE></PRE>

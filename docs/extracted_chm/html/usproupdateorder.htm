@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>UpdateOrder Property</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usproupdateorder"></A>UpdateOrder Property</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_9219" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproUpdateOrderC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9220" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproUpdateOrderX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9221" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproUpdateOrderA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9222" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproUpdateOrderS">
+</OBJECT>
+</P>
+
+<P class=T> Read/Write <B>Long</B>.
+<P class=T>
+Gets or sets the update order.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P><I>object</I>.<B>UpdateOrder</B> [= <I>Long</I>]
+<P class=T>The <B>UpdateOrder</B> property syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Long</I></TD>
+<TD class=TT width=79%>
+A <B>Long</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+Given 2 <A href="usobjAttachment.htm">Attachment</A>s att1 and att2, if att1.<B>UpdateOrder</B> > att2.<B>UpdateOrder</B> then att1 is displayed after
+    att2 is displayed and the elements in att1 cover the elements in att2.
+</P>
+<P>
+The value for <B>UpdateOrder</B> is unique among a collection of <A href="usobjAttachments.htm">Attachments</A>. Therefore, when a program assigns a new value to
+    an <B>Attachment</B>'s <B>UpdateOrder</B>, the values for the other attachments are automatically adjusted.
+</P>
+<P>
+By default, the first <B>Attachment</B> has <B>UpdateOrder</B> 1, <B>Attachment</B> <I>n</I> has <B>UpdateOrder</B> <I>n</I>.  The model that the
+    attachments are attached to has <B>UpdateOrder</B> 0. There is no way to explicitly access the update order of the root model, but a program
+    can change it by changing the update order of the attachments.
+</P>
+<P>
+If the program tries to set an <B>UpdateOrder</B> to a value less than 0, then the value is set to 0. If a program tries to set an
+    <B>UpdateOrder</B> to a value greater than <B>Attachments</B>.<A href="usproCount.htm">Count</A>, then the <B>UpdateOrder</B> is set to <B>Attachments</B>.<B>Count</B>.
+</P>
+<P>
+<B>Attachment</B>.<A href="usmthRewrite.htm">Rewrite</A> does not save an <B>Attachment</B>'s <B>UpdateOrder</B>.  <A href="usmthSaveSettings.htm">SaveSettings</A> saves all of the <B>UpdateOrder</B> values in
+    a group.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

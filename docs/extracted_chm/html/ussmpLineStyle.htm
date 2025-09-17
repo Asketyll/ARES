@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>LineStyle, Level Symbology, and ByLevel Symbology</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>LineStyle, Level Symbology, and ByLevel Symbology</H1>
+
+<P class=T>
+This example shows the relationship of ByLevelLineStyle, LineStyle, OverrideLineStyle, and ElementLineStyle.
+</P>
+<PRE class=CT><CODE>
+'   Make the element display with LineStyle 1 if
+'   the view has level symbology turned on and and LineStyle { Border }
+'   otherwise
+Sub SetLineStyle1(ele As <A href="usobjElement.htm">Element</A>)
+    Dim lvl As <A href="usobjLevel.htm">Level</A>
+
+    Set lvl = ele.<A href="usproLevel.htm">Level</A>
+
+    ' Specify the LineStyle to use if the view has Level Symbology turned on.
+    ' Do not specify 1 without the quotes since that just specifies an index in the
+    ' collection.  Instead, specify the name of the line style.  To form the name of
+    ' line style 0, 1, 2, 3, 4, 5, 6, or 7, put the number in quotes.
+    Set lvl.<A href="usproOverrideLineStyle.htm">OverrideLineStyle</A> = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproLineStyles.htm">LineStyles</A>("1")
+    ele.<A href="usproModelReference.htm">ModelReference</A>.<A href="usproLevels.htm">Levels</A>.<A href="usmthRewrite.htm">Rewrite</A>
+
+    ' Specify the LineStyle to use if the view has Level Symbology turned off.
+    Dim ls As <A href="usobjLineStyle.htm">LineStyle</A>
+
+    Set ls = ActiveDesignFile.LineStyles("( Border )")
+    Set ele.<A href="usproLineStyle.htm">LineStyle</A> = ls
+    ele.Rewrite
+
+    Dim usingSymbology As Boolean
+    Dim view1 As <A href="usobjView.htm">View</A>
+
+    Set view1 = ActiveDesignFile.<A href="usproViews.htm">Views</A>(1)
+    usingSymbology = view1.<A href="usproDisplaysLevelSymbology.htm">DisplaysLevelSymbology</A>  ' Save this so we can reset it
+
+    view1.DisplaysLevelSymbology = True
+    Debug.Print "With level symbology on the LineStyle is " & ele.<A href="usmthApparentLineStyle.htm">ApparentLineStyle</A>(view1).<A href="usproName.htm">Name</A>
+
+    view1.DisplaysLevelSymbology = False
+    Debug.Print "With level symbology off the LineStyle is " & ele.ApparentLineStyle(view1).Name
+
+    view1.DisplaysLevelSymbology = usingSymbology
+End Sub
+
+Sub SetLineStyle2(ele As Element)
+    Dim lvl As Level
+
+    Set lvl = ele.Level
+
+    Debug.Print "The ByLevel LineStyle is " & lvl.<A href="usproElementLineStyle.htm">ElementLineStyle</A>.Name
+
+    ' Set the LineStyle to the special value ByLevelLineStyle to tell MicroStation
+    ' to use the level's ByLevel LineStyle if Level Symbology is turned off.
+    Set ele.LineStyle = <A href="usmthByLevelLineStyle.htm">ByLevelLineStyle</A>
+    ele.Rewrite
+
+    Dim view1 As View
+
+    Set view1 = ActiveDesignFile.Views(1)
+
+    view1.DisplaysLevelSymbology = False
+
+    '  LineStyle now should be equal to ByLevelLineStyle.
+    Debug.Print "The element's LineStyle property is " & ele.LineStyle.Name
+
+    Debug.Print "With level symbology off the element's display LineStyle is " & ele.ApparentLineStyle(view1).Name
+
+    lvl.ElementLineStyle = ActiveDesignFile.LineStyles("( Divide )")
+    ele.ModelReference.Levels.Rewrite
+
+    Debug.Print "With level symbology off the element's display LineStyle is " & ele.ApparentLineStyle(view1).Name
+End Sub
+
+
+
+</CODE></PRE>

@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Rotating Elements</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Rotating Elements</H1>
+
+<P class=T>
+Demonstrates various ways to rotate an <A href="usobjElement.htm">Element</A>.
+</P>
+<P class=T>
+In this example, we rotate an <B>Element</B> three ways: into the plane of a <A href="usobjView.htm">View</A>,
+                  about its center and in the <B>View</B> plane.  We also demonstrate how to concatenate
+                  transformations.
+</P>
+<P class=T>
+Also demonstrates how to align a <B>View</B> to the active ACS.
+</P>
+<P class=T>
+Note that the method <A href="usmthTransform3dFromTransform3dTimesTransform3dTimesTransform3d.htm">Transform3dFromTransform3dTimesTransform3dTimesTransform3d</A> was
+                  added after MicroStation V8 2004 Edition (8.5.0).
+</P>
+<PRE class=CT><CODE>
+Sub testRotatingElements()
+    Dim oElement As <A href="usobjEllipseElement.htm">EllipseElement</A>, oElementRotated As EllipseElement
+    Dim transform1 As <A href="usudtTransform3d.htm">Transform3d</A>, transform2 As Transform3d, transform3 As Transform3d, transform4 As Transform3d
+    Dim rotateEllipseToXYEllipse As Transform3d, rotateXYEllipseToViewPlane As Transform3d
+    Dim rotateXYPlaneToViewPlane As <A href="usudtMatrix3d.htm">Matrix3d</A>, rotateViewPlaneToXYPlane As Matrix3d
+    Dim rotateAboutEllipseNormalAtOrigin As Matrix3d, rotateAboutViewNormalAtOrigin As Matrix3d
+    Dim ellipse As <A href="usudtEllipse3d.htm">Ellipse3d</A>
+    Dim center As <A href="usudtPoint3d.htm">Point3d</A>, <A href="usproNormal.htm">Normal</A> As Point3d
+    Dim angle1 As Double, angle2 As Double
+
+    ' Make an ellipse in some plane
+    ellipse.center = <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(3#, 3#, 0#)
+    ellipse.<A href="usevtStart.htm">Start</A> = 0
+    ellipse.Sweep = 2 * <A href="usmthPi.htm">Pi</A>
+    ellipse.Vector0 = <A href="usmthPoint3dOne.htm">Point3dOne</A>
+    ellipse.Vector90 = <A href="usmthPoint3dCrossProduct.htm">Point3dCrossProduct</A>(ellipse.Vector0, Point3dFromXYZ(0, 1, 0))
+    Set oElement = <A href="usmthCreateEllipticalElement1.htm">CreateEllipticalElement1</A>(Nothing, ellipse)
+    oElement.color = 1
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oElement
+    oElement.<A href="usmthRedraw.htm">Redraw</A>
+
+    center = oElement.centerPoint
+    Normal = oElement.Normal
+    angle1 = Pi / 6     ' equivalent to 30 degrees counterclockwise (ccw)
+    angle2 = Pi / 3     ' equivalent to 60 degrees ccw
+
+    ' Example 1 (Rotate into View): Rotate planar geometry into the plane of a View.
+
+    ' Get inverse of the rotation matrix of first View.
+    ' Note: the inverse of a rotation matrix is its transpose, which is faster to compute.
+    ' Note: the view rotation is a change of coordinate systems from world to view; in other words,
+    '       the coordinates of geometry as seen in the view are rewritten by this transformation as
+    '       if the geometry were located in the xy-plane.
+    rotateXYPlaneToViewPlane = <A href="usmthMatrix3dTranspose.htm">Matrix3dTranspose</A>(<A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproViews.htm">Views</A>(1).rotation)
+
+    ' Construct the Transform T by concatenating two transformations such that T1 gets applied first (T = T2 * T1):
+    ' T1 = rotate ellipse to xy-plane about ellipse center
+    ' T2 = rotate xy-plane to view plane about ellipse center
+    rotateEllipseToXYEllipse = <A href="usmthTransform3dFromMatrix3dAndFixedPoint3d.htm">Transform3dFromMatrix3dAndFixedPoint3d</A>(<A href="usmthMatrix3dRotationFromRowZ.htm">Matrix3dRotationFromRowZ</A>(Normal), center)
+    rotateXYEllipseToViewPlane = Transform3dFromMatrix3dAndFixedPoint3d(rotateXYPlaneToViewPlane, center)
+    transform1 = <A href="usmthTransform3dFromTransform3dTimesTransform3d.htm">Transform3dFromTransform3dTimesTransform3d</A>(rotateXYEllipseToViewPlane, rotateEllipseToXYEllipse)
+
+    Set oElementRotated = oElement.<A href="usmthClone.htm">Clone</A>
+    oElementRotated.transform transform1
+    oElementRotated.color = 2
+    ActiveModelReference.AddElement oElementRotated
+    oElementRotated.Redraw
+
+    ' Example 2 (Rotate about center): Rotate planar geometry by 30 degrees ccw about its center in its own plane.
+
+    Normal = oElementRotated.Normal
+    rotateAboutEllipseNormalAtOrigin = <A href="usmthMatrix3dFromVectorAndRotationAngle.htm">Matrix3dFromVectorAndRotationAngle</A>(Normal, angle1)
+    transform2 = Transform3dFromMatrix3dAndFixedPoint3d(rotateAboutEllipseNormalAtOrigin, center)
+
+    oElementRotated.transform transform2
+    oElementRotated.color = 3
+    ActiveModelReference.AddElement oElementRotated
+    oElementRotated.Redraw
+
+    ' Example 3 (Rotate in View): Rotate geometry by 60 degrees ccw about its center in the plane of another View.
+
+    ' Get rotation matrix of second View
+    ' Note: the view rotation's rows are the view's axes in global coordinates; in particular,
+    '       .RowZ is the view normal, pointing out of the view at the viewer.
+    rotateViewPlaneToXYPlane = ActiveDesignFile.Views(2).rotation
+
+    rotateAboutViewNormalAtOrigin = Matrix3dFromVectorAndRotationAngle(rotateViewPlaneToXYPlane.RowZ, angle2)
+    transform3 = Transform3dFromMatrix3dAndFixedPoint3d(rotateAboutViewNormalAtOrigin, center)
+
+    oElementRotated.transform transform3
+    oElementRotated.color = 4
+    ActiveModelReference.AddElement oElementRotated
+    oElementRotated.Redraw
+
+    ' Example 4 (Concatenating Transforms): Perform the previous Examples in one step.
+    ' Note: the order of transforms is right-to-left so that T1 acts first: (T4 = T3 * T2 * T1)
+    ' Note: Transform3dFromTransform3dTimesTransform3dTimesTransform3d was added after MicroStation V8 2004 Edition
+    transform4 = Transform3dFromTransform3dTimesTransform3dTimesTransform3d(transform3, transform2, transform1)
+    oElement.transform transform4
+    oElement.color = 5
+    oElement.<A href="usproLineStyle.htm">LineStyle</A> = ActiveDesignFile.<A href="usproLineStyles.htm">LineStyles</A>("2")
+    oElement.<A href="usproLineWeight.htm">LineWeight</A> = 2
+    ActiveModelReference.AddElement oElement
+    oElement.Redraw
+
+    ' Example 5 (Rotate View to ACS): Transform the first View to align with the current Auxiliary Coordinate System.
+    ' Note: we don't actually transform any geometry here.
+    If <A href="usproACSManager.htm">ACSManager</A>.<A href="usproIsDefined.htm">IsDefined</A> Then
+        ActiveDesignFile.Views(1).center = ACSManager.origin
+        ActiveDesignFile.Views(1).rotation = ACSManager.rotation
+        ActiveDesignFile.Views(1).Redraw
+    End If
+
+End Sub
+
+</CODE></PRE>

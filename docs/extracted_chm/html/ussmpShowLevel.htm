@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Hide and Show Level Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Hide and Show Level Example</H1>
+
+<P class=T>
+This example illustrates how to determine if a view displays elements from the specified level.  It
+            also demonstrates how to cause the view to starting displaying or hiding elements from that level.
+</P>
+<PRE class=CT><CODE>
+Sub ToggleLevelDisplay(strLevelName As String, viewIndex As Integer)
+    Dim oLevel As <A href="usobjLevel.htm">Level</A>
+    Dim oView As <A href="usobjView.htm">View</A>
+
+    Set oLevel = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproLevels.htm">Levels</A>(strLevelName)
+    Set oView = ActiveDesignFile.<A href="usproViews.htm">Views</A>(viewIndex)
+
+    If oView.<A href="usmthIsLevelShown.htm">IsLevelShown</A>(oLevel) Then
+        oView.<A href="usmthHideLevel.htm">HideLevel</A> oLevel
+    Else
+        oView.<A href="usmthShowLevel.htm">ShowLevel</A> oLevel
+    End If
+
+    ' Now make the view reflect the change
+    oView.<A href="usmthRedraw.htm">Redraw</A>
+End Sub
+
+</CODE></PRE>

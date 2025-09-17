@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Flattening Elements</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Flattening Elements</H1>
+
+<P class=T>
+Demonstrates how to flatten geometry to any plane, specifically including
+                  constant-z planes (e.g., "SetZ") and the active depth plane in a <A href="usobjView.htm">View</A>.
+</P>
+<P class=T>
+Also demonstrates how to approximate a conical spiral with a B-spline curve.
+</P>
+<PRE class=CT><CODE>
+Sub TestSetZ()
+    Dim oElement As <A href="usobjElement.htm">Element</A>, oFlatElement As Element
+    Dim oView As View
+    Dim oBsplineCurve As New BsplineCurve
+    Dim projectToXYPlane As <A href="usudtTransform3d.htm">Transform3d</A>, transformPlaneToXYPlane As Transform3d, transformXYPlaneToPlane As Transform3d
+    Dim axis As <A href="usudtSegment3d.htm">Segment3d</A>
+    Dim plane As <A href="usudtPlane3d.htm">Plane3d</A>
+    Dim startPt As <A href="usudtPoint3d.htm">Point3d</A>
+    Dim radius0 As Double, radius1 As Double, nTurns As Double
+
+    ' Create some 3D geometry (conical spiral)
+    radius0 = 1
+    radius1 = 2
+    axis.startPoint = <A href="usmthPoint3dZero.htm">Point3dZero</A>
+    axis.endPoint = <A href="usmthPoint3dOne.htm">Point3dOne</A>
+    startPt = <A href="usmthPoint3dCrossProduct.htm">Point3dCrossProduct</A>(<A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(0, 0, 1), <A href="usmthPoint3dSubtract.htm">Point3dSubtract</A>(axis.endPoint, axis.startPoint))
+    nTurns = 5
+    oBsplineCurve.<A href="usmthHelix.htm">Helix</A> radius0, radius1, startPt, axis, nTurns, True
+    Set oElement = <A href="usmthCreateBsplineCurveElement1.htm">CreateBsplineCurveElement1</A>(Nothing, oBsplineCurve)
+    oElement.color = 0
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oElement
+    oElement.<A href="usmthRedraw.htm">Redraw</A>
+
+    ' Flatten geometry to xy-plane
+    Set oFlatElement = oElement.<A href="usmthClone.htm">Clone</A>
+    oFlatElement.<A href="usmthScaleAll.htm">ScaleAll</A> Point3dZero, 1, 1, 0
+    oFlatElement.color = 1
+    ActiveModelReference.AddElement oFlatElement
+    oFlatElement.Redraw
+
+    ' Flatten geometry to the plane z = 3
+    Set oFlatElement = oElement.Clone
+    oFlatElement.transform <A href="usmthTransform3dFromMatrix3dPoint3d.htm">Transform3dFromMatrix3dPoint3d</A>(<A href="usmthMatrix3dFromScaleFactors.htm">Matrix3dFromScaleFactors</A>(1, 1, 0), Point3dFromXYZ(0, 0, 3))
+    oFlatElement.color = 2
+    ActiveModelReference.AddElement oFlatElement
+    oFlatElement.Redraw
+
+    ' Flatten geometry to an arbitrary plane
+    Set oFlatElement = oElement.Clone
+    Set oView = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproViews.htm">Views</A>(2)    ' We'll use the active depth plane of the second <A href="usproView.htm">View</A>
+    plane.<A href="usproOrigin.htm">Origin</A> = <A href="usmthPoint3dAddScaled.htm">Point3dAddScaled</A>(oView.Origin, oView.rotation.RowZ, oView.<A href="usproActiveDepth.htm">ActiveDepth</A>)
+    plane.normal = oView.rotation.RowZ
+
+    transformPlaneToXYPlane = <A href="usmthTransform3dFromWorldToPlane3d.htm">Transform3dFromWorldToPlane3d</A>(plane)
+    projectToXYPlane = <A href="usmthTransform3dFromMatrix3d.htm">Transform3dFromMatrix3d</A>(Matrix3dFromScaleFactors(1, 1, 0))
+    transformXYPlaneToPlane = <A href="usmthTransform3dInverse.htm">Transform3dInverse</A>(transformPlaneToXYPlane)
+
+    ' Note: Transform3dFromTransform3dTimesTransform3dTimesTransform3d was added after MicroStation V8 2004 Edition
+    oFlatElement.transform <A href="usmthTransform3dFromTransform3dTimesTransform3dTimesTransform3d.htm">Transform3dFromTransform3dTimesTransform3dTimesTransform3d</A>(transformXYPlaneToPlane, projectToXYPlane, transformPlaneToXYPlane)
+    oFlatElement.color = 3
+    ActiveModelReference.AddElement oFlatElement
+    oFlatElement.Redraw
+
+End Sub
+
+</CODE></PRE>

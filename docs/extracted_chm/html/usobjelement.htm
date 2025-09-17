@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Element Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjelement"></A>Element Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_526" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_527" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_528" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjElementP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_529" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjElementM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_530" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjElementE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_531" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjElementS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_532" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjElementI">
+</OBJECT>
+</P>
+
+<P class=T>
+Represents an element within a model.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+An element is the basic building block of a MicroStation design file. A design file comprises one or more models,
+    which in turn comprise one or more elements.
+    <P>An element can represent a single graphical formation, such as a rectangle or a text label; or it can represent a group
+    of such formations that can be processed as a single unit. There are also non-graphical elements that represent internal
+    structures such as tag data.</P>
+    <P>An <B>Element</B> object comprises methods and properties that pertain to all element types. There are also element-specific
+    object types, such as <A href="usobjEllipseElement.htm">EllipseElement</A> and <A href="usobjLineElement.htm">LineElement</A>, that each comprise methods and properties specific
+    to that kind of element. You can think of each specific element type as a special case of the generic element type.</P>
+    <P>An <B>Element</B> object has a number of readonly properties to determine which kind of element it is. Each of these properties begins
+    with "<B>Is</B>"; for example, <A href="usproIsConeElement.htm">IsConeElement</A>. There is also a readonly property named <A href="usproType.htm">Type</A> which provides the
+    element's type as an enumeration value (<A href="usenmMsdElementType.htm">MsdElementType</A>).</P>
+    <P>Once you've determined an element's type, you may want to manage it as an object of that specific type. To do so,
+    you can read the value of the appropriate "<B>As</B>" property.</P>
+    <P>For example, suppose you have a basic <B>Element</B> object, and you've determined that it's an ellipse-type element
+    (by reading its <A href="usproIsEllipseElement.htm">IsEllipseElement</A> property, for example). You may then want to manage that object as an
+    <B>EllipseElement</B> object, to access its ellipse-specific features such as primary radius. To do so, you would read
+    the value of <A href="usproAsEllipseElement.htm">AsEllipseElement</A>:</P>
+    <PRE><CODE>    N = oElem.AsEllipseElement.PrimaryRadius</CODE></PRE>
+    <P>It is possible to access existing MicroStation elements either by scanning the model using <A href="usmthScan.htm">Scan</A>,
+        by getting the currently selected elements, or by processing the contents of a fence.</P>
+    <P>If you're familiar with MicroStation MDL programming, an <B>Element</B> object is analogous to an element descriptor
+    (MSElementDescr).</P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

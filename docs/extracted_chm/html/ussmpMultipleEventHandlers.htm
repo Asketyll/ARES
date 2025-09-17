@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>A Class that Handles View, Level, and Model Events</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>A Class that Handles View, Level, and Model Events</H1>
+
+<P class=T>
+The following routine registers the same object to be notified of view, level, and model events.
+        It can do this because the class declares that it implements each of the required event interfaces.
+</P>
+<PRE class=CT><CODE>
+Private oEventHandlers As clsEventHandlers
+
+Sub InstallHandlers()
+    RemoveHandlers
+    Set oEventHandlers = New clsEventHandlers
+    <A href="usmthAddLevelChangeEventsHandler.htm">AddLevelChangeEventsHandler</A> oEventHandlers
+    <A href="usmthAddModelActivateEventsHandler.htm">AddModelActivateEventsHandler</A> oEventHandlers
+    <A href="usmthAddViewUpdateEventsHandler.htm">AddViewUpdateEventsHandler</A> oEventHandlers
+End Sub
+Sub RemoveHandlers()
+    If Not oEventHandlers Is Nothing Then
+        <A href="usmthRemoveLevelChangeEventsHandler.htm">RemoveLevelChangeEventsHandler</A> oEventHandlers
+        <A href="usmthRemoveModelActivateEventsHandler.htm">RemoveModelActivateEventsHandler</A> oEventHandlers
+        <A href="usmthRemoveViewUpdateEventsHandler.htm">RemoveViewUpdateEventsHandler</A> oEventHandlers
+    End If
+    Set oEventHandlers = Nothing
+End Sub
+
+</CODE></PRE>
+<P class=T>
+This is the implementation of clsEventHandlers.
+        If has 3 Implements statements declaring that it implements 3 event interfaces.
+</P>
+<PRE class=CT><CODE>
+Implements <A href="usobjILevelChangeEvents.htm">ILevelChangeEvents</A>
+Implements <A href="usobjIModelActivateEvents.htm">IModelActivateEvents</A>
+Implements <A href="usobjIViewUpdateEvents.htm">IViewUpdateEvents</A>
+
+'
+'  Method for ILevelChangeEvents
+'
+Private Sub ILevelChangeEvents_<A href="usevtLevelChanged.htm">LevelChanged</A>(ByVal ChangeType As <A href="usenmMsdLevelChangeType.htm">MsdLevelChangeType</A>, ByVal TheLevel As <A href="usobjLevel.htm">Level</A>, ByVal TheModel As <A href="usobjModelReference.htm">ModelReference</A>)
+
+    If ChangeType = msdLevelChangeAfterChangeActive Then
+        Debug.Print ", NEW ACTIVE LEVEL: " & TheLevel.<A href="usproName.htm">Name</A>
+    End If
+
+    If ChangeType = msdLevelChangeBeforeChangeActive Then
+        Debug.Print "OLD ACTIVE LEVEL: " & TheLevel.Name;
+    End If
+
+End Sub
+
+'
+'   Methods for IModelActivateEvents
+'
+'   Prints the name of the new active model
+'
+Private Sub IModelActivateEvents_<A href="usevtAfterActivate.htm">AfterActivate</A>(ByVal TheModel As ModelReference)
+    Debug.Print "IModelActivateEvents_AfterActivate: model " & TheModel.<A href="usproDesignFile.htm">DesignFile</A>.Name & " -- " & TheModel.Name
+End Sub
+
+'
+'  Prints the name of the current active model and the model that is about to become active
+'
+Private Sub IModelActivateEvents_<A href="usevtBeforeActivate.htm">BeforeActivate</A>(ByVal TheModel As ModelReference)
+    Debug.Print "IModelActivateEvents_BeforeActivate: ";
+
+    If <A href="usproHasActiveModelReference.htm">HasActiveModelReference</A> Then
+        Debug.Print " previous active " & <A href="usproActiveModelReference.htm">ActiveModelReference</A>.Name & ", ";
+    End If
+
+    Debug.Print " next active " & TheModel.Name & ", "
+End Sub
+
+'
+'  Methods for the IViewUpdateEvents
+'
+Private Sub IViewUpdateEvents_<A href="usevtAfterRedraw.htm">AfterRedraw</A>(TheViews() As <A href="usobjView.htm">View</A>, TheModels() As ModelReference, ByVal DrawMode As <A href="usenmMsdDrawingMode.htm">MsdDrawingMode</A>)
+    If UBound(TheModels) &lt; 0 Then
+        ' This is a normal update. Everything is being redrawn
+    End If
+End Sub
+
+Private Sub IViewUpdateEvents_<A href="usevtBeforeRedraw.htm">BeforeRedraw</A>(TheViews() As View, TheModels() As ModelReference, ByVal DrawMode As MsdDrawingMode)
+
+End Sub
+
+</CODE></PRE>

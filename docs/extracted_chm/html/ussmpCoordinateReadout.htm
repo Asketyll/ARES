@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting Coordinate Readout Values in SaveAs Events Handler</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Setting Coordinate Readout Values in SaveAs Events Handler</H1>
+
+<P class=T>
+This example shows how to control the coordinate readout settings for a file created
+            in a SaveAs operation.  The example consists of a module and a class. The module installs
+            the ISaveAsEvents handler.  It also has the logic that the event handler uses to
+            change the coordinate readout values.  The class implements the event handler just by calling SetCoordinateReadout.
+</P>
+<P class=T>
+The object model does not have support for accessing the coordinate readout settings, but
+            they are accessible via the TCB.  This example shows how to use those settings in the TCB.
+</P>
+<P class=T>
+This is the code for the module.
+</P>
+<PRE class=CT><CODE>
+Dim saveAsHandler As clsSaveAs
+
+'  The OnProjectLoad method is run as soon as the project is loaded.  To guarantee that
+'  every SaveAs operation uses this SaveAsEventsHandler, add the handler from an OnProjectLoad
+'  method in an autoload project.
+Sub OnProjectLoad()
+    AddHandler
+End Sub
+
+'  Code for installing and removing the SaveAsEventsHandler.
+Sub AddHandler()
+    RemoveHandler
+    Set saveAsHandler = New clsSaveAs
+    <A href="usmthAddSaveAsEventsHandler.htm">AddSaveAsEventsHandler</A> saveAsHandler
+End Sub
+Sub RemoveHandler()
+    If Not saveAsHandler Is Nothing Then
+        <A href="usmthRemoveSaveAsEventsHandler.htm">RemoveSaveAsEventsHandler</A> saveAsHandler
+        Set saveAsHandler = Nothing
+    End If
+End Sub
+
+'  This method sets the coordinate readout settings.
+Sub SetCoordinateReadout()
+
+    With <A href="usproActiveSettings.htm">ActiveSettings</A>
+        .<A href="usproCoordinateFormat.htm">CoordinateFormat</A> = msdWorkingUnits
+        .<A href="usproCoordinateAccuracy.htm">CoordinateAccuracy</A> = msdAccuracy8th
+        .<A href="usproAngleFormat.htm">AngleFormat</A> = msdFormatGradians
+        .<A href="usproAngleMode.htm">AngleMode</A> = msdAngleModeBearing
+        .<A href="usproAngleAccuracy.htm">AngleAccuracy</A> = msdAngleAccuracy3
+    End With
+
+    '  Save these settings back to the file
+    <A href="usproCadInputQueue.htm">CadInputQueue</A>.<A href="usmthSendCommand.htm">SendCommand</A> "Save Settings"
+End Sub
+
+</CODE></PRE>
+<P class=T>
+This is the code for the class clsSaveAs. By declaring that it implements ISaveAsEvents, it
+            makes itself eligible to be used as an event handler for save-as events.
+</P>
+<P class=T>
+When MicroStation calls the ISaveAsEvents_AfterRemap and ISaveAsEvents_BeforeRemap methods, the original
+            design file is still the active file.  When MicroStation calls ISaveAsEvents_AfterSaveAs, the
+            new design file is the active design file.  Therefore, if ISaveAsEvents_AfterRemap or ISaveAsEvents_BeforeRemap
+            calls SetCoordinateReadout, then the statement CadInputQueue.SendCommand "Save Settings" in
+            SetCoordinateReadout saves the settings to the original design file. Then the SaveAs operation copies
+            those settings to the new design file.  If ISaveAsEvents_AfterSaveAs calls SetCoordinateReadout, then that statement
+            saves the settings to the new design file and the original file is not affected.
+</P>
+<PRE class=CT><CODE>
+Implements <A href="usobjISaveAsEvents.htm">ISaveAsEvents</A>
+
+Private Sub ISaveAsEvents_<A href="usevtAfterRemap.htm">AfterRemap</A>(ByVal TheDesignFile As <A href="usobjDesignFile.htm">DesignFile</A>, ByVal SavedFormat As <A href="usenmMsdDesignFileFormat.htm">MsdDesignFileFormat</A>, ByVal DestinationFilename As String)
+
+End Sub
+
+Private Sub ISaveAsEvents_<A href="usevtAfterSaveAs.htm">AfterSaveAs</A>()
+    SetCoordinateReadout
+End Sub
+
+Private Sub ISaveAsEvents_<A href="usevtBeforeRemap.htm">BeforeRemap</A>(ByVal TheDesignFile As DesignFile, ByVal SavedFormat As MsdDesignFileFormat, ByVal DestinationFilename As String)
+
+End Sub
+
+</CODE></PRE>

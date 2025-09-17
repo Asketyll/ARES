@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "notifications": {
+    "gitSafety": true,
+    "branchProtection": true,
+    "showWorkflowWarnings": true
+  }
+}

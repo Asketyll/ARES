@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CreateLocateCriteria Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcreatelocatecriteria"></A>CreateLocateCriteria Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2047" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateLocateCriteriaC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2048" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateLocateCriteriaX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2049" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateLocateCriteriaA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2050" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCreateLocateCriteriaS">
+</OBJECT>
+</P>
+
+<P class=T>
+Creates and initializes a new <A href="usobjLocateCriteria.htm">LocateCriteria</A> object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><B>LocateCriteria</B></I> = <I>object</I>.<B>CreateLocateCriteria</B> (<I>WillModifyElements</I>)
+<P class=T>The <B>CreateLocateCriteria</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>WillModifyElements</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. Determines the initial state of the new <B>LocateCriteria</B> object.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+Commands that copy elements or extract information from the elements but do not modify the original elements
+    should specify <B>False</B> for <B>WillModifyElements</B>.  Commands that do modify the located elements should specify
+    <B>True</B> for <B>WillModifyElement</B>.
+    <P>If <B>WillModifyElement</B> is <B>True</B>, then <B>CreateLocateCriteria</B> initializes the <B>LocateCriteria</B> object to
+    only allow elements that are in the <A href="usproActiveModelReference.htm">ActiveModelReference</A> and are unlocked. If <B>WillModifyElement</B> is <B>False</B>, then
+    <B>CreateLocateCriteria</B> initializes the <B>LocateCriteria</B> object to allow both locked and unlocked elements from any model.</P>
+    <P>The initial values for the <B>LocateCriteria</B> do not exclude elements based on any other criteria.  Use the properties of
+    <B>LocateCriteria</B> to establish additional exclusions.</P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

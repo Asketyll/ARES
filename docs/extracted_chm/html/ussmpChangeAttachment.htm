@@ -1,0 +1,27 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Changing Logical Name and Logical Description</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Changing Logical Name and Logical Description</H1>
+
+<P class=T>
+This example shows how to change the LogicalName and LogicalDescription of an attachment.
+</P>
+<PRE class=CT><CODE>
+Sub ChangeAttachment()
+    Dim att As <A href="usobjAttachment.htm">Attachment</A>
+
+    Set att = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usproAttachments.htm">Attachments</A>(1)
+    att.<A href="usproLogicalDescription.htm">LogicalDescription</A> = "Update at " & Time
+    att.<A href="usproLogicalName.htm">LogicalName</A> = "NewName"
+    '  The rewrite saves it to the file and updates the References
+    '  dialog box.
+    att.<A href="usmthRewrite.htm">Rewrite</A>
+End Sub
+
+</CODE></PRE>

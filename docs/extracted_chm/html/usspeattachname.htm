@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Caches, Cache Indices, and File Position</TITLE>
+<style>@import url(msdn_ie4.css);</style>
+<link disabled rel="stylesheet" href="msdn_ie3.css"></HEAD>
+<BODY>
+
+
+
+<P class=RLNSR><B><A NAME="caches">AttachName, Reattach, and SetAttachNameDeferred</A></B></P>
+<P class=T>The methods/properties <A href="usproAttachName.htm">AttachName</A>, <A href="usmthReattach.htm">Reattach</A>,
+<A href="usmthSetAttachNameDeferred.htm">SetAttachNameDeferred</A> are closely related. This section explains the differences.</P>
+<P class=T>A program can use <B>AttachName</B> to get the name of the reference file as it is recorded by MicroStation. This value is the
+same as the file name displayed in the <B>File Name</B> column of the <B>References</B> dialog box. There are 2 key differences between
+accessing this property and accessing <A href="usobjDesignFile.htm">DesignFile</A>.<A href="usproFullName.htm">FullName</A></P>
+    <ul>
+        <li>a program can access <B>AttachName</B> regardless of whether MicroStation was able to find the design file;
+            a program can only access <B>DesignFile.FullName</B> if MicroStation successfully loaded the attachment.</li>
+        <li><B>DesignFile.FullName</B> provides the full path, root name, and extension for the file;
+        <B>AttachName</B> is the name exactly as MicroStation recorded it when attaching the reference file. Depending on
+        how the user attached the reference file, it could be a full name, a relative name, a name without the path, or a
+        name with a logical (for example, DIRSPEC:design001.dgn).</li>
+    </ul>
+<P class=T>A program can use <B>Reattach</B> to immediately attach to a different design file or model.
+<B>Reattach</B> performs complete error checking and fails if it finds an error. It erases the attachment, reattaches, and
+then draws the attachment.  <B>Reattach</B> is the safest way to to attach to a different model or file.</P>
+<P class=T>A program can use <B>SetAttachNameDeferred</B> to change the value of <B>AttachName</B> without reattaching the file.
+A program would only use <B>SetAttachNameDeferred</B> if it needs to make <B>AttachName</B> refer to a file that is not available.
+<P class=T></P>After calling <B>SetAttachNameDeferred</B>, a program should call <A href="usmthRewrite.htm">Rewrite</A>. At that
+point, the <B>File Name</B> column of the <B>References</B> dialog box will display the name of the file that will be loaded the
+next time the parent model is loaded. Since this can be confusing to users, programmers should only use <B>SetAttachNameDeferred</B>
+when it is absolutely essential.</P>
