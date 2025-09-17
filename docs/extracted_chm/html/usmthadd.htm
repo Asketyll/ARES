@@ -1,0 +1,218 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Add Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthadd"></A>Add Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1335" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1336" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1337" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1338" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddS">
+</OBJECT>
+</P>
+
+<P class=RL><B>Syntax</B></P>
+<P>For the <B>Attachments</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<B>Set</B> <I><A href="usobjAttachment.htm">Attachment</A></I> = <I>object</I>.<B>Add</B> (<I>FileSpecification</I>, <I>ModelName</I>, <I>LogicalName</I>, <I>Description</I>, <I>MasterOrigin</I>, <I>ReferenceOrigin</I> [, <I>TrueScale</I> [, <I>DisplayImmediately</I>]])
+<P>For the <B>ModelReferences</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<B>Set</B> <I><A href="usobjModelReference.htm">ModelReference</A></I> = <I>object</I>.<B>Add</B> (<I>ModelTemplate</I> [, <I>Name</I> [, <I>Description</I> [, <I>ModelType</I> [, <I>Is3d</I>]]]])
+<P>For the <B>RasterClipMasks</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I><B>Boolean</B></I> = <I>object</I>.<B>Add</B> (<I>Element</I> [, <I>ReferenceSystem</I>])
+<P>For the <B>TagDefinitions</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<B>Set</B> <I><A href="usobjTagDefinition.htm">TagDefinition</A></I> = <I>object</I>.<B>Add</B> (<I>Name</I>, <I>TagType</I>)
+<P>For the <B>TagSets</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<B>Set</B> <I><A href="usobjTagSet.htm">TagSet</A></I> = <I>object</I>.<B>Add</B> (<I>Name</I>)
+<P>For the <B>TextStyles</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<B>Set</B> <I><A href="usobjTextStyle.htm">TextStyle</A></I> = <I>object</I>.<B>Add</B> (<I>TextStyleTemplate</I>, <I>TextStyleName</I>)
+<P>For the <B>ViewGroups</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>Add</B> <I>Name</I>, <I>Description</I>
+<P class=T>The <B>Add</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>FileSpecification</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. For <A href="usobjAttachments.htm">Attachments</A>.<B>Add</B>, specifies the name of a reference file.  The drive, directory name, and extension are all optional.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ModelName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. For <B>Attachments</B>.<B>Add</B>, the name of the model to attach.  If <B>vbNullString</B> is specified, attaches the default model.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>LogicalName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. The logical name for the attachment.  The logical name must be unique.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>MasterOrigin</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. A point in the model that contains the attachments. Specified in master units.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ReferenceOrigin</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. A point in the model that is being attached. Specified in UOR's, and not in master units.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>TrueScale</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. Specify <B>True</B> to generate a scale factor that maps the master units of the master model and
+    the attached model.  Specify <B>False</B> to produce a one-to-one mapping of UOR's.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>DisplayImmediately</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. Specify <B>True</B> to immediately display the attachment.  Specify <B>False</B> if
+    scale (see <A href="usproScaleFactor.htm">ScaleFactor</A>) or rotate (see <A href="usmthRotate.htm">Rotate</A>) operations take place prior to displaying the reference file.
+    Use <A href="usmthRedraw.htm">Redraw</A> to subsequently display the attachment.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Element</I></TD>
+<TD class=TT width=79%>
+An <A href="usobjElement.htm">Element</A> expression. The MicroStation element from which to shape the clip mask.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ReferenceSystem</I></TD>
+<TD class=TT width=79%>
+Optional. An <A href="usenmMsdReferenceSystem.htm">MsdReferenceSystem</A> expression. <B>MsdReferenceSystem</B> describing the Elem's reference system. Usually msdReferenceSystemDgn.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>TextStyleTemplate</I></TD>
+<TD class=TT width=79%>
+A <B>TextStyle</B> expression. Provides the initial values for the <B>TextStyle</B>'s properties. If TextStyleTemplate is <B>Nothing</B>,
+                            <B>Add</B> copies the initial values from <A href="usproActiveSettings.htm">ActiveSettings</A>.<A href="usproTextStyle.htm">TextStyle</A>.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>TextStyleName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. The name of the new <B>TextStyle</B>. <B>TextStyleName</B> cannot be <B>vbNullString</B>.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Description</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ModelTemplate</I></TD>
+<TD class=TT width=79%>
+A <B>ModelReference</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Name</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>String</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ModelType</I></TD>
+<TD class=TT width=79%>
+Optional. An <A href="usenmMsdModelType.htm">MsdModelType</A> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Is3d</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>TagType</I></TD>
+<TD class=TT width=79%>
+An <A href="usenmMsdTagType.htm">MsdTagType</A> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<B>Attachments</B>.<B>Add</B> attaches a reference file.
+</P>
+<P>
+For <B>Attachments</B>, the format of the FileSpecification is <I>configuration_variable:filename</I> where the <I>configuration_variable:</I> part is optional.
+    The configuration_variable part and the colon must appear together. Do not use one without using the other.
+</P>
+<P>
+If <I>FileSpecification</I> specifies <I>configuration_variable:</I> then MicroStation records <I>configuration_variable:</I> as part of the
+    <B>Attachment</B>. It then evaluates the configuration variable everytime MicroStation loads the <B>Attachment</B>.
+</P>
+<P>
+If FileSpecification does not provide a full file specification, the master file path and the environment variables
+    MS_RFDIR and MS_DEF are searched sequentially for the file.
+</P>
+<P>
+<A href="usobjModelReferences.htm">ModelReferences</A>.<B>Add</B> creates a new model, copying the settings from <B>ModelTemplate</B>. If the <I>Name</I> argument is <B>vbNullString</B>,
+    <B>Add</B> generates a unique name. Otherwise, the name must be unique. The default value for <I>ModelType</I> is <B>msdModelTypeDefault</B>. The default value
+    for <I>Is3d</I> is <B>False</B>.
+</P>
+<P>
+<A href="usobjRasterClipMasks.htm">RasterClipMasks</A>.<B>Add</B> adds a new clip mask to the list creating the clip mask from an element.  For example,
+    <PRE><CODE>
+    Dim oElem As Element
+    Dim theClipMasks As RasterClipMasks
+
+    ...
+
+    If (theClipMasks.Add(oElem)) Then
+        ...
+    End If
+    </PRE></CODE>
+</P>
+<P>
+<A href="usobjTagDefinitions.htm">TagDefinitions</A>' <B>Add</B> method creates a new <B>TagDefinition</B>, adds it to the <B>TagDefinitions</B> collection, and saves it to the <A href="usobjDesignFile.htm">DesignFile</A>.
+    If the <B>TagDefinitions</B> collection already contains a <B>TagDefinition</B> with the requested name, <B>Add</B> generates an error.
+</P>
+<P>
+<A href="usobjTagSets.htm">TagSets</A>' <B>Add</B> method creates a new <B>TagSet</B>, adds it to the <B>TagSets</B> collection, and saves it to the <B>DesignFile</B>.
+    If the <B>TagSets</B> collection already contains a <B>TagSet</B> with the requested name, <B>Add</B> generates an error.
+</P>
+<P>
+<A href="usobjTextStyles.htm">TextStyles</A>.<B>Add</B> verifies that there is not already a text style with the name that the <I>TextStyle</I>
+    parameter specifies. If it finds a <B>TextStyle</B> with that name, it raises an msdErrorNameNotUnique exception.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>EvaluatePointDerivatives2 Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthevaluatepointderivatives2"></A>EvaluatePointDerivatives2 Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2435" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointDerivatives2C">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2436" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointDerivatives2X">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2437" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointDerivatives2A">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2438" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointDerivatives2S">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns the point, first and second partial derivatives, and the normal at the given u- and v-parameters along this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><A href="usudtPoint3d.htm">Point3d</A></I> = <I>object</I>.<B>EvaluatePointDerivatives2</B> (<I>Tangents</I>, <I>SecondPartials</I>, <I>Normal</I>, <I>Parameters</I>)
+<P class=T>The <B>EvaluatePointDerivatives2</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Tangents</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtFirstPartials3d.htm">FirstPartials3d</A> expression. The returned first partial derivatives with respect to u and v at the point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>SecondPartials</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtSecondPartials3d.htm">SecondPartials3d</A> expression. The returned second partial derivatives with respect to u and v at the point.  The mixed second partials
+                            (SecondPartials.Duv, SecondPartials.Dvu) are always equal for a <A href="usobjBsplineSurface.htm">BsplineSurface</A> object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Normal</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. The returned (normalized) normal at the point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Parameters</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint2d.htm">Point2d</A> expression. The valid u- and v-parameters of the desired point.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <B>BsplineSurface</B> objects, any boundaries in the object are ignored.  To detect whether or not Parameters defines a point on
+             a trimmed/punctured surface, call <A href="usmthContainsParametricPoint.htm">ContainsParametricPoint</A>.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

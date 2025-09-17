@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SecondPartials3d Type</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usudtsecondpartials3d"></A>SecondPartials3d Type</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_33" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtSecondPartials3dC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_34" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtSecondPartials3dX">
+</OBJECT>
+<P class=T>
+Represents the second partial derivatives of a u,v-parametric three-dimensional surface at a point on the surface.
+</P>
+<P class=T>The <B>SecondPartials3d</B> type has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Duu</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> that represents the second u-partial derivative vector at a point on the surface.</LI>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Dvv</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> that represents the second v-partial derivative vector at a point on the surface.</LI>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Duv</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> that represents the mixed uv-partial derivative vector at a point on the surface.</LI>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Dvu</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> that represents the mixed vu-partial derivative vector at a point on the surface.</LI>
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+For points in a <A href="usobjModelReference.htm">ModelReference</A>'s geometry, the values are measured in the model's coordinate system, unless stated otherwise.
+</P>
+<P>
+For sufficiently smooth surfaces like B-spline surfaces, the vector <B>Duv</B> is called the <EM>twist</EM> vector, and equals <B>Dvu</B>.
+</P>
+<P>
+The method <A href="usobjBsplineSurface.htm">BsplineSurface</A>.<A href="usmthEvaluatePointDerivatives2.htm">EvaluatePointDerivatives2</A> returns the second partial derivatives of a B-spline surface at a point
+         specified by its parametric coordinates.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

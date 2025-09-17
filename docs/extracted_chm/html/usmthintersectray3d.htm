@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IntersectRay3d Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthintersectray3d"></A>IntersectRay3d Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_3379" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthIntersectRay3dC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3380" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthIntersectRay3dX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3381" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthIntersectRay3dA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3382" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthIntersectRay3dS">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns True if the given ray intersects this object, and if so, also returns the coordinates and parameters of the first
+                 intersection point.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><B>Boolean</B></I> = <I>object</I>.<B>IntersectRay3d</B> (<I>IntersectionPoint</I>, <I>Parameters</I>, <I>Ray</I> [, <I>Tolerance</I>])
+<P class=T>The <B>IntersectRay3d</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>IntersectionPoint</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. The intersection point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Parameters</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint2d.htm">Point2d</A> expression. The returned u- and v-parameters of the intersection point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Ray</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtRay3d.htm">Ray3d</A> expression. The ray to fire into this object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Tolerance</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The error tolerance for the computation.  If omitted or negative, a default value of 1.0e-5 times the
+                                largest coordinate difference of the unweighted <A href="usproPole.htm">Pole</A>s of the surface is used.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineSurface.htm">BsplineSurface</A> objects, this method replaces the method ComputeBoresite, which was deprecated after MicroStation V8 2004
+             Edition.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.01
+</P>
+</BODY>
+</HTML>

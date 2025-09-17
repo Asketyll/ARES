@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MsdTangentElementOutputType Enum</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usenmmsdtangentelementoutputtype"></A>MsdTangentElementOutputType Enum</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_249" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdTangentElementOutputTypeC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_250" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdTangentElementOutputTypeX">
+</OBJECT>
+<P class=T>
+Defines constants that determine the type of the objects in the <A href="usobjElementEnumerator.htm">ElementEnumerator</A> object returned by the global method
+             <A href="usmthConstructCirclesTangentToThreeElements.htm">ConstructCirclesTangentToThreeElements</A>.
+</P>
+<P class=T>The <B>MsdTangentElementOutputType</B> enum has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdTangentCircles</I></TD>
+<TD class=TT width=79%>
+0 (&H0)  Outputs unfilled, circular <A href="usobjEllipseElement.htm">EllipseElement</A> objects tangent to the three input <A href="usobjElement.htm">Element</A>s.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdTangentArcs</I></TD>
+<TD class=TT width=79%>
+1 (&H1)  Outputs <A href="usobjArcElement.htm">ArcElement</A> objects tangent to the three input <B>Element</B>s.  Each <B>ArcElement</B>'s <A href="usproStartPoint.htm">StartPoint</A> lies on
+                            the first input <B>Element</B> and <A href="usproEndPoint.htm">EndPoint</A> lies on the third input <B>Element</B>.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdTangentTriangles</I></TD>
+<TD class=TT width=79%>
+2 (&H2)  Outputs triangular <A href="usobjShapeElement.htm">ShapeElement</A> objects, each containing a triplet of tangency points as vertices.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+Specifically, these values represent the ways in which each triplet of tangency points is represented on return.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

@@ -11,17 +11,17 @@ Public Function GenerateV1() As String
 
     Dim macAddress As String
     Dim timePart As String
-    Dim uuid As String
+    Dim UUID As String
 
     ' Get the MAC address and time-based part
     macAddress = GetMacAddress()
     timePart = GetTimePart()
 
     ' Combine MAC address and time-based part to form a UUID
-    uuid = FormatUUID(macAddress, timePart)
+    UUID = FormatUUID(macAddress, timePart)
 
     ' Return the generated UUID
-    GenerateV1 = uuid
+    GenerateV1 = UUID
     Exit Function
 
 ErrorHandler:
@@ -91,30 +91,30 @@ End Function
 Private Function FormatUUID(macAddress As String, timePart As String) As String
     On Error GoTo ErrorHandler
 
-    Dim uuid As String
+    Dim UUID As String
     Dim randomPart As String
     Dim i As Integer
 
     ' Generate a random part for the UUID
     Randomize
     randomPart = ""
-    For i = 1 To 12
-        randomPart = randomPart & Hex(Int(Rnd * 16))
+    For i = 1 To 16
+        randomPart = randomPart & Hex(Int(RND * 16))
     Next i
 
     ' Format the UUID as per Version 1 standard
-    uuid = Mid(macAddress, 1, 8) & "-" & _
+    UUID = Mid(macAddress, 1, 8) & "-" & _
            Mid(macAddress, 9, 4) & "-" & _
            "1" & Mid(timePart, 2, 3) & "-" & _
            Mid(randomPart, 1, 4) & "-" & _
            Mid(randomPart, 5, 12)
 
     ' Set the version (4 bits) and variant (2-3 bits) for UUID Version 1
-    Mid(uuid, 15, 1) = "1" ' Set version to 1
-    Mid(uuid, 20, 1) = "8" ' Set variant to RFC 4122 (binary: 10)
+    Mid(UUID, 15, 1) = "1" ' Set version to 1
+    Mid(UUID, 20, 1) = "8" ' Set variant to RFC 4122 (binary: 10)
 
     ' Return the formatted UUID
-    FormatUUID = uuid
+    FormatUUID = UUID
     Exit Function
 
 ErrorHandler:

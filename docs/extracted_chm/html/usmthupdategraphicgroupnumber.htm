@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>UpdateGraphicGroupNumber Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthupdategraphicgroupnumber"></A>UpdateGraphicGroupNumber Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_5347" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthUpdateGraphicGroupNumberC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5348" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthUpdateGraphicGroupNumberX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5349" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthUpdateGraphicGroupNumberA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5350" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthUpdateGraphicGroupNumberS">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns a graphic group that can be used for setting an element's <A href="usproGraphicGroup.htm">GraphicGroup</A> property.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><B>Long</B></I> = <I>object</I>.<B>UpdateGraphicGroupNumber</B> 
+<P class=T>The <B>UpdateGraphicGroupNumber</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<B>UpdateGraphicGroupNumber</B> saves that value to the design file so MicroStation will know
+    not to use it the next time it is started.  It also increments the graphic group number, so the next time <B>UpdateGraphicGroupNumber</B>
+    is called, it will return the next number.
+    <P>The pair of statements</P>
+    <CODE><PRE>        ele.GraphicGroup = CurrentGraphicGroup
+        UpdateGraphicGroupNumber    </PRE></CODE>
+    <P>is equivalent to:</P> <CODE><PRE>        ele.GraphicGroup = UpdateGraphicGroupNumber
+    </PRE></CODE>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.02
+</P>
+</BODY>
+</HTML>

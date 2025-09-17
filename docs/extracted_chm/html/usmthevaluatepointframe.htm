@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>EvaluatePointFrame Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthevaluatepointframe"></A>EvaluatePointFrame Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2439" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointFrameC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2440" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointFrameX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2441" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointFrameA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2442" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointFrameS">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns the point, Frenet frame, curvature and torsion at the given parameter along this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><A href="usudtPoint3d.htm">Point3d</A></I> = <I>object</I>.<B>EvaluatePointFrame</B> (<I>Frame</I>, <I>Curvature</I>, <I>Torsion</I>, <I>Parameter</I>, <I>LinearNormal</I>)
+<P class=T>The <B>EvaluatePointFrame</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Frame</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtMatrix3d.htm">Matrix3d</A> expression. The returned Frenet frame, or local right-handed coordinate system at the point.  This orthogonal matrix is
+                        presented with normalized local axes as rows (like a <A href="usobjView.htm">View</A>.<A href="usproRotation.htm">Rotation</A>).  Frame.RowX is the <I>tangent</I> vector.
+                        Frame.RowY is the <I>main normal</I> vector.  Frame.RowZ is the <I>binormal</I> vector.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Curvature</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. The returned curvature of this object at the point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Torsion</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. The returned torsion of this object at the point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Parameter</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. The valid parameter of the desired point.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>LinearNormal</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. The default main normal vector to use if this object is locally linear at Parameter.  In this case, the binormal is
+                        computed from the cross product of the tangent and LinearNormal, and the main normal is computed from the cross
+                        product of this binormal and the tangent.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineCurve.htm">BsplineCurve</A> objects, the Frenet Frame has several useful properties like the following.  The <I>main normal</I> vector
+             points to the osculating circle's center, which is located a (signed) distance of 1.0 / Curvature from the returned point.  For
+             planar objects, the <I>binormal</I> vector equals the normal vector of the plane.  Curvature is the angular velocity of the
+             <I>tangent</I> vector, while torsion is the negative of the angular velocity of the <I>binormal</I> vector; both are
+             parametrization-independent and invariant under a rigid body transformation of the curve.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

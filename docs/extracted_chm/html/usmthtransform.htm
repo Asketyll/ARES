@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Transform Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthtransform"></A>Transform Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_5147" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransformC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5148" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransformX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5149" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransformA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5150" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransformS">
+</OBJECT>
+</P>
+
+<P class=T>
+Applies a transform to this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P>For the <B>TextNodeElement</B> object, <B>TextElement</B> object, <B>TagElement</B> object, <B>SmartSolidElement</B> object, <B>SharedCellElement</B> object, <B>SharedCellDefinitionElement</B> object, <B>ShapeElement</B> object, <B>SavedViewElement</B> object, <B>PointStringElement</B> object, <B>NamedGroupElement</B> object, <B>MultiLineElement</B> object, <B>LineElement</B> object, <B>EllipseElement</B> object, <B>Element</B> object, <B>DimensionElement</B> object, <B>CurveElement</B> object, <B>ConeElement</B> object, <B>ComplexStringElement</B> object, <B>ComplexShapeElement</B> object, <B>CellElement</B> object, <B>BsplineSurfaceElement</B> object, <B>BsplineCurveElement</B> object, <B>AuxiliaryCoordinateSystemElement</B> object, <B>ArcElement</B> object and <B>ApplicationElement</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>Transform</B> <I>Transform3d</I>
+<P>For the <B>Attachment</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>Transform</B> <I>Transform</I>, <I>ApplyToClipElement</I>
+<P class=T>The <B>Transform</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Transform3d</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtTransform3d.htm">Transform3d</A> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Transform</I></TD>
+<TD class=TT width=79%>
+A <B>Transform3d</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ApplyToClipElement</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For an element, calling <B>Transform</B> raises an error if the element is not graphical.
+    If you're in doubt, firstly check the element's <A href="usproIsGraphical.htm">IsGraphical</A> property.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

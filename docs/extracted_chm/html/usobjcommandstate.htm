@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CommandState Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjcommandstate"></A>CommandState Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_428" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjCommandStateC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_429" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjCommandStateX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_430" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjCommandStateP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_431" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjCommandStateM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_432" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjCommandStateE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_433" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjCommandStateS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_434" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjCommandStateI">
+</OBJECT>
+</P>
+
+<P class=T>
+The methods of the <B>CommandState</B> object are used to implement commands that behave like standard
+        MicroStation element-creation and element-modification commands.  Such commands should implement a class that implements
+        either <A href="usobjIPrimitiveCommandEvents.htm">IPrimitiveCommandEvents</A> or <A href="usobjILocateCommandEvents.htm">ILocateCommandEvents</A>.  Use <B>IPrimitiveCommandEvents</B> if the new command is an element-creation command.
+        Use <B>ILocateCommandEvents</B> if the new command is an element-modification command. Such commands typically
+        run until the user invokes another command.  However, if the command does need to terminate itself, it should call
+        <A href="usmthStartDefaultCommand.htm">StartDefaultCommand</A> to set MicroStation back to a common state.
+        <P>MicroStation's commands can be classified as view manipulation commands, settings commands, element creation and modification
+        commands, and utility commands.
+        <P>The settings commands happen without additional user input.  They typically are used to modify an active setting
+        such as ACTIVE COLOR or ACTIVE LEVEL. These commands can occur while an element creation/modification command is active.
+        The element creation/modification command remains active and in the same state after the settings command completes.</P>
+        <P>The view manipulation commands control what is displayed in a view.  Examples are FIT and WINDOW AREA        .  Often,
+        a view manipulation command requires user events such as data points.  If so, the view manipulation command
+        suspends any active element creation/modification command.  Once the command is complete, the element creation/modification
+        command resumes in the same state.</P>
+        <P>The element creation/modification commands are the commands that actually make changes to the model.  These are
+        categorized as primitive commands and locate commands.  The primitive commands are the commands that create new elements.
+        The locate commands are the commands that modify elements.  A class that implements a new element-creation command should implement
+        the <B>IPrimitiveCommandEvents</B> interface. A class that implements a new element-modification command should
+        implement <B>ILocateCommandEvents</B>.  Element-creation commands and element-modification commands remain active until
+        a utility commands runs or until another element-creation/modification command runs.</P>
+        <P>Utility commands have a significant effect on the MicroStation session. COMPRESS DESIGN is an example of a utility
+        command. Such commands  must set MicroStation to a known state prior to executing.  To do so, these commands should
+        call the method <B>StartDefaultCommand</B>.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

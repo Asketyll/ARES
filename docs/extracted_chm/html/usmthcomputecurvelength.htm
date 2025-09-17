@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ComputeCurveLength Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcomputecurvelength"></A>ComputeCurveLength Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1731" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeCurveLengthC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1732" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeCurveLengthX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1733" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeCurveLengthA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1734" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeCurveLengthS">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns the length of (a portion of) this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><B>Double</B></I> = <I>object</I>.<B>ComputeCurveLength</B> [(<I>StartParameter</I> [, <I>EndParameter</I> [, <I>IgnoreZ</I>]])]
+<P class=T>The <B>ComputeCurveLength</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>StartParameter</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The start parameter of this object from which to start the length computation.  If omitted, 0.0 is used.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>EndParameter</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The end parameter of this object at which to end the length computation.  If omitted, 1.0 is used.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>IgnoreZ</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. Indicates whether the computation ignores z-coordinates.  If <B>True</B>, the returned value is the length of
+                            the curve projected into the xy-plane (or as seen from the Top <A href="usobjView.htm">View</A>).  If omitted, a default value of
+                            <B>FALSE</B> is used, and true length is returned.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineCurve.htm">BsplineCurve</A> objects, the returned length is nonnegative and accurate to machine precision.
+</P>
+<P>
+For <B>BsplineCurve</B> objects, this method replaces the method ComputeLength, which was deprecated after MicroStation V8 2004
+            Edition.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.01
+</P>
+</BODY>
+</HTML>

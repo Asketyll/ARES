@@ -1,0 +1,315 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NamedGroupElement Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjnamedgroupelement"></A>NamedGroupElement Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_743" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjNamedGroupElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_744" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjNamedGroupElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_745" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjNamedGroupElementP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_746" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjNamedGroupElementM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_747" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjNamedGroupElementE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_748" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjNamedGroupElementS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_749" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjNamedGroupElementI">
+</OBJECT>
+</P>
+
+<P class=T>
+A <B>NamedGroupElement</B> holds all of the information describing a MicroStation named group.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+A named group is stored as part of a model, and provides a way to collectively identify
+    any arbitrary set of graphical elements.
+</P>
+<P>
+Any graphical element may be a member of any named group; in fact,
+    it may belong to more than one group simultaneously. Furthermore, since a named group is, itself,
+    a kind of element, a named group may be a member of another named group (provided that there is no conflict in the
+    membership hierarchy).
+</P>
+<P>
+A type of <A href="usobjElement.htm">Element</A> object called a <B>NamedGroupElement</B> encapsulates all of the housekeeping required to create and process named groups.
+</P>
+<P>
+To create a new named group and add it to a model, use the method, <A href="usobjModelReference.htm">ModelReference</A>.<A href="usmthAddNewNamedGroup.htm">AddNewNamedGroup</A>. This method
+    returns a <B>NamedGroupElement</B> object that represents the new named group.
+</P>
+<P>
+To retrieve a named group that's already in the model, use the method, <B>ModelReference</B>.<A href="usmthGetNamedGroup.htm">GetNamedGroup</A>.
+    (To get all of a model's named groups, you can scan the model's <A href="usproControlElementCache.htm">ControlElementCache</A>.)
+</P>
+<P>
+To add an element as member of a named group, use the method, <B>NamedGroupElement</B>.<A href="usmthAddMember.htm">AddMember</A>.
+</P>
+<P>
+To obtain a collection of all members within a named group, use the method, <B>NamedGroupElement</B>.<A href="usmthGetMembers.htm">GetMembers</A>.
+    A <A href="usobjNamedGroupMember.htm">NamedGroupMember</A> object identifies an <B>Element</B> that is a member of the group.  It also has the propagation
+    properties <A href="usproPropagationToOtherMembers.htm">PropagationToOtherMembers</A>, <A href="usproPropagationFromOtherMembers.htm">PropagationFromOtherMembers</A>, and <A href="usproPropagationToOtherGroups.htm">PropagationToOtherGroups</A> that determine how
+    that element behaves in that group. An <B>Element</B> can be in multiple groups, but a <B>NamedGroupMember</B> object belongs to just one group.
+    The element may behave differently in different groups since it is the <B>NamedGroupMember</B> object and not the <B>Element</B> itself
+    that determines the behavior.
+</P>
+<P>
+To get a list of elements accessible from the named group use the method, <B>NamedGroupElement</B>.<A href="usmthGetElements.htm">GetElements</A>.
+    Depending on the value of the <A href="usenmMsdMemberTraverseType.htm">MsdMemberTraverseType</A> argument, this collection may contain exactly the elements in the particular
+    named group, or it may contain all of the elements in the hierarchy. The <B>MsdMemberTraverseType</B> argument also
+    controls how the collection represents member <B>NamedGroupElement</B>s. The  member <B>NamedGroupElement</B> can be represented by
+    itself, or by the elements in the named group it represents.
+</P>
+<P>
+Given any type of <B>Element</B>, use <B>Element</B>.<A href="usmthGetRelatedElements.htm">GetRelatedElements</A> to get all of the elements that are accessible from named groups
+    that contain the element. use <B>Element</B>.<A href="usmthGetContainingNamedGroups.htm">GetContainingNamedGroups</A> to get a list of all named groups that contain the element.
+</P>
+<P>
+<em>How Named Group Elements are Structured</em>
+</P>
+<P>
+Each named group is stored as a complex element comprising a header of type <B>msdElementTypeNamedGroupHeader</B>
+    and components of type <B>msdElementTypeNamedGroupComponent</B>. When an element is added to a named group, a reference to
+    that element is stored in the named group element. (The added element, itself, is not modified.)</P>
+</P>
+<P>
+<em>Named Groups versus Numbered Graphic Groups</em>
+</P>
+<P>
+In MicroStation, named groups share some characteristics with numbered graphic groups, but named groups
+    are considerably more flexible and powerful:
+    <ul>
+    <li> Elements can belong to multiple Named Groups but can belong to only one Graphic Group.
+    <li> Adding an element to a Named Group does not modify the element, so locked elements can belong
+    to Named Groups.
+    <li> Named Groups can have other Named Groups as members, so a hierarchy can be established.
+    <li> When a change is made to a member of a Named Group, the way that change is propagated to
+    other Named Group members can be controlled in a flexible manner.
+    </ul>
+</P>
+<P>
+<em>Change Propagation</em>
+</P>
+<P>
+Every member of a named group has a set of change propagation flags.
+    When an element that is a member of a named group is modified by a command that supports
+    selection sets and graphic groups, other members of the named group might also be
+    modified, depending on the state of these change propagation flags. There are three such flags:
+        <table border="1" bordercolorlight="#FFFFFF" bordercolordark="#000000"
+               cellpadding="5" cellspacing="0">
+          <caption></caption>
+          <tr bgcolor="#CCCCCC">
+            <th>Flag</th>
+            <th>Description</th>
+          </tr>
+          <tr>
+            <td><B>PropagationToOtherMembers</B></td>
+            <td>Controls when changes to this member are propagated to other group members.</td>
+          </tr>
+          <tr>
+            <td><B>PropagationFromOtherMembers</B></td>
+            <td>Controls when changes to other members in the group are propagated to this member.</td>
+          </tr>
+          <tr>
+            <td><B>PropagationToOtherGroups</B></td>
+            <td>When the member belongs to multiple groups, controls how changes to this member are propagated to the other groups to which it belongs.</td>
+          </tr>
+        </table>
+    Each of these change propagation flags can have one of the following values from <A href="usenmMsdChangePropagation.htm">MsdChangePropagation</A>:
+        <table border="1" bordercolorlight="#FFFFFF" bordercolordark="#000000"
+               cellpadding="5" cellspacing="0">
+          <caption></caption>
+          <tr bgcolor="#CCCCCC">
+            <th>Value</th>
+            <th>Description</th>
+          </tr>
+          <tr>
+            <td>msdChangePropagationGroupLock</td>
+            <td>The propagation occurs only when Group Lock is on.</td>
+          </tr>
+          <tr>
+            <td>msdChangePropagationNever</td>
+            <td>The propagation never occurs.</td>
+          </tr>
+          <tr>
+            <td>msdChangePropagationAlways</td>
+            <td>The propagation occurs for every manipulation that supports groups, regardless of the state of group lock.</td>
+          </tr>
+        </table>
+</P>
+<P>
+<em>Traversal Algorithm</em>
+</P>
+<P>
+MicroStation commands that support groups use the following algorithm to determine what elements are related and therefore manipulated together.
+    The methods that find related elements, <B>NamedGroupElement</B>.<B>GetElements</B> and <B>Element</B>.<B>GetRelatedElements</B>, also use this algorithm to find the related
+    elements.
+    <pre>
+     For each Named Group (namedGroup) the element (rootMember) belongs to:
+        If, in namedGroup, rootMember has <B>PropagationToOtherMembers</B> set to msdChangePropagationAlways
+        or msdChangePropagationGroupLock with Group Lock on, then
+            For each otherMember of namedGroup
+                If otherMember is another Named Group (otherGroup), then
+                    If rootMember has <B>PropagationToOtherGroups</B> set to msdChangePropagationAlways, or msdChangePropagationGroupLock
+                    with Group Lock on, then propagate changes to otherGroup using this algorithm.
+                Else If otherMember has <B>PropagationFromOtherMembers</B> set to msdChangePropagationAlways, or msdChangePropagationGroupLock
+                with Group lock on, then
+                    Manipulate otherMember.
+                End If
+            End For
+        End If
+    End For
+    </pre>
+</P>
+<P>
+There are 2 commonly used combinations of values of <B>PropagationToOtherMembers</B>, <B>PropagationFromOtherMembers</B>, and <B>PropagationToOtherGroups</B>.
+    One of the commonly used combinations is active members;  the other is for passive members.  A member is considered
+    active if changes are propagated to it and from it.  A member is considered passive if changes are propagated to
+    it but not from it.
+</P>
+<P>
+Use <A href="usmthSetPropagationFlagsToActive.htm">SetPropagationFlagsToActive</A> to set a member's propagation flags to make it an active member.
+    Use <A href="usmthSetPropagationFlagsToPassive.htm">SetPropagationFlagsToPassive</A> to set a member's propagation flags to make it a passive member.
+</P>
+<P>
+The values for an active member are:
+    <pre>
+        <B>PropagationToOtherMembers</B>  Group Lock
+        <B>PropagationFromOtherMembers</B> Group Lock
+        <B>PropagationToOtherGroups</B> Never
+    </pre>
+    This combination of rules results in behavior just like graphic group members.
+</P>
+<P>
+
+</P>
+<P>
+The values for a passive member are:
+    <pre>
+        <B>PropagationToOtherMembers</B>  Never
+        <B>PropagationFromOtherMembers</B> Group Lock
+        <B>PropagationToOtherGroups</B> Never
+    </pre>
+</P>
+<P>
+
+</P>
+<P>
+<em>Example of Change Propagation</em>
+</P>
+<P>
+As an example of how change propagation works, consider the following diagram:
+    <pre>
+                1
+           4    2   5
+                3
+    </pre>
+</P>
+<P>
+Suppose each of the numbers is an element. Suppose 1,2,3 are in a group called "Column" and "4,2,5" are in a
+    group called Row. (Element 2 is in both Row and Column). Now suppose that in group "Column", Members 1 and 2
+    are set up as an Active Members. Suppose element 3 is a Passive Member.
+</P>
+<P>
+Now suppose that in group "Row",  Member 4  is an Active Member, but Member 5 has custom flags with
+    <pre>
+        <B>PropagationToOtherMembers</B>: msdChangePropagationGroupLock
+        <B>PropagationFromOtherMembers</B>: msdChangePropagationNever
+        <B>PropagationToOtherGroups</B>: msdChangePropagationNever,
+    </pre>
+    and Member 2 has custom flags with
+    <pre>
+        <B>PropagationToOtherMembers</B>: msdChangePropagationGroupLock
+        <B>PropagationFromOtherMembers</B>: msdChangePropagationGroupLock
+        <B>PropagationToOtherGroups</B>: msdChangePropagationGroupLock,
+    </pre>
+</P>
+<P>
+With group lock on:
+    If you move Element 1: 1, 2, and 3 move.  1 propagates changes to 2 and 3, all of which accept propagation from other members.
+</P>
+<P>
+If you move Element 2: 1, 2, 3, and 4 move. 2 propagates changes to 1 and 3 of group Column, all of whom
+    accept propagation from other members. 1 propagates changes to 4 of group Row, but 5 does not move because it
+    does not accept change propagation from other members.
+</P>
+<P>
+If you move Element 3: Only 3 moves because it does not propagate changes to other members of the Column group.
+</P>
+<P>
+If you move Element 4: 1, 2, 3, and 4 move. 4 propagates changes to 2, which as a member of group Row,
+    propagates changes to group Column, which moves 1 and 3. Element 5 does not accept changes propagating from other members of its group,
+    so it does not move.
+</P>
+<P>
+If you move Element 5: 1, 2, 3, 4, and 5 move. 5 propagates changes to 4, which accepts
+    propagation. It also propagates changes to 2, which in turn propagates changes to the other group it belongs to, moving 1 and 3.
+</P>
+<P>
+If you set up the same test, but substitute msdChangePropagationAlways wherever msdChangePropagationGroupLock appears, then the same move
+    actions happen even if Group Lock is off.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.00
+</P>
+</BODY>
+</HTML>

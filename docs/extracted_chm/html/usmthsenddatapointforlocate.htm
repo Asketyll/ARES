@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SendDataPointForLocate Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthsenddatapointforlocate"></A>SendDataPointForLocate Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_4723" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDataPointForLocateC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4724" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDataPointForLocateX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4725" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDataPointForLocateA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4726" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDataPointForLocateS">
+</OBJECT>
+</P>
+
+<P class=T>
+Selects an element for the current command to operate on.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>SendDataPointForLocate</B> <I>ElementToLocate</I>, <I>DataPoint</I> [, <I>ViewSpecifier</I> [, <I>Qualifier</I>]]
+<P class=T>The <B>SendDataPointForLocate</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ElementToLocate</I></TD>
+<TD class=TT width=79%>
+An <A href="usobjElement.htm">Element</A> expression. Must refer to an element that is already in the model. It cannot refer to a newly created element that has
+    not been added to the model.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>DataPoint</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. The data point to send
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ViewSpecifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>VARIANT</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Qualifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Long</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<B>SendDataPointForLocate</B> sends the data point, forcing it to select the specified element.
+</P>
+<P>
+<B>ElementToLocate</B> may refer to a simple element, a complex element, or a member of the complex element.
+</P>
+<P>
+Often the value of <B>DataPoint</B> is immaterial because the data point is not be used to select the element.
+    It is often reasonable to specify <A href="usmthPoint3dZero.htm">Point3dZero</A> for the data point. The value of the data point is only important
+    if the command requires a reference point.   For example, <B>SCALE ORIGINAL</B> uses the data point as the
+    point to scale about.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

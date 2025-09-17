@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MsdBsplineParametrizationType Enum</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usenmmsdbsplineparametrizationtype"></A>MsdBsplineParametrizationType Enum</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_61" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdBsplineParametrizationTypeC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_62" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdBsplineParametrizationTypeX">
+</OBJECT>
+<P class=T>
+Defines constants that represent different parametrizations for a <A href="usobjBsplineCurve.htm">BsplineCurve</A> or <A href="usobjBsplineSurface.htm">BsplineSurface</A> object.
+</P>
+<P class=T>The <B>MsdBsplineParametrizationType</B> enum has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdBsplineParametrizationUniform</I></TD>
+<TD class=TT width=79%>
+0 (&H0)  Represents uniform parametrization: equally spaced <A href="usproKnot.htm">Knot</A>s.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdBsplineParametrizationChordLength</I></TD>
+<TD class=TT width=79%>
+1 (&H1)  Represents chord length parametrization: <B>Knot</B>s spaced proportional to the distances
+                                                between successive <A href="usproPole.htm">Pole</A>s.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdBsplineParametrizationCentripetal</I></TD>
+<TD class=TT width=79%>
+2 (&H2)  Represents centripetal parametrization: <B>Knot</B>s spaced proportional to the square roots of
+                                                the distances between successive <B>Pole</B>s.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdBsplineParametrizationInherited</I></TD>
+<TD class=TT width=79%>
+3 (&H3)  Represents a parametrization that matches that of another <B>BsplineCurve</B> or <B>BsplineSurface</B>.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+These constants are used in methods such as <B>BsplineCurve</B>.<A href="usmthRebuild.htm">Rebuild</A> to determine the configuration of the <B>Knot</B>s of the
+         <B>BsplineCurve</B> object to be constructed.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

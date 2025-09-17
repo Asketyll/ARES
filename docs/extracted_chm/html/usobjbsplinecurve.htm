@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BsplineCurve Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjbsplinecurve"></A>BsplineCurve Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_344" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_345" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_346" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_347" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_348" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_349" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_350" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveI">
+</OBJECT>
+</P>
+
+<P class=T>
+Corresponds to the MDL B-spline curve structure, MSBsplineCurve.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+As per MDL analogue, most of the manipulation of a <A href="usobjBsplineCurveElement.htm">BsplineCurveElement</A> in VBA is performed on a <B>BsplineCurve</B> or
+             <A href="usobjInterpolationCurve.htm">InterpolationCurve</A> object, and only at the last step is an element created (cf. <A href="usmthCreateBsplineCurveElement1.htm">CreateBsplineCurveElement1</A>,
+             <A href="usmthCreateBsplineCurveElement2.htm">CreateBsplineCurveElement2</A>) or updated (cf. <A href="usmthUpdateFromBsplineCurve.htm">UpdateFromBsplineCurve</A>, <A href="usmthUpdateFromInterpolationCurve.htm">UpdateFromInterpolationCurve</A>) from this object.
+</P>
+<P>
+The properties of a <B>BsplineCurve</B> object may be set directly, or they may be populated by various <B>BsplineCurve</B> methods.
+             When a <B>BsplineCurve</B> property is changed, dependent properties are adjusted as necessary to maintain a valid object state.
+             For example, one side effect of <B>BsplineCurve</B>.<A href="usmthSetPoles.htm">SetPoles</A> is that the <A href="usproOrder.htm">Order</A> is set if it was previously invalid.
+</P>
+<P>
+To get a "blank" <B>BsplineCurve</B> object, use the <B>New</B> keyword.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

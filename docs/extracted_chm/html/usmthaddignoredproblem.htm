@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AddIgnoredProblem Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthaddignoredproblem"></A>AddIgnoredProblem Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1403" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddIgnoredProblemC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1404" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddIgnoredProblemX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1405" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddIgnoredProblemA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1406" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAddIgnoredProblemS">
+</OBJECT>
+</P>
+
+<P class=T>
+Adds a problem node to the <A href="usobjStandardsCheckerController.htm">StandardsCheckerController</A>'s report setting the Ignored attribute to '1'.   Use
+    <A href="usmthAddProblem.htm">AddProblem</A> to add a problem node with the Ignored attribute set to '0'.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><A href="usobjStandardsCheckerProblem.htm">StandardsCheckerProblem</A></I> = <I>object</I>.<B>AddIgnoredProblem</B> (<I>Description</I>, <I>ObjectType</I>, <I>IgnoredBy</I>, <I>IgnoredWhen</I>)
+<P class=T>The <B>AddIgnoredProblem</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ObjectType</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. Describes the type of object that has the problem.  Common values are "Level", "Element", "LineStyle",
+    "TextStyle", and "Reference".
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Description</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>IgnoredBy</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>IgnoredWhen</I></TD>
+<TD class=TT width=79%>
+A <B>Date</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+See <B>StandardsCheckerProblem</B> for a description of the node.
+</P>
+<P>
+<B>AddIgnoredProblem</B> returns a <B>StandardsCheckerProblem</B> object that the standards checker can use to add more detailed
+    information to the report.
+</P>
+<P>
+The typical call to this method looks like:
+    <CODE><PRE>    <B>StandardsCheckerController</B>.<A href="usproReport.htm">Report</A>.<B>AddIgnoredProblem</B> "The problem description", "Level", <A href="usproUserName.htm">UserName</A>, Now
+    </PRE></CODE>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

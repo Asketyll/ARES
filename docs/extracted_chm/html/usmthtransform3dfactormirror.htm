@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Transform3dFactorMirror Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthtransform3dfactormirror"></A>Transform3dFactorMirror Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_5159" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransform3dFactorMirrorC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5160" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransform3dFactorMirrorX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5161" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransform3dFactorMirrorA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5162" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthTransform3dFactorMirrorS">
+</OBJECT>
+</P>
+
+<P class=T>
+Factor a combination of a mirror part and a non-mirror part,
+           attempting to use a common fixed point for the two parts.
+ Equationally, the old transform T0 becomes
+<pre>
+            T0 = T1 * M
+</pre>
+ where M is the mirror, and T1 is a mirror-free transform.
+ The mirror transform is returned in both matrix form and as plane point with normal.
+ In an order of operations view, a point X is transformed as
+<pre>
+            T0 * X = T1 * M * X
+</pre>
+ That is, X mirrored first, followed by rotation and scaling in the residual transform.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><B>Boolean</B></I> = <I>object</I>.<B>Transform3dFactorMirror</B> (<I>Transform</I>, <I>ResidualTransform</I>, <I>MirrorTransform</I>, <I>FixedPoint</I>, <I>PlaneNormal</I>)
+<P class=T>The <B>Transform3dFactorMirror</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Transform</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtTransform3d.htm">Transform3d</A> expression. IN The transformation to test
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ResidualTransform</I></TD>
+<TD class=TT width=79%>
+A <B>Transform3d</B> expression. OUT the residual transform.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>MirrorTransform</I></TD>
+<TD class=TT width=79%>
+A <B>Transform3d</B> expression. OUT the mirror transform.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>FixedPoint</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. OUT A fixed point of the mirror transform.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>PlaneNormal</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. OUT Unit normal for the mirror plane.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+Returns false if the transform has no mirror effects.  In this case the mirror transform is the identity,
+       the residual transform is the original transform, and the fixed point and normal are both zero.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.04
+</P>
+</BODY>
+</HTML>
