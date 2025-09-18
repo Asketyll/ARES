@@ -32,11 +32,11 @@ Public Function StringToMsdElementType(ByVal TypeName As String, Optional CaseSe
     Next ElementType
 
     Exit Function
-	
+    
 ErrorHandler:
     ' Return error value in case of an error
-    StringToMsdElementType = ARES_VAR.ARES_MSDETYPE_ERROR
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.StringToMsdElementType"
+    StringToMsdElementType = ARESConstants.ARES_MSDETYPE_ERROR
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.StringToMsdElementType"
 End Function
 
 ' Public function to check if a value is a valid MsdElementType
@@ -50,11 +50,11 @@ Public Function IsValidElementType(ByVal intValue As Integer) As Boolean
     End If
 
     Exit Function
-	
+
 ErrorHandler:
     ' Return False in case of an error
     IsValidElementType = False
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.IsValidElementType"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.IsValidElementType"
 End Function
 
 ' Private Function to initialize the element types dictionary
@@ -120,7 +120,7 @@ Private Function InitializeElementTypes(ByRef elementTypes As Object)
     Exit Function
 
 ErrorHandler:
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.InitializeElementTypes"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.InitializeElementTypes"
 End Function
 
 ' Private function to check if the value is within the valid range of MsdElementType
@@ -146,5 +146,5 @@ Private Function IsWithinValidRange(ByVal intValue As Integer) As Boolean
 ErrorHandler:
     ' Return False in case of an error
     IsWithinValidRange = False
-	ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.IsWithinValidRange"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.IsWithinValidRange"
 End Function
