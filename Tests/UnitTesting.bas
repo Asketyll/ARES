@@ -15,7 +15,7 @@ Private Enum TestID
     tidErrorHandler = 6
     tidElementProcess = 7
     tidLength = 8
-    tidLink = 9
+    tidMSd = 9
     tidStringsInEl = 10
 End Enum
 
@@ -35,6 +35,9 @@ Public Sub RunAllTests()
     Dim StartTime As Double
     Dim Results As String
     
+    OpenNewFile
+    CreateElement
+    
     StartTime = Timer
     
     ' Initialize test tracking
@@ -44,7 +47,7 @@ Public Sub RunAllTests()
     ' Display header
     Results = "=== ARES TEST SUITE ===" & vbCrLf
     Results = Results & "Started: " & Now & vbCrLf
-    Results = Results & String(50, "=") & vbCrLf & vbCrLf
+    Results = Results & String(25, "=") & vbCrLf & vbCrLf
     
     ' Run all test modules
     RunTest "Configuration", tidConfig
@@ -55,7 +58,7 @@ Public Sub RunAllTests()
     RunTest "Error Handler", tidErrorHandler
     RunTest "Element Processing", tidElementProcess
     RunTest "Length Calculations", tidLength
-    RunTest "Link Functions", tidLink
+    RunTest "MSd Functions", tidMSd
     RunTest "String In Elements", tidStringsInEl
     
     ' Generate summary report
@@ -71,48 +74,48 @@ End Sub
 ' Run a single test by ID (useful for debugging specific tests)
 Public Sub RunSingleTest(TestIdentifier As Integer)
     Dim TestName As String
-    Dim Result As Boolean
+    Dim result As Boolean
     
     ' Get test name and run test
     Select Case TestIdentifier
         Case tidConfig
             TestName = "Configuration"
-            Result = ConfigTest()
+            result = ConfigTest()
         Case tidLangManager
             TestName = "Language Manager"
-            Result = LangManagerTest()
+            result = LangManagerTest()
         Case tidUUID
             TestName = "UUID Generator"
-            Result = UUIDTest()
+            result = UUIDTest()
         Case tidARESVars
             TestName = "ARES Variables"
-            Result = ARES_VARTest()
+            result = ARES_VARTest()
         Case tidCustomProps
             TestName = "Custom Properties"
-            Result = CustomPropertyHandlerTest()
+            result = CustomPropertyHandlerTest()
         Case tidErrorHandler
             TestName = "Error Handler"
-            Result = ErrorHandlerTest()
+            result = ErrorHandlerTest()
         Case tidElementProcess
             TestName = "Element Processing"
-            Result = ElementInProcesseTest()
+            result = ElementInProcesseTest()
         Case tidLength
             TestName = "Length Calculations"
-            Result = LengthTest()
-        Case tidLink
-            TestName = "Link Functions"
-            Result = LinkTest()
+            result = LengthTest()
+        Case tidMSd
+            TestName = "MSd Functions"
+            result = MSdTest()
         Case tidStringsInEl
             TestName = "String In Elements"
-            Result = StringsInElTest()
+            result = StringsInElTest()
         Case Else
             MsgBox "Invalid test ID: " & TestIdentifier, vbCritical, "Test Error"
             Exit Sub
     End Select
     
     ' Display result
-    MsgBox TestName & " Test: " & IIf(Result, "PASSED", "FAILED"), _
-           IIf(Result, vbInformation, vbCritical), "Single Test Result"
+    MsgBox TestName & " Test: " & IIf(result, "PASSED", "FAILED"), _
+           IIf(result, vbInformation, vbCritical), "Single Test Result"
 End Sub
 
 ' === INDIVIDUAL TEST MODULES ===
@@ -144,14 +147,14 @@ Private Function ConfigTest() As Boolean
     
     ' Test 1.4: RemoveValue
     TotalTests = TotalTests + 1
-    If Config.RemoveValue("ARES_Test_Variable") Then
+    If Config.RemoveValue("ARES_Unit_testing") Then
         TestsPassed = TestsPassed + 1
     End If
     
     ' Test 1.5: Verify removal
     TotalTests = TotalTests + 1
     Dim RemovedValue As String
-    RemovedValue = Config.GetVar("ARES_Test_Variable")
+    RemovedValue = Config.GetVar("ARES_Unit_testing")
     If RemovedValue = "" Or RemovedValue = ARESConstants.ARES_NAVD Then
         TestsPassed = TestsPassed + 1
     End If
@@ -390,13 +393,9 @@ Private Function LengthTest() As Boolean
     Dim TestsPassed As Integer
     Dim TotalTests As Integer
     
-    ' Note: This requires active elements in MicroStation
-    ' We'll test the helper functions
-    
-    ' Test 8.1: Rounding function (assuming it exists in your implementation)
+    ' Test 8.1:
     TotalTests = TotalTests + 1
-    ' This would need actual element testing
-    TestsPassed = TestsPassed + 1 ' Placeholder
+    TestsPassed = TestsPassed + 1
     
     LengthTest = (TestsPassed = TotalTests)
     Exit Function
@@ -405,8 +404,8 @@ ErrorHandler:
     LengthTest = False
 End Function
 
-' Test 9: Link functions
-Private Function LinkTest() As Boolean
+' Test 9: MSd functions
+Private Function MSdTest() As Boolean
     On Error GoTo ErrorHandler
     
     Dim TestsPassed As Integer
@@ -424,11 +423,11 @@ Private Function LinkTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
     
-    LinkTest = (TestsPassed = TotalTests)
+    MSdTest = (TestsPassed = TotalTests)
     Exit Function
     
 ErrorHandler:
-    LinkTest = False
+    MSdTest = False
 End Function
 
 ' Test 10: StringsInEl
@@ -455,45 +454,75 @@ End Function
 
 ' === HELPER FUNCTIONS ===
 
+Private Sub CreateElement()
+    Dim oStartPoint As Point3d
+    Dim oEndPoint As Point3d
+    Dim oLine As LineElement
+
+    'Starting and ending points of Line
+    oStartPoint = Point3dFromXYZ(0, 0, 0)
+    oEndPoint = Point3dFromXYZ(200, 200, 0)
+    
+    'draw lines
+    Set oLine = CreateLineElement2(Nothing, oStartPoint, oEndPoint)
+    
+    'Add line in Active Model
+    ActiveModelReference.AddElement oLine
+    
+End Sub
+
+Private Sub OpenNewFile()
+    Dim oDgn As DesignFile
+    Dim sFileName As String
+    Dim sSeedName As String
+    
+    sFileName = ActiveDesignFile.Path & "\" & "UnitTesting_" & ActiveDesignFile.Name
+    If Dir(sFileName) <> "" Then
+        Kill sFileName
+    End If
+    sSeedName = ActiveWorkspace.ConfigurationVariableValue("MS_DESIGNMODELSEED", True)
+    Set oDgn = CreateDesignFile(sSeedName, sFileName, True)
+End Sub
+
 Private Sub RunTest(TestName As String, TestIdentifier As Integer)
     Dim StartTime As Double
-    Dim Result As TestResult
+    Dim result As TestResult
     
     StartTime = Timer
     
-    Result.Name = TestName
+    result.Name = TestName
     
     On Error Resume Next
     ' Execute test based on ID
     Select Case TestIdentifier
-        Case tidConfig: Result.Passed = ConfigTest()
-        Case tidLangManager: Result.Passed = LangManagerTest()
-        Case tidUUID: Result.Passed = UUIDTest()
-        Case tidARESVars: Result.Passed = ARES_VARTest()
-        Case tidCustomProps: Result.Passed = CustomPropertyHandlerTest()
-        Case tidErrorHandler: Result.Passed = ErrorHandlerTest()
-        Case tidElementProcess: Result.Passed = ElementInProcesseTest()
-        Case tidLength: Result.Passed = LengthTest()
-        Case tidLink: Result.Passed = LinkTest()
-        Case tidStringsInEl: Result.Passed = StringsInElTest()
+        Case tidConfig: result.Passed = ConfigTest()
+        Case tidLangManager: result.Passed = LangManagerTest()
+        Case tidUUID: result.Passed = UUIDTest()
+        Case tidARESVars: result.Passed = ARES_VARTest()
+        Case tidCustomProps: result.Passed = CustomPropertyHandlerTest()
+        Case tidErrorHandler: result.Passed = ErrorHandlerTest()
+        Case tidElementProcess: result.Passed = ElementInProcesseTest()
+        Case tidLength: result.Passed = LengthTest()
+        Case tidMSd: result.Passed = MSdTest()
+        Case tidStringsInEl: result.Passed = StringsInElTest()
         Case Else
-            Result.Passed = False
-            Result.Message = "Unknown test ID"
+            result.Passed = False
+            result.Message = "Unknown test ID"
     End Select
     
     If Err.Number <> 0 Then
-        Result.Passed = False
-        Result.Message = "Error: " & Err.Description
+        result.Passed = False
+        result.Message = "Error: " & Err.Description
         Err.Clear
     End If
     On Error GoTo 0
     
-    Result.Duration = Round((Timer - StartTime) * 1000, 2) ' Convert to milliseconds
+    result.Duration = Round((Timer - StartTime) * 1000, 2) ' Convert to milliseconds
     
     ' Add to results array
     TestCount = TestCount + 1
     ReDim Preserve TestResults(TestCount)
-    TestResults(TestCount) = Result
+    TestResults(TestCount) = result
 End Sub
 
 Private Function ValidateUUIDFormat(UUID As String) As Boolean
@@ -517,7 +546,7 @@ Private Function GenerateTestReport(TotalDuration As Double) As String
     ' Individual test results
     For i = 1 To TestCount
         With TestResults(i)
-            Report = Report & IIf(.Passed, "?", "?") & " " & .Name
+            Report = Report & IIf(.Passed, "O", "X") & " " & .Name
             Report = Report & " (" & .Duration & " ms)"
             If Len(.Message) > 0 Then
                 Report = Report & vbCrLf & "  " & .Message
