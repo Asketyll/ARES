@@ -31,6 +31,8 @@ Public Function StringToMsdElementType(ByVal TypeName As String, Optional CaseSe
         End If
     Next ElementType
 
+    Exit Function
+	
 ErrorHandler:
     ' Return error value in case of an error
     StringToMsdElementType = ARES_VAR.ARES_MSDETYPE_ERROR
@@ -47,6 +49,8 @@ Public Function IsValidElementType(ByVal intValue As Integer) As Boolean
         Exit Function
     End If
 
+    Exit Function
+	
 ErrorHandler:
     ' Return False in case of an error
     IsValidElementType = False
