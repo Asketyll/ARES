@@ -205,8 +205,8 @@ End Function
 ' Public function to reset the rounding configuration variable
 Public Function ResetRound() As Boolean
     On Error GoTo ErrorHandler
-    ARESConfig.ResetMSVar ARESConfig.ARES_ROUNDS
-    ResetRound = (ARESConfig.ARES_ROUNDS.Value = ARESConfig.ARES_ROUNDS.Default)
+    ARESConfig.ResetConfigVar ARESConfig.ARES_ROUNDS.key
+    ResetRound = (ARESConfig.ARES_ROUNDS.Value = ARESConfig.ARES_ROUNDS.defaultValue)
     Exit Function
 
 ErrorHandler:
