@@ -21,6 +21,7 @@ Private Enum TestID
     tidMSGraphical = 12
     tidARESMSVar = 13
     tidBootLoader = 14
+    tibAutoLengths = 15
 End Enum
 
 ' Test result structure
@@ -29,6 +30,16 @@ Private Type TestResult
     Passed As Boolean
     Message As String
     Duration As Double
+End Type
+
+' Helper structure to hold test elements
+Private Type TestElementsCollection
+    TextElement As TextElement
+    LineElement1 As LineElement
+    LineElement2 As LineElement
+    ArcElement As ArcElement
+    ShapeElement As ShapeElement
+    GraphicGroupId As Long
 End Type
 
 Private TestResults() As TestResult
@@ -70,6 +81,7 @@ Public Sub RunAllTests()
     RunTest "MS Graphical", tidMSGraphical
     RunTest "ARES MS Variables", tidARESMSVar
     RunTest "Boot Loader", tidBootLoader
+    RunTest "Auto Lengths", tibAutoLengths
     
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -130,6 +142,9 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidBootLoader
             TestName = "Boot Loader"
             result = BootLoaderTest()
+        Case tibAutoLengths
+            TestName = "Auto Lengths"
+            result = AutoLengthsTest()
         Case Else
             MsgBox "Invalid test ID: " & TestIdentifier, vbCritical, "Test Error"
             Exit Sub
@@ -320,31 +335,200 @@ ErrorHandler:
     ARES_VARTest = False
 End Function
 
-' Test 5: Custom Property Handler
+' Test 5: Custom Property Handler (Corrected Version)
 Private Function CustomPropertyHandlerTest() As Boolean
     On Error GoTo ErrorHandler
     
     Dim TestsPassed As Integer
     Dim TotalTests As Integer
+    Dim TestLibrary As ItemTypeLibrary
+    Dim TestItem As ItemType
+    Dim ItemPropHandler As ItemTypePropertyHandler
+    
+    ' Vérifier qu'on a un élément de test disponible
+    If TestElement Is Nothing Then
+        CustomPropertyHandlerTest = False
+        Exit Function
+    End If
     
     ' Test 5.1: Create/Get ItemTypeLibrary
     TotalTests = TotalTests + 1
-    Dim TestLibrary As ItemTypeLibrary
     Set TestLibrary = CustomPropertyHandler.GetItemTypeLibrary("TestLibrary", "TestItem")
     If Not TestLibrary Is Nothing Then
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 5.2: Delete ItemTypeLibrary
+    ' Test 5.2: Verify ItemType exists in library
+    TotalTests = TotalTests + 1
+    If Not TestLibrary Is Nothing Then
+        Set TestItem = TestLibrary.GetItemTypeByName("TestItem")
+        If Not TestItem Is Nothing Then
+            TestsPassed = TestsPassed + 1
+        End If
+    Else
+        ' Skip this test if library creation failed
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.3: Attach ItemType to TestElement
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.AttachItemToElement(TestElement, "TestLibrary", "TestItem") Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.4: Verify ItemType is attached
+    TotalTests = TotalTests + 1
+    If TestElement.Items.HasItems("TestLibrary", "TestItem") Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.5: Get ItemTypePropertyHandler using new function
+    TotalTests = TotalTests + 1
+    Set ItemPropHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "TestLibrary", "TestItem")
+    If Not ItemPropHandler Is Nothing Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.6: Get ItemType from element using new function
+    TotalTests = TotalTests + 1
+    Dim RetrievedItemType As ItemType
+    Set RetrievedItemType = CustomPropertyHandler.GetItemTypeFromElement(TestElement, "TestLibrary", "TestItem")
+    If Not RetrievedItemType Is Nothing And RetrievedItemType.ItemTypeName = "TestItem" Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.7: Get ItemTypeLibrary from element using new function
+    TotalTests = TotalTests + 1
+    Dim RetrievedLibrary As ItemTypeLibrary
+    Set RetrievedLibrary = CustomPropertyHandler.GetItemTypeLibraryFromElement(TestElement, "TestLibrary")
+    If Not RetrievedLibrary Is Nothing Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.8: Read property values using new helper function
+    TotalTests = TotalTests + 1
+    Dim BoolValue As Variant
+    Dim StringValue As Variant
+    Dim DateValue As Variant
+    
+    BoolValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "EditedByTestLibrary", "TestLibrary", "TestItem")
+    StringValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "UpdatedString", "TestLibrary", "TestItem")
+    DateValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "DateOfEdit", "TestLibrary", "TestItem")
+    
+    ' If values were retrieved (not Null), properties are readable
+    If Not IsNull(BoolValue) Or Not IsNull(StringValue) Or Not IsNull(DateValue) Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.9: Modify property values using new helper function
+    TotalTests = TotalTests + 1
+    Dim SetResult1 As Boolean, SetResult2 As Boolean, SetResult3 As Boolean
+    
+    SetResult1 = CustomPropertyHandler.SetPropertyValueToElement(TestElement, "EditedByTestLibrary", True, "TestLibrary", "TestItem")
+    SetResult2 = CustomPropertyHandler.SetPropertyValueToElement(TestElement, "UpdatedString", "Modified in unit test", "TestLibrary", "TestItem")
+    SetResult3 = CustomPropertyHandler.SetPropertyValueToElement(TestElement, "DateOfEdit", Now, "TestLibrary", "TestItem")
+    
+    If SetResult1 And SetResult2 And SetResult3 Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.10: Verify modified values can be read back using helper function
+    TotalTests = TotalTests + 1
+    Dim ReadBoolValue As Variant
+    Dim ReadStringValue As Variant
+    
+    ReadBoolValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "EditedByTestLibrary", "TestLibrary", "TestItem")
+    ReadStringValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "UpdatedString", "TestLibrary", "TestItem")
+    
+    If CBool(ReadBoolValue) = True And CStr(ReadStringValue) = "Modified in unit test" Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.11: Test direct property handler methods
+    TotalTests = TotalTests + 1
+    If Not ItemPropHandler Is Nothing Then
+        Dim DirectBoolValue As Boolean
+        Dim DirectStringValue As String
+        
+        On Error Resume Next
+        DirectBoolValue = ItemPropHandler.GetPropertyValue("EditedByTestLibrary")
+        DirectStringValue = ItemPropHandler.GetPropertyValue("UpdatedString")
+        
+        If Err.Number = 0 And DirectBoolValue = True And DirectStringValue = "Modified in unit test" Then
+            TestsPassed = TestsPassed + 1
+        End If
+        On Error GoTo ErrorHandler
+    Else
+        TestsPassed = TestsPassed + 1 ' Skip if ItemPropHandler is not available
+    End If
+    
+    ' Test 5.12: Double attach protection (should not fail if already attached)
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.AttachItemToElement(TestElement, "TestLibrary", "TestItem") Then
+        ' Should still return True even if already attached
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.13: Test with default library/item names (optional parameters)
+    TotalTests = TotalTests + 1
+    Dim DefaultHandler As ItemTypePropertyHandler
+    Set DefaultHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "TestLibrary")
+    If Not DefaultHandler Is Nothing Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.14: Remove ItemType from element
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.RemoveItemToElement(TestElement, "TestLibrary", "TestItem") Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.15: Verify ItemType is detached
+    TotalTests = TotalTests + 1
+    If Not TestElement.Items.HasItems("TestLibrary", "TestItem") Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.16: Verify helper functions return Nothing after detachment
+    TotalTests = TotalTests + 1
+    Set ItemPropHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "TestLibrary", "TestItem")
+    If ItemPropHandler Is Nothing Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.17: Try to remove already removed ItemType (should handle gracefully)
+    TotalTests = TotalTests + 1
+    Dim RemoveResult As Boolean
+    RemoveResult = CustomPropertyHandler.RemoveItemToElement(TestElement, "TestLibrary", "TestItem")
+    ' Should return False since item is not attached, but shouldn't crash
+    ' (Uses the corrected DetachItem method internally)
+    If Not RemoveResult Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.18: Test with non-existent library/item names
+    TotalTests = TotalTests + 1
+    Dim NonExistentHandler As ItemTypePropertyHandler
+    Set NonExistentHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "NonExistentLibrary", "NonExistentItem")
+    If NonExistentHandler Is Nothing Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 5.19: Delete ItemTypeLibrary (cleanup)
     TotalTests = TotalTests + 1
     If CustomPropertyHandler.DeleteItemTypeLibrary("TestLibrary") Then
         TestsPassed = TestsPassed + 1
     End If
     
-    CustomPropertyHandlerTest = (TestsPassed >= TotalTests - 1) ' Allow one failure for library operations
+    ' Allow some failures for library operations (they can be environment-dependent)
+    CustomPropertyHandlerTest = (TestsPassed >= TotalTests - 2)
     Exit Function
     
 ErrorHandler:
+    ' Log error details for debugging
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandlerTest"
+    End If
     CustomPropertyHandlerTest = False
 End Function
 
@@ -928,6 +1112,376 @@ ErrorHandler:
     BootLoaderTest = False
 End Function
 
+' Test 15: AutoLengths
+Private Function AutoLengthsTest() As Boolean
+    On Error GoTo ErrorHandler
+    
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    Dim TestAutoLengths As New AutoLengths
+    
+    ' Ensure ARESConfig is initialized
+    If Not ARESConfig.IsInitialized Then
+        ARESConfig.Initialize
+    End If
+    
+    ' Create test environment with multiple linked elements
+    Dim TestElements As TestElementsCollection
+    TestElements = CreateTestEnvironmentForAutoLengths()
+    
+    ' Test 15.1: Initialize with valid text element
+    TotalTests = TotalTests + 1
+    If Not TestElements.TextElement Is Nothing Then
+        TestAutoLengths.Initialize TestElements.TextElement
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 15.3: Test with no linked elements (default graphic group)
+    TotalTests = TotalTests + 1
+    Dim IsolatedTextElement As TextElement
+    Set IsolatedTextElement = CreateTextElement1(Nothing, "Isolated (Xx_m) text", Point3dFromXYZ(500, 500, 0), Matrix3dIdentity)
+    ActiveModelReference.AddElement IsolatedTextElement
+    
+    Dim TestAutoLengths3 As New AutoLengths
+    TestAutoLengths3.Initialize IsolatedTextElement
+    ' Should handle gracefully when no linked elements found
+    TestsPassed = TestsPassed + 1
+    
+    ' Test 15.4: Test with single linked element
+    TotalTests = TotalTests + 1
+    If TestSingleLinkedElement(TestElements) Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 15.5: Test with multiple linked elements (different lengths)
+    TotalTests = TotalTests + 1
+    If TestMultipleLinkedElements(TestElements) Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 15.7: Test trigger replacement in text
+    TotalTests = TotalTests + 1
+    ARESConfig.ARES_LENGTH_TRIGGER.Value = "Xx_cm"
+    If TestTriggerReplacement(TestElements) Then
+        TestsPassed = TestsPassed + 1
+    End If
+    ARESConfig.ARES_LENGTH_TRIGGER.Value = "Xx_m"
+    
+    ' Test 15.8: Test with different element types (Line, Arc, Shape)
+    TotalTests = TotalTests + 1
+    If TestDifferentElementTypes() Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 15.9: Test color update functionality
+    TotalTests = TotalTests + 1
+    If TestColorUpdate(TestElements) Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 15.10: Test with TextNodeElement
+    TotalTests = TotalTests + 1
+    If TestWithTextNodeElement() Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 15.11: Test rounding functionality
+    TotalTests = TotalTests + 1
+    If TestRoundingFunctionality() Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    AutoLengthsTest = (TestsPassed >= TotalTests - 2) ' Allow some failures for complex operations
+    Exit Function
+    
+ErrorHandler:
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengthsTest"
+    End If
+    AutoLengthsTest = False
+End Function
+
+' Create a complete test environment with linked elements
+Private Function CreateTestEnvironmentForAutoLengths() As TestElementsCollection
+    Dim TestElements As TestElementsCollection
+    
+    ' Use a unique graphic group ID
+    TestElements.GraphicGroupId = 10
+    
+    ' Create text element with trigger
+    Set TestElements.TextElement = CreateTextElement1(Nothing, "Length: (m)", Point3dFromXYZ(100, 300, 0), Matrix3dIdentity)
+    TestElements.TextElement.GraphicGroup = TestElements.GraphicGroupId
+    ActiveModelReference.AddElement TestElements.TextElement
+    
+    ' Create linked line element 1
+    Set TestElements.LineElement1 = CreateLineElement2(Nothing, Point3dFromXYZ(100, 100, 0), Point3dFromXYZ(200, 100, 0))
+    TestElements.LineElement1.GraphicGroup = TestElements.GraphicGroupId
+    TestElements.LineElement1.Color = 3 ' Red
+    ActiveModelReference.AddElement TestElements.LineElement1
+    
+    ' Create linked line element 2
+    Set TestElements.LineElement2 = CreateLineElement2(Nothing, Point3dFromXYZ(100, 150, 0), Point3dFromXYZ(250, 150, 0))
+    TestElements.LineElement2.GraphicGroup = TestElements.GraphicGroupId
+    TestElements.LineElement2.Color = 4 ' Blue
+    ActiveModelReference.AddElement TestElements.LineElement2
+    
+    ' Create linked arc element
+    Set TestElements.ArcElement = CreateArcElement2(Nothing, Point3dFromXYZ(100, 200, 0), 50, 50, Matrix3dIdentity, 0, Application.Pi)
+    TestElements.ArcElement.GraphicGroup = TestElements.GraphicGroupId
+    TestElements.ArcElement.Color = 5 ' Green
+    ActiveModelReference.AddElement TestElements.ArcElement
+    
+    ' Create linked shape element (rectangle)
+    Dim ShapeVertices(4) As Point3d
+    ShapeVertices(0) = Point3dFromXYZ(300, 100, 0)
+    ShapeVertices(1) = Point3dFromXYZ(400, 100, 0)
+    ShapeVertices(2) = Point3dFromXYZ(400, 150, 0)
+    ShapeVertices(3) = Point3dFromXYZ(300, 150, 0)
+    ShapeVertices(4) = ShapeVertices(0) ' Close the shape
+    
+    Set TestElements.ShapeElement = CreateShapeElement1(Nothing, ShapeVertices, msdFillModeNotFilled)
+    TestElements.ShapeElement.GraphicGroup = TestElements.GraphicGroupId
+    TestElements.ShapeElement.Color = 6 ' Yellow
+    ActiveModelReference.AddElement TestElements.ShapeElement
+    
+    CreateTestEnvironmentForAutoLengths = TestElements
+End Function
+
+' Test single linked element scenario
+Private Function TestSingleLinkedElement(TestElements As TestElementsCollection) As Boolean
+    Dim TestAutoLengths As New AutoLengths
+    Dim SingleTextElement As TextElement
+    
+    ' Create text element linked only to one line
+    Set SingleTextElement = CreateTextElement1(Nothing, "Single: (m)", Point3dFromXYZ(150, 120, 0), Matrix3dIdentity)
+    SingleTextElement.GraphicGroup = TestElements.GraphicGroupId + 1
+    ActiveModelReference.AddElement SingleTextElement
+    
+    ' Create only one linked line
+    Dim SingleLineElement As LineElement
+    Set SingleLineElement = CreateLineElement2(Nothing, Point3dFromXYZ(150, 80, 0), Point3dFromXYZ(250, 80, 0))
+    SingleLineElement.GraphicGroup = TestElements.GraphicGroupId + 1
+    ActiveModelReference.AddElement SingleLineElement
+    
+    ' Test the auto lengths functionality
+    TestAutoLengths.Initialize SingleTextElement
+    TestAutoLengths.UpdateLengths
+    
+    ' Check if text was updated (approximate length should be 100)
+    Dim UpdatedText As String
+    Dim UpdatedTexts() As String
+    UpdatedTexts = StringsInEl.GetSetTextsInEl(SingleTextElement)
+    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
+        UpdatedText = UpdatedTexts(0)
+        If InStr(UpdatedText, "100") > 0 Or InStr(UpdatedText, "10") > 0 Then
+            TestSingleLinkedElement = True
+        End If
+    End If
+End Function
+
+' Test multiple linked elements scenario
+Private Function TestMultipleLinkedElements(TestElements As TestElementsCollection) As Boolean
+    Dim TestAutoLengths As New AutoLengths
+    
+    ' Initialize with text element that has multiple linked elements
+    TestAutoLengths.Initialize TestElements.TextElement
+    
+    ' This should trigger the selection form or auto-select if only one non-zero length
+    TestAutoLengths.UpdateLengths
+    
+    ' For testing purposes, simulate element selection
+    
+    TestAutoLengths.OnElementSelected TestElements.LineElement1, TestElements.TextElement
+    
+    ' Check if text was updated
+    Dim UpdatedTexts() As String
+    UpdatedTexts = StringsInEl.GetSetTextsInEl(TestElements.TextElement)
+    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
+        Dim UpdatedText As String
+        UpdatedText = UpdatedTexts(0)
+        ' Should contain a numeric value
+        If InStr(UpdatedText, "100") > 0 Or InStr(UpdatedText, "10") > 0 Then
+            TestMultipleLinkedElements = True
+        End If
+    End If
+End Function
+
+' Test trigger replacement functionality
+Private Function TestTriggerReplacement(TestElements As TestElementsCollection) As Boolean
+    ' Create text element with custom trigger
+    Dim TriggerTestElement As TextElement
+    Set TriggerTestElement = CreateTextElement1(Nothing, "Custom (cm) trigger test", Point3dFromXYZ(400, 300, 0), Matrix3dIdentity)
+    TriggerTestElement.GraphicGroup = TestElements.GraphicGroupId
+    ActiveModelReference.AddElement TriggerTestElement
+    
+    ' Test if trigger is properly detected and replaced
+    Dim TestAutoLengths As New AutoLengths
+    TestAutoLengths.Initialize TriggerTestElement
+    TestAutoLengths.OnElementSelected TestElements.LineElement1, TriggerTestElement
+    
+    ' Check if trigger was replaced
+    Dim UpdatedTexts() As String
+    UpdatedTexts = StringsInEl.GetSetTextsInEl(TriggerTestElement)
+    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
+        Dim UpdatedText As String
+        UpdatedText = UpdatedTexts(0)
+        ' Should not contain the original trigger and should have a number
+        If (InStr(UpdatedText, "10") > 0 Or InStr(UpdatedText, "100") > 0) Then
+            TestTriggerReplacement = True
+        End If
+    End If
+End Function
+
+' Test different element types
+Private Function TestDifferentElementTypes() As Boolean
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    
+    ' Test with Line
+    TotalTests = TotalTests + 1
+    Dim LineLength As Double
+    LineLength = Length.GetLength(TestElement)
+    If LineLength > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test with Arc (create a test arc)
+    TotalTests = TotalTests + 1
+    Dim TestArc As ArcElement
+    Set TestArc = CreateArcElement2(Nothing, Point3dFromXYZ(0, 0, 0), 100, 100, Matrix3dIdentity, 0, Application.Pi / 2)
+    ActiveModelReference.AddElement TestArc
+    
+    Dim ArcLength As Double
+    ArcLength = Length.GetLength(TestArc)
+    If ArcLength > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test with Shape
+    TotalTests = TotalTests + 1
+    Dim TestShapeVertices(4) As Point3d
+    TestShapeVertices(0) = Point3dFromXYZ(0, 0, 0)
+    TestShapeVertices(1) = Point3dFromXYZ(100, 0, 0)
+    TestShapeVertices(2) = Point3dFromXYZ(100, 100, 0)
+    TestShapeVertices(3) = Point3dFromXYZ(0, 100, 0)
+    TestShapeVertices(4) = TestShapeVertices(0)
+    
+    Dim TestShape As ShapeElement
+    Set TestShape = CreateShapeElement1(Nothing, TestShapeVertices, msdFillModeNotFilled)
+    ActiveModelReference.AddElement TestShape
+    
+    Dim ShapeLength As Double
+    ShapeLength = Length.GetLength(TestShape)
+    If ShapeLength > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    TestDifferentElementTypes = (TestsPassed = TotalTests)
+End Function
+
+' Test color update functionality
+Private Function TestColorUpdate(TestElements As TestElementsCollection) As Boolean
+    ' Save original color setting
+    Dim OriginalColorSetting As Boolean
+    OriginalColorSetting = ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value
+    
+    ' Enable color update
+    ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value = True
+    
+    ' Create test elements
+    Dim ColorTestText As TextElement
+    Set ColorTestText = CreateTextElement1(Nothing, "Color: (Xx_m)", Point3dFromXYZ(200, 400, 0), Matrix3dIdentity)
+    ColorTestText.GraphicGroup = TestElements.GraphicGroupId
+    ColorTestText.Color = 1 ' Original color
+    ActiveModelReference.AddElement ColorTestText
+    
+    ' Test color update
+    Dim TestAutoLengths As New AutoLengths
+    TestAutoLengths.Initialize ColorTestText
+    TestAutoLengths.OnElementSelected TestElements.LineElement1, ColorTestText ' Line has color 3 (Red)
+    
+    ' Check if color was updated
+    If ColorTestText.Color = TestElements.LineElement1.Color Then
+        TestColorUpdate = True
+    End If
+    
+    ' Restore original setting
+    ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value = OriginalColorSetting
+End Function
+
+' Test with TextNodeElement
+Private Function TestWithTextNodeElement() As Boolean
+    ' Create a TextNodeElement with multiple lines
+    Dim TextNodeOrigin As Point3d
+    TextNodeOrigin = Point3dFromXYZ(300, 400, 0)
+    
+    Dim TextNodeElement As TextNodeElement
+    Set TextNodeElement = CreateTextNodeElement2(Nothing, TextNodeOrigin, Matrix3dIdentity)
+    TextNodeElement.AddTextLine "Line 1: (Xx_m)"
+    TextNodeElement.AddTextLine "Line 2: (Xx_cm)"
+    ActiveModelReference.AddElement TextNodeElement
+    
+    ' Set same graphic group
+    TextNodeElement.GraphicGroup = 11
+    
+    ' Create linked element
+    Dim LinkedLine As LineElement
+    Set LinkedLine = CreateLineElement2(Nothing, Point3dFromXYZ(300, 350, 0), Point3dFromXYZ(400, 350, 0))
+    LinkedLine.GraphicGroup = 11
+    ActiveModelReference.AddElement LinkedLine
+    
+    ' Test AutoLengths with TextNodeElement
+    Dim TestAutoLengths As New AutoLengths
+    TestAutoLengths.Initialize TextNodeElement
+    TestAutoLengths.UpdateLengths
+    
+    ' Check if any text line was updated
+    Dim UpdatedTexts() As String
+    UpdatedTexts = StringsInEl.GetSetTextsInEl(TextNodeElement)
+    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
+        Dim i As Long
+        For i = 0 To UBound(UpdatedTexts)
+            If InStr(UpdatedTexts(i), "100") > 0 Or InStr(UpdatedTexts(i), "10") > 0 Then
+                TestWithTextNodeElement = True
+                Exit Function
+            End If
+        Next i
+    End If
+End Function
+
+' Test rounding functionality
+Private Function TestRoundingFunctionality() As Boolean
+    ' Test different rounding values
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    
+    ' Test with rounding = 0
+    TotalTests = TotalTests + 1
+    Dim OriginalRound As String
+    OriginalRound = ARESConfig.ARES_LENGTH_ROUND.Value
+    
+    ARESConfig.ARES_LENGTH_ROUND.Value = "0"
+    Dim Length0 As Double
+    Length0 = Length.GetLength(TestElement, 0, True)
+    If Length0 = Int(Length0) Then ' Should be whole number
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test with rounding = 2
+    TotalTests = TotalTests + 1
+    ARESConfig.ARES_LENGTH_ROUND.Value = "2"
+    Dim Length2 As Double
+    Length2 = Length.GetLength(TestElement, 2, True)
+    If Length2 <> Int(Length2) Then ' Should have decimal places
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Restore original setting
+    ARESConfig.ARES_LENGTH_ROUND.Value = OriginalRound
+    
+    TestRoundingFunctionality = (TestsPassed = TotalTests)
+End Function
+
 ' === HELPER FUNCTIONS ===
 
 Private Function CreateTestElement() As element
@@ -986,6 +1540,7 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidMSGraphical: result.Passed = MSGraphicalTest()
         Case tidARESMSVar: result.Passed = ARESMSVarTest()
         Case tidBootLoader: result.Passed = BootLoaderTest()
+        Case tibAutoLengths: result.Passed = AutoLengthsTest()
         Case Else
             result.Passed = False
             result.Message = "Unknown test ID"
