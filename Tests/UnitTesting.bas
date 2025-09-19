@@ -22,6 +22,7 @@ Private Enum TestID
     tidARESMSVar = 13
     tidBootLoader = 14
     tibAutoLengths = 15
+    tibConfigExportImportTest = 16
 End Enum
 
 ' Test result structure
@@ -82,6 +83,7 @@ Public Sub RunAllTests()
     RunTest "ARES MS Variables", tidARESMSVar
     RunTest "Boot Loader", tidBootLoader
     RunTest "Auto Lengths", tibAutoLengths
+    RunTest "Config Export Import", tibConfigExportImportTest
     
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -96,63 +98,66 @@ End Sub
 ' Run a single test by ID (useful for debugging specific tests)
 Public Sub RunSingleTest(TestIdentifier As Integer)
     Dim TestName As String
-    Dim result As Boolean
+    Dim Result As Boolean
     
     ' Get test name and run test
     Select Case TestIdentifier
         Case tidConfig
             TestName = "Configuration"
-            result = ConfigTest()
+            Result = ConfigTest()
         Case tidLangManager
             TestName = "Language Manager"
-            result = LangManagerTest()
+            Result = LangManagerTest()
         Case tidUUID
             TestName = "UUID Generator"
-            result = UUIDTest()
+            Result = UUIDTest()
         Case tidARESVars
             TestName = "ARES Variables"
-            result = ARES_VARTest()
+            Result = ARES_VARTest()
         Case tidCustomProps
             TestName = "Custom Properties"
-            result = CustomPropertyHandlerTest()
+            Result = CustomPropertyHandlerTest()
         Case tidErrorHandler
             TestName = "Error Handler"
-            result = ErrorHandlerTest()
+            Result = ErrorHandlerTest()
         Case tidElementProcess
             TestName = "Element Processing"
-            result = ElementInProcesseTest()
+            Result = ElementInProcesseTest()
         Case tidLength
             TestName = "Length Calculations"
-            result = LengthTest()
+            Result = LengthTest()
         Case tidMSd
             TestName = "MSd Functions"
-            result = MSdTest()
+            Result = MSdTest()
         Case tidStringsInEl
             TestName = "String In Elements"
-            result = StringsInElTest()
+            Result = StringsInElTest()
         Case tidLink
             TestName = "Link Functions"
-            result = LinkTest()
+            Result = LinkTest()
         Case tidMSGraphical
             TestName = "MS Graphical"
-            result = MSGraphicalTest()
+            Result = MSGraphicalTest()
         Case tidARESMSVar
             TestName = "ARES MS Variables"
-            result = ARESMSVarTest()
+            Result = ARESMSVarTest()
         Case tidBootLoader
             TestName = "Boot Loader"
-            result = BootLoaderTest()
+            Result = BootLoaderTest()
         Case tibAutoLengths
             TestName = "Auto Lengths"
-            result = AutoLengthsTest()
+            Result = AutoLengthsTest()
+        Case tibConfigExportImportTest
+            TestName = "Config Export Import"
+            Result = ConfigExportImportTest()
         Case Else
             MsgBox "Invalid test ID: " & TestIdentifier, vbCritical, "Test Error"
             Exit Sub
     End Select
     
     ' Display result
-    MsgBox TestName & " Test: " & IIf(result, "PASSED", "FAILED"), _
-           IIf(result, vbInformation, vbCritical), "Single Test Result"
+    MsgBox TestName & " Test: " & IIf(Result, "PASSED", "FAILED"), _
+           IIf(Result, vbInformation, vbCritical), "Single Test Result"
 End Sub
 
 ' === INDIVIDUAL TEST MODULES ===
@@ -1136,7 +1141,7 @@ Private Function AutoLengthsTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 15.3: Test with no linked elements (default graphic group)
+    ' Test 15.2: Test with no linked elements (default graphic group)
     TotalTests = TotalTests + 1
     Dim IsolatedTextElement As TextElement
     Set IsolatedTextElement = CreateTextElement1(Nothing, "Isolated (Xx_m) text", Point3dFromXYZ(500, 500, 0), Matrix3dIdentity)
@@ -1147,19 +1152,19 @@ Private Function AutoLengthsTest() As Boolean
     ' Should handle gracefully when no linked elements found
     TestsPassed = TestsPassed + 1
     
-    ' Test 15.4: Test with single linked element
+    ' Test 15.3: Test with single linked element
     TotalTests = TotalTests + 1
     If TestSingleLinkedElement(TestElements) Then
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 15.5: Test with multiple linked elements (different lengths)
+    ' Test 15.4: Test with multiple linked elements (different lengths)
     TotalTests = TotalTests + 1
     If TestMultipleLinkedElements(TestElements) Then
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 15.7: Test trigger replacement in text
+    ' Test 15.5: Test trigger replacement in text
     TotalTests = TotalTests + 1
     ARESConfig.ARES_LENGTH_TRIGGER.Value = "Xx_cm"
     If TestTriggerReplacement(TestElements) Then
@@ -1167,25 +1172,25 @@ Private Function AutoLengthsTest() As Boolean
     End If
     ARESConfig.ARES_LENGTH_TRIGGER.Value = "Xx_m"
     
-    ' Test 15.8: Test with different element types (Line, Arc, Shape)
+    ' Test 15.6: Test with different element types (Line, Arc, Shape)
     TotalTests = TotalTests + 1
     If TestDifferentElementTypes() Then
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 15.9: Test color update functionality
+    ' Test 15.7: Test color update functionality
     TotalTests = TotalTests + 1
     If TestColorUpdate(TestElements) Then
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 15.10: Test with TextNodeElement
+    ' Test 15.8: Test with TextNodeElement
     TotalTests = TotalTests + 1
     If TestWithTextNodeElement() Then
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 15.11: Test rounding functionality
+    ' Test 15.9: Test rounding functionality
     TotalTests = TotalTests + 1
     If TestRoundingFunctionality() Then
         TestsPassed = TestsPassed + 1
@@ -1482,6 +1487,76 @@ Private Function TestRoundingFunctionality() As Boolean
     TestRoundingFunctionality = (TestsPassed = TotalTests)
 End Function
 
+' Test 16: Configuration Export/Import
+Private Function ConfigExportImportTest() As Boolean
+    On Error GoTo ErrorHandler
+    
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    Dim TestConfig As New ARESConfigClass
+    
+    ' Test 16.1: Initialize config
+    TotalTests = TotalTests + 1
+    If TestConfig.Initialize Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 16.2: Export configuration
+    TotalTests = TotalTests + 1
+    Dim ExportPath As String
+    ExportPath = Environ("TEMP") & "\ARES_Test_Export.cfg"
+    If TestConfig.ExportConfig(ExportPath) Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 16.3: Verify export file exists
+    TotalTests = TotalTests + 1
+    If Len(Dir(ExportPath)) > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 16.4: Modify a configuration value
+    TotalTests = TotalTests + 1
+    Dim OriginalValue As String
+    OriginalValue = TestConfig.ARES_ROUNDS.Value
+    TestConfig.ARES_ROUNDS.Value = "99"
+    Config.SetVar "ARES_Round", "99"
+    If TestConfig.ARES_ROUNDS.Value = "99" Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 16.5: Import configuration (should restore original)
+    TotalTests = TotalTests + 1
+    If TestConfig.ImportConfig(ExportPath, True) Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 16.6: Verify import restored original value
+    TotalTests = TotalTests + 1
+    If TestConfig.ARES_ROUNDS.Value = OriginalValue Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 16.7: Get config summary
+    TotalTests = TotalTests + 1
+    Dim Summary As String
+    Summary = TestConfig.GetConfigSummary()
+    If Len(Summary) > 0 And InStr(Summary, "ARES Configuration Summary") > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Cleanup
+    On Error Resume Next
+    If Len(Dir(ExportPath)) > 0 Then Kill ExportPath
+    On Error GoTo ErrorHandler
+    
+    ConfigExportImportTest = (TestsPassed = TotalTests)
+    Exit Function
+    
+ErrorHandler:
+    ConfigExportImportTest = False
+End Function
+
 ' === HELPER FUNCTIONS ===
 
 Private Function CreateTestElement() As element
@@ -1517,48 +1592,49 @@ End Sub
 
 Private Sub RunTest(TestName As String, TestIdentifier As Integer)
     Dim StartTime As Double
-    Dim result As TestResult
+    Dim Result As TestResult
     
     StartTime = Timer
     
-    result.Name = TestName
+    Result.Name = TestName
     
     On Error Resume Next
     ' Execute test based on ID
     Select Case TestIdentifier
-        Case tidConfig: result.Passed = ConfigTest()
-        Case tidLangManager: result.Passed = LangManagerTest()
-        Case tidUUID: result.Passed = UUIDTest()
-        Case tidARESVars: result.Passed = ARES_VARTest()
-        Case tidCustomProps: result.Passed = CustomPropertyHandlerTest()
-        Case tidErrorHandler: result.Passed = ErrorHandlerTest()
-        Case tidElementProcess: result.Passed = ElementInProcesseTest()
-        Case tidLength: result.Passed = LengthTest()
-        Case tidMSd: result.Passed = MSdTest()
-        Case tidStringsInEl: result.Passed = StringsInElTest()
-        Case tidLink: result.Passed = LinkTest()
-        Case tidMSGraphical: result.Passed = MSGraphicalTest()
-        Case tidARESMSVar: result.Passed = ARESMSVarTest()
-        Case tidBootLoader: result.Passed = BootLoaderTest()
-        Case tibAutoLengths: result.Passed = AutoLengthsTest()
+        Case tidConfig: Result.Passed = ConfigTest()
+        Case tidLangManager: Result.Passed = LangManagerTest()
+        Case tidUUID: Result.Passed = UUIDTest()
+        Case tidARESVars: Result.Passed = ARES_VARTest()
+        Case tidCustomProps: Result.Passed = CustomPropertyHandlerTest()
+        Case tidErrorHandler: Result.Passed = ErrorHandlerTest()
+        Case tidElementProcess: Result.Passed = ElementInProcesseTest()
+        Case tidLength: Result.Passed = LengthTest()
+        Case tidMSd: Result.Passed = MSdTest()
+        Case tidStringsInEl: Result.Passed = StringsInElTest()
+        Case tidLink: Result.Passed = LinkTest()
+        Case tidMSGraphical: Result.Passed = MSGraphicalTest()
+        Case tidARESMSVar: Result.Passed = ARESMSVarTest()
+        Case tidBootLoader: Result.Passed = BootLoaderTest()
+        Case tibAutoLengths: Result.Passed = AutoLengthsTest()
+        Case tibConfigExportImportTest: Result.Passed = ConfigExportImportTest()
         Case Else
-            result.Passed = False
-            result.Message = "Unknown test ID"
+            Result.Passed = False
+            Result.Message = "Unknown test ID"
     End Select
     
     If Err.Number <> 0 Then
-        result.Passed = False
-        result.Message = "Error: " & Err.Description
+        Result.Passed = False
+        Result.Message = "Error: " & Err.Description
         Err.Clear
     End If
     On Error GoTo 0
     
-    result.Duration = Round((Timer - StartTime) * 1000, 2) ' Convert to milliseconds
+    Result.Duration = Round((Timer - StartTime) * 1000, 2) ' Convert to milliseconds
     
     ' Add to results array
     TestCount = TestCount + 1
     ReDim Preserve TestResults(TestCount)
-    TestResults(TestCount) = result
+    TestResults(TestCount) = Result
 End Sub
 
 Private Function ValidateUUIDFormat(UUID As String) As Boolean
