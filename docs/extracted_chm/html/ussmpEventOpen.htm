@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Design File Open and Close Events Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Design File Open and Close Events Example</H1>
+
+<P class=T>
+This example illustrates a technique for being notified when a design file opens or closes.
+</P>
+<P class=T>
+The following code is from a Class Module. In this example, the class is named clsOpenClose,
+            but any name can be used. The class implements the events <B>OnDesignFileOpened</B> and
+            <B>OnDesignFileClosed</B>. This event handlers will remain active as long as the
+            instance of the OpenClose has the reference of the <A href="usobjApplication.htm">Application</A>
+            object stored in the member hooks.
+</P>
+<PRE class=CT><CODE>
+Dim WithEvents hooks As Application
+
+Private Sub Class_Initialize()
+    Set hooks = <A href="usproApplication.htm">Application</A>
+End Sub
+
+Private Sub hooks_OnDesignFileClosed(ByVal DesignFileName As String)
+    Debug.Print "Closed design file " & DesignFileName
+End Sub
+
+Private Sub hooks_OnDesignFileOpened(ByVal DesignFileName As String)
+    Debug.Print "Opened design file " & DesignFileName
+End Sub
+
+</CODE></PRE>
+<P class=T>
+The following code is from a Code Module.  It simply creates an instance of the class that
+            has the WithEvents declaration.
+</P>
+<PRE class=CT><CODE>
+Dim oOpenClose as clsOpenClose
+Sub SetupHooks()
+    Set oOpenClose = New clsOpenClose
+End Sub
+
+</CODE></PRE>

@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using AddUsingNamedView1 and AddCoincident1</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Using AddUsingNamedView1 and AddCoincident1</H1>
+
+<P class=T>
+The first routine specifies msdAddAttachmentElementsVisible for Flags because it does not modify the attachment after
+        adding it. It is okay for MicroStation to immediately display the attachment.
+</P>
+<P class=T>
+The second routine does not specify msdAddAttachmentElementsVisible for Flags because it scales the attachment after adding it.
+        Since this routine immediately modifies the attachment, it would be wasteful to let MicroStation display it.
+</P>
+<P class=T>
+The third routine also does not specify msdAddAttachmentElementsVisible for Flags since it immediately rotates and moves the attachment.
+</P>
+<PRE class=CT><CODE>
+Sub ImmediateDisplay()
+    Dim att As <A href="usobjAttachment.htm">Attachment</A>
+
+    Set att = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usproAttachments.htm">Attachments</A>.<A href="usmthAddUsingNamedView1.htm">AddUsingNamedView1</A>("d:\ustation\dgn\reftest\2dUORHalf.dgn", _
+                    vbNullString, "ImmediateDisplay", "Added using AddUsingNamedView1", "FirstNamedView", _
+                    <A href="usmthPoint3dZero.htm">Point3dZero</A>, msdAddAttachmentElementsVisible Or msdAddAttachmentFlagTrueScale)
+End Sub
+
+Sub ScaleAndThenDisplay()
+    Dim att As Attachment
+
+    '  Don't let MicroStation display this until after we scale it.
+    Set att = ActiveModelReference.Attachments.AddUsingNamedView1("d:\ustation\dgn\reftest\2dUORHalf.dgn", _
+                    "", "ScaleAndThenDisplay", "Added using AddUsingNamedView1", "FirstNamedView", _
+                    Point3dZero, msdAddAttachmentFlagNone)
+
+    att.<A href="usmthScaleUniform.htm">ScaleUniform</A> Point3dZero, 5, True
+    att.<A href="usproElementsVisible.htm">ElementsVisible</A> = True
+    att.<A href="usmthRedraw.htm">Redraw</A>
+    att.<A href="usmthRewrite.htm">Rewrite</A>
+End Sub
+
+Sub AttachTop()
+    Dim att As Attachment
+
+    '
+    '   Specify a model name since this is using a standard view but does not want to
+    '   use the default model.
+    '
+    Set att = ActiveModelReference.Attachments.AddUsingNamedView1("d:\ustation\dgn\tool.dgn", _
+                "Test", "StandardView_TOP", "Added using Top view", "Top", _
+                Point3dZero, msdAddAttachmentFlagTrueScale Or msdAddAttachmentElementsVisible)
+End Sub
+
+Sub SelfAttachCoincidentRotateAndMove()
+    Dim att As Attachment
+
+    Set att = ActiveModelReference.Attachments.<A href="usmthAddCoincident1.htm">AddCoincident1</A>(<A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproFullName.htm">FullName</A>, _
+                            ActiveModelReference.<A href="usproName.htm">Name</A>, "SelfAttachScaled", _
+                            "Did self attach, rotate, and move", msdAddAttachmentFlagNone)
+
+    att.<A href="usmthRotate.htm">Rotate</A> att.<A href="usproMasterOrigin.htm">MasterOrigin</A>, 0, 0, <A href="usmthPi.htm">Pi</A> / 2, 1
+    att.<A href="usmthMove.htm">Move</A> <A href="usmthPoint3dFromXY.htm">Point3dFromXY</A>(0, 200), True
+    att.ElementsVisible = True
+    att.Redraw
+    att.Rewrite
+End Sub
+
+
+Sub AttachTrueCoincidentWorld()
+    Dim att As Attachment
+
+    Set att = ActiveModelReference.Attachments.AddCoincident1("d:\ustation\dgn\refTest\2dUORHalf.dgn", _
+                    vbNullString, "TSW", "True Scale World", _
+                    msdAddAttachmentElementsVisible Or msdAddAttachmentFlagTrueScale Or msdAddAttachmentFlagCoincidentWorld)
+End Sub
+
+</CODE></PRE>

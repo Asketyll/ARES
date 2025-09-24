@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Copying the Sheet Definition from the Active Model to all Sheet Models</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Copying the Sheet Definition from the Active Model to all Sheet Models</H1>
+
+<PRE class=CT><CODE>
+Sub CopySheets()
+    Dim mdlTemp As <A href="usobjModelReference.htm">ModelReference</A>
+    Dim sd As <A href="usobjSheetDefinition.htm">SheetDefinition</A>
+
+    Set sd = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetSheetDefinition.htm">GetSheetDefinition</A>
+
+    For Each mdlTemp In ActiveModelReference.<A href="usproDesignFile.htm">DesignFile</A>.<A href="usproModels.htm">Models</A>
+        If mdlTemp.<A href="usproType.htm">Type</A> = msdModelTypeSheet Then
+            '
+            '  The same sheet definition can be applied to
+            '  all sheet models.
+            '
+            mdlTemp.<A href="usmthSetSheetDefinition.htm">SetSheetDefinition</A> sd
+            '
+            '  Change all of the elements in the model to use
+            '  the new annotation scale.
+            '
+            mdlTemp.<A href="usmthPropagateAnnotationScale.htm">PropagateAnnotationScale</A>
+        End If
+    Next
+End Sub
+
+</CODE></PRE>

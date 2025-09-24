@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MsdLevelElementAccess Enum</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usenmmsdlevelelementaccess"></A>MsdLevelElementAccess Enum</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_199" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdLevelElementAccessC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_200" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usenmMsdLevelElementAccessX">
+</OBJECT>
+<P class=T>
+Defines constants that represent a level's element access mode, which applies to all elements on the level.
+These values are used by the <A href="usproElementAccess.htm">ElementAccess</A> property of the <A href="usobjLevel.htm">Level</A> object.
+</P>
+<P class=T>The <B>MsdLevelElementAccess</B> enum has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdLevelElementAccessAll</I></TD>
+<TD class=TT width=79%>
+0 (&H0)  All elements have full access, and new elements can be added to the level. The level can be set active.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdLevelElementAccessLocked</I></TD>
+<TD class=TT width=79%>
+1 (&H1)  The elements cannot be modified or deleted,
+but they can be copied within the level or to another level.
+Elements can be added to the level, but, once added, become locked like the other elements.
+The level can be set active.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdLevelElementAccessReadOnly</I></TD>
+<TD class=TT width=79%>
+2 (&H2)  The elements cannot be modified or deleted,
+but they can be copied to another level. No elements can be added to the level. The level cannot be set active.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>msdLevelElementAccessViewOnly</I></TD>
+<TD class=TT width=79%>
+3 (&H3)  The elements cannot be modified, deleted, or copied. No elements can be
+added to the level. The level cannot be set active.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.04
+</P>
+</BODY>
+</HTML>

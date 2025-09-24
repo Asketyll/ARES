@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Compute the B-spline Curve Frenet Frame</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Compute the B-spline Curve Frenet Frame</H1>
+
+<P class=T>
+Demonstrates how to extract and use the Frenet frame at a point along B-spline Curve
+                  to animate the curve's osculating circle.
+</P>
+<P class=T>
+Also demonstrates how to create a <A href="usobjBsplineCurve.htm">BsplineCurve</A> from <A href="usproPoles.htm">Poles</A>.
+</P>
+<PRE class=CT><CODE>
+Private oOsculatingCircleElement As <A href="usobjEllipseElement.htm">EllipseElement</A>
+Private oBsplineCurve As New BsplineCurve
+
+Sub TestBsplineCurveFrenetFrame()
+    Dim oBsplineCurveElement As <A href="usobjBsplineCurveElement.htm">BsplineCurveElement</A>
+    Dim aPoles() As <A href="usudtPoint3d.htm">Point3d</A>
+    Dim angle As Double
+    Dim i As Long, nPoles As Long
+
+    ' Create and display a nonuniform quintic periodic B-spline curve from poles
+    nPoles = 50
+    ReDim aPoles(0 To nPoles - 1)
+    For i = LBound(aPoles) To UBound(aPoles)
+        angle = ((i - LBound(aPoles)) / nPoles) * 2 * <A href="usmthPi.htm">Pi</A>
+        aPoles(i) = <A href="usmthPoint3dFromXY.htm">Point3dFromXY</A>(Cos(3 * angle), Sin(2 * angle))
+    Next i
+
+    oBsplineCurve.<A href="usproOrder.htm">Order</A> = 6
+    oBsplineCurve.<A href="usmthSetPoles.htm">SetPoles</A> aPoles
+    oBsplineCurve.<A href="usproClosed.htm">Closed</A> = True
+    oBsplineCurve.<A href="usmthSetKnots.htm">SetKnots</A> <A href="usproBspline.htm">Bspline</A>.<A href="usmthComputeChordLengthKnots.htm">ComputeChordLengthKnots</A>(oBsplineCurve.<A href="usmthGetPoles.htm">GetPoles</A>, oBsplineCurve.<A href="usmthGetWeights.htm">GetWeights</A>, oBsplineCurve.Order, oBsplineCurve.Closed)
+
+    Set oBsplineCurveElement = <A href="usmthCreateBsplineCurveElement1.htm">CreateBsplineCurveElement1</A>(Nothing, oBsplineCurve)
+    oBsplineCurveElement.color = 1
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oBsplineCurveElement
+    oBsplineCurveElement.<A href="usmthRedraw.htm">Redraw</A>
+
+    Set oOsculatingCircleElement = Nothing
+
+    ' The UserForm contains a ScrollBar whose action animates the osculating circle along the curve.
+    UserForm1.Show False
+End Sub
+
+Sub DrawOsculatingCircleAt(parameter As Double)
+    Dim oNewOsculatingCircleElement As EllipseElement
+    Dim point As Point3d, linearNormal As Point3d
+    Dim osculatingCircle As <A href="usudtEllipse3d.htm">Ellipse3d</A>
+    Dim frenetFrame As <A href="usudtMatrix3d.htm">Matrix3d</A>
+    Dim curvature As Double, torsion As Double, radiusOfCurvature As Double
+
+    linearNormal = <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(0, 0, 1)
+    osculatingCircle.<A href="usevtStart.htm">Start</A> = 0
+    osculatingCircle.Sweep = 2 * Pi
+
+    ' frenetFrame stores in its rows the tangent, main normal and binormal of the curve at the given parameter
+    point = oBsplineCurve.<A href="usmthEvaluatePointFrame.htm">EvaluatePointFrame</A>(frenetFrame, curvature, torsion, parameter, linearNormal)
+    If curvature &gt; 0 Then
+        radiusOfCurvature = 1 / curvature
+
+        ' The main normal points in the direction of the osculating circle
+        osculatingCircle.Vector0 = <A href="usmthPoint3dScale.htm">Point3dScale</A>(frenetFrame.RowY, -radiusOfCurvature)
+        osculatingCircle.Vector90 = Point3dScale(frenetFrame.RowX, radiusOfCurvature)
+        osculatingCircle.center = <A href="usmthPoint3dSubtract.htm">Point3dSubtract</A>(point, osculatingCircle.Vector0)
+
+        ' Update the osculating circle element
+        If oOsculatingCircleElement Is Nothing Then
+            Set oOsculatingCircleElement = <A href="usmthCreateEllipticalElement1.htm">CreateEllipticalElement1</A>(Nothing, osculatingCircle)
+            oOsculatingCircleElement.color = 2
+            ActiveModelReference.AddElement oOsculatingCircleElement
+        Else
+            oOsculatingCircleElement.Redraw msdDrawingModeTemporaryErase
+            Set oNewOsculatingCircleElement = CreateEllipticalElement1(oOsculatingCircleElement, osculatingCircle)
+            ActiveModelReference.<A href="usmthReplaceElement.htm">ReplaceElement</A> oOsculatingCircleElement, oNewOsculatingCircleElement
+            Set oOsculatingCircleElement = oNewOsculatingCircleElement
+        End If
+
+        oOsculatingCircleElement.Redraw msdDrawingModeTemporary
+    End If
+End Sub
+
+</CODE></PRE>
+<P class=T>
+Here is a simple implementation of the UserForm referenced above.  The UserForm is
+                  named UserForm1, and contains a ScrollBar named ScrollBar1.
+                  All unreferenced properties and methods have default values.
+</P>
+<PRE class=CT><CODE>
+Private Sub ScrollBar1_Scroll()
+    TestFrenetFrame.DrawOsculatingCircleAt ScrollBar1.value / CDbl(ScrollBar1.Max)
+End Sub
+
+Private Sub ScrollBar1_Change()
+    TestFrenetFrame.DrawOsculatingCircleAt ScrollBar1.value / CDbl(ScrollBar1.Max)
+End Sub
+
+Private Sub UserForm_Initialize()
+    ScrollBar1.LargeChange = (ScrollBar1.Max - ScrollBar1.Min) / 100
+End Sub
+
+
+</CODE></PRE>

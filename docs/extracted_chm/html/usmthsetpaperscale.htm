@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SetPaperScale Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthsetpaperscale"></A>SetPaperScale Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_4915" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetPaperScaleC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4916" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetPaperScaleX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4917" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetPaperScaleA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4918" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetPaperScaleS">
+</OBJECT>
+</P>
+
+<P class=T>
+Sets the PaperScale for the GeographicCoordinateSystem
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>SetPaperScale</B> <I>Value</I>, <I>Model</I>, <I>ReprojectData</I>
+<P class=T>The <B>SetPaperScale</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Value</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. The new value for PaperScale. Must be greater than 0.0. Only the value 1.0 allows accurate ground distance measurement in the design file. Larger values cause smaller Cartesian Coordinates.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Model</I></TD>
+<TD class=TT width=79%>
+A <A href="usobjModelReference.htm">ModelReference</A> expression. The Model from which the GeographicCoordinateSystem originated.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ReprojectData</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. If true, the data in the design file is projected to take the new paper scale into account. If false, the data is left alone. Use false if you are correcting the paper scale.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+The changed GeographicCoordinateSystem is written immediately to the design file. For most purposes, the PaperScale should be set to 1.0. It is supported for use in legacy processes.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+23.00.02
+</P>
+</BODY>
+</HTML>

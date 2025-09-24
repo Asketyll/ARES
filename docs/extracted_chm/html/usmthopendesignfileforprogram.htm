@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OpenDesignFileForProgram Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthopendesignfileforprogram"></A>OpenDesignFileForProgram Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_3759" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOpenDesignFileForProgramC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3760" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOpenDesignFileForProgramX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3761" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOpenDesignFileForProgramA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3762" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthOpenDesignFileForProgramS">
+</OBJECT>
+</P>
+
+<P class=T>
+Opens a <A href="usobjDesignFile.htm">DesignFile</A> that the program controls.  The user does not have access to the <B>DesignFile</B>
+    except via the program that calls <B>OpenDesignFileForProgram</B>.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><B>DesignFile</B></I> = <I>object</I>.<B>OpenDesignFileForProgram</B> (<I>DesignFileName</I> [, <I>ReadOnly</I>])
+<P class=T>The <B>OpenDesignFileForProgram</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>DesignFileName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. May specify all or part of the design file name.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ReadOnly</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+If the <B>ReadOnly</B> parameter is <B>False</B> but <B>OpenDesignFileForProgram</B> is not able to open the design file for write,
+    it will try to open the file read-only.  Use <A href="usobjModelReference.htm">ModelReference</A>.<A href="usproIsReadOnly.htm">IsReadOnly</A> on any of the file's models to determine if the file is opened read-only.
+</P>
+<P>
+A program can close the file at any time by calling <B>DesignFile</B>.<A href="usmthClose.htm">Close</A>. After calling <B>Close</B>, the program will receive an error
+    if it tries to access any objects obtained from the <B>DesignFile</B> object that <B>OpenDesignFileForProgram</B> returns.  It will receive an error if
+    it tries to access any of the design file's levels, elements or models.
+</P>
+<P>
+If the program does not call <B>Close</B>, then MicroStation closes the design file once the program no longer has any references to
+    the <B>DesignFile</B> object or any of the objects representing data from the design file.  If the program terminates abnormally, then
+    all of the references are released automatically and MicroStation closes the design file.
+</P>
+<P>
+<A href="usmthAddElement.htm">AddElement</A> will not add an element to a file opened with <B>OpenDesignFileForProgram</B>. Use <A href="usmthCopyElement.htm">CopyElement</A> instead. When
+    a program creates an element, the <B>Create...Element</B> method assigns symbology from the master file.  <B>CopyElement</B> performs
+    any necessary transformations on the symbology, copying line style and level information into the file if necessary.
+</P>
+<P>
+The selection set methods of <B>ModelReference</B> raise an error if the model's design file was opened by <B>OpenDesignFileForProgram</B>.
+</P>
+<P>
+Changes to a design file opened with <B>OpenDesignFileForProgram</B> are not automatically saved. When the program calls <A href="usmthRewrite.htm">Rewrite</A>, the
+    changes are saved to the <A href="usobjElementCache.htm">ElementCache</A> but not to the actual file. The program has to call <A href="usmthSave.htm">Save</A> to have the changes saved to the file.
+</P>
+<P>
+Programmers familiar with the <B>mdlWorkDgn</B> from the MDL API will recognize that <B>OpenDesignFileForProgram</B> provides
+    similar functionality.
+</P>
+<P>
+It is sometimes necessary to call <A href="usmthUpdateElementDependencyState.htm">UpdateElementDependencyState</A> after the first reference to a model from a design file opened with <B>OpenDesignFileForProgram</B>.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

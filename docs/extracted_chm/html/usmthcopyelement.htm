@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CopyElement Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcopyelement"></A>CopyElement Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1823" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1824" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1825" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyElementA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1826" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyElementS">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns a new <A href="usobjElement.htm">Element</A> object that is a copy of this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><B>Element</B></I> = <I>object</I>.<B>CopyElement</B> (<I>Element</I> [, <I>CopyContext</I>])
+<P class=T>The <B>CopyElement</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Element</I></TD>
+<TD class=TT width=79%>
+An <B>Element</B> expression. The element to be copied.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>CopyContext</I></TD>
+<TD class=TT width=79%>
+Optional. A <A href="usobjCopyContext.htm">CopyContext</A> expression. Controls how the object is copied and what additional data is copied into the model. If the
+    program does not provide a CopyContext argument, <B>CopyElement</B> creates a new <B>CopyContext</B> that has all of the default
+    values for the properties of <B>CopyContext</B>. A program must supply a <B>CopyContext</B> object if it is copying multiple
+    elements and it needs to main dependencies on the newly created elements.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+It is important to use this method when copying between two models because it copies all
+    necessary additional data, such as text styles, levels, etc. along with the elements.
+    Just reading an element from another model and adding it to the new model may not
+    preserve styles and levels.  However, <B>CopyElement</B> resolves the styles and levels by name, so
+    if a style with the same name exists in both the source
+    and destination models, the element will be remapped to the style in the destination.
+</P>
+<P>
+It can also be important to use <B>CopyElement</B> when copying within a single model because it tries to maintain
+    dependencies between elements. <B>CopyElement</B> can only maintain dependencies if it is allowed to add the element to the model.
+    If it is not allowed to add the element to the model, then it cannot assign an element ID and it cannot update dependency references
+    without assigning an element ID.
+</P>
+<P>
+If you need to make multiple calls to this method for a related group of elements or if you want
+    something other than the default behavior when copying objects,
+    you should create a <B>CopyContext</B> object to pass into each of the calls.</P>
+</P>
+<P>
+<B>CopyElement</B>'s default behavior is to add the element to the model. To prevent it from adding the new element to the model,
+    pass a <B>CopyContext</B> with <A href="usproAddElementToModel.htm">AddElementToModel</A> set to <B>False</B>.
+</P>
+<P>
+<B>CopyElement</B> does not automatically copy related elements such as tags. The program must explicitly copy the related elements. To maintain
+    the relationships the program must pass the same <B>CopyContext</B> for every call to <B>CopyElement</B> for that group of elements. See
+    <B>CopyContext</B> for more information on this.
+</P>
+<P>
+When copying to a design file opened with <A href="usmthOpenDesignFileForProgram.htm">OpenDesignFileForProgram</A> it may be necessary to explicitly call <A href="usobjDesignFile.htm">DesignFile</A>.<A href="usproLevels.htm">Levels</A>.<A href="usmthRewrite.htm">Rewrite</A>.
+    MicroStation uses 3 pieces of data to represent a level. It uses the Level Manager's level tables as the working data. It uses level-definition elements in
+    the element cache as a persistent representation of a level.  Finally, there is the disk image of the elements. When <B>CopyElement</B> sees that it
+    must copy a level to the target design file, it creates the definition in the level table. However, it does not immediately write the
+    updated element table to the element cache. Instead it transfers the data from the level table to the element cache when the program destroys
+    the CopyContext.  This can produce some surprising results when copying to a design file opened with <B>OpenDesignFileForProgram</B>.  The following example
+    illustrates the problem:
+<pre><code>
+Sub CopyExample(strTargetFile As String)
+    Dim df As DesignFile
+    Dim ee As ElementEnumerator
+    Dim oMDL As ModelReference
+    Dim cc As New CopyContext
+
+    Set df = OpenDesignFileForProgram(strTargetFile, False)
+    Set oMDL = df.DefaultModelReference
+
+    cc.LevelHandling = msdCopyContextLevelCopyAlways
+
+    Set ee = ActiveModelReference.GraphicalElementCache.Scan
+
+    Do While ee.MoveNext
+        '  Adds the level to the level table in addition to copying the element
+        oMDL.CopyElement ee.Current, cc
+    Loop
+
+    ' This step saves the elements to the disk, but the changes in the level
+    ' table have not been copied to the element cache. Consequently, they are
+    ' not saved to the disk.
+    df.Save
+
+    ' Now cc is going out of scope. It is destroyed causing MicroStation
+    ' to copy the level changes from the levels table to the element cache.
+End Sub
+</code></pre>
+</P>
+<P>
+To solve this problem, the program needs to transfer the information from the level tables to to elements
+prior to calling sf.<A href="usmthSave.htm">Save</A>. It can do this by calling df.Levels.Rewrite or setting cc to Nothing.
+<pre><code>
+    ' There is no needed to use both of these lines. Inserting either one
+    ' solves the problem.
+    Set cc = Nothing
+    df.RewriteLevels
+
+    df.Save
+</code></pre>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

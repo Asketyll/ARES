@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SetArea1 Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthsetarea1"></A>SetArea1 Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_4767" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetArea1C">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4768" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetArea1X">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4769" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetArea1A">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4770" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSetArea1S">
+</OBJECT>
+</P>
+
+<P class=T>
+Sets the <B>View</B>'s <B>Origin</B>, <B>Extents</B>, <B>Rotation</B>, and <B>ActiveDepth</B>.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>SetArea1</B> <I>Boundary1</I>, <I>Boundary2</I>, <I>PointOnBackClippingPlane</I>, <I>ZDelta</I>, <I>NewRotation</I>, <I>NewActiveDepth</I>
+<P class=T>The <B>SetArea1</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Boundary1</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Boundary2</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>PointOnBackClippingPlane</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ZDelta</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewRotation</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtMatrix3d.htm">Matrix3d</A> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewActiveDepth</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<B>SetArea1</B> sets the <B>View</B>'s <B>Rotation</B> to <B>NewRotation</B>. Then it uses the rotation to rotate
+    <B>Boundary1</B> and <B>Boundary2</B>. It uses the minimum X and Y values of the rotated points as the X and Y of the
+    <B>Origin</B>, and uses the maximum X and Y values of the rotated points to compute the X and Y of <B>Extents</B>. It computes the
+    plane that is parallel to the view and contains the point <B>PointOnBackClippingPlane</B>. It sets <B>Origin.Z</B> to
+    the location where that plane crosses the <B>View</B>'s Z-axis.  Finally, it sets <B>Extents.Z</B> to <B>ZDelta</B> and
+    sets <B>ActiveDepth</B> to <B>NewActiveDepth</B>.
+</P>
+<P>
+See <A href="usobjView.htm">View</A> for information on the relationship of <A href="usproOrigin.htm">Origin</A>, <A href="usproExtents.htm">Extents</A>, <A href="usproActiveDepth.htm">ActiveDepth</A>, and <A href="usproRotation.htm">Rotation</A>.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

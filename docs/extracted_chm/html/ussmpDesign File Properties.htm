@@ -1,0 +1,225 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Design File Properties</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Design File Properties</H1>
+
+<PRE class=CT><CODE>
+Sub PrintDesignFileValues(oDGN As <A href="usobjDesignFile.htm">DesignFile</A>)
+    Dim oPH As <A href="usobjPropertyHandler.htm">PropertyHandler</A>
+    Set oPH = <A href="usmthCreatePropertyHandler.htm">CreatePropertyHandler</A>(oDGN)
+
+    ShowValue oPH, "Author", False, False
+    ShowValue oPH, "Client", False, False
+    ShowValue oPH, "Comments", False, False
+    ShowValue oPH, "Company", False, False
+    ShowValue oPH, "CreateDate", False, False
+    ShowValue oPH, "Editor", False, False
+    ShowValue oPH, "FileName", False, False
+    ShowValue oPH, "FileSize", True, False
+    ShowValue oPH, "Format", False, False
+    ShowValue oPH, "FormatMajorVersion", False, False
+    ShowValue oPH, "FormatMinorVersion", False, False
+    ShowValue oPH, "Keywords", False, False
+    ShowValue oPH, "LastSavedBy", False, False
+    ShowValue oPH, "Manager", False, False
+    ShowValue oPH, "PlotDate", False, False
+    ShowValue oPH, "RevisionNumber", False, False
+    ShowValue oPH, "SaveDate", False, False
+    ShowValue oPH, "Subject", False, False
+    ShowValue oPH, "Title", False, False
+    ShowValue oPH, "DesignRevisionCount", False, False
+    If oPH.<A href="usmthGetValue.htm">GetValue</A> &gt; 0 Then
+        '  Design History properties
+        ShowValue oPH, "DesignRevisions[0].Number", False, False
+        ShowValue oPH, "DesignRevisions[0].Date", False, False
+        ShowValue oPH, "DesignRevisions[0].Author", False, False
+        ShowValue oPH, "DesignRevisions[0].Note", False, False
+    End If
+
+    If oDGN.<A href="usproFormat.htm">Format</A> = msdDesignFileFormatDWG Then
+        '
+        ' DWG System Variables
+        '
+        ' Long properties
+        ShowValue oPH, "SystemVariables.lunits", False, False
+        ShowValue oPH, "SystemVariables.luprec", False, False
+        ShowValue oPH, "SystemVariables.aunits", False, False
+        ShowValue oPH, "SystemVariables.auprec", False, False
+        ShowValue oPH, "SystemVariables.insunits", False, False
+        ShowValue oPH, "SystemVariables.treedepth", False, False
+        ShowValue oPH, "SystemVariables.cecolor", False, False
+        ShowValue oPH, "SystemVariables.proxygraphics", False, False
+        ShowValue oPH, "SystemVariables.measurement", False, False
+        ShowValue oPH, "SystemVariables.isolines", False, False
+        ShowValue oPH, "SystemVariables.dimlunit", False, False
+        ShowValue oPH, "SystemVariables.dwgcodepage", False, False
+
+        ' Point3d
+        ShowValue oPH, "SystemVariables.extmin", False, True
+        ShowValue oPH, "SystemVariables.extmax", False, True
+        ShowValue oPH, "SystemVariables.limmin", False, True
+        ShowValue oPH, "SystemVariables.limmax", False, True
+        ShowValue oPH, "SystemVariables.insbase", False, True
+        ShowValue oPH, "SystemVariables.ucsorg", False, True
+        ShowValue oPH, "SystemVariables.ucsxdir", False, True
+        ShowValue oPH, "SystemVariables.ucsydir", False, True
+
+        '  Boolean properties
+        ShowValue oPH, "SystemVariables.tilemode", False, False
+        ShowValue oPH, "SystemVariables.fillmode", False, False
+        ShowValue oPH, "SystemVariables.orthomode", False, False
+        ShowValue oPH, "SystemVariables.qtextmode", False, False
+        ShowValue oPH, "SystemVariables.mirrtext", False, False
+        ShowValue oPH, "SystemVariables.attmode", False, False
+        ShowValue oPH, "SystemVariables.dispsilh", False, False
+        ShowValue oPH, "SystemVariables.dimaso", False, False
+        ShowValue oPH, "SystemVariables.limcheck", False, False
+        ShowValue oPH, "SystemVariables.psltscale", False, False
+        ShowValue oPH, "SystemVariables.pstylemode", False, False
+
+        ' Double properties
+        ShowValue oPH, "SystemVariables.ltscale", False, False
+        ShowValue oPH, "SystemVariables.celtscale", False, False
+        ShowValue oPH, "SystemVariables.textsize", False, False
+        ShowValue oPH, "SystemVariables.elevation", False, False
+        ShowValue oPH, "SystemVariables.thickness", False, False
+        ShowValue oPH, "SystemVariables.angbase", False, False
+        ShowValue oPH, "SystemVariables.psvpscale", False, False
+        ShowValue oPH, "SystemVariables.dimscale", False, False
+        ShowValue oPH, "SystemVariables.dimlfac", False, False
+
+        ' String properties
+        ShowValue oPH, "SystemVariables.HyperlinkBase", False, False
+    End If
+End Sub
+Sub PrintDesignFileStrings(oDGN As DesignFile)
+    Dim oPH As PropertyHandler
+    Set oPH = CreatePropertyHandler(oDGN)
+
+    ShowDisplayString oPH, "Author"
+    ShowDisplayString oPH, "Client"
+    ShowDisplayString oPH, "Comments"
+    ShowDisplayString oPH, "Company"
+    ShowDisplayString oPH, "CreateDate"
+    ShowDisplayString oPH, "Editor"
+    ShowDisplayString oPH, "FileName"
+    ShowDisplayString oPH, "FileSize"
+    ShowDisplayString oPH, "Format"
+    ShowDisplayString oPH, "FormatMajorVersion"
+    ShowDisplayString oPH, "FormatMinorVersion"
+    ShowDisplayString oPH, "Keywords"
+    ShowDisplayString oPH, "LastSavedBy"
+    ShowDisplayString oPH, "Manager"
+    ShowDisplayString oPH, "PlotDate"
+    ShowDisplayString oPH, "RevisionNumber"
+    ShowDisplayString oPH, "SaveDate"
+    ShowDisplayString oPH, "Subject"
+    ShowDisplayString oPH, "Title"
+    ShowDisplayString oPH, "DesignRevisionCount"
+    If oPH.GetValue &gt; 0 Then
+        ShowDisplayString oPH, "DesignRevisions[0].Number"
+        ShowDisplayString oPH, "DesignRevisions[0].Date"
+        ShowDisplayString oPH, "DesignRevisions[0].Author"
+        ShowDisplayString oPH, "DesignRevisions[0].Note"
+    End If
+
+    If oDGN.Format = msdDesignFileFormatDWG Then
+        ' Long properties
+        ShowDisplayString oPH, "SystemVariables.lunits"
+        ShowDisplayString oPH, "SystemVariables.luprec"
+        ShowDisplayString oPH, "SystemVariables.aunits"
+        ShowDisplayString oPH, "SystemVariables.auprec"
+        ShowDisplayString oPH, "SystemVariables.insunits"
+        ShowDisplayString oPH, "SystemVariables.treedepth"
+        ShowDisplayString oPH, "SystemVariables.cecolor"
+        ShowDisplayString oPH, "SystemVariables.proxygraphics"
+        ShowDisplayString oPH, "SystemVariables.measurement"
+        ShowDisplayString oPH, "SystemVariables.isolines"
+        ShowDisplayString oPH, "SystemVariables.dimlunit"
+        ShowDisplayString oPH, "SystemVariables.dwgcodepage"
+
+        ' Point3d
+        ShowDisplayString oPH, "SystemVariables.extmin"
+        ShowDisplayString oPH, "SystemVariables.extmax"
+        ShowDisplayString oPH, "SystemVariables.limmin"
+        ShowDisplayString oPH, "SystemVariables.limmax"
+        ShowDisplayString oPH, "SystemVariables.insbase"
+        ShowDisplayString oPH, "SystemVariables.ucsorg"
+        ShowDisplayString oPH, "SystemVariables.ucsxdir"
+        ShowDisplayString oPH, "SystemVariables.ucsydir"
+
+        '  Boolean properties
+        ShowDisplayString oPH, "SystemVariables.tilemode"
+        ShowDisplayString oPH, "SystemVariables.fillmode"
+        ShowDisplayString oPH, "SystemVariables.orthomode"
+        ShowDisplayString oPH, "SystemVariables.qtextmode"
+        ShowDisplayString oPH, "SystemVariables.mirrtext"
+        ShowDisplayString oPH, "SystemVariables.attmode"
+        ShowDisplayString oPH, "SystemVariables.dispsilh"
+        ShowDisplayString oPH, "SystemVariables.dimaso"
+        ShowDisplayString oPH, "SystemVariables.limcheck"
+        ShowDisplayString oPH, "SystemVariables.psltscale"
+        ShowDisplayString oPH, "SystemVariables.pstylemode"
+
+        ' Double properties
+        ShowDisplayString oPH, "SystemVariables.ltscale"
+        ShowDisplayString oPH, "SystemVariables.celtscale"
+        ShowDisplayString oPH, "SystemVariables.textsize"
+        ShowDisplayString oPH, "SystemVariables.elevation"
+        ShowDisplayString oPH, "SystemVariables.thickness"
+        ShowDisplayString oPH, "SystemVariables.angbase"
+        ShowDisplayString oPH, "SystemVariables.psvpscale"
+        ShowDisplayString oPH, "SystemVariables.dimscale"
+        ShowDisplayString oPH, "SystemVariables.dimlfac"
+
+        ' String properties
+        ShowDisplayString oPH, "SystemVariables.HyperlinkBase"
+    End If
+End Sub
+
+Private Sub ShowDisplayString(oPH As PropertyHandler, accessString As String)
+    On Error GoTo HandleError
+
+    If Not oPH.<A href="usmthSelectByAccessString.htm">SelectByAccessString</A>(accessString) Then
+        Debug.Print "NOT FOUND!!"
+    Else
+        Debug.Print oPH.<A href="usmthGetDisplayString.htm">GetDisplayString</A>
+    End If
+
+    Exit Sub
+HandleError:
+    Debug.Print Err.<A href="usproDescription.htm">Description</A>
+End Sub
+Private Sub ShowValue(oPH As PropertyHandler, accessString As String, isDlong As Boolean, isPoint As Boolean)
+    On Error GoTo HandleError
+
+    If Not oPH.SelectByAccessString(accessString) Then
+        Debug.Print "NOT FOUND!!"
+    Else
+        If isPoint Then
+            Dim pnt As <A href="usudtPoint3d.htm">Point3d</A>
+
+            pnt = oPH.<A href="usmthGetValueAsPoint3d.htm">GetValueAsPoint3d</A>
+            Debug.Print "(" & pnt.X & "," & pnt.Y & "," & pnt.Z & ")"
+        ElseIf isDlong Then
+            Debug.Print <A href="usmthDLongToString.htm">DLongToString</A>(oPH.<A href="usmthGetValueAsDLong.htm">GetValueAsDLong</A>)
+        Else
+            Debug.Print oPH.GetValue
+        End If
+    End If
+
+    Exit Sub
+HandleError:
+    Debug.Print Err.Description
+End Sub
+
+
+
+
+</CODE></PRE>

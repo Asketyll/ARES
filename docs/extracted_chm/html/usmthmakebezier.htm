@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MakeBezier Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthmakebezier"></A>MakeBezier Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_3495" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMakeBezierC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3496" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMakeBezierX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3497" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMakeBezierA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3498" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMakeBezierS">
+</OBJECT>
+</P>
+
+<P class=T>
+Converts this object into a composite Bezier curve or surface.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>MakeBezier</B> 
+<P class=T>The <B>MakeBezier</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineCurve.htm">BsplineCurve</A> objects, this method increases the multiplicity of each interior <A href="usproKnot.htm">Knot</A> to <A href="usproOrder.htm">Order</A> - 1, after which the i_th
+             parameter interval (between unique <B>Knot</B> values) corresponds to the Bezier curve on the i_th set of <B>Order</B> successive <A href="usproPole.htm">Pole</A>s.
+</P>
+<P>
+For <A href="usobjBsplineSurface.htm">BsplineSurface</A> objects, this method increases the multiplicity of each interior <A href="usproUKnot.htm">UKnot</A> to <A href="usproUOrder.htm">UOrder</A> - 1 and each interior
+             <A href="usproVKnot.htm">VKnot</A> to <A href="usproVOrder.htm">VOrder</A> - 1, after which the i_th u-parameter range (between unique <B>UKnot</B> values) and j_th v-parameter range
+             (between unique <B>VKnot</B> values) corresponds to the Bezier patch on the (j * (1 + <A href="usproUKnotsCount.htm">UKnotsCount</A>/(<B>UOrder</B> - 1)) + i)_th
+             <B>VOrder</B> x <B>UOrder</B> sub-array of the <B>Pole</B> array, counting in row-major order.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

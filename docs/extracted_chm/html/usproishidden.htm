@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IsHidden Property</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usproishidden"></A>IsHidden Property</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_7299" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIsHiddenC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7300" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIsHiddenX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7301" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIsHiddenA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7302" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIsHiddenS">
+</OBJECT>
+</P>
+
+<P class=T> Read/Write <B>Boolean</B>.
+<P class=T>
+Gets/Sets whether the object is hidden or displayed.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P><I>object</I>.<B>IsHidden</B> [= <I>Boolean</I>]
+<P class=T>The <B>IsHidden</B> property syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Boolean</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+Any graphical element can be hidden by setting the <B>IsHidden</B> property to <B>True</B>.
+</P>
+<P>
+<B>IsHidden</B> of <A href="usobjTagDefinition.htm">TagDefinition</A> determines whether the <B>IsHidden</B> property of a <A href="usobjTagElement.htm">TagElement</A> created from that <B>TagDefinition</B>
+    is displayed. MicroStation's <B>Attach Tags</B> command lets the user override this property.
+</P>
+<P>
+When dealing with Model and Attachment Objects the results will be slightly different. When the Model isHidden the Model
+    name is no longer visible in the Models dialog. When the Attachment isHidden the Display attribute is turned off and the Attachment
+    Elements are no longer visible.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.01
+</P>
+</BODY>
+</HTML>

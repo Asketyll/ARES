@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>InsertXDatum Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthinsertxdatum"></A>InsertXDatum Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_3343" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthInsertXDatumC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3344" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthInsertXDatumX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3345" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthInsertXDatumA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3346" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthInsertXDatumS">
+</OBJECT>
+</P>
+
+<P class=T>
+Inserts a new <A href="usudtXDatum.htm">XDatum</A> item into a specified position in an <B>XDatum</B>() array, increasing the size of the array by one.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P>For the <B>Application</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>InsertXDatum</B> <I>XData</I>, <I>Index</I>, <I>Type</I>, <I>Value</I>
+<P>For the <B>XDataObject</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>InsertXDatum</B> <I>Index</I>, <I>Type</I>, <I>Value</I>
+<P class=T>The <B>InsertXDatum</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Index</I></TD>
+<TD class=TT width=79%>
+A <B>Long</B> expression. A zero-based index that must be in the range 0 to <A href="usproCount.htm">Count</A>-1.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>XData</I></TD>
+<TD class=TT width=79%>
+A <B><B>XDatum</B> ()</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Type</I></TD>
+<TD class=TT width=79%>
+An <A href="usenmMsdXDatumType.htm">MsdXDatumType</A> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Value</I></TD>
+<TD class=TT width=79%>
+A <B>VARIANT</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<B>XDatum</B>() arrays returned from <A href="usmthGetXData.htm">GetXData</A> are zero-based (i.e., the first item in the array is at index number 0).
+    <P>This method also validates that the type of <B>Value</B> is consistent with the given <B>Type</B>. For example, the following statement
+    will raise a type mismatch error, because there is no automatic no way to convert a <B>String</B> value ("Hello") into a <A href="usudtPoint3d.htm">Point3d</A> value:</P>
+    <P><CODE>InsertXDatum xdata, 2, msdXDatumTypePoint, "Hello" ' ERROR</CODE></P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.04
+</P>
+</BODY>
+</HTML>

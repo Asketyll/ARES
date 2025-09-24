@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ID Property</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usproid"></A>ID Property</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_7007" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIDC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7008" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIDX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7009" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIDA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7010" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproIDS">
+</OBJECT>
+</P>
+
+<P class=T> Read-only <A href="usudtDLong.htm">DLong</A> for <A href="usobjApplicationElement.htm">ApplicationElement</A>, <A href="usobjArcElement.htm">ArcElement</A>, <A href="usobjAuxiliaryCoordinateSystemElement.htm">AuxiliaryCoordinateSystemElement</A>, <A href="usobjBsplineCurveElement.htm">BsplineCurveElement</A>, <A href="usobjBsplineSurfaceElement.htm">BsplineSurfaceElement</A>, <A href="usobjCellElement.htm">CellElement</A>, <A href="usobjComplexShapeElement.htm">ComplexShapeElement</A>, <A href="usobjComplexStringElement.htm">ComplexStringElement</A>, <A href="usobjConeElement.htm">ConeElement</A>, <A href="usobjCurveElement.htm">CurveElement</A>, <A href="usobjDimensionElement.htm">DimensionElement</A>, <A href="usobjElement.htm">Element</A>, <A href="usobjEllipseElement.htm">EllipseElement</A>, <A href="usobjLineElement.htm">LineElement</A>, <A href="usobjMultiLineElement.htm">MultiLineElement</A>, <A href="usobjNamedGroupElement.htm">NamedGroupElement</A>, <A href="usobjPointStringElement.htm">PointStringElement</A>, <A href="usobjSavedViewElement.htm">SavedViewElement</A>, <A href="usobjShapeElement.htm">ShapeElement</A>, <A href="usobjSharedCellDefinitionElement.htm">SharedCellDefinitionElement</A>, <A href="usobjSharedCellElement.htm">SharedCellElement</A>, <A href="usobjSmartSolidElement.htm">SmartSolidElement</A>, <A href="usobjTagElement.htm">TagElement</A>, <A href="usobjTextElement.htm">TextElement</A>, <A href="usobjTextNodeElement.htm">TextNodeElement</A>.</P>
+<P class=T> Read-only <B>Long</B> for <A href="usobjFont.htm">Font</A>, <A href="usobjLevel.htm">Level</A>, <A href="usobjRasterColorMode.htm">RasterColorMode</A>, <A href="usobjRasterCompressionMode.htm">RasterCompressionMode</A>, <A href="usobjRasterFormat.htm">RasterFormat</A>, <A href="usobjTextStyle.htm">TextStyle</A>.</P>
+<P class=T> Read-only <B>Int64</B> for <A href="usobjRaster.htm">Raster</A>.</P>
+<P class=T>
+Gets a value that uniquely identifies this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P><I>object</I>.<B>ID</B> 
+<P class=T>The <B>ID</B> property syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For all element types, <B>ID</B> is a persistent value that is assigned when the element is first added to a model.
+    It is unique across the entire <A href="usobjDesignFile.htm">DesignFile</A> that contains the model.
+    If an element has never been added to a model, then the element's ID is 0. When a program uses <A href="usobjModelReference.htm">ModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> to add an
+    element to the model and the element already has an ID, <B>AddElement</B> assigns a new ID. This happens when a program tries to
+    add an element that is already in the file. Doing so creates 2 copies of the element with distinct ID's. If a progam deletes an element
+    using <B>ModelReference</B>.<A href="usmthRemoveElement.htm">RemoveElement</A> and then adds that element using <B>ModelReference</B>.<B>AddElement</B>, then the element retains its ID.
+    The ID of the deleted element is not reused, but if the program deletes the element and adds it the ID is retained.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

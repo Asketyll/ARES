@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Matrix3d Type</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usudtmatrix3d"></A>Matrix3d Type</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_17" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtMatrix3dC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_18" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usudtMatrix3dX">
+</OBJECT>
+<P class=T>
+Represents a 3 x 3 matrix, usually to indicate the rotation of an element in space.
+</P>
+<P class=T>The <B>Matrix3d</B> type has these members:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Name</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>RowX</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>RowY</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>RowZ</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+<P>
+A <A href="usudtMatrix3d.htm">Matrix3d</A> encompasses a set of <B>Double</b> values. However, you should not
+attempt to interpret these values directly. Rather, if you need to access the individual components
+of a <B>Matrix3d</B>, use the global functions <A href="usmthMatrix3dGetComponentByRowAndColumn.htm">Matrix3dGetComponentByRowAndColumn</A> and <A href="usmthMatrix3dSetComponentByRowAndColumn.htm">Matrix3dSetComponentByRowAndColumn</A>.
+<P>There are a number of additional global functions for managing <B>Matrix3d</B> values:</P>
+<ul>
+  <li>Returns a matrix from 3 given points which represent columns: <A href="usmthMatrix3dFromPoint3dColumns.htm">Matrix3dFromPoint3dColumns</A>.</li>
+  <li>Returns a matrix from 3 given points which represent rows: <A href="usmthMatrix3dFromPoint3dRows.htm">Matrix3dFromPoint3dRows</A>.</li>
+  <li>Returns a matrix from 9 specified coefficients: <A href="usmthMatrix3dFromRowValues.htm">Matrix3dFromRowValues</A>.</li>
+  <li>Returns a matrix from the product of three matrices: <A href="usmthMatrix3dFromMatrix3dTimesMatrix3dTimesMatrix3d.htm">Matrix3dFromMatrix3dTimesMatrix3dTimesMatrix3d</A>.</li>
+  <li>Returns a matrix from the product of two matrices: <A href="usmthMatrix3dFromMatrix3dTimesMatrix3d.htm">Matrix3dFromMatrix3dTimesMatrix3d</A>.</li>
+  <li>Returns a matrix of rotation about the X, Y, or Z axis: <A href="usmthMatrix3dFromAxisAndRotationAngle.htm">Matrix3dFromAxisAndRotationAngle</A>.</li>
+  <li>Returns a matrix that represents a given rotation around a given vector: <A href="usmthMatrix3dFromVectorAndRotationAngle.htm">Matrix3dFromVectorAndRotationAngle</A>.</li>
+  <li>Returns a matrix which scales along a vector direction: <A href="usmthMatrix3dFromDirectionAndScale.htm">Matrix3dFromDirectionAndScale</A>.</li>
+  <li>Returns a uniform scaling matrix: <A href="usmthMatrix3dFromScale.htm">Matrix3dFromScale</A>.</li>
+  <li>Returns a scaling matrix from X, Y and Z scaling factors: <A href="usmthMatrix3dFromScaleFactors.htm">Matrix3dFromScaleFactors</A>.</li>
+  <LI>Returns a matrix from xy rotation, skew and scale factors: <A href="usmthMatrix3dFromXYRotationSkewAndScale.htm">Matrix3dFromXYRotationSkewAndScale</A>.</LI>
+  <LI>Returns a rotation matrix from an origin, an x-axis point and an xy-plane point: <A href="usmthMatrix3dRotationFromPoint3dOriginXY.htm">Matrix3dRotationFromPoint3dOriginXY</A>.</LI>
+  <LI>Returns a rotation matrix that preserves the direction of the given vector in the last row: <A href="usmthMatrix3dRotationFromRowZ.htm">Matrix3dRotationFromRowZ</A>.</LI>
+  <LI>Returns a rotation matrix that preserves the direction of the given vector in the last column: <A href="usmthMatrix3dRotationFromColumnZ.htm">Matrix3dRotationFromColumnZ</A>.</LI>
+  <li>Returns an identity matrix: <A href="usmthMatrix3dIdentity.htm">Matrix3dIdentity</A>.</li>
+  <li>Returns a matrix with all components zero: <A href="usmthMatrix3dZero.htm">Matrix3dZero</A>.</li>
+  <li>Returns the matrix part of a transformation: <A href="usmthMatrix3dFromTransform3d.htm">Matrix3dFromTransform3d</A>.</li>
+  <li>Returns a point from a column of a matrix: <A href="usmthPoint3dFromMatrix3dColumn.htm">Point3dFromMatrix3dColumn</A>.</li>
+  <li>Returns a point from a matrix inverse transpose and a point: <A href="usmthPoint3dFromMatrix3dInverseTransposeTimesPoint3d.htm">Point3dFromMatrix3dInverseTransposeTimesPoint3d</A>.</li>
+  <li>Returns a point from a matrix times a point which is specified by its X, Y and Z values: <A href="usmthPoint3dFromMatrix3dTimesXYZ.htm">Point3dFromMatrix3dTimesXYZ</A>.</li>
+  <li>Returns a point from a row in a matrix: <A href="usmthPoint3dFromMatrix3dRow.htm">Point3dFromMatrix3dRow</A>.</li>
+  <li>Returns a point from a matrix times a point: <A href="usmthPoint3dFromMatrix3dTimesPoint3d.htm">Point3dFromMatrix3dTimesPoint3d</A>.</li>
+  <li>Returns a point from the product of a matrix inverse and a point: <A href="usmthPoint3dFromMatrix3dInverseTimesPoint3d.htm">Point3dFromMatrix3dInverseTimesPoint3d</A>.</li>
+  <li>Returns Matrix0 + Matrix1 * S1 + Matrix2 * S2: <A href="usmthMatrix3dAdd2Scaled.htm">Matrix3dAdd2Scaled</A>.</li>
+  <li>Returns the determinant of a matrix: <A href="usmthMatrix3dDeterminant.htm">Matrix3dDeterminant</A>.</li>
+  <li>Returns the inverse of a matrix: <A href="usmthMatrix3dInverse.htm">Matrix3dInverse</A>.</li>
+  <li>Returns the largest absolute value difference between corresponding coefficients in two matrices: <A href="usmthMatrix3dMaxDiff.htm">Matrix3dMaxDiff</A>.</li>
+  <li>Returns the largest absolute value of entries in the matrix: <A href="usmthMatrix3dMaxAbs.htm">Matrix3dMaxAbs</A>.</li>
+  <li>Returns the sum of squares of coefficients in a matrix: <A href="usmthMatrix3dSumSquares.htm">Matrix3dSumSquares</A>.</li>
+  <li>Returns the transpose of a matrix: <A href="usmthMatrix3dTranspose.htm">Matrix3dTranspose</A>.</li>
+  <li>Tests whether a matrix can be inverted: <A href="usmthMatrix3dHasInverse.htm">Matrix3dHasInverse</A>.</li>
+  <li>Tests whether a matrix does nothing more than exchange and possibly negate principle axes: <A href="usmthMatrix3dIsSignedPermutation.htm">Matrix3dIsSignedPermutation</A>.</li>
+  <li>Tests whether a matrix is a rigid body rotation: <A href="usmthMatrix3dIsRigid.htm">Matrix3dIsRigid</A>.</li>
+  <li>Tests whether a matrix is orthogonal: <A href="usmthMatrix3dIsOrthogonal.htm">Matrix3dIsOrthogonal</A>.</li>
+  <li>Tests whether a matrix is the identity matrix: <A href="usmthMatrix3dIsIdentity.htm">Matrix3dIsIdentity</A>.</li>
+  <LI>Tests whether a matrix is a rotation in the xy-plane (and return the rotation angle): <A href="usmthMatrix3dIsXYRotation.htm">Matrix3dIsXYRotation</A>.</LI>
+  <LI>Tests whether a matrix is a rotation and scale, and expresses the rotation as product of rotations around
+            principal axes: <A href="usmthMatrix3dIsXRotationYRotationZRotationScale.htm">Matrix3dIsXRotationYRotationZRotationScale</A></li>
+  <LI>Tests whether a matrix can be decomposed into xy rotation, skew and scale components (and return the components): <A href="usmthMatrix3dIsXYRotationSkewAndScale.htm">Matrix3dIsXYRotationSkewAndScale</A>.</LI>
+  <LI>Tests whether a matrix has a singular value decomposition (and return the components): <A href="usmthMatrix3dIsRotateScaleRotate.htm">Matrix3dIsRotateScaleRotate</A>.</LI>
+  <li>Tests whether two matrices are equal, within a given tolerance:<A href="usmthMatrix3dEqualTolerance.htm">Matrix3dEqualTolerance</A>.</li>
+  <li>Tests whether two matrices are equal: <A href="usmthMatrix3dEqual.htm">Matrix3dEqual</A>.</li>
+</ul>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

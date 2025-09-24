@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>EndPrintPage Event</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usevtendprintpage"></A>EndPrintPage Event</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_9559" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtEndPrintPageC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9560" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtEndPrintPageX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9561" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtEndPrintPageA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_9562" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usevtEndPrintPageS">
+</OBJECT>
+</P>
+
+<P class=T>
+This event occurs when MicroStation has finished printing a single page.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>EndPrintPage</B> <I>isSuccess</I>
+<P class=T>The <B>EndPrintPage</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>isSuccess</I></TD>
+<TD class=TT width=79%>
+A <B>Boolean</B> expression. Indicates whether the print operation was successful.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<P>Example:
+    <PRE><CODE>
+        Private Sub IPrintEvents_EndPrintPage(ByVal isSuccess As Boolean)
+
+            If (Not PrintManager.IsPreview) Then
+        
+                Dim logicalAcctFilePath As String
+                logicalAcctFilePath = "$(MS_PLTFILES)PrintAccounting.log"
+
+                Dim acctFilePath As String
+                acctFilePath = ActiveWorkspace.ExpandConfigurationVariable(logicalAcctFilePath)
+    
+                Dim fileNumber As Integer
+                fileNumber = FreeFile
+
+                Open acctFilePath For Append Access Write Lock Write As #fileNumber
+
+                If (LOF(fileNumber) = 0) Then
+                    Print #fileNumber, "Date;Time;DgnFile;PltcfgFile"
+                End If
+        
+                'See "Tracking Printing Usage" in the Help for the list of available accounting variables.
+                Dim printDate As String
+                printDate = ActiveWorkspace.ConfigurationVariableValue("MS_PLTDATE")
+
+                Dim printTime As String
+                printTime = ActiveWorkspace.ConfigurationVariableValue("MS_PLTTIME")
+        
+                Dim dgnFilePath As String
+                dgnFilePath = ActiveWorkspace.ConfigurationVariableValue("MS_PLTDGNFILE_LONG")
+
+                Dim pltcfgFileName As String
+                pltcfgFileName = ActiveWorkspace.ConfigurationVariableValue("MS_PLTDRVFILE_SHORT")
+
+                Dim logMsg As String
+                logMsg = printDate & ";" & printTime & ";" & dgnFilePath & ";" & pltcfgFileName
+        
+                Print #fileNumber, logMsg
+                Close #fileNumber
+
+            End If
+
+        End Sub
+    </CODE></PRE>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+23.00.02
+</P>
+</BODY>
+</HTML>

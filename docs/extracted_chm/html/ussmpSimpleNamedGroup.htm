@@ -1,0 +1,43 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating a NamedGroup and Adding Elements</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Creating a NamedGroup and Adding Elements</H1>
+
+<P class=T>
+This example shows how to create a Named Group and how to add elements to the group.
+</P>
+<PRE class=CT><CODE>
+Sub GroupArcs()
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+    Dim el As <A href="usobjElement.htm">Element</A>
+    Dim arcs As <A href="usobjNamedGroupElement.htm">NamedGroupElement</A>
+
+    Set arcs = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddNewNamedGroup.htm">AddNewNamedGroup</A>("Arcs")
+
+    Set ee = ActiveModelReference.<A href="usmthScan.htm">Scan</A>
+
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        Set el = ee.<A href="usproCurrent.htm">Current</A>
+
+        'only affect graphic elements
+        If el.<A href="usproIsGraphical.htm">IsGraphical</A> Then
+            'add you tests here
+            If el.<A href="usproIsArcElement.htm">IsArcElement</A> Then
+               arcs.<A href="usmthAddMember.htm">AddMember</A> el
+            End If
+        End If
+    Loop
+
+    '  Do one rewrite at the end since that is much
+    '  faster than doing a rewrite every time an element
+    '  is added.
+    arcs.<A href="usmthRewrite.htm">Rewrite</A>
+End Sub
+
+</CODE></PRE>

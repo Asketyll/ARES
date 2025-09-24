@@ -1,0 +1,178 @@
+<!-- Style Sheet Last updated - 7/13/98 -->
+<!-- This style sheet is for IE 3.02 only -->
+
+<style type="text/css">
+
+ body {font: sans-serif Verdana; font-size: 70%; }
+
+	a:link		{color: #0000cc;}
+	a:active	{color: #0000cc;}
+	a:visited	{color: #990099;}
+	.pop		{text-decoration: none; }
+
+	ol		{ }
+	ul		{ }
+	li		{font: sans-serif Verdana; font-size: 70%; }
+
+
+
+ code {font: monospace "Courier New"; font-size: 90%; }
+ pre		{font-size: 90%; margin-top: 1.12pt;}
+
+
+	table	{font: sans-serif Verdana; font-size: 70%; }
+	th		{text-align: left; background: #DDDDDD; vertical-align: bottom;}
+	tr		{vertical-align: top;}
+	td		{vertical-align: top;}
+
+
+ P 			{font: sans-serif Verdana; font-size: 70%; }
+
+ H1			{font: sans-serif Verdana; font-size: 46%; }
+ H2			{font: sans-serif Verdana; font-size: 54%; }
+ H3			{font: sans-serif Verdana; font-size: 65%; }
+
+
+
+<!-- Paragraph styles ------------------------------------------------------------------------- -->
+	.at			{ } 
+	.ab			{ } 
+	.ac			{font-size: 65%;} 
+	.a			{ } 
+	.alnsr		{ }
+	.callkt		{text-indent: -12pt; margin-left: 12pt;}
+	.cae		{ }
+	.cas		{ }
+	.cat		{ }
+	.cmdn		{font-weight: bold;} 
+	.compt		{font-size: 65%;}
+	.cha		{ }
+	.chsum		{ }
+	.ct			{ }
+	.ctnsr		{ }
+	.cri		{text-align: right;}
+	.crt		{}
+	.dt1		{text-indent: -12pt; margin-left: 12pt;}
+	.dt2		{margin-left: 0pt;}
+	.errd		{text-indent: -12pt; margin-left: 12pt;}
+	.errm		{font-weight: bold;}
+	.errt		{ }
+	.xend		{font-weight: bold;}
+	.xs			{font-weight: bold;}
+	.ft			{font-weight: bold;}
+	.fixp		{color: #00ff00;}	<!-- *fix this paragraph for incorrectly used styles / green -->
+	.foot		{font-size: 80%;}
+
+<!-- Heading 2,Chapter Number/Appendix Letter,chn -->
+	.chn		{ } <!-- can't fix, should be small, and right aligned! -->
+	
+<!-- Heading 3, Org Heading 1,h1 - H1 defined in top section -->
+	.cht		{ } <!--Chapter/Appendix Title - Same as generic H1 tag -->
+	.gt			{ } <!--Glossary Title - Same as generic H1 tag -->
+	.ixt		{ } <!--Index Title - Same as generic H1 tag -->
+	.int		{ } <!--Intro Title - Same as generic H1 tag -->
+	.rh1		{ } <!-- Heading 4, Ref Heading 1,rh1  - Same as generic H1 tag -->
+
+
+<!-- Heading 4, Org Heading 2,h2 - H2 Defined in top section -->
+	.rh2		{ } <!-- Heading 5, Ref Heading 2,rh2 - Same as generic H2 tag -->
+	
+<!-- Heading 5,Org Heading 3,h3 - H3 Defined in top section -->
+	.rh3		{ } <!-- Heading 6, Ref Heading 3,rh3 - Same as generic H3 tag -->
+
+<!-- Heading 6,Org Heading 4,h4 NOT USED -->
+<!-- Heading 7,Org Heading 5,h5 NOT USED -->
+	
+<!-- Heading 9,List Procedure Heading,lproch -->
+	.lproch		{font-weight: bold; margin-top: 1.12pt; }
+
+	.ict		{ } 
+	.ilb		{ } 
+	.ils		{ } 
+	.it			{ } 
+	.lalph2		{ } 
+	.la			{ }
+	.la2		{ }
+	.lbr1		{ }
+	.lbr2		{ }
+	.lb1		{ }
+	.lb2		{ }
+	.lcae		{ }
+	.lcas		{ }
+	.lcat		{ }
+	.lct1		{ }
+	.lct2		{ }
+	.lct3		{ }
+	.ft1		{font-weight: bold;}
+	.ft2		{font-weight: bold;}
+	.lmc		{ }
+	.lnt		{ }
+	.lnt2		{ }
+	.lproc		{ }
+	.lproc2		{ }
+	.lprocs		{ }
+	.lproct		{ }
+	.ls			{ }
+	.ls2		{ }
+	.lsyn1		{text-indent: -12pt; margin-left: 12pt;}
+	.lsyn2		{text-indent: -12pt; margin-left: 12pt;}
+	.lt1		{ }
+	.lt2		{ }
+	.ltpt		{}
+	.mt			{margin-top:  12pt;}
+	.nav		{ }
+	.nct		{ } 
+	.nlb		{ }
+	.nls		{ }
+	.nt			{ } 
+	.nsrnh		{font-size: 65%; }
+	.nsrt		{font-size: 65%;}
+	.relatedtopic	{margin-left: 12pt;}
+	.web		{text-indent: -12pt; margin-left: 12pt;}
+	.rtt		{text-align: right; font-size: 68%; }
+	.rlnsr		{font-weight: bold;}
+	.rl			{font-weight: bold;}
+	.slug		{ }	<!-- cc-do we need this? -->
+
+<!-- spacing styles -->
+	.4			{line-height: 4pt;}
+	.6			{line-height: 6pt;}
+	.sansr		{line-height: 6pt;}
+	.satow		{line-height: 6pt;}
+	.satownsr	{line-height: 6pt;}
+<!-- end of spacing styles -->
+
+	.synnsr		{ }
+	.syn		{text-indent: -12pt; margin-left: 12pt;}	
+	.tart		{ }
+	.tct		{ }
+	.tcrt		{ }
+	.tft		{text-indent: -12pt; margin-left: 12pt; font-size: 75%}
+	.tlart		{ }
+	.tlb		{ }
+	.tlb2		{ }
+	.tls		{ }
+	.tnt		{ }
+	.tr			{ }
+	.tt			{ }
+	.tti		{margin-left: 12pt;}
+	.ttl		{font-weight: bold;}
+	.t			{ }
+	.tof		{text-align: right;}
+	.tplb		{ } 
+	.tpls		{}
+	.tpt		{ } 
+	.tproct		{ } 
+	.tproct2	{ } 
+	.tsyn		{text-indent: -12pt; margin-left: 12pt;}
+	.toc3		{text-indent: -12pt; margin-left: 12pt;}	
+	.toc4		{text-indent: -12pt; margin-left: 24pt;}	
+	.toc5		{text-indent: -12pt; margin-left: 36pt;}	
+	.toch		{font-weight: bold;}	
+	.we			{ }
+	.wi			{ }
+	.ws			{ }
+	.wt			{ }
+
+	
+</style>

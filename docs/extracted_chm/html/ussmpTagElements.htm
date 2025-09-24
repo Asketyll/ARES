@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Adding and Modifying Tag Elements Examples</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Adding and Modifying Tag Elements Examples</H1>
+
+<P class=T>
+The macro DoExample calls the other subroutines and functions to manage tag sets,
+            tag definitions, and to create tag elements.
+</P>
+<PRE class=CT><CODE>
+Function Point3dToString(pnt As <A href="usudtPoint3d.htm">Point3d</A>) As String
+    Point3dToString = "(" & pnt.X & ", " & pnt.Y & ", " & pnt.Z & ")"
+End Function
+
+Function GetTagSet() As <A href="usobjTagSet.htm">TagSet</A>
+    Dim strName As String
+    Dim oTagSets As <A href="usobjTagSets.htm">TagSets</A>
+
+    strName = "TagElementExample"
+    Set oTagSets = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproTagSets.htm">TagSets</A>
+    On Error Resume Next
+    Set GetTagSet = oTagSets(strName)
+    If GetTagSet Is Nothing Then
+        Dim td As <A href="usobjTagDefinition.htm">TagDefinition</A>
+        Set GetTagSet = oTagSets.<A href="usmthAdd.htm">Add</A>(strName)
+        Set td = GetTagSet.<A href="usproTagDefinitions.htm">TagDefinitions</A>.Add("TagNumber", msdTagTypeLongInteger)
+        td.<A href="usproIsConstant.htm">IsConstant</A> = True
+        Set td = GetTagSet.TagDefinitions.Add("DateCounted", msdTagTypeCharacter)
+        td.IsConstant = True
+    End If
+End Function
+
+Sub TagElementWithSet(ele As <A href="usobjElement.htm">Element</A>, tset As TagSet)
+    Dim distance As Double
+    Dim pntSavedOffset As Point3d
+    Dim eleTag As <A href="usobjTagElement.htm">TagElement</A>
+    Dim tagDef As TagDefinition
+    Dim tagDefs As <A href="usobjTagDefinitions.htm">TagDefinitions</A>
+
+    distance = <A href="usproActiveSettings.htm">ActiveSettings</A>.<A href="usproTextStyle.htm">TextStyle</A>.<A href="usproHeight.htm">Height</A>
+
+    Set tagDefs = tset.TagDefinitions
+
+    '  Add the first tag
+    Set tagDef = tagDefs("DateCounted")
+    Set eleTag = ele.<A href="usmthAddTag.htm">AddTag</A>(tagDef)
+    pntSavedOffset = eleTag.<A href="usmthOffset.htm">Offset</A>
+    eleTag.<A href="usmthMove.htm">Move</A> <A href="usmthPoint3dFromXY.htm">Point3dFromXY</A>(0, 2 * distance)
+    Debug.Print "Changed offset from " & Point3dToString(pntSavedOffset) & " to " & Point3dToString(eleTag.Offset)
+    eleTag.<A href="usmthRedraw.htm">Redraw</A>
+    '  AddTags added it to the model.  Rewrite it now
+    '  since it has been moved.
+    eleTag.<A href="usmthRewrite.htm">Rewrite</A>
+
+    '  Add the second tag
+    Set tagDef = tagDefs("TagNumber")
+    Set eleTag = ele.AddTag(tagDef)
+    eleTag.Move Point3dFromXY(0, distance)
+    eleTag.Redraw
+    '  AddTags added it to the model.  Rewrite it now
+    '  since it has been moved.
+    eleTag.Rewrite
+End Sub
+
+Sub DoExample()
+    Dim ts As TagSet
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+    Dim sc As New ElementScanCriteria
+    Dim counter As Long
+    Dim eleTag As TagElement
+    Dim today As Date
+
+    today = Date
+
+    Set ts = GetTagSet
+
+    Set ee = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetSelectedElements.htm">GetSelectedElements</A>
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        TagElementWithSet ee.<A href="usproCurrent.htm">Current</A>, ts
+    Loop
+
+    sc.<A href="usmthExcludeAllTypes.htm">ExcludeAllTypes</A>
+    sc.<A href="usmthIncludeType.htm">IncludeType</A> msdElementTypeTag
+    Set ee = ActiveModelReference.<A href="usmthScan.htm">Scan</A>(sc)
+
+    Do While ee.MoveNext
+        Set eleTag = ee.Current
+        If eleTag.<A href="usproTagSetName.htm">TagSetName</A> = "TagElementExample" Then
+            eleTag.Redraw msdDrawingModeErase
+            If eleTag.<A href="usproTagDefinitionName.htm">TagDefinitionName</A> = "TagNumber" Then
+                counter = counter + 1
+                eleTag.<A href="usproValue.htm">Value</A> = counter
+            ElseIf eleTag.TagDefinitionName = "DateCounted" Then
+                eleTag.Value = "Counted on " & today
+            End If
+            eleTag.Redraw msdDrawingModeNormal
+            eleTag.Rewrite
+        End If
+    Loop
+End Sub
+
+</CODE></PRE>

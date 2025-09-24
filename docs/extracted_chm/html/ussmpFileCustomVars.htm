@@ -1,0 +1,59 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Design File Custom Properties Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Design File Custom Properties Example</H1>
+
+<P class=T>
+This example illustrates how to use <A href="usmthGetCustomProperty.htm">GetCustomProperty</A> and
+            <A href="usmthSetCustomProperty.htm">SetCustomProperty</A> to get and set custom properties for a design file.
+</P>
+<PRE class=CT><CODE>
+Sub SetCustomProperties()
+    Dim iVal As Integer
+    Dim lVal As Long
+    Dim rVal As Double
+    Dim sVal As Single
+    Dim bVal As Boolean
+
+    iVal = 1000
+    lVal = 1001234
+    rVal = 27.529
+    sVal = 100.001
+
+    With <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>
+        .SetCustomProperty "iVal", iVal
+        .SetCustomProperty "lVal", lVal
+        .SetCustomProperty "bstrVal", "SOME STRING"
+        .SetCustomProperty "rVal", rVal
+        .SetCustomProperty "sVal", sVal
+        .SetCustomProperty "boolVal", bVal
+        .SetCustomProperty "DateTest", Date + time
+    End With
+End Sub
+
+Sub GetCustomProperties()
+
+    With ActiveDesignFile
+        Debug.Print .GetCustomProperty("iVal")
+        Debug.Print .GetCustomProperty("lVal")
+        Debug.Print .GetCustomProperty("bstrVal")
+        Debug.Print .GetCustomProperty("rVal")
+        Debug.Print .GetCustomProperty("sVal")
+        Debug.Print .GetCustomProperty("boolVal")
+        Debug.Print .GetCustomProperty("DateTest")
+    End With
+
+End Sub
+
+Sub SetAndGetCustomProperties()
+    SetCustomProperties
+    GetCustomProperties
+End Sub
+
+</CODE></PRE>
