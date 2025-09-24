@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Matrix3dIsXYRotation Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthmatrix3disxyrotation"></A>Matrix3dIsXYRotation Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_3623" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMatrix3dIsXYRotationC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3624" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMatrix3dIsXYRotationX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3625" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMatrix3dIsXYRotationA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_3626" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthMatrix3dIsXYRotationS">
+</OBJECT>
+</P>
+
+<P class=T>
+Analyze a matrix and determine if it is a rotation in the xy plane,
+           with no other effects. If so, return true as the function value and
+           store the rotation angle (in radians) as the XYRotationRadians parameter.
+           A false return (with no meaningful angle) occurs when the matrix has any scale, skew,
+           or mirror effects effects (in any direction) or has rotation effects other than around Z.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><B>Boolean</B></I> = <I>object</I>.<B>Matrix3dIsXYRotation</B> (<I>Matrix</I>, <I>XYRotationRadians</I>)
+<P class=T>The <B>Matrix3dIsXYRotation</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Matrix</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtMatrix3d.htm">Matrix3d</A> expression. matrix being analyzed.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>XYRotationRadians</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. signed angle of rotation around z.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.02
+</P>
+</BODY>
+</HTML>

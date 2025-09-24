@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Arcs By Length Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Arcs By Length Example</H1>
+
+<P class=T>
+This example uses the methods <A href="usmthShowCommand.htm">ShowCommand</A>, <A href="usmthShowPrompt.htm">ShowPrompt</A>, and <A href="usmthShowStatus.htm">ShowStatus</A> to display messages in MicroStation's
+            main window.
+</P>
+<P class=T>
+This example uses the method <A href="usproCadInputQueue.htm">CadInputQueue</A>.<A href="usmthGetInput.htm">GetInput</A> to get user input represented by
+            a <A href="usobjCadInputMessage.htm">CadInputMessage</A> object. It also uses some of <A href="usobjCadInputQueue.htm">CadInputQueue</A>'s send methods such as <A href="usmthSendDataPoint.htm">SendDataPoint</A> and
+            <A href="usmthSendReset.htm">SendReset</A> to send input to MicroStation's user interface.
+</P>
+<P class=T>
+This examples uses the methods <A href="usmthGetCExpressionValue.htm">GetCExpressionValue</A> and <A href="usmthSetCExpressionValue.htm">SetCExpressionValue</A> to get and set some of
+            MicroStation's internal settings.
+</P>
+<P class=T>
+When the command is finished, it invokes <A href="usobjCommandState.htm">CommandState</A>.<A href="usmthStartDefaultCommand.htm">StartDefaultCommand</A> to set MicroStation back to a
+            standard state.
+</P>
+<PRE class=CT><CODE>
+'Places Arcs by length. Arc is placed Counter Clockwise from first point to second.
+
+Sub ArcsByLength()
+
+Dim arcLength       As Double
+Dim firstPoint      As <A href="usudtPoint3d.htm">Point3d</A>
+Dim halfChord       As Double
+Dim killPoint       As Point3d
+Dim lengthString    As String
+Dim maxcount        As Integer
+Dim nextPoint       As Point3d
+Dim oldSweepAngle   As Double       'In Radians
+Dim status          As Integer
+Dim sweepAngle      As Double       'In Radians
+Dim x               As Double
+Dim y               As Double
+Dim oMessage        As CadInputMessage
+
+Dim savePlaceArcMode
+savePlaceArcMode = GetCExpressionValue("tcb-&gt;msToolSettings.igen.placeArcMode", "IGEN")
+
+ShowCommand "Arc by Length"
+ShowStatus "Arc placed counterclockwise from 1st. point to 2nd.point"
+ShowPrompt "Place first data point"
+
+Set oMessage = CadInputQueue.GetInput(msdCadInputTypeDataPoint, msdCadInputTypeReset)
+firstPoint = oMessage.point
+
+killPoint.x = firstPoint.x
+killPoint.y = firstPoint.y
+
+Do While oMessage.<A href="usproInputType.htm">InputType</A> &lt;&gt; msdCadInputTypeReset
+    ShowPrompt "Place next data point"
+    Set oMessage = CadInputQueue.GetInput(msdCadInputTypeDataPoint, msdCadInputTypeReset)
+    If oMessage.InputType &lt;&gt; msdCadInputTypeReset Then
+        nextPoint = oMessage.point
+
+        If nextPoint.x = killPoint.x And nextPoint.y = killPoint.y Then
+            Exit Sub
+        End If
+
+        x = Abs(firstPoint.x - nextPoint.x)
+        y = Abs(firstPoint.y - nextPoint.y)
+        halfChord = Sqr(x * x + y * y) / 2
+
+        arcLength = 3# * halfChord
+
+        If arcLength &lt; 2 * halfChord Then
+            MsgBox "Length " + lengthString + " is too short"
+        ElseIf arcLength &gt; <A href="usmthPi.htm">Pi</A> * halfChord Then
+            MsgBox "Length " + lengthString + " is too long"
+        Else
+            'Set up variables for loop
+            sweepAngle = Pi
+            oldSweepAngle = sweepAngle + 0.1
+
+            'Using Newton's Method of Approximation,
+            'calculate the sweepAngle for an arc of the required length
+            Do While oldSweepAngle - sweepAngle &gt; 0.00005
+                oldSweepAngle = sweepAngle
+                sweepAngle = sweepAngle - ((((arcLength * Sin(sweepAngle / 2)) _
+                    - sweepAngle * halfChord) _
+                    / ((arcLength / 2) * Cos(sweepAngle / 2) - halfChord)))
+            Loop
+
+
+            'Set up Arc placement parameters
+            CadInputQueue.<A href="usmthSendCommand.htm">SendCommand</A> "PLACE ARC ICON "
+            SetCExpressionValue "tcb-&gt;msToolSettings.igen.placeArcMode", 1&, "IGEN"
+
+            CadInputQueue.SendCommand "PLACE ARC ICON "
+            CadInputQueue.SendCommand "IGEN CONSTRAIN SWEEPANGLE LOCK "
+            CadInputQueue.SendCommand "IGEN CONSTRAIN SWEEPANGLE" + Str$(sweepAngle * 180 / Pi)
+            CadInputQueue.SendCommand "IGEN CONSTRAIN STARTANGLE UNLOCK "
+            CadInputQueue.SendCommand "IGEN CONSTRAIN RADIUS UNLOCK "
+
+            'Place the arc
+            CadInputQueue.SendDataPoint firstPoint
+            CadInputQueue.SendDataPoint nextPoint
+
+            firstPoint.x = nextPoint.x
+            firstPoint.y = nextPoint.y
+            firstPoint.Z = nextPoint.Z
+
+        End If
+
+        CadInputQueue.SendCommand "IGEN CONSTRAIN SWEEPANGLE UNLOCK "
+        <A href="usproCommandState.htm">CommandState</A>.StartDefaultCommand
+        CadInputQueue.SendReset
+        CadInputQueue.SendCommand "NULL"
+        CadInputQueue.SendCommand "ECHO"
+        CadInputQueue.SendCommand "NULL"
+    End If
+Loop
+
+SetCExpressionValue "tcb-&gt;msToolSettings.igen.placeArcMode", savePlaceArcMode, "IGEN"
+
+ShowStatus "Finished Place Arc by Length"
+ShowPrompt ""
+CommandState.StartDefaultCommand
+
+End Sub
+
+</CODE></PRE>

@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Combining Transforms Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Combining Transforms Example</H1>
+
+<P class=T>
+This example illustrates a technique for combining transforms.  It is possible to achieve the
+            same effect by rotating an element, then scaling the element, and finally moving
+            it using <A href="usmthMove.htm">Move</A>.  The approach illustrated in this example is more efficient, but
+            the difference is insignificant unless a lot of elements are being transformed.
+</P>
+<PRE class=CT><CODE>
+'  ScaleRotateAndMove sets up and and uses a transform that does the
+'  equivalent of scaling and rotating the element about pntFixed, and then
+'  moving the transformed element the distance specified by pntDistance.
+Sub ScaleRotateAndMove(ele As <A href="usobjElement.htm">Element</A>, dblAngle As Double, _
+    pntFixed As <A href="usudtPoint3d.htm">Point3d</A>, pntDistance As Point3d, pntScaleFactors As Point3d)
+
+    Dim mtrxRotation As <A href="usudtMatrix3d.htm">Matrix3d</A>
+    Dim mtrxScale As Matrix3d
+    Dim mtrxCombined As Matrix3d
+    Dim trns As <A href="usudtTransform3d.htm">Transform3d</A>
+    Dim trnsMove As Transform3d
+
+    '  Create the rotation matrix
+    mtrxRotation = <A href="usmthMatrix3dFromAxisAndRotationAngle.htm">Matrix3dFromAxisAndRotationAngle</A>(2, dblAngle)
+
+    '  Create a scaling matrix
+    With pntScaleFactors
+        mtrxScale = <A href="usmthMatrix3dFromScaleFactors.htm">Matrix3dFromScaleFactors</A>(.X, .Y, .Z)
+    End With
+
+    ' Multiply the matrices to create a matrix that scales and rotates
+    mtrxCombined = <A href="usmthMatrix3dFromMatrix3dTimesMatrix3d.htm">Matrix3dFromMatrix3dTimesMatrix3d</A>(mtrxRotation, mtrxScale)
+
+    '  Create a transform to rotate and scale about a fixed point
+    trns = <A href="usmthTransform3dFromMatrix3dAndFixedPoint3d.htm">Transform3dFromMatrix3dAndFixedPoint3d</A>(mtrxCombined, pntFixed)
+
+    '  Create a transform for moving the element
+    With pntDistance
+        trnsMove = <A href="usmthTransform3dFromXYZ.htm">Transform3dFromXYZ</A>(.X, .Y, .Z)
+    End With
+
+    '  Multiply the 2 transformation matrices to create a transformation
+    '  matrix that rotates, scales, and moves the element. Be certain to get the
+    '  arguments to Transform3dFromTransform3dTimesTransform3d in he
+    '  proper order since reversing the order of the arguments creates
+    '  a transform that moves the elements, and then rotates and scales
+    '  the moved element.
+    trns = <A href="usmthTransform3dFromTransform3dTimesTransform3d.htm">Transform3dFromTransform3dTimesTransform3d</A>(trnsMove, trns)
+    ele.<A href="usmthTransform.htm">Transform</A> trns
+End Sub
+
+Sub TryIt1()
+    Dim ele As <A href="usobjTextElement.htm">TextElement</A>
+    Dim id As <A href="usudtDLong.htm">DLong</A>
+    Dim pntDistance As Point3d
+    Dim pntScale As Point3d
+    Dim pntFixed As Point3d
+
+    id = <A href="usmthDLongFromString.htm">DLongFromString</A>("199")
+    Set ele = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetElementByID.htm">GetElementByID</A>(id)
+    ele.<A href="usmthRedraw.htm">Redraw</A> msdDrawingModeErase
+
+    '  Scale and rotate about this point
+    pntFixed = ele.<A href="usproOrigin.htm">Origin</A>
+    '  Distance to move the element
+    pntDistance = <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(10, 0, 0)
+    '  Scale factors
+    pntScale = Point3dFromXYZ(2, 4, 1)
+
+    ScaleRotateAndMove ele, <A href="usmthRadians.htm">Radians</A>(45), pntFixed, pntDistance, pntScale
+
+    ele.Redraw msdDrawingModeNormal
+    ele.<A href="usmthRewrite.htm">Rewrite</A>
+End Sub
+
+</CODE></PRE>

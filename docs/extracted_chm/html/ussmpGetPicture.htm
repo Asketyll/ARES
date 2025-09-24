@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GetPicture Method Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>GetPicture Method Example</H1>
+
+<P class=T>
+This example illustrates how to get an IPicture interface to an image of an element.
+        It uses the <A href="usmthGetPicture.htm">GetPicture</A> method of <A href="usobjElement.htm">Element</A> to get an IPicture interface to
+        an image of an element. The width and height of an Image frame is in points
+        which need to be converted into pixels. Note that the error handling section is for the case
+        when the macro is running in a different process. IPicture cannot be used in a process other than the process where
+            it is created. To generate a picture to be used from another process, use <A href="usmthDrawToFile.htm">DrawToFile</A> instead of <B>GetPicture</B>.
+</P>
+<PRE class=CT><CODE>
+Sub TestElementGetPicture()
+    Dim lineElement As Element
+    Dim index As Long
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+
+    index = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usproGraphicalElementCache.htm">GraphicalElementCache</A>.count
+    Do While (True)
+        Dim ele As Element
+        If ActiveModelReference.GraphicalElementCache.<A href="usmthIsElementValid.htm">IsElementValid</A>(index) Then
+            Set ele = ActiveModelReference.GraphicalElementCache.<A href="usmthGetElement.htm">GetElement</A>(index)
+            If ele.<A href="usproIsLineElement.htm">IsLineElement</A> Then
+                Set lineElement = ele
+                Exit Do
+            End If
+        End If
+        index = index - 1
+    Loop
+
+    Dim stdPic As StdPicture
+    With frmDrawElement.Image1
+        On Error GoTo DrawToMetaFile
+        Set stdPic = lineElement.GetPicture(<A href="usmthPointsToPixelsX.htm">PointsToPixelsX</A>(.<A href="usproWidth.htm">Width</A>), <A href="usmthPointsToPixelsY.htm">PointsToPixelsY</A>(.<A href="usproHeight.htm">Height</A>), True)
+        .Picture = stdPic
+    End With
+    With frmDrawElement.Image2
+        On Error GoTo DrawToMetaFile
+        Set stdPic = lineElement.GetPicture(PointsToPixelsX(.Width), PointsToPixelsY(.Height), False)
+        .Picture = stdPic
+    End With
+
+    frmDrawElement.Show
+
+    Exit Sub
+
+DrawToMetaFile:
+        Dim strEnhMetafileName As String
+        strEnhMetafileName = GetTempEnhMetafile(200)
+        With frmDrawElement.Image1
+            DrawToFile lineElement, strEnhMetafileName, .Width, .Height, True
+            .Picture = LoadPicture(strEnhMetafileName)
+        End With
+        Kill strEnhMetafileName
+        strEnhMetafileName = GetTempEnhMetafile(201)
+        With frmDrawElement.Image2
+            DrawToFile lineElement, strEnhMetafileName, .Width, .Height, False
+            .Picture = LoadPicture(strEnhMetafileName)
+        End With
+        Kill strEnhMetafileName
+    frmDrawElement.Show
+End Sub
+
+
+Public Function GetTempEnhMetafile(ByVal nid As Long) As String
+    Dim strTempPath As String
+    Dim lngResult As Long
+
+    strTempPath = GetTemporaryPath
+    If strTempPath &lt;&gt; "" Then
+        GetTempEnhMetafile = strTempPath & "__" & nid & ".EMF"
+    Else
+        Err.Raise 1, "Get Temporary path failed"
+    End If
+
+End Function
+
+Sub DrawToFile(ele As Element, strEnhMetafileName As String, Width As Long, Height As Long, drawBG As Boolean)
+    On Error Resume Next
+    ele.DrawToFile strEnhMetafileName, _
+        <A href="usmthApplyHorizontalScalingFixForEMF.htm">ApplyHorizontalScalingFixForEMF</A>(PointsToPixelsX(Width)), _
+        <A href="usmthApplyVerticalScalingFixForEMF.htm">ApplyVerticalScalingFixForEMF</A>(PointsToPixelsY(Height)), drawBG
+End Sub
+
+</CODE></PRE>

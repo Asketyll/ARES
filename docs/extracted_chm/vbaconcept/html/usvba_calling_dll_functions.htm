@@ -1,0 +1,476 @@
+<!--ArborText, Inc., 1988-2002, v.4002-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Calling DLL functions from VBA</title>
+<link href="/Office.css" type="text/css" rel="StyleSheet" media="screen"></head>
+<body><div><h1>Calling DLL functions from VBA</h1>
+<p>Visual Basic and VBA programs can use functions that are defined in native code DLLs.
+This capability lets VBA programs use the Windows API.  It also lets VBA programs running
+in MicroStation use MDL built-in functions.  Most VBA programs and most VBA programmers will not use this capability.  New VBA programmers should skip
+this section concentrating on pure VBA instead.</p>
+<p><b>Note</b>: MicroStation&rsquo;s built-in functions have to execute as part of MicroStation; therefore, a standalone
+VB program or a VBA program running under the control of a host outside of MicroStation, such as a Microsoft Office application,
+will get unpredictable results if it attempts to use the MDL built-ins.</p>
+<p>Many functions in DLLs can execute in any process. That is not true of MicroStation&rsquo;s built-in
+functions. Programs that need to call MicroStation&rsquo;s built-in functions from another process
+must use <b>GetCExpressionValue</b> to do so.</p>
+<p>When a Visual Basic program calls a MicroStation built-in function, it is
+actually using a wrapper function instead of directly using the MicroStation
+built-in function. The wrapper functions are in the DLLs:</p>
+<ul>
+<li>stdbspline.dll</li>
+<li>stdcons.dll</li>
+<li>stdimage.dll</li>
+<li>stdmdlaccessor.dll</li>
+<li>stdmdlbltin.dll</li>
+<li>stdraster.dll</li>
+<li>stdrdbms.dll</li>
+<li>stdrender.dll</li>
+</ul>
+<p>Previous versions of MicroStation also included stdkisolid.dll.  It is no longer available because the mdlKISolid MDL functions
+have been eliminated. It is no longer needed because the SmartSolid and SmartSolidElement were added in 8.11.9.</p>
+<p>VB programs cannot use the MDL built-ins directly because:</p><ul>
+<li>    With 32-bit MicroStation, VBA programs can only call DLL functions that are declared as <code>__stdcall
+</code>.  MicroStation built-in functions are declared as <code>__cdecl</code></li>
+<li>    The VBA dispatcher does not set the current MDL descriptor. If VBA called
+MDL functions directly, they would be calling functions with a random MDL
+descriptor</li>
+<li>Starting with MicroStation 8.12 EDIT NEEDED MicroStation uses wchar_t* and WString for string character arguments.  VBA
+native code interop works best with char* making it possible for the VBA program to work with VBA String variables without
+being concerned about how the native code portion handles strings. To let VBA programmers continue to use String
+variables, the wrapper functions take char* arguments and convert to wchar_t* as necessary before and after calling the wrapped
+functions</li>
+</ul>
+<p>The typical wrapper function sets the MDL descriptor to one reserved for all of VBA, converts String arguments
+to wchar_t* and WString as necessary, calls the wrapped function, converts output string values back to String format,
+and then restores the MDL descriptor.</p>
+<p>Note, the MDL descriptor reserved for VBA has the current transform set to master units.
+</p>
+<div>
+<h2>Declaration of a function</h2>
+<p>A function must be declared within the body of a VBA program before it can be called.
+The declaration states that the function is in a DLL and specifies the function&rsquo;s parameters
+and return type.</p>
+<div>
+<a name="#declare_statement"</a>
+<h3>Declare Statement</h3>
+<p>There are two forms of the declare statement:</p>
+<p><code>[Public | Private] Declare PtrSafe Sub name Lib "libname" [Alias "aliasname"] [([arglist])]</code></p>
+<p><code>[Public | Private] Declare PtrSafe Function name Lib "libname" [Alias "aliasname"] [([arglist])] [As type]</code></p>
+<p>See the section  <a href="usvba_64bit_processes.htm#changes_vba71" target="">Changes for VBA 7.1</a> for information on <code>PtrSafe</code>.</p>
+<p>The Visual Basic Reference describes the <code>declare</code> statement well, but does not give all of the
+information needed to decide how to declare the arguments and use return values.</p>
+<p>The syntax for an argument is:</p>
+<p><code> [Optional] [ByVal | ByRef] [ParamArray] varname[()] [As type]</code></p>
+<p>This is the same as an argument declaration for a VB procedure. The syntax for declaring the function return type is also
+the same as the syntax for a standard VBA return type. It is important to understand how the
+ByVal, ByRef, and the data types correspond to C concepts. The following sections address
+these topics.</p></div>
+<div><h3>Simple Arguments</h3>
+<p>First, consider how the base types match.  The table below shows C and Visual Basic base type equivalents:</p>
+<table border="1" frame="box" rules="all">
+<colgroup><col><col></colgroup><thead>
+<tr>
+<td><b>C base type</b></td>
+<td><b>Visual Basic base type</b></td>
+</tr>
+</thead><tbody>
+<tr>
+<td>char</td>
+<td>Byte</td>
+</tr>
+<tr>
+<td>short</td>
+<td>Integer</td>
+</tr>
+<tr>
+<td>int</td>
+<td>Long</td>
+</tr>
+<tr>
+<td>long</td>
+<td>Long</td>
+</tr>
+<tr>
+<td>float</td>
+<td>Single</td>
+</tr>
+<tr>
+<td>double</td>
+<td>Double</td>
+</tr>
+</tbody></table><p>VB&rsquo;s user-defined types are compatible with C structures,
+although it may be necessary in some cases to add padding to a UDT to make
+it line up with the MDL struct. In VB, Long and Double fields always start
+on a 4-byte boundary. With MicroStation&rsquo;s C structures, long fields
+always start on a 4-byte boundary but double fields always start on an 8-byte
+boundary.</p>
+<p>Here is an example of a UDT that requires some padding to
+make it line up with the MicroStation structure:</p>
+<p><code>' The field <b>pad</b> is needed to force <b>width</b> to line up with the C structure</code></p>
+<p><code>
+  Type TextSize<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mode As Long<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pad
+As Long<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;width As Double<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;height
+As Double<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;aspectRatio As Double<br>End Type
+</code></p>
+<p>MicroStation&rsquo;s object model provides some of the common
+simple structures from MicroStation. A C DPoint3d is a VB Point3d; a C RotMatrix
+is a VB Matrix3d; a C Transform is a Transform3d.</p>
+<p>Declaring an argument ByRef means that it is a reference to the memory that holds the argument.
+ C provides a similar capability via pointers.  A VB declaration ByRef dlbArg
+as Double is equivalent to the C declaration double *dblArg.  ByVal means
+only the value of the location is passed to the function.  Since the called
+function does not get the address of the argument, it cannot modify the original
+value.</p><p>MDL built-ins do not use structures as arguments.  If a MDL built-in
+requires a structure, it declares an argument that is a pointer to a structure.
+For a C declaration of a pointer to a structure, the corresponding VBA declaration
+is a ByRef variable of the corresponding UDT type. For example, given the
+C declaration: <code>DPoint3d *arg</code> use the VB declaration: <code>ByRef
+arg as Point3d</code>.</p>
+</div>
+<div><h3>Pointer Arguments</h3>
+<p>Many MicroStation built-ins take arguments that are pointers. Here are some of the uses of pointer
+arguments. Some of these are discussed in depth later.</p>
+<ul>
+<li>    <a href="#dynamic_types" target="">Dynamically Allocated Types</a>: These
+are types such as DgnModelRefP and DialogBox*</li>
+<li>    Function pointers.  MicroStation does not work well with function pointers
+from VBA.</li>
+<li>    <a href="#arrays">Arrays</a></li>
+<li>    Structures.  When a MicroStation built-in requires an argument that is
+a structure, it uses a pointer type.  For example, DPoint3d *</li>
+<li>    <a href="#optional_arguments" target="">Optional arguments</a>: If an
+argument is optional, it normally is declared as a pointer. The caller can
+pass in NULL or pass a pointer to the actual argument value</li>
+<li>    <a href="#variable_arguments">Variable argument types</a>: For some MicroStation
+built-in functions, the data type of one argument depends on the data type
+of another argument. To allow this, the argument that has different types
+is declared as void *.  For example, if the second argument to mdlParams_setActive
+is ACTIVEPARAM_COLOR_BY_NAME then the void * represents a char *. If the second
+argument is ACTIVEPARAM_TEXTWIDTH then void * argument represents a double
+*.</li>
+<li>    <a href="#strings">ASCII Strings</a>: These are declared as char *.</li>
+<li>    <a href="#strings">Unicode Strings</a>: These are declared as MSWChar
+*.</li>
+</ul>
+<div><a name="dynamic_types"></a><h4>Pointers for Dynamically Allocated Types</h4>
+<p>For many types, MicroStation allocates and frees the memory.
+Some examples are <code>MdlDesc *</code>, <code>DialogBox *</code>, and <code>
+DgnModelRefP *</code>. Since VB does not have a pointer type, VB programs
+have to use <b>Long</b> to represent a pointer type with 32-bit MicroStation and <b>LongLong</b> 
+with a 64-bit MicroStation. VBA 7.1 introduces the type <b>LongPtr</b>.  <b>LongPtr</b> means <b>Long</b> in a 32-bit process and
+<b>LongLong</b> in a 64-bit process. A progam should declare a pointer as <b>LongPtr</b>, letting the compiler handle
+the translation to <b>Long</b> or <b>LongLong</b>.</p>
+<p>For some of these types, MicroStation&rsquo;s object model provides hidden methods for converting
+between the pointer and the corresponding object. The hidden methods in Application
+are <b>MdlGetDesignFileFromModelRefP</b>, <b>MdlGetModelReferenceFromModelRefP
+</b>, and <b>MdlCreateElementFromElementDescrP</b>.  DesignFile has the hidden
+method <b>MdlFileObjP</b> and <b>MdlModelRefP</b>.  Element and all of the
+specific element types have the methods <b>MdlElementDescrP</b> and <b>MdlSetElementDescrP
+</b>.  ElementScanCriteria has the method <b>MdlScanCriteriaP</b>.</p>
+<p>
+This example shows how to use a <b>DgnModelRefP</b>.  The C declaration declares
+that the input argument is a <b>DgnModelRefP</b>, but the VB program has to
+treat this a long.  It uses the hidden method <b>MdlModelRefP</b> to get the
+pointer, and passes that into <b>mdlModelRef_isTransient</b>.  Here is the
+C declaration:</p>
+<p><code>BoolInt                mdlModelRef_isTransient<br>(<br>DgnModelRefP
+modelRef<br>);</code></p>
+<p>The VB code equivalent is:</p>
+<p><code>Declare PtrSafe Function mdlModelRef_isTransient _<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Lib "stdmdlbltin.dll"
+_<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ByVal modelRef As LongPtr) As Long<br><br>Function
+IsTransient(oModelRef As ModelReference) _<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;As
+Boolean<br>&nbsp;&nbsp;&nbsp;&nbsp;Dim lDgnModelRefP As LongPtr<br>&nbsp;&nbsp;&nbsp;&nbsp;Dim
+result As Long<br>&nbsp;&nbsp;&nbsp;&nbsp;lDgnModelRefP = oModelRef.MdlModelRefP<br>&nbsp;&nbsp;&nbsp;&nbsp;result
+= mdlModelRef_isTransient(lDgnModelRefP)<br>&nbsp;&nbsp;&nbsp;&nbsp;IsTransient
+= CBool(result)<br>End Function</code></p></div><div><a name="arrays"></a><h4>
+Arrays</h4><p>Visual Basic arrays and C arrays are very different.  A Visual
+Basic array is a data structure that has a description of the array bounds
+and a pointer to the data.  A C array just has the data.  Since the C function
+wants a pointer to the actual data, a VB program should never call an MDL
+built-in passing the address of the array. In most cases, it should pass in
+the address of the first element of the array. The normal technique for passing
+in the address is to declare the argument as <b>ByRef</b>.  This causes the
+VB compiler to generate the code to pass the address of the first argument.
+This example using <b>mdlRefFile_setClip</b> illustrates this.  The C declaration
+of <b>mdlRefFile_setClip</b> is:</p>
+<p><code>int      mdlRefFile_setClip<br>(<br>DgnModelRefP
+   modelRef,<br>DPoint2d        *pts,<br>int&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nverts<br>);
+</code></p><p>The VB declaration for <b>mdlRefFile_setClip</b> is:</p>
+<p><code>Declare PtrSafe Function mdlRefFile_setClip _<br>&nbsp;&nbsp;&nbsp;&nbsp;Lib "stdmdlbltin.dll"
+_<br>&nbsp;&nbsp;&nbsp;&nbsp;(ByVal modelRef As LongPtr, _<br>&nbsp;&nbsp;&nbsp;&nbsp;ByRef
+pts As Point2d, _<br>&nbsp;&nbsp;&nbsp;&nbsp;ByVal nverts As Long) As Long
+</code></p>
+<p>Given a VB array declared as <code>clipbound(0 to 6)As Point2d
+</code> , a call to this function would look like:</p><p><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mdlRefFile_setClip
+modelRefP, clipbound(0), 7</code></p><p>This passes the address of clipbound(0)
+to mdlRefFile_setClip.</p></div>
+<div><a name="optional_arguments"></a><h4>Optional Arguments</h4>
+<p>Many MicroStation built-in functions support variable
+arguments by using a pointer for the argument. A C program specifies NULL
+if it is not supplying a value for the argument, or the address of a variable
+containing the value otherwise. In Visual Basic, the standard way of passing
+a pointer to an argument is to declare the argument as ByRef. In general,
+this is the best approach for passing pointer arguments but it does not work
+well with optional arguments because there is no way to pass NULL for a typed
+ByRef argument if the argument&rsquo;s type is a UDT such as Point3d or Matrix3d.
+</p><p>It is possible to pass a NULL value if the argument is declared as
+a ByRef numeric type or declared as a ByRef Any.  The following example shows
+2 possible declarations for <b>mdlAccudraw_optimizeForContext</b> that take
+advantage of this.</p>
+<p>This example is based on the C declaration for mdlAccudraw_optimizeForContext:</p>
+<p><code>Public int     mdlAccudraw_optimizeForContext
+<br>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;long flags,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/* => flags from accudraw.h */
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DPoint3d *originP,&nbsp;/* => NULL okay (for all 5) */
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DPoint3d *deltaP,&nbsp;&nbsp;/* => */
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double        *distanceP,&nbsp;/* => */
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;double *angleP,&nbsp;&nbsp;&nbsp;&nbsp;/* => */
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;void *orientationP&nbsp;/* => RotMatrix or DPoint3d (unit vector) */
+<br>)</code></p>
+<p>
+All of the arguments except <b>flags</b> are pointers, so the initial inclination
+is to declare them as ByRef. This results in the following declaration:</p>
+<p><code>
+Declare PtrSafe Function mdlAccudraw_optimizeForContext _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Lib "stdmdlbltin.dll" (ByVal flags As Long, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef originP As Point3d, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef deltaP As Point3d, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef distanceP As Double, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef angleP As Double, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef orientationP As Any) As Long</code></p>
+<p>That will force the compiler to check that the base
+type is correct (is it a Double, Point3d, etc.) and will also force the compiler
+to generate the code to pass a pointer to the value. This is safe and easy
+to code, but it requires the programmer to provide a reasonable value for
+each of the arguments. That may be a nuisance to the programmer. A solution
+is to change the declaration to:</p>
+<p><code>Declare Function mdlAccudraw_optimizeForContext1 _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Lib "stdmdlbltin.dll" (ByVal flags As Long, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef originP As Any, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef deltaP As Any, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef distanceP As Double, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef angleP As Double, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef orientationP As Any) As Long</code></p>
+<p>Using this technique, a VBA program can pass NULL by specifying ByVal 0. For example:</p>
+<p><code>mdlAccudraw_optimizeForContext flags, ByVal 0, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal 0, ByVal 0, ByVal 0, 0</code></p>
+<p>The disadvantage of using this declaration is that the compiler
+catchers fewer coding errors.  With this declaration, the compiler no longer
+checks the data type of the arguments passed to originP and deltaP.</p></div>
+<div><a name="variable_arguments"></a><h4>Variable Argument Types</h4>
+<p>The last section ignored the function&rsquo;s final argument. Depending on the value
+passed in the flags argument, the final argument may be a pointer to an RMatrix
+(Matrix3d) or to a DPoint3d (Point3d). The VB program can handle this by declaring
+the argument as <code>ByRef orientation as Any</code> and passing the proper
+kind of argument, or the VB program can handle this by supplying multiple
+declarations with one declaring the last argument as <code>ByRef orientation
+as Matrix3d</code> and the second declaring it as <code>ByRef orientation
+as Point3d</code>.  Once again, the approach using multiple declarations is
+safer.</p></div>
+<div><a name="strings"></a><h4>Strings</h4>
+<p>Visual Basic stores Strings as Unicode strings.  Prior to MicrStation ??? EDIT NEEDED many MicroStation functions required ASCII
+strings.  These arguments are declared as char *.  Some MicroStation functions
+required Unicode strings.  These arguments are normally declared as MSWChar*. Starting with MicrStation ??? EDIT NEEDED
+the vast majority of the functions were changed to require Unicode strings. However, since VBA interop were better
+with ASCII strings the wrapper functions still take char* arguments. The wrapper functions convert to Unicode prior to calling
+the wrapped function, and convert from Unicode upon return from the wrapped function.
+*. </p>
+<p>Visual Basic has some automatic processing for handling a ByVal
+String being passed to a native code function.  It converts the Unicode String
+to an ASCII string before calling the function, and converts the string back
+when the called function returns.  Therefore, a VB program can pass a ByVal
+String to a function expecting an ASCII string.</p>
+<p>There is no automatic conversion of a String to an MSWChar *.  Actually, no conversion is required
+but Visual Basic&rsquo;s automatic conversion of ByVal String&rsquo;s gets
+in the way.  No conversion is necessary, but VB converts the string. The VB
+program can circumvent this by declaring the argument as ByVal Long, and using
+StrPtr to get a pointer to the data in the string.</p>
+<p>So far, this section has discussed the handling of <b>char *</b> and <b>MSWChar *</b> for input.
+There are functions that use these types for output as well.  For example, in C, <b>mdlFile_find</b> is
+declared as:</p>
+<p><code>int             mdlFile_find
+<br>(
+<br>&nbsp;&nbsp;&nbsp;&nbsp;char &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*outname,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;const char     *inname,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;const char     *envvar,<br>&nbsp;&nbsp;&nbsp;&nbsp;const
+char     *iext
+<br>);</code></p>
+<p>The corresponding Visual Basic declaration for this is:</p>
+<p><code>Declare PtrSafe Function mdlFile_find _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Lib "stdmdlbltin.dll" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ByVal outname As String, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal inname As String, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal envvar As String, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal iext As String) As Long</code></p>
+<p>The function <b>mdlFile_find</b> uses the base name, environment variable, and extension to find the file.
+It stores the result in the string that outname points to. It returns 0 if it successfully finds
+the file.</p>
+<p>The String to hold the result must be large enough to hold any string that mdlFile_find returns. The
+function mdlFile_find will place a vbNullChar at the end of the C string that it places into the buffer, so
+the VB program can use the location of the vbNullChar to decide how to truncate
+the buffer. The typical sequence of steps to handle data returned in an ASCII
+string is:</p>
+<ol>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Initialize a String with a large buffer.  Make sure the buffer is big enough. You will never notice if the String is way
+too large, but it will be disastrous if it is too small.</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Call the function.</li>
+<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Truncate the String so that everything up
+to the vbNullChar is preserved.</li>
+</ol>
+<p>Here is an example using this approach:</p>
+<p><code>Sub FindFile()<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dim strFullName As String
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Allocate the buffer
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strFullName = Space(512)
+<br>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Call the function
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;If mdlFile_find(strFullName, "accudraw", "MS_MDL", ".ma") = 0 Then
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Truncate at C&rsquo;s end-of-string
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strFullName = Left$(strFullName, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;InStr(1, strFullName, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vbNullChar) - 1)
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Debug.Print "The full path is " &amp; strFullName
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;End If
+<br>End Sub</code></p>
+<p>Handling an output buffer declared as <code>MSWChar*
+buffer</code> is similar, except the VB program has to declare the argument
+as <code>ByVal LongPtr</code> and it must use <b>StrPtr</b> to get a pointer
+to a data area. The following example using <b>mdlModelRef_getDisplayName</b> illustrates this.</p>
+<p>The C declaration is:</p>
+<p><code>StatusInt mdlModelRef_getDisplayName
+<br>(
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DgnModelRefP    modelRef,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MSWChar              *displayName,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unsigned
+int     maxChars,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MSWChar              *separator
+<br>); </code></p>
+<p>The VB declaration is:</p>
+<p><code>Declare PtrSafe Function mdlModelRef_getDisplayName _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Lib "stdmdlbltin.dll" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ByVal modelRef As LongPtr, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal displayName As LongPtr, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal maxChars As Long, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal separator As LongPtr) As Long</code></p>
+<p>This code passes a buffer to displayName. Then it truncates the string <b>mdlModelRef_getDisplayName</b> stores in that
+buffer.</p>
+<p><code>Function GetDisplayName(modelRef As ModelReference) As String
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dim length As Long
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dim dgnModelRefP As LongPtr
+<br>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'  A subsequent section will discuss the method MdlModelRefP
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dgnModelRefP = modelRef.MdlModelRefP
+<br>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'  Allocate the buffer
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;length = 2000
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GetDisplayName = Space(length)
+<br>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mdlModelRef_getDisplayName dgnModelRefP, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StrPtr(GetDisplayName), length, 0
+<br>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'  Truncate at C's end-of-string
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GetDisplayName = Left$(GetDisplayName, InStr(1, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;GetDisplayName, vbNullChar) - 1)
+<br>End Function</code></p>
+<p>A Visual Basic program can pass NULL for a String simply by passing <code>vbNullString</code>, any variable
+that has been set to vbNullString, or an uninitialized String variable. For example, to use <b>mdlFile_find</b>
+without specifying an extension, call <code>mdlFile_find strFullName, "accudraw", "MS_MDL", vbNullString</code>.
+Note, <b>vbNullString</b> is not the same as the zero-length string &ldquo;&rdquo;.
+ Passing &ldquo;&rdquo; passes a pointer to a zero-length buffer. Passing
+vbNullString passes a NULL pointer.</p></div></div>
+<div><a name="int64_arguments"></a><h3>Int64 Arguments</h3>
+<p>Prior to VBA 7.1, Visual Basic did not support 64 bit integers so VBA progams used <b>DLong</b> to simulate 64 bit integers. For
+example, the C declaration of <b>mdlSystem_getFreeDiskSpace</b> is:</p>
+<p><code>
+int             mdlSystem_getFreeDiskSpace
+<br>(
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int64       *pTotalBytes,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int64       *pFreeBytes,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char        *fileSys                /* => fileSys letter */
+<br>);</code></p>
+<p>
+The Visual Basic declaration is:</p>
+<p><code>Declare PtrSafe Function mdlSystem_getFreeDiskSpace _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Lib "stdmdlbltin.dll" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ByRef pTotalBytes As DLong, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef pFreeBytes As DLong, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal fileSys As String) As Long</code></p>
+<p>Here is an example using it:</p>
+<p><code>Sub PrintFreeDiskSpace()
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dim freeSpace As DLong
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Dim totalSpace As DLong
+<br>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mdlSystem_getFreeDiskSpace totalSpace, freeSpace, "D:"
+<br>&nbsp;&nbsp;&nbsp;&nbsp; Debug.Print "D: Total space " &amp; DLongToString(totalSpace)
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Debug.Print ",  Free Space: " &amp; DLongToString(freeSpace)
+<br>End Sub</code></p><p>VBA 7.1 introduces <b>LongLong</b> to represent a 64-bit integer so 
+a program that will only be used with VBA 7.1 can use either <b>DLong</b> or <b>LongLong</b>.</p></div>
+<div><a name="pointer_return_values"></a><h3>Pointer Return Values</h3>
+<p>All pointer return values must be handled as LongPtr.</p>
+<p>If the return value is one of the dynamically allocated types, then the Visual Basic program can either
+leave it as a LongPtr if the program will use it as an argument to another function,
+or the program can use one of the hidden Mdl&hellip; methods to get the corresponding
+VBA object.</p>
+</div></div>
+<div><a name="copying_memory"></a>
+<h2>Copying Memory</h2>
+<p>Visual Basic programs that use native code API&rsquo;s sometimes need to copy memory. VBA programs
+can use the function <b>RtlMoveMemory</b> to copy memory.  As with all uses
+of pointers, the programmer has to decide whether to declare the variables
+as <b>LongPtr</b> forcing the programmer to generate the pointer, or as <b>ByRef
+</b> letting the compiler generate the address. Typically, the program will
+be copying to or from an address provided by MDL. In those cases, the VB program
+has to work with a pointer represented as LongPtr. Here are 2 good declarations
+for that case.</p>
+<p><code>Declare PtrSafe Sub CopyMemoryToVBA Lib "kernel32"  _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Alias "RtlMoveMemory" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ByRef VBALocation As Any,  _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal SourceLoc As LongPtr,  _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal length As Long)
+<br>
+<br>Declare PtrSafe Sub CopyMemoryFromVBA Lib "kernel32" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Alias  "RtlMoveMemory" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ByVal Destination As LongPtr, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByRef VBALocation As Any, _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal length As Long)</code></p>
+<p>If LongPtr is used for both addresses, then both the source and destination have to be declared as ByVal LongPtr. If so, then the program
+can use the declaration:</p>
+<p><code>Declare PtrSafe Sub MoveMemory Lib "kernel32" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Alias "RtlMoveMemory" _
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(ByVal strDest As LongPtr, _<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal lpSource As LongPtr,
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ByVal length As Long)</code></p>
+<p>The same program may have all 3 of these declarations.</p></div>
+<div><a name="examples"></a>
+<h2>Examples</h2>
+<p>The project MdlExample has examples illustrating many of these concepts.</p>
+<p>The module modACS has a procedure that returns information regarding the current Auxiliary Coordinate
+System.  It shows how to use a function that returns strings into MSWChar
+* buffers.</p>
+<p>The module modSystem has a procedure ListMdlApps that dumps
+a list of loaded MDL applications.</p>
+<p>The module modFileOpenDialog shows how a VBA program can use the standard
+MicroStation file open dialogs.  A VB program can also use the Windows Common
+Dialog file open dialog boxes.  See either of the previously mentioned references
+for more information on using the Windows Common Dialogs.</p><p>The module
+modMline shows how a VBA program can pass an array to a function in a DLL.
+ It also shows how a get a pointer to the MSElement associated with an Element
+object.</p><p>The MdlExamples project has a reference to the NativeCodeUtilities
+project. The module modRepresentations of NativeCodeUtilities shows how to:
+</p>
+<ul>
+<li>    Get an MSElementDescr * from an Element object</li>
+<li>    Get an ElementRef from an Element object</li>
+<li>    Get an MSElement * from an Element object</li>
+<li>    Get an Element object from an MSElementDescr *, giving control of the
+ MSElementDescr * to the Element object</li>
+<li>    Get an Element object from an MSElementDescr* without giving control
+of the MSElementDescr * to the Element object</li>
+<li>    Get an Element object from an ElementRef and a DgnModelRefP</li>
+</ul></div>
+<p>The module modNativeTypes has the methods needed for converting strings, and for copying memory.
+</p>
+<p>
+The module modViewConversions  has methods for converting between a View object and a MicroStation window handle.
+</p></div>
+</body>
+</html>

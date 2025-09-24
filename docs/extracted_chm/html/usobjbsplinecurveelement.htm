@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BsplineCurveElement Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjbsplinecurveelement"></A>BsplineCurveElement Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_351" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_352" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_353" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveElementP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_354" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveElementM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_355" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveElementE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_356" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveElementS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_357" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjBsplineCurveElementI">
+</OBJECT>
+</P>
+
+<P class=T>
+A kind of <A href="usobjElement.htm">Element</A> that corresponds to a MicroStation B-spline curve element.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+If you have a generic <B>Element</B> object (as the result of a <A href="usmthScan.htm">Scan</A>, for example), you can determine whether it's a
+             <B>BsplineCurveElement</B> by examining the element's <A href="usproIsBsplineCurveElement.htm">IsBsplineCurveElement</A> property.  If this property returns <B>True</B>, you
+             can extract the element's implementation of <B>BsplineCurveElement</B> by calling the element's <A href="usproAsBsplineCurveElement.htm">AsBsplineCurveElement</A> property.
+             (You can accomplish the same thing by assigning the element to a variable of the type <B>BsplineCurveElement</B>.  But
+             <B>Element</B>.<B>AsBsplineCurveElement</B> saves you a step.)
+</P>
+<P>
+You cannot use the <B>New</B> keyword to create a <B>BsplineCurveElement</B> object.  Rather, use <B>New</B> to create a
+             <A href="usobjBsplineCurve.htm">BsplineCurve</A> (or <A href="usobjInterpolationCurve.htm">InterpolationCurve</A>) object, populate its properties, then create the <B>BsplineCurveElement</B> using
+             <A href="usmthCreateBsplineCurveElement1.htm">CreateBsplineCurveElement1</A> (or <A href="usmthCreateBsplineCurveElement2.htm">CreateBsplineCurveElement2</A>).
+</P>
+<P>
+The new element will not become part of the design file until it is added to a model (using <A href="usmthAddElement.htm">AddElement</A> on the appropriate
+             <A href="usobjModelReference.htm">ModelReference</A> object).
+</P>
+<PRE class=CT><CODE>
+    Dim oBsplineCurve As New <B>BsplineCurve</B>
+    With oBsplineCurve
+        ' Set properties of oBsplineCurve here...
+    End With
+
+    ' Create the element
+    Dim oBsplineCurveElement As <B>BsplineCurveElement</B>
+    Set oBsplineCurveElement = <B>CreateBsplineCurveElement1</B>(Nothing, oBsplineCurve)
+
+    ' Add the element to the active model (whether or not it's displayed)
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<B>AddElement</B> oBsplineCurveElement
+
+    ' Modify and update the element in its model
+    With oBsplineCurve
+        ' Modify properties of oBsplineCurve here...
+    End With
+    oBsplineCurveElement.<A href="usmthUpdateFromBsplineCurve.htm">UpdateFromBsplineCurve</A> oBsplineCurve
+
+    ' Display the element (whether or not it's in a model)
+    oBsplineCurveElement.<A href="usmthRedraw.htm">Redraw</A>
+</CODE></PRE>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

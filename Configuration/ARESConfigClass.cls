@@ -234,3 +234,203 @@ End Function
 Public Property Get IsInitialized() As Boolean
     IsInitialized = pInitialized
 End Property
+
+' Export configuration to file
+Public Function ExportConfig(Optional ByVal FilePath As String = "") As Boolean
+    On Error GoTo ErrorHandler
+    
+    ExportConfig = False
+    
+    If Not pInitialized Then
+        ErrorHandler.HandleError "Configuration not initialized", 0, "ARESConfigClass.ExportConfig"
+        Exit Function
+    End If
+    
+    ' Generate default file path if not provided
+    If Len(FilePath) = 0 Then
+        FilePath = GetDefaultExportPath()
+    End If
+    
+    Dim FileNum As Integer
+    Dim ConfigVar As Variant
+    Dim ExportData As String
+    
+    ' Build export header
+    ExportData = "# ARES Configuration Export" & vbCrLf
+    ExportData = ExportData & "# Generated: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
+    ExportData = ExportData & "# Version: " & GetARESVersion() & vbCrLf
+    ExportData = ExportData & vbCrLf
+    
+    ' Export each configuration variable
+    For Each ConfigVar In pConfigVariables
+        ExportData = ExportData & FormatConfigForExport(ConfigVar) & vbCrLf
+    Next ConfigVar
+    
+    ' Write to file
+    FileNum = FreeFile
+    Open FilePath For Output As #FileNum
+    Print #FileNum, ExportData
+    Close #FileNum
+    
+    ExportConfig = True
+    Exit Function
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ExportConfig"
+    ExportConfig = False
+End Function
+
+' Import configuration from file
+Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteExisting As Boolean = True) As Boolean
+    On Error GoTo ErrorHandler
+    
+    ImportConfig = False
+    
+    If Not pInitialized Then
+        ErrorHandler.HandleError "Configuration not initialized", 0, "ARESConfigClass.ImportConfig"
+        Exit Function
+    End If
+    
+    If Len(Dir(FilePath)) = 0 Then
+        ErrorHandler.HandleError "Import file not found: " & FilePath, 0, "ARESConfigClass.ImportConfig"
+        Exit Function
+    End If
+    
+    Dim FileNum As Integer
+    Dim Line As String
+    Dim ImportedCount As Integer
+    Dim SkippedCount As Integer
+    
+    ' Read and process file
+    FileNum = FreeFile
+    Open FilePath For Input As #FileNum
+    
+    Do While Not EOF(FileNum)
+        Line Input #FileNum, Line
+        
+        ' Skip comments and empty lines
+        If Len(Trim(Line)) > 0 And Left(Trim(Line), 1) <> "#" Then
+            If ProcessImportLine(Line, OverwriteExisting) Then
+                ImportedCount = ImportedCount + 1
+            Else
+                SkippedCount = SkippedCount + 1
+            End If
+        End If
+    Loop
+    
+    Close #FileNum
+    
+    ' Show results
+    Dim ResultMsg As String
+    ResultMsg = "Import completed: " & ImportedCount & " imported, " & SkippedCount & " skipped"
+    ErrorHandler.HandleError ResultMsg, 0, "ARESConfigClass.ImportConfig"
+    
+    ImportConfig = True
+    Exit Function
+    
+ErrorHandler:
+    If FileNum > 0 Then Close #FileNum
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ImportConfig"
+    ImportConfig = False
+End Function
+
+' Get configuration as formatted string (for preview)
+Public Function GetConfigSummary() As String
+    On Error GoTo ErrorHandler
+    
+    Dim Summary As String
+    Dim ConfigVar As Variant
+    
+    Summary = "=== ARES Configuration Summary ===" & vbCrLf & vbCrLf
+    
+    For Each ConfigVar In pConfigVariables
+        Summary = Summary & ConfigVar.key & " = " & ConfigVar.Value
+        If Not ConfigVar.IsDefault() Then
+            Summary = Summary & " (Modified from: " & ConfigVar.defaultValue & ")"
+        End If
+        Summary = Summary & vbCrLf
+    Next ConfigVar
+    
+    GetConfigSummary = Summary
+    Exit Function
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.GetConfigSummary"
+    GetConfigSummary = "Error generating summary"
+End Function
+
+Public Function GetDefaultExportPath() As String
+    On Error Resume Next
+    
+    Dim Path As String
+    
+    If Not ActiveDesignFile Is Nothing Then
+        Path = ActiveDesignFile.Path & "\ARES_Config_" & Format(Now, "yyyymmdd_hhmmss") & ".cfg"
+    Else
+        Path = Environ("USERPROFILE") & "\Desktop\ARES_Config_" & Format(Now, "yyyymmdd_hhmmss") & ".cfg"
+    End If
+    
+    GetDefaultExportPath = Path
+End Function
+
+' === PRIVATE HELPER METHODS ===
+
+Private Function FormatConfigForExport(ByVal ConfigVar As ARES_MS_VAR_Class) As String
+    Dim Result As String
+    
+    ' Format: KEY=VALUE|DEFAULT=defaultvalue|MODIFIED=true/false
+    Result = ConfigVar.key & "=" & ConfigVar.Value & "|DEFAULT=" & ConfigVar.defaultValue
+    Result = Result & "|MODIFIED=" & CStr(ConfigVar.IsModified())
+    
+    FormatConfigForExport = Result
+End Function
+
+Private Function ProcessImportLine(ByVal Line As String, ByVal OverwriteExisting As Boolean) As Boolean
+    On Error GoTo ErrorHandler
+    
+    ProcessImportLine = False
+    
+    ' Parse line format: KEY=VALUE|DEFAULT=defaultvalue|MODIFIED=true/false
+    Dim Parts() As String
+    Dim KeyValue() As String
+    Dim ConfigKey As String
+    Dim ConfigValue As String
+    Dim ConfigVar As ARES_MS_VAR_Class
+    
+    Parts = Split(Line, "|")
+    If UBound(Parts) < 0 Then Exit Function
+    
+    KeyValue = Split(Parts(0), "=")
+    If UBound(KeyValue) < 1 Then Exit Function
+    
+    ConfigKey = Trim(KeyValue(0))
+    ConfigValue = Trim(KeyValue(1))
+    
+    ' Check if key exists in our configuration
+    Set ConfigVar = GetConfigVar(ConfigKey)
+    If ConfigVar Is Nothing Then
+        ErrorHandler.HandleError "Unknown configuration key: " & ConfigKey, 0, "ARESConfigClass.ProcessImportLine"
+        Exit Function
+    End If
+    
+    ' Check if we should overwrite
+    If Not OverwriteExisting And Not ConfigVar.IsDefault() Then
+        Exit Function ' Skip if already modified and not overwriting
+    End If
+    
+    ' Update configuration
+    If Config.SetVar(ConfigKey, ConfigValue) Then
+        ConfigVar.Value = ConfigValue
+        ProcessImportLine = True
+    End If
+    
+    Exit Function
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ProcessImportLine"
+    ProcessImportLine = False
+End Function
+
+Private Function GetARESVersion() As String
+    GetARESVersion = "1.0.0" ' Update with your actual version
+End Function

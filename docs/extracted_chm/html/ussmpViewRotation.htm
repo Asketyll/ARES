@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using a View's Rotation</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Using a View's Rotation</H1>
+
+<P class=T>
+
+</P>
+<PRE class=CT><CODE>
+'  ShowRotation is primarily for 2D file since it only
+'  reports the rotation if it is around the Z-axis
+Sub ShowRotation()
+    With <A href="usproCommandState.htm">CommandState</A>.<A href="usmthLastView.htm">LastView</A>
+        Dim angle As Double
+
+        If <A href="usmthMatrix3dIsXYRotation.htm">Matrix3dIsXYRotation</A>(.<A href="usproRotation.htm">Rotation</A>, angle) Then
+            Debug.Print "The rotation is " & <A href="usmthDegrees.htm">Degrees</A>(angle)
+        Else
+            Debug.Print "Rotation is not around Z-axis"
+        End If
+    End With
+End Sub
+
+' This rotates the view 45 degrees about the View's Z-axis
+Sub RotateActiveView()
+    Dim activeView As <A href="usobjView.htm">View</A>
+    Dim iViewNumber As Integer
+    Dim rotView As <A href="usudtMatrix3d.htm">Matrix3d</A>
+    Dim rotStep As Matrix3d
+
+    Set activeView = CommandState.LastView
+
+    rotView = activeView.Rotation
+
+    rotStep = <A href="usmthMatrix3dFromAxisAndRotationAngle.htm">Matrix3dFromAxisAndRotationAngle</A>(2, <A href="usmthPi.htm">Pi</A> / 4)
+
+    rotView = <A href="usmthMatrix3dFromMatrix3dTimesMatrix3d.htm">Matrix3dFromMatrix3dTimesMatrix3d</A>(rotView, rotStep)
+    activeView.Rotation = rotView
+    activeView.<A href="usmthRedraw.htm">Redraw</A>
+End Sub
+
+Sub CenterActiveView()
+    Dim activeView As View
+
+    Set activeView = CommandState.LastView
+    activeView.<A href="usproCenter.htm">Center</A> = <A href="usmthPoint3dZero.htm">Point3dZero</A>
+    activeView.Redraw
+End Sub
+
+' SetToNoRotation1 and SetToNoRotation2 are equivalent
+Sub SetToNoRotation1()
+    Dim activeView As View
+
+    Set activeView = CommandState.LastView
+    activeView.Rotation = <A href="usmthMatrix3dIdentity.htm">Matrix3dIdentity</A>
+    activeView.Redraw
+End Sub
+
+Sub SetToNoRotation2()
+    With CommandState.LastView
+         .<A href="usmthSetToTop.htm">SetToTop</A>
+         .Redraw
+    End With
+End Sub
+
+
+</CODE></PRE>

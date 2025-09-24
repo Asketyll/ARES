@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Get the elements from related named groups</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Get the elements from related named groups</H1>
+
+<P class=T>
+This example shows how to get all of the related to a named group or related to an element.
+</P>
+<PRE class=CT><CODE>
+Sub CommitChange(ele As <A href="usobjElement.htm">Element</A>)
+    If ele.<A href="usproFilePosition.htm">FilePosition</A> = 0 Then
+        ' This element has not been added to the model.  Add it now
+        <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> ele
+    Else
+        '  First get the unchanged element and erase it.
+        Dim eleOriginal As Element
+
+        Set eleOriginal = ele.<A href="usproModelReference.htm">ModelReference</A>.<A href="usmthGetElementByID.htm">GetElementByID</A>(ele.<A href="usproID.htm">ID</A>)
+        eleOriginal.<A href="usmthRedraw.htm">Redraw</A> msdDrawingModeErase
+        ele.<A href="usmthRewrite.htm">Rewrite</A>
+    End If
+
+    ele.Redraw
+End Sub
+Sub MoveElementsOfGroup(ng As <A href="usobjNamedGroupElement.htm">NamedGroupElement</A>, distance As <A href="usudtPoint3d.htm">Point3d</A>)
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+
+    Set ee = ng.<A href="usmthGetElements.htm">GetElements</A>(<A href="usproActiveSettings.htm">ActiveSettings</A>.<A href="usproGraphicGroupLockEnabled.htm">GraphicGroupLockEnabled</A>, msdMemberTraverseManipulate, True)
+
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        Debug.Print "Moving element " & ee.<A href="usproCurrent.htm">Current</A>.FilePosition
+        ee.Current.<A href="usmthMove.htm">Move</A> distance
+        CommitChange ee.Current
+    Loop
+End Sub
+Sub MoveRelatedElements(ele As Element, distance As Point3d)
+    Dim ee As ElementEnumerator
+
+    Set ee = ele.<A href="usmthGetRelatedElements.htm">GetRelatedElements</A>(ActiveSettings.GraphicGroupLockEnabled, msdMemberTraverseManipulate)
+
+    Do While ee.MoveNext
+        Debug.Print "Moving element " & ee.Current.FilePosition
+        ee.Current.Move distance
+        CommitChange ee.Current
+    Loop
+End Sub
+
+</CODE></PRE>

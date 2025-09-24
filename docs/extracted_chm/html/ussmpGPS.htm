@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Retrieving data from a GPS</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Retrieving data from a GPS</H1>
+
+<P class=T>
+This example illustrates how to retrieve data from a GPS. It uses an <A href="usobjITimerEvent.htm">ITimerEvent</A> event handler so it can poll the GPS.
+</P>
+<P class=T>
+The following class polls the GPS.
+</P>
+<PRE class=CT><CODE>
+Implements ITimerEvent
+Private lastGPSReading As Double
+
+Private Sub ITimerEvent_<A href="usmthTimerExpired.htm">TimerExpired</A>(RestartTimer As Boolean)
+    Dim oGPS As <A href="usobjGlobalPositionSource.htm">GlobalPositionSource</A>
+    
+    ' Set to true to continue polling
+    RestartTimer = True
+    
+    Set oGPS = <A href="usmthGetGlobalPositionSource.htm">GetGlobalPositionSource</A>
+    If Not oGPS.<A href="usproGPSAvailable.htm">GPSAvailable</A> Then Exit Sub
+    
+    Dim gpsData As <A href="usudtGPSPositionData.htm">GPSPositionData</A>
+    
+    oGPS.<A href="usmthGetLastPositionData.htm">GetLastPositionData</A> gpsData
+    
+    If Not gpsData.EventTime = lastGPSReading Then
+        lastGPSReading = gpsData.EventTime
+    Else
+        Exit Sub
+    End If
+    
+    Debug.Print gpsData.EventTime
+    Dim etDate As Date
+    etDate = gpsData.EventTime
+    Debug.Print etDate
+    
+    Debug.Print gpsData.Latitude
+    Debug.Print gpsData.Longitude
+    Debug.Print gpsData.Elevation
+    Debug.Print gpsData.HDOP
+    Debug.Print gpsData.PDOP
+    Debug.Print gpsData.VDOP
+    Debug.Print gpsData.Heading
+    Debug.Print gpsData.Velocity
+End Sub
+
+</CODE></PRE>
+<P class=T>
+The following subroutine starts the timer.
+</P>
+<PRE class=CT><CODE>
+Sub StartGPSHandler()
+    ' First verify that the GPS is available
+    Dim oGPS As GlobalPositionSource
+    
+    Set oGPS = GetGlobalPositionSource
+    If oGPS Is Nothing Then
+        <A href="usproApplication.htm">Application</A>.<A href="usproMessageCenter.htm">MessageCenter</A>.<A href="usproStatusMessage.htm">StatusMessage</A> = "GPS not availble"
+        Exit Sub
+    Else
+        If Not oGPS.GPSAvailable Then
+            Application.MessageCenter.StatusMessage = "GPS Device not available"
+            Exit Sub
+        End If
+    End If
+    
+    Dim oMyHandler As clsGPSHandler
+    Set oMyHandler = New clsGPSHandler
+    
+    '  Set the timer to run for 1 second
+    <A href="usmthAddTimerEventHandler.htm">AddTimerEventHandler</A> oMyHandler, 30
+End Sub
+
+</CODE></PRE>

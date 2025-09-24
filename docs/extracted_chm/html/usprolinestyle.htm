@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>LineStyle Property</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usprolinestyle"></A>LineStyle Property</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_7695" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproLineStyleC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7696" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproLineStyleX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7697" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproLineStyleA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_7698" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usproLineStyleS">
+</OBJECT>
+</P>
+
+<P class=T> Read/Write <A href="usobjLineStyle.htm">LineStyle</A>.
+<P class=T>
+Gets or sets this object's line style.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P>[Set] <I>object</I>.<B>LineStyle</B> [= <I>NewLineStyle</I>]
+<P class=T>The <B>LineStyle</B> property syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewLineStyle</I></TD>
+<TD class=TT width=79%>
+A <B>LineStyle</B> expression. 
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>LineStyle</I></TD>
+<TD class=TT width=79%>
+A <B>LineStyle</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+There is a predefined <B>LineStyle</B> object, <A href="usmthByLevelLineStyle.htm">ByLevelLineStyle</A>, that represents the special line style value, "by level."
+    If the value of <B>LineStyle</B> is <B>ByLevelLineStyle</B>, then the element's line style is derived from the level that the element resides on.
+</P>
+<P>
+There is also a predefined <B>LineStyle</B> object, <A href="usmthByCellLineStyle.htm">ByCellLineStyle</A>, that represents the special line style value, "by cell."
+    If the value of <B>LineStyle</B> is <B>ByCellLineStyle</B>, then the element's line style is derived from the cell that the element resides within.
+</P>
+<P>
+For an element, getting or setting the value of <B>LineStyle</B> raises an error if the element is not graphical.
+    If you're in doubt, firstly check the element's <A href="usproIsGraphical.htm">IsGraphical</A> property.
+</P>
+<P>
+<B>Upgrade Alert</B>
+    <P>Prior to MicroStation 8.1, the type of the <B>LineStyle</B> property was <B>Long</B>, not <B>LineStyle</B>.
+    Earlier VBA applications that reference this property must be revised accordingly. We apologize for the inconvenience.</P>
+</P>
+<P>
+<B>Maintaining Compatibility with Prior Versions of MicroStation</B>
+    <P>Some customers may require that their VBA application work with
+    versions of MicroStation both before and after 8.1.
+    In these situations, the <B>LineStyle</B> property can be avoided altogether, using the following techniques:</P>
+    <ul><li>To get <A href="usobjSettings.htm">Settings</A>.<B>LineStyle</B> as a <B>Long</B> value, use the following expression:</li></ul>
+        <P><PRE><CODE>    nLineStyle = <A href="usmthGetCExpressionValue.htm">GetCExpressionValue</A>("tcb->symbology.style")</CODE></PRE></P>
+    <ul><li>To set <B>Settings</B>.<B>LineStyle</B> as a <B>Long</B> value, use the following statement:</li></ul>
+        <P><PRE><CODE>    <A href="usobjCadInputQueue.htm">CadInputQueue</A>.<A href="usmthSendKeyin.htm">SendKeyin</A> "lc=" & nLineStyle</CODE></PRE></P>
+    <ul><li>To get or set an <A href="usobjElement.htm">Element</A>'s <B>LineStyle</B> as a <B>Long</B> value, copy and paste the following functions into your code:</li></ul>
+    <code><pre>
+    static Declare Sub mdlElement_getSymbology Lib "stdmdlbltin.dll" (ByRef color As Long, ByRef weight As Long, ByRef style As Long, ByVal el As Long)
+    static Declare Sub mdlElement_setSymbology Lib "stdmdlbltin.dll" (ByVal el As Long, ByRef color As Long, ByRef weight As Long, ByRef style As Long)
+    static Declare Function ElmdscrAccessor_getElement Lib "stdmdlaccessor.dll" (ByVal MSElementDescr As Long) As Long
+
+    Sub SetLineStyle(ele As Element, styleNumber As Long)
+        Dim descrP As Long
+        Dim elementP As Long
+        Dim color As Long
+        Dim weight As Long
+        Dim oldStyle As Long
+
+        descrP = ele.MdlMSElementDescrP
+        elementP = ElmdscrAccessor_getElement(descrP)
+        mdlElement_getSymbology color, weight, oldStyle, elementP
+        mdlElement_setSymbology elementP, color, weight, styleNumber
+    End Sub
+
+    Function GetLineStyle(ele As Element) As Long
+        Dim descrP As Long
+        Dim elementP As Long
+        Dim color As Long
+        Dim weight As Long
+        Dim styleNumber As Long
+
+        descrP = ele.MdlMSElementDescrP
+        elementP = ElmdscrAccessor_getMSElement(descrP)
+        mdlElement_getSymbology color, weight, styleNumber, elementP
+        GetLineStyle = styleNumber
+    End Function
+    </pre></code>
+    <P>Remember, the preceding techniques are necessary <I>only</I> in those cases where the same
+    application must be compatible with versions of MicroStation both before and after 8.1.
+    Applications that will be run only on versions 8.1 or later should simply use the <B>LineStyle</B> properties.</P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

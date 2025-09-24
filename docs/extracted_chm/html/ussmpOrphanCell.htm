@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating an Orphan Cell</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Creating an Orphan Cell</H1>
+
+<P class=T>
+This creates some elements and then creates an orphan cell using those elements.
+</P>
+<PRE class=CT><CODE>
+Function xy(x As Double, y As Double) As <A href="usudtPoint3d.htm">Point3d</A>
+    xy = <A href="usmthPoint3dFromXY.htm">Point3dFromXY</A>(x, y)
+End Function
+Sub CreateOrphanCell()
+    Dim eleCell As <A href="usobjCellElement.htm">CellElement</A>
+    Dim vertices(0 To 3) As Point3d
+    Dim ele(0 To 2) As <A href="usobjElement.htm">Element</A>
+
+    Set ele(0) = <A href="usmthCreateLineElement2.htm">CreateLineElement2</A>(Nothing, xy(0, 5), xy(10, 5))
+
+    vertices(0) = xy(0, 0)
+    vertices(1) = xy(0, 7)
+    vertices(2) = xy(10, 7)
+    vertices(3) = xy(10, 0)
+    Set ele(1) = <A href="usmthCreateShapeElement1.htm">CreateShapeElement1</A>(Nothing, vertices, msdFillModeUseActive)
+
+    Set ele(2) = <A href="usmthCreateTextElement1.htm">CreateTextElement1</A>(Nothing, "My Orphan Cell", xy(5, 6), <A href="usmthMatrix3dIdentity.htm">Matrix3dIdentity</A>)
+
+    Set eleCell = <A href="usmthCreateCellElement1.htm">CreateCellElement1</A>(vbNullString, ele, xy(0, 0), False)
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> eleCell
+
+    eleCell.<A href="usmthRedraw.htm">Redraw</A>
+End Sub
+
+</CODE></PRE>

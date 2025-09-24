@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Stroke a B-spline Curve</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Stroke a B-spline Curve</H1>
+
+<P class=T>
+Demonstrates how to extract points from a B-spline curve.
+</P>
+<P class=T>
+Also demonstrates how to create an <A href="usobjInterpolationCurve.htm">InterpolationCurve</A>.
+</P>
+<PRE class=CT><CODE>
+Sub TestBsplineCurveExtractPoint()
+    Dim oBsplineCurveElement As <A href="usobjBsplineCurveElement.htm">BsplineCurveElement</A>
+    Dim oStrokeElement As <A href="usobjLineElement.htm">LineElement</A>
+    Dim oBsplineCurve As <A href="usobjBsplineCurve.htm">BsplineCurve</A>
+    Dim oFitCurve As InterpolationCurve
+    Dim aFitPoints() As <A href="usudtPoint3d.htm">Point3d</A>, aStrokePoints() As Point3d, aPoles() As Point3d
+    Dim aParameters() As Double
+    Dim nFitPoints As Long, nStrokePoints As Long, nStrokeChords As Long
+    Dim minError As Double, maxError As Double, curveLength As Double, fixedLength As Double
+
+    ' Create an interpolation-based B-spline curve
+    nFitPoints = 5
+    ReDim aFitPoints(0 To nFitPoints - 1)
+    aFitPoints(0) = <A href="usmthPoint3dZero.htm">Point3dZero</A>
+    aFitPoints(1) = <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(0#, 1#, 0#)
+    aFitPoints(2) = Point3dFromXYZ(1#, 2#, -2#)
+    aFitPoints(3) = Point3dFromXYZ(2#, 2#, -1#)
+    aFitPoints(4) = Point3dFromXYZ(3#, 2#, 3#)
+
+    Set oFitCurve = New InterpolationCurve
+    oFitCurve.<A href="usmthSetFitPoints.htm">SetFitPoints</A> aFitPoints
+
+    ' Draw the Interpolation Curve (a fit-point based flavor of B-spline curve)
+    Set oBsplineCurveElement = <A href="usmthCreateBsplineCurveElement2.htm">CreateBsplineCurveElement2</A>(Nothing, oFitCurve)
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oBsplineCurveElement
+    oBsplineCurveElement.<A href="usmthRedraw.htm">Redraw</A>
+
+    ' We'll need the pole-based representation of the B-spline curve to call the following methods.
+    ' Note: we can always get the exact pole-based definition of an Interpolation Curve, but not vice versa.
+    Set oBsplineCurve = oBsplineCurveElement.<A href="usmthExtractBsplineCurve.htm">ExtractBsplineCurve</A>
+    curveLength = oBsplineCurve.<A href="usmthComputeCurveLength.htm">ComputeCurveLength</A>()
+
+    ' Now we'll extract some points from this B-spline curve, using several different methods.
+    ' To visualize these points, we'll display them connected by LineElements, each in a different color.
+    nStrokePoints = 10
+    nStrokeChords = nStrokePoints - 1
+
+    ' Method #0: The poles of a B-spline curve are not actually on the curve, so this is not a point-extraction
+    ' method per se.  For the same reason, the BsplineCurveElement does not implement the VertexList interface,
+    ' but you can get the "vertices of the B-spline curve" from the pole-based definition:
+    aPoles = oBsplineCurve.<A href="usmthGetPoles.htm">GetPoles</A>
+    Set oStrokeElement = <A href="usmthCreateLineElement1.htm">CreateLineElement1</A>(oBsplineCurveElement, aPoles)
+    oStrokeElement.<A href="usproLineStyle.htm">LineStyle</A> = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproLineStyles.htm">LineStyles</A>("2")
+    ActiveModelReference.AddElement oStrokeElement
+    oStrokeElement.Redraw
+
+    ' Method #1: compute stroke points at equal parametric spacing
+    ' Note: method added after MicroStation V8.5.1.25
+    aStrokePoints = oBsplineCurve.<A href="usmthEvaluatePointsAtEqualParametricLengthChords.htm">EvaluatePointsAtEqualParametricLengthChords</A>(aParameters, nStrokeChords)
+    Set oStrokeElement = CreateLineElement1(oBsplineCurveElement, aStrokePoints)
+    oStrokeElement.<A href="usproColor.htm">Color</A> = oStrokeElement.Color + 1
+    ActiveModelReference.AddElement oStrokeElement
+    oStrokeElement.Redraw
+
+    ' Method #2: compute stroke points that determine chords with equal length
+    aStrokePoints = oBsplineCurve.<A href="usmthEvaluatePointsAtEqualLengthChords.htm">EvaluatePointsAtEqualLengthChords</A>(aParameters, nStrokeChords)
+    Set oStrokeElement = CreateLineElement1(oStrokeElement, aStrokePoints)
+    oStrokeElement.Color = oStrokeElement.Color + 1
+    ActiveModelReference.AddElement oStrokeElement
+    oStrokeElement.Redraw
+
+    ' Method #3: compute stroke points that determine chords with fixed length
+    ' Note: the chords will have the given length only if the curve is planar; also, the last chord may be shorter.
+    ' Note: method added after MicroStation V8.5.1.25
+    fixedLength = curveLength / nStrokePoints
+    aStrokePoints = oBsplineCurve.<A href="usmthEvaluatePointsAtFixedLengthChords.htm">EvaluatePointsAtFixedLengthChords</A>(aParameters, fixedLength)
+    Set oStrokeElement = CreateLineElement1(oStrokeElement, aStrokePoints)
+    oStrokeElement.Color = oStrokeElement.Color + 1
+    ActiveModelReference.AddElement oStrokeElement
+    oStrokeElement.Redraw
+
+    ' Method #4: compute stroke points that determine chords with a maximum deviation from the curve
+    ' Note: method added after MicroStation V8.5.1.25
+    maxError = 0.01 * Sqr(<A href="usmthRange3dExtentSquared.htm">Range3dExtentSquared</A>(oBsplineCurveElement.<A href="usmthRange.htm">Range</A>))
+    aStrokePoints = oBsplineCurve.<A href="usmthEvaluatePointsAtBoundedDeviationChords.htm">EvaluatePointsAtBoundedDeviationChords</A>(aParameters, maxError)
+    Set oStrokeElement = CreateLineElement1(oStrokeElement, aStrokePoints)
+    oStrokeElement.Color = oStrokeElement.Color + 1
+    ActiveModelReference.AddElement oStrokeElement
+    oStrokeElement.Redraw
+
+    ' Method #5: compute stroke points that determine chords with equal deviation from the curve
+    aStrokePoints = oBsplineCurve.<A href="usmthEvaluatePointsAtEqualDeviationChords.htm">EvaluatePointsAtEqualDeviationChords</A>(aParameters, minError, maxError, nStrokeChords)
+    Debug.Print "Method #5 chordal deviation range: ["; minError; ", "; maxError; "]"
+    Set oStrokeElement = CreateLineElement1(oStrokeElement, aStrokePoints)
+    oStrokeElement.Color = oStrokeElement.Color + 1
+    ActiveModelReference.AddElement oStrokeElement
+    oStrokeElement.Redraw
+
+    ' Method #6: compute stroke points at equal arclength spacing
+    ' Note: method added after MicroStation V8.5.1.25
+    aStrokePoints = oBsplineCurve.<A href="usmthEvaluatePointsAtEqualArcLengthChords.htm">EvaluatePointsAtEqualArcLengthChords</A>(aParameters, nStrokeChords)
+    Set oStrokeElement = CreateLineElement1(oStrokeElement, aStrokePoints)
+    oStrokeElement.Color = oStrokeElement.Color + 1
+    ActiveModelReference.AddElement oStrokeElement
+    oStrokeElement.Redraw
+
+End Sub
+
+</CODE></PRE>

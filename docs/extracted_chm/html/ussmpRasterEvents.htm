@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Raster Events Handler Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Raster Events Handler Example</H1>
+
+<P class=T>
+This is a skeleton for a program that handles events concerning rasters.
+</P>
+<PRE class=CT><CODE>
+Dim oEventHandler As RasterEventsHandler
+
+' Run this macro to set the raster event handler.
+Sub SetEventHandler()
+    If oEventHandler Is Nothing Then
+        Set oEventHandler = New RasterEventsHandler
+        <A href="usproRasterManager.htm">RasterManager</A>.<A href="usmthAddRasterEventsHandler.htm">AddRasterEventsHandler</A> oEventHandler
+    End If
+    MsgBox "Event handler set.", vbOKOnly, "Raster Events"
+End Sub
+
+' Run this macro to remove the raster event handler and return to a normal mode.
+Sub RemoveEventHandler()
+    If Not oEventHandler Is Nothing Then
+        RasterManager.<A href="usmthRemoveRasterEventsHandler.htm">RemoveRasterEventsHandler</A> oEventHandler
+    End If
+    MsgBox "Event handler removed.", vbOKOnly, "Raster Events"
+End Sub
+
+</CODE></PRE>
+<P class=T>
+The is the class that implements the <A href="usobjIRasterEvents.htm">IRasterEvents</A> interface.
+        Do not remove any sub-routines. If you are not interested in an event simply
+        remove any code from the sub-routine.
+</P>
+<PRE class=CT><CODE>
+Implements IRasterEvents
+
+' Called when a raster has been opened.
+Private Sub IRasterEvents_<A href="usevtAfterRasterOpen.htm">AfterRasterOpen</A>(ByVal oRasterId As LongPtr)
+    MsgBox RasterManager.<A href="usproRasters.htm">Rasters</A>.<A href="usmthGetFromID.htm">GetFromID</A>(oRasterId).<A href="usproRasterInformation.htm">RasterInformation</A>.<A href="usproName.htm">Name</A> & " has been opened."
+End Sub
+
+' Called when a raster is about to be closed.
+Private Sub IRasterEvents_<A href="usevtBeforeRasterClose.htm">BeforeRasterClose</A>(ByVal oRasterId As LongPtr)
+    MsgBox RasterManager.Rasters.GetFromID(oRasterId).RasterInformation.Name & " is about to be closed."
+End Sub
+
+' Called when a raster has been closed.
+Private Sub IRasterEvents_<A href="usevtAfterRasterClose.htm">AfterRasterClose</A>()
+    MsgBox "A raster has been closed."
+End Sub
+
+' Called when a raster is about to be modified.
+Private Sub IRasterEvents_<A href="usevtBeforeRasterModify.htm">BeforeRasterModify</A>(ByVal oRasterId As LongPtr, ByVal oModifType As <A href="usenmMsdRasterModificationType.htm">MsdRasterModificationType</A>)
+    Dim oModifString As String
+
+    ' Find out which type of modification is about to be applied.
+    <A href="usmthSelect.htm">Select</A> Case oModifType
+        Case msdRasterModificationType_ExtendedInformation
+            oModifString = "'s extended information is about to be changed."
+        Case msdRasterModificationType_GeoReferenceInformation
+            oModifString = "'s georeference information is about to be changed."
+        Case msdRasterModificationType_RenderingInformation
+            oModifString = "'s rendering information is about to be changed."
+        Case msdRasterModificationType_RasterInformation
+            oModifString = "'s raster information is about to be changed."
+        Case msdRasterModificationType_ClipMask
+            oModifString = " has a clip mask that is about to be changed."
+        Case msdRasterModificationType_ClipBoundary
+            oModifString = "'s clip boundary is about to be changed."
+        Case msdRasterModificationType_Reload
+            oModifString = " is about to be reloaded."
+    End Select
+    MsgBox RasterManager.Rasters.GetFromID(oRasterId).RasterInformation.Name & oModifString
+End Sub
+
+' Called when a raster has been modified.
+Private Sub IRasterEvents_<A href="usevtAfterRasterModify.htm">AfterRasterModify</A>(ByVal oRasterId As LongPtr, ByVal oModifType As MsdRasterModificationType)
+    Dim oModifString As String
+
+    ' Find out which type of modification was applied.
+    Select Case oModifType
+        Case msdRasterModificationType_ExtendedInformation
+            oModifString = "'s extended information has been changed."
+        Case msdRasterModificationType_GeoReferenceInformation
+            oModifString = "'s georeference information has been changed."
+        Case msdRasterModificationType_RenderingInformation
+            oModifString = "'s rendering information has been changed."
+        Case msdRasterModificationType_RasterInformation
+            oModifString = "'s raster information has been changed."
+        Case msdRasterModificationType_ClipMask
+            oModifString = " has a clip mask that has been changed."
+        Case msdRasterModificationType_ClipBoundary
+            oModifString = "'s clip boundary has been changed."
+        Case msdRasterModificationType_Reload
+            oModifString = " was reloaded."
+    End Select
+    MsgBox RasterManager.Rasters.GetFromID(oRasterId).RasterInformation.Name & oModifString
+End Sub
+
+' Called when a raster has been selected.
+Private Sub IRasterEvents_<A href="usevtAfterRasterSelect.htm">AfterRasterSelect</A>(ByVal oRasterId As LongPtr, ByVal isSelected As Boolean)
+    If isSelected Then
+        MsgBox RasterManager.Rasters.GetFromID(oRasterId).RasterInformation.Name & " has been selected."
+    Else
+        MsgBox RasterManager.Rasters.GetFromID(oRasterId).RasterInformation.Name & " has been deselected."
+    End If
+End Sub
+
+' Called when a raster is about to be plotted (printed).
+Private Sub IRasterEvents_<A href="usevtBeforeRasterPlot.htm">BeforeRasterPlot</A>()
+    MsgBox "Some rasters are about to be plotted."
+End Sub
+
+' Called when a raster has been plotted (printed).
+Private Sub IRasterEvents_<A href="usevtAfterRasterPlot.htm">AfterRasterPlot</A>()
+    MsgBox "Some rasters have been plotted."
+End Sub
+
+
+</CODE></PRE>
