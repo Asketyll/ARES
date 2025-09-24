@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Basic Missing-Attachments Standards Checker</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Basic Missing-Attachments Standards Checker</H1>
+
+<P class=T>
+The VBA project SCSimpleRefCheck.mvba is a runnable version of the example.
+</P>
+<P class=T>
+The following code is from the main module of the project.
+</P>
+<PRE class=CT><CODE>
+Private oSC As <A href="usobjIStandardsChecker.htm">IStandardsChecker</A>
+
+Sub OnProjectLoad()
+    AddBasicAttachmentsChecker
+End Sub
+Sub AddBasicAttachmentsChecker()
+    '
+    '   There is nothing to prevent this program from adding 2 standards checkers.
+    '   To prevent that from happening, call RemoveAttachmentsChecker before
+    '   adding the  checker.
+    '
+    RemoveBasicAttachmentsChecker
+    Set oSC = New clsAttachmentsChecker
+    <A href="usproStandardsCheckerController.htm">StandardsCheckerController</A>.<A href="usmthAddStandardsChecker.htm">AddStandardsChecker</A> oSC, 1000
+End Sub
+Sub RemoveBasicAttachmentsChecker()
+    If Not oSC Is Nothing Then StandardsCheckerController.<A href="usmthRemoveStandardsChecker.htm">RemoveStandardsChecker</A> oSC
+    Set oSC = Nothing
+End Sub
+
+</CODE></PRE>
+<P class=T>
+The following code is from the project's class clsAttachmentsChecker.
+</P>
+<PRE class=CT><CODE>
+Implements IStandardsChecker
+
+Private m_aborted As Boolean
+
+'
+'   Show the error in the StandardsCheckerController's dialog box and
+'   add the error to the StandardsCheckerController's report.
+'
+Private Sub ReportMissingReference(att As <A href="usobjAttachment.htm">Attachment</A>)
+    Dim scc As <A href="usobjStandardsCheckerController.htm">StandardsCheckerController</A>
+    Dim rpt As <A href="usobjStandardsCheckerReport.htm">StandardsCheckerReport</A>
+    Dim response As <A href="usenmMsdStandardsCheckerReplaceChoice.htm">MsdStandardsCheckerReplaceChoice</A>
+    Dim strDescr As String
+
+    strDescr = "Missing reference file: " & att.<A href="usproAttachName.htm">AttachName</A>
+    If att.<A href="usproLogicalName.htm">LogicalName</A> &lt;&gt; "" Then
+        strDescr = strDescr & ", Logical name: " & att.LogicalName
+    End If
+
+    '   Show it in the user interface. If the user has not selected interactive
+    '   mode then ShowCheckerError just returns immediately
+    Set scc = StandardsCheckerController
+    scc.<A href="usmthShowCheckerError.htm">ShowCheckerError</A> response, strDescr, 0, False
+
+    '  If the user entered Cancel, tell RunCheck to abort
+    If response = msdStandardsCheckerReplaceChoiceAbort Then m_aborted = True
+
+    scc.<A href="usproTotalProblems.htm">TotalProblems</A> = scc.TotalProblems + 1
+
+    Set rpt = scc.<A href="usproReport.htm">Report</A>
+
+    Dim scp As <A href="usobjStandardsCheckerProblem.htm">StandardsCheckerProblem</A>
+
+    Set scp = rpt.<A href="usmthAddProblem.htm">AddProblem</A>(strDescr, "Reference", False)
+
+    '
+    '   Record the ElementID because it is the only property of an Attachment that cannot change.
+    '   If someone writes a program that processes the problem report, they can use the ElementID
+    '   to be certain the program accesses the same attachment that the report refers to.
+    '
+    scp.<A href="usmthAddElementID.htm">AddElementID</A> att.<A href="usproElementID.htm">ElementID</A>
+    scp.<A href="usmthAddStandard.htm">AddStandard</A> "Missing File"
+End Sub
+
+
+Private Sub IStandardsChecker_<A href="usmthAddedCheckerToStandardsCheckerApps.htm">AddedCheckerToStandardsCheckerApps</A>(ByVal ApplicationXMLNode As Object)
+    '
+    '   It is okay leave this empty.  The default entry is often sufficient
+    '
+End Sub
+
+Private Property Get IStandardsChecker_<A href="usproCallForEachModel.htm">CallForEachModel</A>() As Boolean
+    IStandardsChecker_CallForEachModel = True
+End Property
+
+Private Sub IStandardsChecker_<A href="usmthCreateSettings.htm">CreateSettings</A>()
+    '
+    '  This checker dos not have any user-configurable settings.
+    '
+End Sub
+
+Private Sub IStandardsChecker_<A href="usmthDeleteSettings.htm">DeleteSettings</A>()
+    '
+    '  This checker dos not have any user-configurable settings.
+    '
+End Sub
+
+Private Property Get IStandardsChecker_<A href="usproDescription.htm">Description</A>() As String
+    IStandardsChecker_Description = "Verifies that all reference files are found"
+End Property
+
+Private Property Get IStandardsChecker_<A href="usproDialogString.htm">DialogString</A>() As String
+    IStandardsChecker_DialogString = "VBA Reference Checker (Simple)"
+End Property
+
+Private Sub IStandardsChecker_<A href="usmthEditSettings.htm">EditSettings</A>(ByVal <A href="usproIsReadOnly.htm">IsReadOnly</A> As Boolean)
+    '
+    '  This checker dos not have any user-configurable settings.
+    '
+End Sub
+
+Private Property Get IStandardsChecker_<A href="usproFoundSettings.htm">FoundSettings</A>() As Boolean
+    '   Set this to True even though this standards checker does not have any
+    '   settings. Leaving it False tells the StandardsCheckerController that
+    '   this standards checker is unable to run.
+    IStandardsChecker_FoundSettings = True
+End Property
+
+Private Sub IStandardsChecker_<A href="usmthGetFixDetail.htm">GetFixDetail</A>(Fixes() As String, ByVal SelectedFix As Long, FixPropertiesLabel As String, FixProperties() As String)
+    ' This checker does not supply detailed information on possible fixes
+End Sub
+
+Private Property Get IStandardsChecker_<A href="usproHasSettings.htm">HasSettings</A>() As Boolean
+    IStandardsChecker_HasSettings = False
+End Property
+
+Private Property Get IStandardsChecker_<A href="usproIdentityString.htm">IdentityString</A>() As String
+    IStandardsChecker_IdentityString = "bentley.com.SimpleReferencesChecker"
+End Property
+
+Private Sub IStandardsChecker_<A href="usmthRunCheck.htm">RunCheck</A>(ByVal ModelToCheck As <A href="usobjModelReference.htm">ModelReference</A>, ByVal FirstModel As Boolean, ByVal Options As Long)
+    Dim att As Attachment
+    m_aborted = False
+    For Each att In ModelToCheck.<A href="usproAttachments.htm">Attachments</A>
+        If att.<A href="usproIsMissingFile.htm">IsMissingFile</A> Then
+            ReportMissingReference att
+            If m_aborted Then Exit Sub ' User entered Cancel
+        End If
+    Next
+End Sub
+
+Private Property Get IStandardsChecker_<A href="usproVersionString.htm">VersionString</A>() As String
+    IStandardsChecker_VersionString = "Version 1.0.0.0"
+End Property
+
+</CODE></PRE>

@@ -1,0 +1,31 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Changing Level Display for an Attachment</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Changing Level Display for an Attachment</H1>
+
+<P class=T>
+
+</P>
+<PRE class=CT><CODE>
+Sub ToggleLevelDisplay(att As <A href="usobjAttachment.htm">Attachment</A>, strLevelPattern As String)
+    Dim lvls As <A href="usobjLevels.htm">Levels</A>
+    Dim lvl As <A href="usobjLevel.htm">Level</A>
+
+    Set lvls = att.<A href="usproLevels.htm">Levels</A>
+    For Each lvl In att.Levels
+        If lvl.<A href="usproName.htm">Name</A> Like strLevelPattern Then
+            lvl.<A href="usproIsDisplayed.htm">IsDisplayed</A> = Not lvl.IsDisplayed
+        End If
+    Next
+
+    lvls.<A href="usmthRewrite.htm">Rewrite</A>
+    <A href="usmthRedrawAllViews.htm">RedrawAllViews</A>
+End Sub
+
+</CODE></PRE>

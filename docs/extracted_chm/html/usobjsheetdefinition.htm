@@ -1,0 +1,160 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SheetDefinition Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjsheetdefinition"></A>SheetDefinition Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_974" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjSheetDefinitionC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_975" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjSheetDefinitionX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_976" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjSheetDefinitionP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_977" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjSheetDefinitionM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_978" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjSheetDefinitionE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_979" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjSheetDefinitionS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_980" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjSheetDefinitionI">
+</OBJECT>
+</P>
+
+<P class=T>
+Contains all of the properties describing a model's sheet definition.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+Although a program can get and set the <B>SheetDefinition</B> of a model that is not msdModelTypeSheet, programs
+    should only modify the sheet definitions for sheet models. MicroStation's Model Properties dialog box does not display
+    sheet definition properties for a model unless the model is a sheet. The user will not expect a sheet definition
+    to have any effect on a model that is not a sheet.
+</P>
+<P>
+A program can use <A href="usmthGetSheetDefintion.htm">GetSheetDefintion</A> to extract a sheet definition from a model. It can use the properties of
+    <B>SheetDefinition</B> to query and modify the properties of the sheet definition.  It can use <A href="usmthSetSheetDefintion.htm">SetSheetDefintion</A>
+    to set a model's sheet definition to the property values contained in the <B>SheetDefinition</B> object.
+</P>
+<P>
+<B>SheetDefinition</B>'s <A href="usmthGetPaperMargins.htm">GetPaperMargins</A> and <A href="usmthSetPaperMargins.htm">SetPaperMargins</A> methods, and its <A href="usproHeight.htm">Height</A> and <A href="usproWidth.htm">Width</A> properties all
+    work in terms of UOR's.  Your program may need to convert to and from master units, and to and from sheet units.
+</P>
+<P>
+To convert from UORs to master units, divide by <A href="usobjModelReference.htm">ModelReference</A>.<A href="usproUORsPerMasterUnit.htm">UORsPerMasterUnit</A>. To convert from master units
+    to UORs, multiply by <B>ModelReference</B>.<B>UORsPerMasterUnit</B>.
+</P>
+<P>
+To convert from UORs to sheet units, first convert the UORs to the model's storage units.  Then convert
+    that to meters. Then convert from meters to the sheet's units.  Use the information returned in a <A href="usudtMeasurementUnit.htm">MeasurementUnit</A>
+    structure to convert between meters and a sheets units or a model's storage units.
+<pre><code>
+Function ConvertFromUORsToSheetUnits(sd As SheetDefinition, UORs As Double) As Double
+    Dim sheetMU As MeasurementUnit
+    Dim modelMU As MeasurementUnit
+    Dim modelStorageUnits As Double
+    Dim meters As Double
+
+    sheetMU = sd.<A href="usproUnits.htm">Units</A>
+    modelMU = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usproStorageUnit.htm">StorageUnit</A>
+
+    '
+    '  Convert to model storage units
+    '
+    modelStorageUnits = UORs / ActiveModelReference.UORsPerStorageUnit
+
+    '
+    '   Convert the model storage units to meters
+    '
+    meters = modelStorageUnits * modelMU.UnitsPerBaseDenominator / modelMU.UnitsPerBaseNumerator
+    '
+    '   Convert from meters to sheet units.  The result of this is normally millimeters or feet
+    '
+    ConvertFromUORsToSheetUnits = meters * sheetMU.UnitsPerBaseNumerator / sheetMU.UnitsPerBaseDenominator
+End Function
+
+Function ConvertFromSheetUnitsToUORs(sd As SheetDefinition, sheetUnits As Double) As Double
+    Dim sheetMU As MeasurementUnit
+    Dim modelMU As MeasurementUnit
+    Dim modelStorageUnits As Double
+    Dim meters As Double
+
+    sheetMU = sd.Units
+    modelMU = ActiveModelReference.StorageUnit
+
+    '
+    '  Convert from sheet units (commonly feet or millimeters) to meters
+    '
+    meters = sheetUnits * sheetMU.UnitsPerBaseDenominator / sheetMU.UnitsPerBaseNumerator
+    '
+    '   Convert from meters to model storage units
+    '
+    modelStorageUnits = meters * modelMU.UnitsPerBaseNumerator / modelMU.UnitsPerBaseDenominator
+
+    '
+    '   Convert from model storage units to UORs
+    '
+    ConvertFromSheetUnitsToUORs = modelStorageUnits * ActiveModelReference.<A href="usproUORsPerStorageUnit.htm">UORsPerStorageUnit</A>
+End Function
+</code></pre>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

@@ -1,0 +1,95 @@
+<!--ArborText, Inc., 1988-2002, v.4002-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Common VBA Mistakes</title>
+<link href="/Office.css" type="text/css" rel="StyleSheet" media="screen"></head>
+<body><div><h1>Common VBA Mistakes</h1><p>This section describes some common
+mistakes encountered in Visual Basic programs, highlighting several problems
+that are difficult to diagnose because the symptoms often do not reflect the
+programming error. Included in this section are explanations for the following
+problem statements:</p><ul>
+<li><code>oTextElement.Origin.X = 4</code></li>
+<li><code>ActiveModelReference.AddElement (ele)</code></li>
+<li><code>oModel = ActiveModelReference</code></li>
+</ul><div><a name="UDTs"></a><h2>User Defined Types as Property Values</h2>
+<p>User defined
+types (UDTs) are data types that store specific values. A variable declared as a
+UDT type contains all of the data for that UDT. A variable declared as an object
+type contains a reference to an object that contains the data. When a program assigns a UDT from one
+variable to another, all of the data is copied. After the assignment, the program has one more copy
+of the data. When a program assigns an object reference from one variable to another, only
+the reference is copied.  After the assignment, the program has one more reference to the data.</p>
+<p><code>
+'pt.X is equal to zero immediately.
+<br>Dim pt As Point3d
+<br><br>'Copies the entire Point3d into pt variable.<br>pt = ActiveModelReference.GlobalOrigin</code></p>
+<p>Conversely, when a variable is declared with an object type, it creates only a reference to an object.
+</p>
+<p><code>'oElement contains no data.<br>Dim oElement As Element<br>
+<br>'Saves a reference to the element.<br>'The element is NOT copied.<br>Set oElement = oElementEnumerator.Current
+</code></p><p>This difference often confuses programmers when
+using an object property that is a user defined type. Accessing the property copies the
+entire UDT into or out of the object. Changing a field in the UDT does not change anything
+in the object until the program assigns the UDT to the object property. In Visual Basic
+it is possible to use the syntax <I>object-reference.property-name.field-reference = value</I>
+to copy a UDT out of an object into a temporary copy and then to change one field of the
+temporary copy. Because of this, it is possible to create code that does nothing even though many programmers
+expect it to work. For example, the origin of a text element can be changed with this code:</p><p><code>Dim
+pt as Point3d<br>pt = oTextElement.Origin<br>pt.x = pt.x + 1<br>oTextElement.Origin
+= pt</code></p><p>The same action cannot be accomplished with this code:</p><p><code>
+Dim xVal As Double<br>xVal = oTextElement.Origin.x<br>oTextElement.Origin.x
+= xVal + 1</code></p><p>This only creates a temporary copy of the origin point
+on the stack, then modifies the X member of this temporary copy. The origin
+of the text element is not modified.</p></div><div><h2>Parentheses in function
+calls</h2><p>Parentheses are only interpreted as part of a function call if
+the return value is used in an expression or assignment statement. For example,
+the parentheses are required and interpreted as part of this function call:
+</p><p><code>Set oElEnum = ActiveModelReference.Scan(oScanCrit)</code></p><p>
+Because the return value of the function is assigned to a variable, the call
+to the function must include parentheses. When using a function in an expression
+the parentheses are also required, as in this example:</p><p><code>If oElement.HasAnyXData("WidgetMaker")
+Then<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;...<br>End If</code></p><p>When
+calling a <code>Sub</code> routine, parentheses are only needed when using
+the Call syntax to invoke a sub-routine that requires arguments. To add an
+element to the active model, you might use this:</p><p><code>Call ActiveModelReference.AddElement
+(oElement)</code></p><p>Without the <code>Call</code> keyword, the parentheses
+will cause an error. This same line is more often written without the parentheses,
+and the optional keyword, as:</p><p><code>ActiveModelReference.AddElement
+oElement</code></p><p>If the parentheses were included in this line without
+the <code>Call</code> keyword, it would be interpreted as &ldquo;take the
+default property of oElement and pass that to AddElement&rdquo;. Since MicroStation
+objects don't have default properties, an error message is displayed: &ldquo;Object
+doesn&rsquo;t support this property or method.&rdquo; </p></div><div><h2>
+Set Syntax</h2><p>The <code>Set</code> keyword is required when an object
+reference is assigned to a variable of that object's type. For the <code>
+Set</code> statement to be valid, the type of the variable must be consistent
+with the object assigned to it. The <code>Dim</code> statement and other declaration
+keywords only create a variable of the specified type. No actual object is
+assigned to the variable until the <code>Set</code> statement is used.</p><p><code>
+'Create a variable of type ModelReference<br>Dim oModel As ModelReference<br><br>'Incorrect
+way to assign it.<br>oModel = ActiveModelReference<br><br>'Correct way to
+assign it.<br>Set oModel = ActiveModelReference</code></p><p>An assignment
+statement with an object and without the <code>Set</code> keyword means &ldquo;assign
+to the default property of the object.&rdquo; In the previous example, the
+incorrect assignment statement would be interpreted as &ldquo;assign the default
+property value of ActiveModelReference to the default property of oModel.&rdquo;
+Since oModel is equal to <code>Nothing</code> when this statement would be
+executed, the error message &ldquo;Object variable or With block variable
+not set&rdquo; is displayed.</p></div><div><h2>Exceptions in Event Handlers
+</h2><p>If the Visual Basic Error Trapping option is set to &ldquo;Break on
+Unhandled Errors&rdquo; (see Tools > Options > General > Error Trapping),
+then errors in class modules will not cause a break. Instead, code execution
+will stop without any indication that an error occurred. The most useful setting
+for this option is &ldquo;Break in Class Module&rdquo; which will cause a
+break whenever an error occurs, whether it occurs in a module or a class.
+</p><center><img src="images/vbadlgtoolsoptionsgeneral.png"></center></div><div><h2>
+Option Explicit</h2><p>The <code>Option Explicit</code> statement in a class
+or module can save unnecessary time debugging code because of mistyped variable
+names. Without this optional statement in the General Declarations section,
+every mistyped variable name becomes a new variable with an implied <code>
+variant</code> type. When the <code>Option Explicit</code> statement is used,
+every undefined variable produces an error.</p><p>To set the editor to automatically
+include the <code>Option Explicit</code> statement, enable the checkbox labeled
+&ldquo;Require Variable Declaration&rdquo; in Tools > Options > Editor.</p></div></div></body>
+</html>

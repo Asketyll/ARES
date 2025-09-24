@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Extract a Segment/Patch From a B-spline Curve/Surface</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Extract a Segment/Patch From a B-spline Curve/Surface</H1>
+
+<P class=T>
+Demonstrates how to extract a parametric region of a B-spline curve or surface.
+</P>
+<P class=T>
+Also demonstrates how to create a B-spline curve from an <A href="usudtEllipse3d.htm">Ellipse3d</A>,
+                  how to create a simple Gordon (network) B-spline surface, and
+                  how to add parametric boundaries to puncture/trim a B-spline surface.
+</P>
+<P class=T>
+Note that after MicroStation V8 2004 Edition (8.5.0), the <A href="usmthExtractIsoCurve.htm">ExtractIsoCurve</A>
+                  method was deprecated.  It returned in its first parameter an array of double values.
+                  Its replacement <A href="usmthExtractIsoparametricCurve.htm">ExtractIsoparametricCurve</A> returns in its first parameter an array of
+                  <A href="usudtPoint2d.htm">Point2d</A> parameter spans.
+</P>
+<PRE class=CT><CODE>
+Sub TestBsplineExtractPiece()
+    Dim oSurfaceElt As <A href="usobjBsplineSurfaceElement.htm">BsplineSurfaceElement</A>
+    Dim oCurveElt As <A href="usobjBsplineCurveElement.htm">BsplineCurveElement</A>
+    Dim oSurface As New BsplineSurface, oSurfacePatch As <A href="usobjBsplineSurface.htm">BsplineSurface</A>
+    Dim oFitCurve As <A href="usobjInterpolationCurve.htm">InterpolationCurve</A>
+    Dim aCurves() As New BsplineCurve, aIsoCurves() As <A href="usobjBsplineCurve.htm">BsplineCurve</A>
+    Dim oCurveSegment As BsplineCurve
+    Dim aFitPoints() As <A href="usudtPoint3d.htm">Point3d</A>
+    Dim spanU As Point2d, spanV As Point2d, span As Point2d, aIsoSpans() As Point2d
+    Dim uVector As Point2d, vVector As Point2d, aBoundPoints() As Point2d, parametricCenter As Point2d
+    Dim angle As Double, parametricRadius As Double, fraction As Double
+    Dim i As Long, nCurves As Long, nFitPoints As Long, nPoints As Long
+
+    ' First create a B-spline surface that interpolates some cross-sectional curves.
+    ' ...create some B-spline curves through points
+    nCurves = 3
+    ReDim aCurves(0 To nCurves - 1)
+    nFitPoints = 4
+    ReDim aFitPoints(0 To nFitPoints - 1)
+
+    aFitPoints(0) = <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(0, 20, -5)
+    aFitPoints(1) = Point3dFromXYZ(10, 30, 10)
+    aFitPoints(2) = Point3dFromXYZ(20, 27, 13)
+    aFitPoints(3) = Point3dFromXYZ(30, 22, 3)
+    Set oFitCurve = New InterpolationCurve
+    oFitCurve.<A href="usmthSetFitPoints.htm">SetFitPoints</A> aFitPoints
+    oFitCurve.<A href="usproBesselTangents.htm">BesselTangents</A> = True
+    aCurves(0).<A href="usmthFromInterpolationCurve.htm">FromInterpolationCurve</A> oFitCurve
+
+    aFitPoints(0) = Point3dFromXYZ(5, 10, 0)
+    aFitPoints(1) = Point3dFromXYZ(12, 18, 7)
+    aFitPoints(2) = Point3dFromXYZ(18, 20, 10)
+    aFitPoints(3) = Point3dFromXYZ(25, 13, -2)
+    Set oFitCurve = New InterpolationCurve
+    oFitCurve.SetFitPoints aFitPoints
+    oFitCurve.BesselTangents = True
+    aCurves(1).FromInterpolationCurve oFitCurve
+
+    aFitPoints(0) = Point3dFromXYZ(0, 0, 0)
+    aFitPoints(1) = Point3dFromXYZ(13, -1, 12)
+    aFitPoints(2) = Point3dFromXYZ(19, -3, 8)
+    aFitPoints(3) = Point3dFromXYZ(28, 2, 2)
+    Set oFitCurve = New InterpolationCurve
+    oFitCurve.SetFitPoints aFitPoints
+    oFitCurve.BesselTangents = True
+    aCurves(2).FromInterpolationCurve oFitCurve
+
+    ' Compute a B-spline Surface through the cross sectional curves
+    oSurface.<A href="usmthFromCrossSections.htm">FromCrossSections</A> aCurves
+
+    ' Punch a hole (a circle in parameter space) in the middle of the surface by adding a boundary.
+    ' Note: the boundary points form a closed loop
+    nPoints = 500
+    ReDim aBoundPoints(0 To nPoints - 1)
+    uVector = <A href="usmthPoint2dFromXY.htm">Point2dFromXY</A>(1, 0)
+    vVector = Point2dFromXY(0, 1)
+    parametricCenter = Point2dFromXY(0.5, 0.5)
+    parametricRadius = 0.2
+    For i = LBound(aBoundPoints) To UBound(aBoundPoints)
+        angle = (i / CDbl(UBound(aBoundPoints))) * 2 * <A href="usmthPi.htm">Pi</A>
+        aBoundPoints(i) = <A href="usmthPoint2dAdd2Scaled.htm">Point2dAdd2Scaled</A>(parametricCenter, uVector, parametricRadius * Cos(angle), vVector, parametricRadius * Sin(angle))
+    Next i
+    oSurface.<A href="usmthAddBound.htm">AddBound</A> aBoundPoints
+    oSurface.<A href="usproBoundsTrim.htm">BoundsTrim</A> = False     ' boundaries treated as holes
+
+    ' Create the B-spline surface element from the operational definition
+    Set oSurfaceElt = <A href="usmthCreateBsplineSurfaceElement1.htm">CreateBsplineSurfaceElement1</A>(Nothing, oSurface)
+    oSurfaceElt.color = 1
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oSurfaceElt
+    oSurfaceElt.<A href="usmthRedraw.htm">Redraw</A>
+
+    ' Now we'll demonstrate how to extract pieces of the B-spline curves and surface.
+    ' We'll display each extracted element with different symbology.
+
+    ' Extract a patch in the upper left parametric quadrant of the surface
+    spanU = Point2dFromXY(0.2, 0.4)
+    spanV = Point2dFromXY(0.6, 0.8)
+    Set oSurfacePatch = oSurface.<A href="usmthExtractPatch.htm">ExtractPatch</A>(spanU, spanV)
+    Set oSurfaceElt = CreateBsplineSurfaceElement1(oSurfaceElt, oSurfacePatch)
+    oSurfaceElt.color = 2
+    ActiveModelReference.AddElement oSurfaceElt
+    oSurfaceElt.Redraw
+
+    ' Extract a segment of the first cross sectional curve
+    span = Point2dFromXY(0.3, 0.5)
+    Set oCurveSegment = aCurves(0).<A href="usmthExtractSegment.htm">ExtractSegment</A>(span)
+    Set oCurveElt = <A href="usmthCreateBsplineCurveElement1.htm">CreateBsplineCurveElement1</A>(oSurfaceElt, oCurveSegment)
+    oCurveElt.color = 3
+    oCurveElt.<A href="usproLineWeight.htm">LineWeight</A> = 3
+    ActiveModelReference.AddElement oCurveElt
+    oCurveElt.Redraw
+
+    ' Extract the u=0.6 isoparametric curve on the surface
+    aIsoCurves = oSurface.ExtractIsoparametricCurve(aIsoSpans, 0.6, msdBsplineSurfaceU)
+    oCurveElt.color = 4
+    oCurveElt.LineWeight = 1
+    For i = LBound(aIsoCurves) To UBound(aIsoCurves)
+        Set oCurveElt = CreateBsplineCurveElement1(oCurveElt, aIsoCurves(i))
+        ActiveModelReference.AddElement oCurveElt
+        oCurveElt.Redraw
+    Next i
+
+    ' An alternative to extracting a piece of a surface is to trim it with a boundary:
+    ' the trimmed geometry gets hidden; when the boundary is removed, it is visible again.
+    ' Below, we lop off the upper right corner of our surface.
+    ' Note: We can either make a closed polygonal loop (in parameter space) around the
+    '       portion of the surface we wish to display and set oSurface.BoundsTrim = True,
+    '       or make a loop around the corner we wish to hide and set oSurface.BoundsTrim = False.
+    '       Since we have already set oSurface.BoundsTrim = False for the circular hole, we
+    '       use the latter option because this setting effects the sense of all boundaries.
+    ' Note: the smaller the distance between boundary points, the more closely the wireframe
+    '       boundary matches the rendered (actual) boundary.
+    nPoints = 102
+    ReDim aBoundPoints(0 To nPoints - 1)
+    aBoundPoints(0) = Point2dFromXY(0.65, 1)
+    aBoundPoints(nPoints - 3) = Point2dFromXY(1, 0.65)
+    aBoundPoints(nPoints - 2) = Point2dFromXY(1, 1)
+    aBoundPoints(nPoints - 1) = aBoundPoints(0)
+    For i = 1 To nPoints - 4
+        fraction = i / CDbl(nPoints - 3)
+        aBoundPoints(i) = <A href="usmthPoint2dInterpolate.htm">Point2dInterpolate</A>(aBoundPoints(0), fraction, aBoundPoints(nPoints - 3))
+    Next i
+    oSurface.AddBound aBoundPoints
+    Set oSurfaceElt = CreateBsplineSurfaceElement1(oCurveElt, oSurface)
+    oSurfaceElt.color = 0
+    ActiveModelReference.AddElement oSurfaceElt
+    oSurfaceElt.Redraw
+End Sub
+
+</CODE></PRE>

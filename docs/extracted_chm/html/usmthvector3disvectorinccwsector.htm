@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Vector3dIsVectorInCCWSector Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthvector3disvectorinccwsector"></A>Vector3dIsVectorInCCWSector Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_5507" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthVector3dIsVectorInCCWSectorC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5508" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthVector3dIsVectorInCCWSectorX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5509" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthVector3dIsVectorInCCWSectorA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_5510" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthVector3dIsVectorInCCWSectorS">
+</OBJECT>
+</P>
+
+<P class=T>
+Test if the test vector vector is "between" vector0 and vector1, with CCW direction
+ resolved by an up vector.  The cross product of vector0 and vector1 is
+ considered the positive plane normal if its dot product with the up vector
+ is positive.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><B>Boolean</B></I> = <I>object</I>.<B>Vector3dIsVectorInCCWSector</B> (<I>TestVector</I>, <I>Vector0</I>, <I>Vector1</I>, <I>UpVector</I>)
+<P class=T>The <B>Vector3dIsVectorInCCWSector</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>TestVector</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtVector3d.htm">Vector3d</A> expression. The vector to test
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Vector0</I></TD>
+<TD class=TT width=79%>
+A <B>Vector3d</B> expression. The boundary vector.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Vector1</I></TD>
+<TD class=TT width=79%>
+A <B>Vector3d</B> expression. The boundary vector.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>UpVector</I></TD>
+<TD class=TT width=79%>
+A <B>Vector3d</B> expression. The out of plane vector.  If null, the z vector is used.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Version</B></P>
+<P>
+08.05.00
+</P>
+</BODY>
+</HTML>

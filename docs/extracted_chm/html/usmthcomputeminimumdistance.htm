@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ComputeMinimumDistance Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcomputeminimumdistance"></A>ComputeMinimumDistance Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1739" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeMinimumDistanceC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1740" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeMinimumDistanceX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1741" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeMinimumDistanceA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1742" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthComputeMinimumDistanceS">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns the minimum distance to this object from a given point.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P>For the <B>BsplineCurve</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I><B>Double</B></I> = <I>object</I>.<B>ComputeMinimumDistance</B> (<I>ClosestPoint</I>, <I>ClosestParameter</I>, <I>FromPoint</I>, <I>Rotation</I> [, <I>Tolerance</I>])
+<P>For the <B>BsplineSurface</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I><B>Double</B></I> = <I>object</I>.<B>ComputeMinimumDistance</B> (<I>ClosestPoint</I>, <I>ClosestParameters</I>, <I>FromPoint</I> [, <I>Tolerance</I>])
+<P class=T>The <B>ComputeMinimumDistance</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ClosestPoint</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. The returned closest point on this object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ClosestParameter</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. The returned parameter of the closest point on this object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>FromPoint</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. The point from which to compute the minimum distance to this object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Rotation</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtMatrix3d.htm">Matrix3d</A> expression. The rotation matrix (e.g., <A href="usobjView.htm">View</A>.<A href="usproRotation.htm">Rotation</A>, <A href="usmthMatrix3dRotationFromRowZ.htm">Matrix3dRotationFromRowZ</A>) specifying the plane in which to find
+                            the minimum distance.  If Rotation is <A href="usmthMatrix3dIdentity.htm">Matrix3dIdentity</A>, then an xy-distance is computed (ignoring z-coordinates
+                            of this object and FromPoint); if Rotation is not <B>Matrix3dIdentity</B>, then both FromPoint and this object are
+                            first rotated by Rotation, and then an xy-distance is computed.  ClosestPoint is always returned on the original
+                            object.  Pass <A href="usmthMatrix3dZero.htm">Matrix3dZero</A> to find the true minimum distance.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Tolerance</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The error tolerance for the computation.  If omitted or negative, a default tolerance of 1.0e-8 times the
+                            largest coordinate difference of the unweighted <A href="usproPole.htm">Pole</A>s is used.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ClosestParameters</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint2d.htm">Point2d</A> expression. The returned u- and v-parameters of the closest point on this object.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineCurve.htm">BsplineCurve</A> objects, the Tolerance parameter is unused.
+</P>
+<P>
+For <A href="usobjBsplineSurface.htm">BsplineSurface</A> objects, any boundaries in the object are ignored.  To detect whether or not ClosestParameters defines a point on
+             a trimmed/punctured surface, call <A href="usmthContainsParametricPoint.htm">ContainsParametricPoint</A>.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

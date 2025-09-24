@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DataBlock Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjdatablock"></A>DataBlock Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_484" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjDataBlockC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_485" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjDataBlockX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_486" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjDataBlockP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_487" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjDataBlockM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_488" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjDataBlockE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_489" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjDataBlockS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_490" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjDataBlockI">
+</OBJECT>
+</P>
+
+<P class=T>
+A <B>DataBlock</B> object holds free format data.  It is normally used to transfer a user-defined
+    data structure to or from an element, but could be used other ways too.
+</P>
+<P class=RL><B>Remarks</B></P>
+<P>
+Use the <B>Copy...</B> methods to copy data to or from a data block.  Each of the <B>Copy...</B>
+    methods has a argument <B>CopyToDataBlock</B> that controls whether the method copies the data from
+    the variable to the data block, or from the data block to the variable. The advantage
+    of this approach over the more traditional approach of having separate Get and Set methods is that
+    with this approach you only need to implement one method to transfer the data.  You can use
+    the method to transfer the data in either direction.  To be able to get out the data exactly as it was added,
+    your program has to do identical transfer operations in both directions.  It is easy to assure this happens by
+    implementing just one method that transfers the data.  The following example illustrates this.  If <B>copyToDataBlock</B>
+    is <B>True</B>, it copies the values of the variables to the data block.  If <B>copyToDataBlock</B>
+    is <B>False</B>, it extracts the information from the data block and stores it in the variables.
+        <P><B>Example</B></P>
+</P>
+<PRE class=CT><CODE>
+        Private Sub CopyAll(blkData As DataBlock, copyToDataBlock As Boolean)
+            With blkData
+                .Offset = 0  ' Start at the beginning of the block
+                .CopyByte bytB1, copyToDataBlock
+                .CopyInteger intI1, copyToDataBlock
+                .CopyLong lngL1, copyToDataBlock
+                .CopySingle sngS1, copyToDataBlock
+                .CopyDouble dblD1, copyToDataBlock
+                .CopyString strVariable, copyToDataBlock
+            End With
+        End Sub
+</CODE></PRE>
+<P>
+A program that runs outside of MicroStation or needs to create a <B>DataBlock</B> object in
+    another MicroStation process should use app.<A href="usmthCreateObjectInMicroStation.htm">CreateObjectInMicroStation</A> ("MicroStationDGN.DataBlock")
+    where app is an object reference to the <A href="usobjApplication.htm">Application</A> object for that process.  If a program passes a <B>DataBlock</B>
+    object to <A href="usmthAddUserAttributeData.htm">AddUserAttributeData</A>, then it is essential that the object comes from the same process where <B>AddUserAttributeData</B> will run.
+</P>
+<P>
+Using the expression <b>new DataBlock</b>
+    in a VBA program running in MicroStation works correctly to create an <B>DataBlock</B> object in the current
+    process. Therefore, it is the proper thing to do in a VBA application. However, using the expression
+    <b>new DataBlock</b> to create a <B>DataBlock</B> object from a separate process while there are
+    multiple copies of MicroStation running may create an object for the wrong process.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

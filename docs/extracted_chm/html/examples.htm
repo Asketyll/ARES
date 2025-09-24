@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Overview of VBA Examples</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY>
+
+<H1><A NAME="examples"></A>Overview of Examples</H1>
+
+<P>The <B>Examples</B> table-of-contents lists examples illustrating the most important concepts in using MicroStation's object model.  Pertinent examples
+are also accessible from the <B>Examples</B> lists of the documentation pages of the types, objects, events, methods, and objects. A page's examples list may
+refer to examples that appear in the <B>Examples</B> table-of-contents.  They may also refer to shorter examples that are not
+mentioned elsewhere.</P>
+<P>
+<P>In addition to the examples in the help file, there are examples in projects distributed with MicroStation. You can find these in the
+ WorkSpace\Example\Standards\Macros directory.  Here is a brief description of those examples.
+</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Project</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>CopyElementExample</B></TD>
+<TD class=TT width=79%%>This example implements a simple copy command.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>DataBaseExamples</B></TD>
+<TD class=TT width=79%%>This connects to a ODBC database.  Then it starts a locate command to allow the user
+to select an element.  Once the user has selected the element, it gets the element's database linkages,
+retrieves the records corresponding to the linkages, and displays the data in a ListBox.  The module modDBCommands
+has the code for starting the command.  The module modDatabaseAccess has some general purpose subroutines and functions for
+working with databases.  The form frmDBConnect has the code for connecting to the database.  The form frmDBLinkInfo has
+the code for extracting the linkages and populating the ListBox. The class clsDBReviewCommand has the
+implementation of the locate command.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>ElementPlacementExample</B></TD>
+<TD class=TT width=79%%>This project has 7 sample commands that show illustrate different techniques for creating elements.
+The module modPlaceShapeCommands has the entry points for each of the commands.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>LineStylePicker</B></TD>
+<TD class=TT width=79%%>This project illustrates a technique for implementing a line style picker.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>MdlExamples</B></TD>
+<TD class=TT width=79%%>The examples in this project illustrate how to call into MicroStation's MDL functions. Many of the declarations
+in this section are copied directly out of the MDL documentation which now includes possible VBA declarations for each of
+the MDL functions that is available to VBA.  See the section "Calling DLL functions from VBA" in this help file for more information.
+</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>mdl2vba</B></TD>
+<TD class=TT width=79%%>Illustrates how a VBA macro can use <A href="usmthGetCExpressionValue.htm">GetCExpressionValue</A> and
+<A href="usmthSetCExpressionValue.htm">SetCExpressionValue</A> to access MDL functions and data. This example requires the
+vba2mdl MDL example.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>NativeCodeUtilities</B></TD>
+<TD class=TT width=79%%>This example contains a number of utility procedures that perform tasks that are commonly required by
+projects that call into native code.  Many of the examples in <B>MdlExamples</B> use these utilities.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>PictureExample</B></TD>
+<TD class=TT width=79%%>This example shows how to display an element in a form or control. This example uses
+<A href="usmthGetPicture.htm">GetPicture</A> to get the image, and a control's <B>Picture</B> property to display it.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>ReadElementExample</B></TD>
+<TD class=TT width=79%%>This example reads all of the <A href="usobjTextElement.htm">TextElement</A>,
+<A href="usobjEllipseElement.htm">EllipseElement</A>, and <A href="usobjLineElement.htm">LineElement</A>
+elements from the active model and changes the color of each one.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>TextExamples</B></TD>
+<TD class=TT width=79%%>This example has a command that converts all tags, text elements, and text nodes to upper case or lower
+case. It also has a command to rotate and scale text elements and text nodes. Both commands have the ability to process all of the
+elements in a fence, all of the selected elements, or all of the elements in the model. The module modTextCommands has both command entry points
+plus a function <B>GetElementEnumerator</B> that determines whether the command processes the elements from
+a selection set, a fence, or all of the element in the model.  The form frmChangeCase has the code for changing the case
+of the elements.  The form frmTransformText has the code for scaling and rotating text elements.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><B>SmartSolid</B></TD>
+<TD class=TT width=79%%>This example shows how to use SmartSolid API for VBA. We provide a new interface: <A href="usobjSmartSolid.htm">SmartSolid</A>.
+The interface contains many solid modeling tools, such as generating primitive solid, boolean operation,etc.And also there is a new element type:
+<A href="usobjSmartSolidElement.htm">SmartSolidElement</A>, which represents Microstation SmartSolid/SmartSurface element.
+</TD>
+</TR>
+</TABLE><BR>
+
+</BODY>
+</HTML>

@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Moving the Closest Vertex</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Moving the Closest Vertex</H1>
+
+<P class=T>
+This example illustrates some of the methods of the <A href="usobjVertexList.htm">VertexList</A> interface.
+            Given an <A href="usobjElement.htm">Element</A> that is a <B>VertexList</B>, it moves the vertex that is closest to
+            the specified point.
+</P>
+<PRE class=CT><CODE>
+Sub ModifyClosestVertex(ele As Element, pnt As <A href="usudtPoint3d.htm">Point3d</A>)
+    Dim vertexIndex As Integer
+
+    On Error GoTo done
+    With ele.<A href="usproAsVertexList.htm">AsVertexList</A>
+        vertexIndex = .<A href="usmthGetClosestVertex.htm">GetClosestVertex</A>(pnt)
+
+        ele.<A href="usmthRedraw.htm">Redraw</A> msdDrawingModeErase
+        .<A href="usmthModifyVertex.htm">ModifyVertex</A> vertexIndex, pnt
+        ele.Redraw msdDrawingModeNormal
+        ele.<A href="usmthRewrite.htm">Rewrite</A>
+    End With
+
+done:
+End Sub
+
+</CODE></PRE>

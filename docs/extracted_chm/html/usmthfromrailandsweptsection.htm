@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>FromRailAndSweptSection Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthfromrailandsweptsection"></A>FromRailAndSweptSection Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2679" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptSectionC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2680" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptSectionX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2681" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptSectionA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2682" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromRailAndSweptSectionS">
+</OBJECT>
+</P>
+
+<P class=T>
+Initializes this object by sweeping the given Section along the given Rail path, orienting each cross section with Rail's
+                 Frenet frame (cf. <A href="usmthEvaluatePointFrame.htm">EvaluatePointFrame</A>).
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>FromRailAndSweptSection</B> <I>Rail</I>, <I>Section</I> [, <I>Tolerance</I> [, <I>ArcTolerance</I>]]
+<P class=T>The <B>FromRailAndSweptSection</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Rail</I></TD>
+<TD class=TT width=79%>
+A <A href="usobjBsplineCurve.htm">BsplineCurve</A> expression. The path along which Section is swept.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Section</I></TD>
+<TD class=TT width=79%>
+A <B>BsplineCurve</B> expression. The cross-sectional profile to sweep along Rail.  For best results, Section should be planar and in position at the
+                        start of Rail.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Tolerance</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The absolute maxiumum section-surface deviation for portions of this object swept over nonlinear, noncircular
+                        G1-continuous sections of Rail.  If omitted or nonpositive, a default tolerance of 1.0e-3 times the largest coordinate
+                        difference of the unweighted <A href="usproPole.htm">Pole</A>s of Section is used.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ArcTolerance</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Double</B> expression. The maximum deviation of a circular section of Rail, as an absolute tolerance on the section's radius computation.
+                        If omitted or nonpositive, a default tolerance of 1.0e-2 times Tolerance is used.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineSurface.htm">BsplineSurface</A> objects, if the Rail and Section curves' start tangents are not perpendicular or if Rail does not start in
+             Section's initial osculating plane, then Section is rotated internally so that its start binormal is parallel to Rail's start
+             tangent, and it is translated so that its start point lies on Rail's start point if these points were initially close, or if
+             not, so that the projection of Rail's start point onto Section's initial osculating plane lies on Rail's start point
+             (cf. <B>EvaluatePointFrame</B>).  If Rail starts at a point along the (transformed) Section, then both curves are preserved in the
+             resulting surface as isoparametric curves in the u- and v-parameter directions, respectively; otherwise, only Section is so
+             preserved.
+</P>
+<P>
+For <B>BsplineSurface</B> objects, if Rail is G1-continuous (continuity of the normalized tangent), a method with more options and
+             greater rail approximation accuracy is <A href="usmthFromRailsAndSweptSections.htm">FromRailsAndSweptSections</A>.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

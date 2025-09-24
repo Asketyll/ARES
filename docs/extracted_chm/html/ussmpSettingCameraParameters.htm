@@ -1,0 +1,33 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Changing a View's Camera Parameters</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Changing a View's Camera Parameters</H1>
+
+<P class=T>
+
+</P>
+<PRE class=CT><CODE>
+Sub SetCameraClippingDistance(vw As <A href="usobjView.htm">View</A>, Front As Double, Back As Double)
+    Dim vc As New ViewCameraParameters
+
+    '  Set the requested properties
+    vc.<A href="usproCameraBackClippingDistance.htm">CameraBackClippingDistance</A> = Back
+    vc.<A href="usproCameraFrontClippingDistance.htm">CameraFrontClippingDistance</A> = Front
+
+    '  Set the others so SetCameraProperties does not compute defaults
+    vc.<A href="usproCameraAngle.htm">CameraAngle</A> = vw.CameraAngle
+    vc.<A href="usproCameraPosition.htm">CameraPosition</A> = vw.CameraPosition
+    vc.<A href="usproCameraTarget.htm">CameraTarget</A> = vw.CameraTarget
+    vc.<A href="usproCameraUpVector.htm">CameraUpVector</A> = vw.CameraUpVector
+
+    vw.<A href="usmthSetCameraProperties.htm">SetCameraProperties</A> vc
+    vw.<A href="usmthRedraw.htm">Redraw</A>
+End Sub
+
+</CODE></PRE>

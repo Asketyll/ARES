@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>EvaluatePointsAtEqualDeviationChords Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthevaluatepointsatequaldeviationchords"></A>EvaluatePointsAtEqualDeviationChords Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2459" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointsAtEqualDeviationChordsC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2460" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointsAtEqualDeviationChordsX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2461" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointsAtEqualDeviationChordsA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2462" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthEvaluatePointsAtEqualDeviationChordsS">
+</OBJECT>
+</P>
+
+<P class=T>
+Returns points (and parameters) which determine chords of this object that deviate more or less equally from this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I><B><A href="usudtPoint3d.htm">Point3d</A> ()</B></I> = <I>object</I>.<B>EvaluatePointsAtEqualDeviationChords</B> (<I>Parameters</I>, <I>MinDeviation</I>, <I>MaxDeviation</I>, <I>ChordsCount</I>)
+<P class=T>The <B>EvaluatePointsAtEqualDeviationChords</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Parameters</I></TD>
+<TD class=TT width=79%>
+A <B>Double ()</B> expression. The returned parameters associated with the returned points.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>MinDeviation</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. The returned minimum distance of the returned chords from this object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>MaxDeviation</I></TD>
+<TD class=TT width=79%>
+A <B>Double</B> expression. The returned maximum distance of the returned chords from this object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ChordsCount</I></TD>
+<TD class=TT width=79%>
+A <B>Long</B> expression. The number of chords to compute (the number of points returned equals ChordsCount + 1).
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineCurve.htm">BsplineCurve</A> objects, this method usually gives better results than <A href="usmthEvaluatePointsAtEqualLengthChords.htm">EvaluatePointsAtEqualLengthChords</A> when the B-spline
+             curve has substantial curvature, but for some curves (particularly those with linear segments), convergence does not occur, and
+             this method fails.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>

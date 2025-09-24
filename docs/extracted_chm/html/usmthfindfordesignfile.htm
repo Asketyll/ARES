@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>FindForDesignFile Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthfindfordesignfile"></A>FindForDesignFile Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2615" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFindForDesignFileC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2616" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFindForDesignFileX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2617" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFindForDesignFileA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2618" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFindForDesignFileS">
+</OBJECT>
+</P>
+
+<P class=T>
+Searches given <A href="usobjDesignFile.htm">DesignFile</A> for a ItemTypeLibrary whose name matches a given pattern.
+    If found, returns the corresponding <A href="usobjItemTypeLibrary.htm">ItemTypeLibrary</A> object; else returns <B>Nothing</B>.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><B>ItemTypeLibrary</B></I> = <I>object</I>.<B>FindForDesignFile</B> (<I>NamePattern</I>, <I>source</I> [, <I>includeDgnLibs</I> [, <I>PreviouslyFoundItemTypeLibrary</I>]])
+<P class=T>The <B>FindForDesignFile</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NamePattern</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. The name of the ItemTypeLibrary(s) to find. This name follows the same rules as a pattern given to
+    Visual Basic's <B>Like</B> operator. (Exception: The pattern match is always case-insensitive, regardless of the <B>Option Compare</B>
+    setting.)
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>source</I></TD>
+<TD class=TT width=79%>
+An <B>Object</B> expression. Object of <B>DesignFile</B>, which contains required ItemTypeLibraies.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>PreviouslyFoundItemTypeLibrary</I></TD>
+<TD class=TT width=79%>
+Optional. An <B>ItemTypeLibrary</B> expression. If <B>Nothing</B> (the default), <A href="usmthFind.htm">Find</A> returns the first <B>ItemTypeLibrary</B> whose name matches the given pattern.
+    Otherwise, <B>Find</B> returns the next <B>ItemTypeLibrary</B> found after this one. Thus, you can call <B>Find</B> successively to find successive
+    <B>ItemTypeLibrary</B>s whose names match the pattern.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>includeDgnLibs</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. 
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+You can find one specific ItemTypeLibrary by simply giving its name, without any wildcard characters.
+</P>
+<P>
+You can successively find <I>all</I> ItemTypeLibraries by giving the name pattern, "*".
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+10.08.00
+</P>
+</BODY>
+</HTML>

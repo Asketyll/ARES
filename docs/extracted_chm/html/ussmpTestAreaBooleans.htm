@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Boolean Operations on Closed Elements and Planar Regions</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Boolean Operations on Closed Elements and Planar Regions</H1>
+
+<P class=T>
+Demonstrates usage of three varieties of area boolean methods, represented by
+                  <A href="usobjClosedElement.htm">ClosedElement</A>.<A href="usmthGetDifferenceShapes.htm">GetDifferenceShapes</A>,
+                  <B>ClosedElement</B>.<A href="usmthGetDifferenceShapesFromRegion.htm">GetDifferenceShapesFromRegion</A> and
+                  <A href="usobjApplication.htm">Application</A>.<A href="usmthGetRegionUnion.htm">GetRegionUnion</A>.
+</P>
+<P class=T>
+Also demonstrates how to create a rotation matrix from a normal vector,
+                  how to construct an <A href="usobjArcElement.htm">ArcElement</A> and an <A href="usobjEllipseElement.htm">EllipseElement</A> from an <A href="usudtEllipse3d.htm">Ellipse3d</A>,
+                  how to mirror an <A href="usobjElement.htm">Element</A> across an arbitrary plane,
+                  how to convert an <A href="usobjElementEnumerator.htm">ElementEnumerator</A> into an array of <B>Element</B>s,
+                  and how to construct an orphan cell from an array of <B>Element</B>s.
+</P>
+<PRE class=CT><CODE>
+Sub TestAreaBooleans()
+    Dim oYang As <A href="usobjCellElement.htm">CellElement</A>, oYin As CellElement
+    Dim oYangEye As EllipseElement, oYinEye As EllipseElement
+    Dim oClosedElement As ClosedElement
+    Dim aRegion1() As Element, aRegion2() As Element, oSubElement As Element
+    Dim oLine As <A href="usobjLineElement.htm">LineElement</A>
+    Dim oEnumerator As ElementEnumerator
+    Dim sEllipse As Ellipse3d
+    Dim sMirrorTransform As <A href="usudtTransform3d.htm">Transform3d</A>, sRotateTransform As Transform3d
+    Dim sLocalFrame As <A href="usudtMatrix3d.htm">Matrix3d</A>
+    Dim sLocalOrigin As <A href="usudtPoint3d.htm">Point3d</A>
+    Dim radius As Double
+    Dim i As Long, saveColor As Long
+
+    radius = 10
+
+    ' Set active color and fillmode
+    saveColor = <A href="usproActiveSettings.htm">ActiveSettings</A>.color
+    ActiveSettings.color = 0    ' white
+
+    ' We will do some area boolean operations in an arbitrary plane
+    sLocalFrame = <A href="usmthMatrix3dRotationFromRowZ.htm">Matrix3dRotationFromRowZ</A>(<A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(2, 1, -4))
+    sLocalOrigin = <A href="usmthPoint3dZero.htm">Point3dZero</A>
+
+    ' Construct some coplanar closed elements
+    sEllipse.center = <A href="usmthPoint3dAddScaled.htm">Point3dAddScaled</A>(sLocalOrigin, sLocalFrame.RowY, -radius / 2)
+    sEllipse.<A href="usevtStart.htm">Start</A> = 0
+    sEllipse.Sweep = 2 * <A href="usmthPi.htm">Pi</A>
+    sEllipse.Vector0 = <A href="usmthPoint3dScale.htm">Point3dScale</A>(sLocalFrame.RowX, radius / 6)
+    sEllipse.Vector90 = Point3dScale(sLocalFrame.RowY, radius / 6)
+    Set oYangEye = <A href="usmthCreateEllipticalElement1.htm">CreateEllipticalElement1</A>(Nothing, sEllipse, msdFillModeNotFilled)
+
+    sEllipse.center = Point3dAddScaled(sLocalOrigin, sLocalFrame.RowY, radius / 2)
+    Set oYinEye = CreateEllipticalElement1(Nothing, sEllipse, msdFillModeNotFilled)
+
+    sEllipse.Vector0 = Point3dScale(sLocalFrame.RowX, radius / 2)
+    sEllipse.Vector90 = Point3dScale(sLocalFrame.RowY, radius / 2)
+    Set oClosedElement = CreateEllipticalElement1(Nothing, sEllipse, msdFillModeNotFilled)
+
+    ' Boolean difference between two coplanar closed elements
+    Set oEnumerator = oClosedElement.GetDifferenceShapes(oYinEye)
+    If getEnumeratorCount(oEnumerator) &lt;&gt; 1 Then
+        Debug.Print "Unexpected boolean result."
+        End
+    End If
+
+    ' Create a region (union of disjoint closed coplanar elements)
+    aRegion1 = oEnumerator.<A href="usmthBuildArrayFromContents.htm">BuildArrayFromContents</A>   ' always a 0-based array
+    ReDim Preserve aRegion1(0 To 1)
+    Set aRegion1(1) = oYangEye
+
+    ' Create another region (enclosed by open coplanar elements)
+    ReDim aRegion2(0 To 1)
+    Set aRegion2(0) = <A href="usmthCreateLineElement2.htm">CreateLineElement2</A>(Nothing, Point3dAddScaled(sLocalOrigin, sLocalFrame.RowY, -2 * radius), Point3dAddScaled(sLocalOrigin, sLocalFrame.RowY, 2 * radius))
+    sEllipse.center = sLocalOrigin
+    sEllipse.Start = Pi / 4
+    sEllipse.Sweep = 3 * Pi / 2
+    sEllipse.Vector0 = Point3dScale(sLocalFrame.RowX, radius)
+    sEllipse.Vector90 = Point3dScale(sLocalFrame.RowY, radius)
+    Set aRegion2(1) = CreateEllipticalElement1(Nothing, sEllipse, msdFillModeNotFilled)
+
+    ' Boolean Union the two regions
+    Set oEnumerator = GetRegionUnion(aRegion1, aRegion2, Nothing, msdFillModeNotFilled)
+    If getEnumeratorCount(oEnumerator) &lt;&gt; 1 Then
+        Debug.Print "Unexpected boolean result."
+        End
+    End If
+    oEnumerator.<A href="usmthMoveNext.htm">MoveNext</A>
+    Set oClosedElement = oEnumerator.<A href="usproCurrent.htm">Current</A>
+
+    ' Mirror aRegion1 across the local xz-plane
+    sMirrorTransform = <A href="usmthTransform3dFromMirrorPlane.htm">Transform3dFromMirrorPlane</A>(sLocalOrigin, sLocalFrame.RowY)
+    aRegion1(0).transform sMirrorTransform
+    aRegion1(1).transform sMirrorTransform
+
+    ' Boolean difference between a closed element and a region
+    Set oEnumerator = oClosedElement.GetDifferenceShapesFromRegion(aRegion1, Nothing, msdFillModeFilled)
+    If getEnumeratorCount(oEnumerator) &lt;&gt; 2 Then
+        Debug.Print "Unexpected boolean result."
+        End
+    End If
+    aRegion1 = oEnumerator.BuildArrayFromContents
+
+    ' Rotate first region (yang) to get second complementary region (yin)
+    sRotateTransform = <A href="usmthTransform3dFromMatrix3d.htm">Transform3dFromMatrix3d</A>(<A href="usmthMatrix3dFromVectorAndRotationAngle.htm">Matrix3dFromVectorAndRotationAngle</A>(sLocalFrame.RowZ, Pi))
+    For i = 0 To 1
+        Set aRegion2(i) = aRegion1(i).<A href="usmthClone.htm">Clone</A>
+        aRegion2(i).transform sRotateTransform
+    Next
+
+    ' Create orphan cells to hold the two regions (each with two disjoint components)
+    Set oYang = <A href="usmthCreateCellElement1.htm">CreateCellElement1</A>(vbNullString, aRegion1, Point3dZero, False)
+    Set oYin = CreateCellElement1(vbNullString, aRegion2, Point3dZero, False)
+
+    ' Add elements to model
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oYang
+    ActiveModelReference.AddElement oYin
+
+    ' Invert fill color of second region
+    Do While oYin.<A href="usmthMoveToNextElement.htm">MoveToNextElement</A>
+        Set oSubElement = oYin.<A href="usmthCopyCurrentElement.htm">CopyCurrentElement</A>
+        If oSubElement.<A href="usproIsClosedElement.htm">IsClosedElement</A> Then
+            oSubElement.<A href="usproAsClosedElement.htm">AsClosedElement</A>.<A href="usproFillColor.htm">FillColor</A> = 255     ' background
+            oYin.<A href="usmthReplaceCurrentElement.htm">ReplaceCurrentElement</A> oSubElement
+        End If
+    Loop
+    oYin.<A href="usmthRewrite.htm">Rewrite</A>
+
+    <A href="usmthRedrawAllViews.htm">RedrawAllViews</A>
+    ActiveSettings.color = saveColor
+End Sub
+
+' Helper function to count the elements in an ElementEnumerator, which is reset on return
+Function getEnumeratorCount(oEnumerator As ElementEnumerator) As Long
+    Dim count As Long
+    With oEnumerator
+        .<A href="usmthReset.htm">Reset</A>
+        Do While .MoveNext
+            count = count + 1
+        Loop
+        .Reset
+    End With
+    getEnumeratorCount = count
+End Function
+
+</CODE></PRE>

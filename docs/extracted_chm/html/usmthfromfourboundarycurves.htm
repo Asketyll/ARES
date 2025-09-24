@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>FromFourBoundaryCurves Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthfromfourboundarycurves"></A>FromFourBoundaryCurves Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_2655" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromFourBoundaryCurvesC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2656" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromFourBoundaryCurvesX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2657" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromFourBoundaryCurvesA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_2658" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthFromFourBoundaryCurvesS">
+</OBJECT>
+</P>
+
+<P class=T>
+Initializes this object with a Coons patch that interpolates the given boundary curves.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>FromFourBoundaryCurves</B> <I>UCurve0</I>, <I>UCurve1</I>, <I>VCurve0</I>, <I>VCurve1</I>
+<P class=T>The <B>FromFourBoundaryCurves</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>UCurve0</I></TD>
+<TD class=TT width=79%>
+A <A href="usobjBsplineCurve.htm">BsplineCurve</A> expression. The boundary curve in the u-parameter direction at constant v = 0.  This curve has the same orientation as UCurve1,
+                    starts at the same point at which VCurve0 starts, and ends at the same point at which VCurve1 starts.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>UCurve1</I></TD>
+<TD class=TT width=79%>
+A <B>BsplineCurve</B> expression. The boundary curve in the u-parameter direction at constant v = 1.  This curve has the same orientation as UCurve0,
+                    starts at the same point at which VCurve0 ends, and ends at the same point at which VCurve1 ends.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>VCurve0</I></TD>
+<TD class=TT width=79%>
+A <B>BsplineCurve</B> expression. The boundary curve in the v-parameter direction at constant u = 0.  This curve has the same orientation as VCurve1,
+                    starts at the same point at which UCurve0 starts, and ends at the same point at which UCurve1 starts.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>VCurve1</I></TD>
+<TD class=TT width=79%>
+A <B>BsplineCurve</B> expression. The boundary curve in the v-parameter direction at constant u = 1.  This curve has the same orientation as VCurve0,
+                    starts at the same point at which UCurve0 ends, and ends at the same point at which UCurve1 ends.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+For <A href="usobjBsplineSurface.htm">BsplineSurface</A> objects, pass <B>Nothing</B> for one of the parameters to initialize this object with a degenerate
+             (three-sided) Coons patch.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.01.02
+</P>
+</BODY>
+</HTML>
