@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ApplicationElement Object</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1><A NAME="usobjapplicationelement"></A>ApplicationElement Object</H1>
+
+<P>
+<P class=ALNSR>
+<OBJECT ID="hhobj_288" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjApplicationElementC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_289" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjApplicationElementX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_290" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Properties">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjApplicationElementP">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_291" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Methods">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjApplicationElementM">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_292" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Events">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjApplicationElementE">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_293" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjApplicationElementS">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_294" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Interfaces">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usobjApplicationElementI">
+</OBJECT>
+</P>
+
+<P class=T>
+It is sometimes useful to add custom-formatted, non-graphical data to a design file.
+    An application can use an <B>ApplicationElement</B> to save non-graphical data that is not associated
+    with a specific element, or user attribute data (see <A href="usmthAddUserAttributeData.htm">AddUserAttributeData</A>) for non-graphical data that is
+    specific to an element. Both <B>ApplicationElement</B>s and user attribute data provide means for an application
+    to add its own custom data. The structure and meaning of the data is controlled entirely by the application, itself.
+    <P>A design file can contain any number of <B>ApplicationElement</B>s, from any number of applications. Therefore,
+    each application needs a way to distinguish "its own" custom data from those of other applications (including
+    those of MicroStation, itself). That's the purpose of the <A href="usproApplicationID.htm">ApplicationID</A> field. If you fail to use a
+    unique <B>ApplicationID</B>, then your application may erroneously access, delete, or overwrite MicroStation's
+    data or some other application's data, or MicroStation or some other application may erroneously
+    access, delete, or overwrite your data. </P>
+    <P>To avoid potential conflicts worldwide, application IDs are managed by Bentley Systems, Inc.
+    Please contact developer support at Bentley Systems to reserve an ID that is unique to your organization.
+    (There is no charge for this service, and no questions will be asked regarding the purpose or use of
+    your custom data.)</P>
+    <P>If your organization uses more than one kind of custom data, you can introduce a "subtype" field
+    within your data structure, to distinguish the different types of custom data within your organization.</P>
+    <P>A VBA macro can add an <B>ApplicationElement</B> to a <A href="usobjDesignFile.htm">DesignFile</A> by creating a <A href="usobjDataBlock.htm">DataBlock</A> object, calling
+    <A href="usmthCreateApplicationElement.htm">CreateApplicationElement</A> to create the element and transfer the data from the <B>DataBlock</B> to the
+    <B>ApplicationElement</B>, and then calling <A href="usmthAddElement.htm">AddElement</A> to save the element to the design file.
+    <B>CreateApplicationElement</B> copies the entire <B>DataBlock</B> to the <A href="usobjElement.htm">Element</A>. MicroStation does not
+    interpret the contents of the <B>DataBlock</B>.</P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.04
+</P>
+</BODY>
+</HTML>

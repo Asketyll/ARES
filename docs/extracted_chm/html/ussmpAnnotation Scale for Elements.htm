@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Annotation Scale for Elements</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Annotation Scale for Elements</H1>
+
+<PRE class=CT><CODE>
+Sub CopyAnnotationScale(target As <A href="usobjElement.htm">Element</A>, source As Element, copyByName As Boolean)
+    Dim sourcePH As <A href="usobjPropertyHandler.htm">PropertyHandler</A>
+    Dim targetPH As PropertyHandler
+
+    Set sourcePH = <A href="usmthCreatePropertyHandler.htm">CreatePropertyHandler</A>(source)
+    Set targetPH = CreatePropertyHandler(target)
+
+    sourcePH.<A href="usmthSelectByAccessString.htm">SelectByAccessString</A>("UseAnnotationScale")
+    targetPH.SelectByAccessString "UseAnnotationScale"
+
+    Dim usesAS As Boolean
+
+    usesAS = sourcePH.<A href="usmthGetValue.htm">GetValue</A>
+    If Not usesAS Then
+        '  The source does not use annotation scale so disable it for the
+        '  target too.
+        targetPH.<A href="usmthSetValue.htm">SetValue</A>(False)
+        Exit Sub
+    End If
+
+    '  AnnotationScale is read-only if UseAnnotationScale is False
+    targetPH.SetValue True
+
+    sourcePH.SelectByAccessString "AnnotationScale"
+    targetPH.SelectByAccessString "AnnotationScale"
+
+    ' An annotation scale has both a value and a name. It is possible
+    ' to set the scale using either one
+    If copyByName Then
+        targetPH.SetValue sourcePH.<A href="usmthGetDisplayString.htm">GetDisplayString</A>
+    Else
+        targetPH.SetValue sourcePH.GetValue
+    End If
+End Sub
+
+
+</CODE></PRE>

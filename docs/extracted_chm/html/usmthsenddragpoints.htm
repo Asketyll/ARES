@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SendDragPoints Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthsenddragpoints"></A>SendDragPoints Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_4727" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDragPointsC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4728" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDragPointsX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4729" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDragPointsA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4730" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthSendDragPointsS">
+</OBJECT>
+</P>
+
+<P class=T>
+This method sends data point information to the active command as if the user pressed and held the data button while moving the mouse (or pointer).
+    The points are measured in the coordinate system of the active model.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>SendDragPoints</B> <I>DownPoint</I>, <I>UpPoint</I> [, <I>ViewSpecifier</I> [, <I>Qualifier</I>]]
+<P class=T>The <B>SendDragPoints</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>DownPoint</I></TD>
+<TD class=TT width=79%>
+A <A href="usudtPoint3d.htm">Point3d</A> expression. The coordinates where the data button was pressed down.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>UpPoint</I></TD>
+<TD class=TT width=79%>
+A <B>Point3d</B> expression. The coordinates where the data button was released.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ViewSpecifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>VARIANT</B> expression. The view to which the data point information is directed.  May be an index (1-8) or a <A href="usobjView.htm">View</A> object.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Qualifier</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Long</B> expression. The qualifiers (if any) associated with the data point information. The Selection Tool
+    makes use of the qualifiers. A value of 1 causes the Selection Tool to toggle the selection of the elements enclosed
+    by the dynamic rectangle.  A value of 3 causes the Selection Tool to toggle the selection of the elements enclosed by
+    and overlapping the rectangle.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

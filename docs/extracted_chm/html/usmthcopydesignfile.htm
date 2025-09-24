@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CopyDesignFile Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthcopydesignfile"></A>CopyDesignFile Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1811" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyDesignFileC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1812" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyDesignFileX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1813" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyDesignFileA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1814" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthCopyDesignFileS">
+</OBJECT>
+</P>
+
+<P class=T>
+Creates a design file by making a copy of an existing design file.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><I>object</I>.<B>CopyDesignFile</B> <I>ExistingDesignFileName</I>, <I>NewDesignFileName</I> [, <I>Overwrite</I>]
+<P class=T>The <B>CopyDesignFile</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>ExistingDesignFileName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. The name of the design file from which the copy is made.
+    If <B>ExistingDesignFileName</B> does not include a path, <B>CopyDesignFile</B> searches for this file in the standard
+    location for design files.
+    If <B>ExistingDesignFileName</B> does not include an extension, <B>CopyDesignFile</B> presumes that the extension is ".dgn".
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>NewDesignFileName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. The name of the new design file.
+    If <B>NewDesignFileName</B> does not include a path, MicroStation places the new file into its standard location for new design files.
+    If <B>NewDesignFileName</B> does not include an extension, the new file's extension is ".dgn".
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Overwrite</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Boolean</B> expression. Relevant only if the new design file already exists. How <B>CopyDesignFile</B> behaves in this case. If <B>True</B>, the new design file is overwritten with the copy of the existing design file.
+    If <B>False</B>, <B>CopyDesignFile</B> raises an error.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+If, instead, you want to create a design file from scratch, use <A href="usmthCreateDesignFile.htm">CreateDesignFile</A>.
+    <P>If you merely want to open an existing design file, use <A href="usmthOpenDesignFile.htm">OpenDesignFile</A>.</P>
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

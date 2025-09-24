@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Attach Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthattach"></A>Attach Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_1603" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAttachC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1604" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAttachX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1605" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAttachA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_1606" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthAttachS">
+</OBJECT>
+</P>
+
+<P class=T>
+Attaches a raster and returns <B>True</B> if the operation succeeded.
+    Only the file name is mandatory (file name = complete access path).
+    For example:
+    <PRE><CODE>
+    Dim oRasterManager As RasterManager
+    Dim oRaster As Raster
+    Dim theViews as Byte
+
+    Set oRasterManager = RasterManager
+    theViews = msdView1+msdView4+msdView5
+
+    'Here the raster note.bmp will be attached in views 1, 4, 5, its logical name will be:
+    '"First" and its description will be:  "It's a test".
+    'By default the access mode is MsdFileAccessModeRead/Write.
+    oRasterManager.Rasters.Attach "C:\...\note.bmp", theViews, false, , "First", "It's a test"
+
+    'Only the first parameter is mandatory.
+    oRasterManager.Rasters.Attach "C:\...\pencil.bmp"
+
+    'Get the newly attached raster.
+    Set oRaster =  oRasterManager.Rasters.Attach("C:\...\note.bmp")
+
+    </CODE></PRE>
+</P>
+<P class=RL><B>Syntax</B></P>
+<P class=SYN><B>Set</B> <I><A href="usobjRaster.htm">Raster</A></I> = <I>object</I>.<B>Attach</B> (<I>FileName</I> [, <I>Views</I> [, <I>RasterAttachMode</I> [, <I>FileAccessMode</I> [, <I>LogicalName</I> [, <I>Description</I>]]]]])
+<P class=T>The <B>Attach</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>FileName</I></TD>
+<TD class=TT width=79%>
+A <B>String</B> expression. The access path.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Views</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>Byte</B> expression. One or more views where the raster will be posted.
+    Each bit of the byte represents a view. For easy use of this parameter, utilize the <A href="usenmMsdViews.htm">MsdViews</A> enumeration which contains one item for each view.
+    Add the items to MsdViews to pass more than one view in the parameter.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>RasterAttachMode</I></TD>
+<TD class=TT width=79%>
+Optional. An <A href="usenmMsdAttachMode.htm">MsdAttachMode</A> expression. Indicates the type of raster attachment.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>FileAccessMode</I></TD>
+<TD class=TT width=79%>
+Optional. An <A href="usenmMsdFileAccessMode.htm">MsdFileAccessMode</A> expression. Indicates if the access to the rasters is in read/write or read-only mode. If the file is already opened in read/write the mode will be changed to read-only.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>LogicalName</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>String</B> expression. The raster's logical name. A maximum of 23 characters is allowed. Extra characters will be truncated.
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>Description</I></TD>
+<TD class=TT width=79%>
+Optional. A <B>String</B> expression. The raster's description. A maximum of 41 characters is allowed. Extra characters will be truncated.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.04
+</P>
+</BODY>
+</HTML>

@@ -1,0 +1,253 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Construct a B-spline Surface Through Gridded Points</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Construct a B-spline Surface Through Gridded Points</H1>
+
+<P class=T>
+Demonstrates how to construct B-spline surfaces that interpolate
+                  gridded points and gridded points with tangent directions using
+                  <A href="usobjBsplineSurface.htm">BsplineSurface</A>.<A href="usmthFromNetworkWithIntersections.htm">FromNetworkWithIntersections</A>.
+</P>
+<P class=T>
+Also demonstrates how to create an <A href="usobjInterpolationCurve.htm">InterpolationCurve</A>,
+                  how to create a <A href="usobjBsplineCurve.htm">BsplineCurve</A> from a Ray3d array, and how to
+                  compute the parameter of a known point on a <B>BsplineCurve</B> (using
+                  <A href="usmthComputeMinimumDistance.htm">ComputeMinimumDistance</A>).
+</P>
+<PRE class=CT><CODE>
+Sub TestBsplineSurfaceThroughGriddedPoints()
+    Dim oElement As <A href="usobjElement.htm">Element</A>
+    Dim oSurface As New BsplineSurface
+    Dim aUCurves() As BsplineCurve, aVCurves() As BsplineCurve
+    Dim oFitCurve As InterpolationCurve
+    Dim aFitPoints() As <A href="usudtPoint3d.htm">Point3d</A>, aTempPoints() As Point3d
+    Dim aFitParams() As <A href="usudtPoint2d.htm">Point2d</A>
+    Dim aTempParams() As Double
+    Dim nUCurve As Long, nVCurve As Long
+    Dim row As Long, col As Long
+
+    ' Initialize interpolation data arrays
+    nUCurve = 5    ' u-curves interpolate rows of points
+    nVCurve = 5    ' v-curves interpolate columns of points
+    ReDim aFitPoints(0 To nUCurve - 1, 0 To nVCurve - 1)
+    ReDim aFitParams(LBound(aFitPoints) To UBound(aFitPoints), LBound(aFitPoints, 2) To UBound(aFitPoints, 2))
+    ReDim aUCurves(LBound(aFitPoints) To UBound(aFitPoints))
+    ReDim aVCurves(LBound(aFitPoints, 2) To UBound(aFitPoints, 2))
+
+    ' Fill grid to interpolate
+    For row = LBound(aFitPoints) To UBound(aFitPoints)
+        For col = LBound(aFitPoints, 2) To UBound(aFitPoints, 2)
+            computeSamplePointAt aFitPoints, row, col
+        Next col
+    Next row
+
+    ' Create UCurves by interpolating each row of nVCurve points in the grid
+    ReDim aTempPoints(LBound(aVCurves) To UBound(aVCurves))
+    For row = LBound(aUCurves) To UBound(aUCurves)
+        For col = LBound(aTempPoints) To UBound(aTempPoints)
+            aTempPoints(col) = aFitPoints(row, col)
+        Next col
+
+        Set oFitCurve = New InterpolationCurve
+        oFitCurve.<A href="usmthSetFitPoints.htm">SetFitPoints</A> aTempPoints
+        oFitCurve.<A href="usproBesselTangents.htm">BesselTangents</A> = True
+
+        ' The knots of oFitCurve are the interpolation u-parameters of the grid points in this row
+        aTempParams = oFitCurve.<A href="usmthGetParameters.htm">GetParameters</A>
+        For col = LBound(aTempParams) To UBound(aTempParams)
+            aFitParams(row, col).x = aTempParams(col)
+        Next col
+
+        Set aUCurves(row) = New BsplineCurve
+        aUCurves(row).<A href="usmthFromInterpolationCurve.htm">FromInterpolationCurve</A> oFitCurve
+    Next row
+
+    ' Create VCurves by interpolating each column of nUCurve points in the grid
+    ReDim aTempPoints(LBound(aUCurves) To UBound(aUCurves))
+    For col = LBound(aVCurves) To UBound(aVCurves)
+        For row = LBound(aTempPoints) To UBound(aTempPoints)
+            aTempPoints(row) = aFitPoints(row, col)
+        Next row
+
+        Set oFitCurve = New InterpolationCurve
+        oFitCurve.SetFitPoints aTempPoints
+        oFitCurve.BesselTangents = True
+
+        ' The knots of oFitCurve are the interpolation v-parameters of the grid points in this column
+        aTempParams = oFitCurve.GetParameters
+        For row = LBound(aTempParams) To UBound(aTempParams)
+            aFitParams(row, col).y = aTempParams(row)
+        Next row
+
+        Set aVCurves(col) = New BsplineCurve
+        aVCurves(col).FromInterpolationCurve oFitCurve
+    Next col
+
+    ' Compute a B-spline surface interpolating the network of curves
+    oSurface.FromNetworkWithIntersections aUCurves, aVCurves, aFitParams, 3, 3, 3, 3
+
+    ' Visualize interpolation grid (color 1), network (color 2) and surface (color 3)
+    For row = LBound(aFitPoints) To UBound(aFitPoints)
+        Set oElement = <A href="usmthCreateBsplineCurveElement1.htm">CreateBsplineCurveElement1</A>(Nothing, aUCurves(row))
+        oElement.color = 2
+        oElement.<A href="usproLineWeight.htm">LineWeight</A> = 1
+        <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oElement
+
+        For col = LBound(aFitPoints, 2) To UBound(aFitPoints, 2)
+            If row = LBound(aFitPoints) Then
+                Set oElement = CreateBsplineCurveElement1(Nothing, aVCurves(col))
+                oElement.color = 2
+                oElement.LineWeight = 1
+                ActiveModelReference.AddElement oElement
+            End If
+
+            Set oElement = <A href="usmthCreateLineElement2.htm">CreateLineElement2</A>(Nothing, aFitPoints(row, col), aFitPoints(row, col))
+            oElement.color = 1
+            oElement.LineWeight = 3
+            ActiveModelReference.AddElement oElement
+        Next col
+    Next row
+    Set oElement = <A href="usmthCreateBsplineSurfaceElement1.htm">CreateBsplineSurfaceElement1</A>(Nothing, oSurface)
+    oElement.color = 3
+    ActiveModelReference.AddElement oElement
+
+    <A href="usmthRedrawAllViews.htm">RedrawAllViews</A>
+End Sub
+
+Sub TestSurfaceThroughGriddedPointsAndTangents()
+    Dim oElement As Element
+    Dim oSurface As New BsplineSurface
+    Dim aUCurves() As BsplineCurve, aVCurves() As BsplineCurve
+    Dim aFitPartials() As <A href="usudtFirstPartials3d.htm">FirstPartials3d</A>
+    Dim aTempRays() As <A href="usudtRay3d.htm">Ray3d</A>
+    Dim aFitPoints() As Point3d
+    Dim aFitParams() As Point2d
+    Dim tempPoint As Point3d
+    Dim nUCurve As Long, nVCurve As Long
+    Dim row As Long, col As Long
+
+    ' Initialize interpolation data arrays
+    nUCurve = 9    ' u-curves interpolate rows of points
+    nVCurve = 9    ' v-curves interpolate columns of points
+    ReDim aFitPoints(0 To nUCurve - 1, 0 To nVCurve - 1)
+    ReDim aFitPartials(0 To nUCurve - 1, 0 To nVCurve - 1)
+    ReDim aFitParams(LBound(aFitPoints) To UBound(aFitPoints), LBound(aFitPoints, 2) To UBound(aFitPoints, 2))
+    ReDim aUCurves(LBound(aFitPoints) To UBound(aFitPoints))
+    ReDim aVCurves(LBound(aFitPoints, 2) To UBound(aFitPoints, 2))
+
+    ' Fill grid to interpolate
+    For row = LBound(aFitPoints) To UBound(aFitPoints)
+        For col = LBound(aFitPoints, 2) To UBound(aFitPoints, 2)
+            computeSamplePointAndTangentAt aFitPoints, aFitPartials, row, col
+        Next col
+    Next row
+
+    ' Create UCurves by interpolating each row of nVCurve points and u-tangent directions in the grid
+    ReDim aTempRays(LBound(aVCurves) To UBound(aVCurves))
+    For row = LBound(aUCurves) To UBound(aUCurves)
+        For col = LBound(aTempRays) To UBound(aTempRays)
+            aTempRays(col).origin = aFitPoints(row, col)
+            aTempRays(col).direction = aFitPartials(row, col).Du
+        Next col
+
+        Set aUCurves(row) = New BsplineCurve
+        aUCurves(row).<A href="usmthFromTangents.htm">FromTangents</A> aTempRays
+    Next row
+
+    ' Create VCurves by interpolating each column of nUCurve points and v-tangent directions in the grid
+    ReDim aTempRays(LBound(aUCurves) To UBound(aUCurves))
+    For col = LBound(aVCurves) To UBound(aVCurves)
+        For row = LBound(aTempRays) To UBound(aTempRays)
+            aTempRays(row).origin = aFitPoints(row, col)
+            aTempRays(row).direction = aFitPartials(row, col).Dv
+        Next row
+
+        Set aVCurves(col) = New BsplineCurve
+        aVCurves(col).FromTangents aTempRays
+    Next col
+
+    ' Compute intersection parameters between UCurves and VCurves
+    For row = LBound(aFitParams) To UBound(aFitParams)
+        For col = LBound(aFitParams, 2) To UBound(aFitParams, 2)
+            ' Since we already know the intersection point, use mindist to find parameter of intersection
+            aUCurves(row).ComputeMinimumDistance tempPoint, aFitParams(row, col).x, aFitPoints(row, col), <A href="usmthMatrix3dZero.htm">Matrix3dZero</A>
+            aVCurves(col).ComputeMinimumDistance tempPoint, aFitParams(row, col).y, aFitPoints(row, col), Matrix3dZero
+        Next col
+    Next row
+
+    ' Compute a B-spline surface interpolating the network of curves
+    oSurface.FromNetworkWithIntersections aUCurves, aVCurves, aFitParams, 3, 3, 3, 3
+
+    ' Visualize interpolation grid (color 1), network (color 2) and surface (color 3)
+    For row = LBound(aFitPoints) To UBound(aFitPoints)
+        Set oElement = CreateBsplineCurveElement1(Nothing, aUCurves(row))
+        oElement.color = 2
+        oElement.LineWeight = 1
+        ActiveModelReference.AddElement oElement
+
+        For col = LBound(aFitPoints, 2) To UBound(aFitPoints, 2)
+            If row = LBound(aFitPoints) Then
+                Set oElement = CreateBsplineCurveElement1(Nothing, aVCurves(col))
+                oElement.color = 2
+                oElement.LineWeight = 1
+                ActiveModelReference.AddElement oElement
+            End If
+
+            Set oElement = CreateLineElement2(Nothing, aFitPoints(row, col), aFitPoints(row, col))
+            oElement.color = 1
+            oElement.LineWeight = 3
+            ActiveModelReference.AddElement oElement
+        Next col
+    Next row
+    Set oElement = CreateBsplineSurfaceElement1(Nothing, oSurface)
+    oElement.color = 3
+    ActiveModelReference.AddElement oElement
+
+    RedrawAllViews
+End Sub
+
+Sub computeSamplePointAt(aFitPoints() As Point3d, row As Long, col As Long)
+    Dim boundSum As Long, boundDiff As Long
+    Dim r2 As Double, x As Double, y As Double
+
+    ' Convert (row,col) array index into (x,y) in [-Pi,Pi]x[-Pi,Pi] range
+    boundSum = UBound(aFitPoints, 2) + LBound(aFitPoints, 2)
+    boundDiff = UBound(aFitPoints, 2) - LBound(aFitPoints, 2)
+    x = (<A href="usmthPi.htm">Pi</A> / boundDiff) * (2 * col - boundSum)
+    boundSum = UBound(aFitPoints) + LBound(aFitPoints)
+    boundDiff = UBound(aFitPoints) - LBound(aFitPoints)
+    y = (Pi / boundDiff) * (2 * row - boundSum)
+
+    ' Sample the smooth function Cos(x^2+y^2)/(1+x^2+y^2)
+    r2 = x * x + y * y
+    aFitPoints(row, col) = <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(x, y, Cos(r2) / (1 + r2))
+End Sub
+
+Sub computeSamplePointAndTangentAt(aFitPoints() As Point3d, aFitPartials() As FirstPartials3d, row As Long, col As Long)
+    Dim boundSum As Long, boundDiff As Long
+    Dim r2 As Double, x As Double, y As Double, partialDenom As Double
+
+    ' Convert (row,col) array index into (x,y) in [-Pi,Pi]x[-Pi,Pi] range:
+    boundSum = UBound(aFitPoints, 2) + LBound(aFitPoints, 2)
+    boundDiff = UBound(aFitPoints, 2) - LBound(aFitPoints, 2)
+    x = (Pi / boundDiff) * (2 * col - boundSum)
+    boundSum = UBound(aFitPoints) + LBound(aFitPoints)
+    boundDiff = UBound(aFitPoints) - LBound(aFitPoints)
+    y = (Pi / boundDiff) * (2 * row - boundSum)
+
+    ' Sample the smooth function Cos(x^2+y^2)/(1+x^2+y^2) and its first partials
+    r2 = x * x + y * y
+    partialDenom = (1 + r2) * (1 + r2)
+    aFitPoints(row, col) = Point3dFromXYZ(x, y, Cos(r2) / (1 + r2))
+    aFitPartials(row, col).Du = Point3dFromXYZ(1, 0, -2 * x * (Cos(r2) + (1 + r2) * Sin(r2)) / partialDenom)
+    aFitPartials(row, col).Dv = Point3dFromXYZ(0, 1, -2 * y * (Cos(r2) + (1 + r2) * Sin(r2)) / partialDenom)
+End Sub
+
+
+</CODE></PRE>

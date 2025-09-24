@@ -1,0 +1,25 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ColorName Property Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>ColorName Property Example</H1>
+
+<P class=T>
+This example illustrates a technique for setting the active color to "BYLEVEL".
+            It uses the <A href="usproColorName.htm">ColorName</A> property of <A href="usproActiveSettings.htm">ActiveSettings</A> to
+            get the name of the current active color and to set the active color to ByLevel.
+</P>
+<PRE class=CT><CODE>
+Sub SetByLevel()
+    With ActiveSettings
+        <A href="usmthShowStatus.htm">ShowStatus</A> "Replacing " & .ColorName & " with ByLevel"
+        .ColorName = "ByLevel"
+    End With
+End Sub
+
+</CODE></PRE>

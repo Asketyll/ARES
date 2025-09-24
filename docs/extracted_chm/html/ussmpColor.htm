@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Color, Level Symbology, and ByLevel Symbology</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Color, Level Symbology, and ByLevel Symbology</H1>
+
+<P class=T>
+This example shows the relationship of ByLevelColor, Color, OverrideColor, and ElementColor.
+</P>
+<PRE class=CT><CODE>
+'   Make the element display with color 10 if
+'   the view has level symbology turned on and and color 2
+'   otherwise
+Sub SetColor1(ele As <A href="usobjElement.htm">Element</A>)
+    Dim lvl As <A href="usobjLevel.htm">Level</A>
+
+    Set lvl = ele.<A href="usproLevel.htm">Level</A>
+
+    ' Specify the color to use if the view has Level Symbology turned on.
+    lvl.<A href="usproOverrideColor.htm">OverrideColor</A> = 10
+    ele.<A href="usproModelReference.htm">ModelReference</A>.<A href="usproLevels.htm">Levels</A>.<A href="usmthRewrite.htm">Rewrite</A>
+
+    ' Specify the color to use if the view has Level Symbology turned off.
+    ele.<A href="usproColor.htm">Color</A> = 2
+    ele.Rewrite
+
+    Dim usingSymbology As Boolean
+    Dim view1 As <A href="usobjView.htm">View</A>
+
+    Set view1 = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usproViews.htm">Views</A>(1)
+    usingSymbology = view1.<A href="usproDisplaysLevelSymbology.htm">DisplaysLevelSymbology</A>  ' Save this so we can reset it
+
+    view1.DisplaysLevelSymbology = True
+    Debug.Print "With level symbology on the color is " & ele.<A href="usmthApparentColor.htm">ApparentColor</A>(view1)
+
+    view1.DisplaysLevelSymbology = False
+    Debug.Print "With level symbology off the color is " & ele.ApparentColor(view1)
+
+    view1.DisplaysLevelSymbology = usingSymbology
+End Sub
+
+'   This shows how changing Level.ElementColor affects ApparentColor.
+Sub SetColor2(ele As Element)
+    Dim lvl As Level
+
+    Set lvl = ele.Level
+
+    Debug.Print "The ByLevel color is " & lvl.<A href="usproElementColor.htm">ElementColor</A>
+
+    ' Set the color to the special value ByLevelColor to tell MicroStation
+    ' to use the level's ByLevel color if Level Symbology is turned off.
+    ele.Color = <A href="usmthByLevelColor.htm">ByLevelColor</A>
+    ele.Rewrite
+
+    Dim view1 As View
+
+    Set view1 = ActiveDesignFile.Views(1)
+
+    view1.DisplaysLevelSymbology = False
+
+    '  Color now should be equal to ByLevelColor.
+    Debug.Print "The value of the element's Color property is " & ele.Color
+
+    Debug.Print "With level symbology off the element's display color is " & ele.ApparentColor(view1)
+
+    lvl.ElementColor = 20
+    ele.ModelReference.Levels.Rewrite
+
+    '  Now it should be 20
+    Debug.Print "With level symbology off the element's display color is " & ele.ApparentColor(view1)
+End Sub
+
+
+
+</CODE></PRE>

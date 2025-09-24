@@ -52,31 +52,6 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ConfigurationUI.ImportConfigurationUI"
 End Sub
 
-' Enhanced backup configuration with event-driven dialog
-Public Sub BackupConfigurationUI()
-    On Error GoTo ErrorHandler
-    
-    ' Initialize if needed
-    If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    
-    ' Create dialog handler
-    Dim Handler As New FileDialogHandler
-    Handler.InitializeBackup GetTranslation("ConfigBackupTitle"), _
-                           WindowsFileDialog.GetDefaultConfigDirectory(), _
-                           WindowsFileDialog.GenerateDefaultConfigFileName("ARES_Config_Backup")
-    
-    ' Show dialog asynchronously
-    WindowsFileDialog.ShowSaveFileDialogAsync GetTranslation("ConfigBackupTitle"), _
-                                            WindowsFileDialog.GetDefaultConfigDirectory(), _
-                                            WindowsFileDialog.GenerateDefaultConfigFileName("ARES_Config_Backup"), _
-                                            Handler
-    
-    Exit Sub
-    
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ConfigurationUI.BackupConfigurationUI"
-End Sub
-
 ' Enhanced configuration summary (unchanged)
 Public Sub ShowConfigurationSummaryUI()
     On Error GoTo ErrorHandler

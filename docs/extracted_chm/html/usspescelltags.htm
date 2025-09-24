@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Shared Cells and Tags</TITLE>
+<style>@import url(msdn_ie4.css);</style>
+<link disabled rel="stylesheet" href="msdn_ie3.css"></HEAD>
+<BODY>
+
+
+
+<P class=RLNSR><B><A NAME="caches"></A>Shared Cells and Tags</B></P>
+
+<P class=T>When MicroStation creates a <A href="usobjSharedCellElement.htm">SharedCellElement</A>,
+it determines if the design file has the required <B>SharedCellDefinitionElement</B>.  If it does have it, MicroStation makes the
+new <B>SharedCellElement</B> refer back to the existing <B>SharedCellDefinitionElement</B>.  If the design file does not have it, MicroStation creates
+a new <B>SharedCellDefinitionElement</B> and makes the new <B>SharedCellElement</B> refer to that definition.  Either way, MicroStation makes the new
+<B>SharedCellElement</B> refer to the <B>SharedCellDefinitionElement</B>.  The new <B>SharedCellElement</B> does not contain the subcomponents. Instead, MicroStation
+refers back to the <B>SharedCellDefinitionElement</B> to get the components whenever it draws a <B>SharedCellElement</B>.
+
+<P class=T>This approach works well as long as instances of the <B>SharedCellElement</B> are identical.  However, special logic is needed for <A href="usobjTagElement.htm">TagElement</A>'s in a <B>SharedCellElement</B>
+since it common for the tags of each shared cell instance to have different values.</P>
+
+<P class=T>When MicroStation copies elements into a <B>SharedCellDefinitionElement</B>, it checks for <B>TagElement</B>s.  When it finds a <B>TagElement</B>
+that is constant, it copies the tag element into the shared cell definition untouched.  That is possible because the tag element will be displayed the same way for every
+instance of the shared cell.  However, when MicroStation finds a tag element that is variable, it copies the tag element into
+the shared cell definition and makes it a hidden tag. If a tag element in a shared cell definition has a variable value, the tag element is never displayed.
+Instead, when MicroStation creates an instance of the shared cell, it also adds a tag element for each of the
+variable tag elements in the shared cell definition.</P>
+
+<P class=T>To see evidence of this behavior, place a shared cell that contains both constant and variable tags.  Use the Element Information dialog
+box to examine the shared cell.  Notice that all of the tags appear in the shared cell.  Now use the Element Information dialog to examine the tag
+elements.  Notice that the constant tags are part of the shared cell.  You cannot select them individually. However, the variable tags exist as
+standalone elements. They are not part of the shared cell instance. You can select them individually.</P>
+
+<P class=T>The different ways of handling constant tags and variable tags also affects the Edit Tags command.  Start the Edit Tags command and select the shared cell instance.
+The Edit Tags dialog box only displays the tag elements that are variable.</P>
+
+<P class=T>The different ways of handling constant tags and variable tags also affects the Delete Element command.  When used to delete one of the constant tags,
+it deletes the entire shared cell instance and all of the associated tags. That happens because the <B>TagElement</B> is part of the <B>SharedCellElement</B>.
+When used to delete one of the variable tags,  the Delete Command deletes the variable tag but leaves everything else intact.</P>
+
+<P class=T>The <B>CreateSharedElement</B> methods never create any tag elements. These methods do not need to create any tag elements for the constant tags
+because MicroStation will use the tag elements from the shared cell definition when it is necessary to draw the element. The methods do not create the tag
+elements for variable tags because it is not possible to create tags for elements that have not been added to a model.
+Instead, both <A href="usmthAddElement.htm">AddElement</A> and <A href="usmthAddElements.htm">AddElements</A> have special logic to recognize shared cells
+and to generate the associated tags accordingly. These functions both add the new tag elements to the design file and display them.</P>
+
+<P class=T>A programmer writing a program that places shared cell instances does not have to be aware of any of this. If the program calls a
+<B>CreateSharedCell</B> method and then adds the element to the design file, everything will behave just as the user of the software expects.</P>
+
+<P>Here is a sample program that places a shared cell and then processes the variable tags.
+
+<PRE class=CT><CODE>
+Sub PlaceCell()
+    Dim ele As SharedCellElement
+    Dim eleTags() As TagElement
+    Dim index As Long
+
+    Set ele = CreateSharedCellElement3("TheTaggedCell", Point3dFromXY(-51, -63), True)
+
+    '  In addition to writing the specified element to the design file, AddElement
+    '  creates the variable tags, saves them to the model, and displays them
+    '
+    ActiveModelReference.AddElement ele
+    ele.Redraw
+
+    '  This only gets the variable tags. The constant tags are part of the
+    '  SharedCellDefinitionElement. AddElement only creates separate tag
+    '  elements for tags that may not be displayed the same for every instance
+    '  of the shared cell.
+    '
+    eleTags = ele.GetTags
+
+    For index = LBound(eleTags) To UBound(eleTags)
+        Dim eleTag As TagElement
+
+        Set eleTag = eleTags(index)
+        eleTag.Redraw msdDrawingModeErase
+        eleTag.Value = eleTag.Value & " -- Placed " & Now
+        eleTag.Redraw
+        eleTag.Rewrite
+    Next
+End Sub
+</CODE></PRE>

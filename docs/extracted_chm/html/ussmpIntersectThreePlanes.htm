@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Plane-Plane and Ray-Plane Intersections</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Plane-Plane and Ray-Plane Intersections</H1>
+
+<P class=T>
+Demonstrates how to intersect three planes via a plane-plane
+                  intersection followed by a ray-plane intersection.  Also computes
+                  this intersection directly when the planes are in Hessian normal form.
+</P>
+<P class=T>
+Note that after MicroStation V8 2004 Edition (8.5.0), the <A href="usmthPlane3dIntersectPlane3d.htm">Plane3dIntersectPlane3d</A> and
+                  <A href="usmthPlane3dIntersectRay3d.htm">Plane3dIntersectRay3d</A> methods were deprecated.  These methods returned the
+                  intersection ray/point if one was found; otherwise they threw a runtime exception.
+                  Their replacements <A href="usmthPlane3dIntersectsPlane3d.htm">Plane3dIntersectsPlane3d</A> and <A href="usmthPlane3dIntersectsRay3d.htm">Plane3dIntersectsRay3d</A> return
+                  a Boolean value to indicate the presence or absence of intersection and return in
+                  the first parameter the intersection ray/point if found.
+</P>
+<PRE class=CT><CODE>
+Sub TestIntersect3Planes()
+    Dim oLine As <A href="usobjLineElement.htm">LineElement</A>
+    Dim plane0 As <A href="usudtPlane3d.htm">Plane3d</A>, plane1 As Plane3d, plane2 As Plane3d
+    Dim ray As <A href="usudtRay3d.htm">Ray3d</A>
+    Dim pt As <A href="usudtPoint3d.htm">Point3d</A>
+    Dim param As Double, radius As Double
+
+    ' Populate 3 arbitrary planes
+    plane0.origin = <A href="usmthPoint3dFromXYZ.htm">Point3dFromXYZ</A>(-3, 2, -1)
+    plane0.normal = Point3dFromXYZ(5, -2, 0)
+    plane1.origin = Point3dFromXYZ(3, 1, 3)
+    plane1.normal = Point3dFromXYZ(2, 3, -4)
+    plane2.origin = Point3dFromXYZ(4, 2, -2)
+    plane2.normal = Point3dFromXYZ(0, 1, -3)
+
+    ' Compute plane-plane intersection then ray-plane intersection to get intersection point
+    If Not Plane3dIntersectsPlane3d(ray, plane0, plane1) Or Not Plane3dIntersectsRay3d(pt, param, plane2, ray) Then
+        Debug.Print "Planes do not intersect"
+        Exit Sub
+    End If
+
+    ' Visualize the intersection point
+    Set oLine = <A href="usmthCreateLineElement2.htm">CreateLineElement2</A>(Nothing, pt, pt)
+    oLine.<A href="usproLineWeight.htm">LineWeight</A> = 5
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> oLine
+    oLine.<A href="usmthRedraw.htm">Redraw</A>
+
+    ' Visualize planes
+    radius = findCommonRadius(plane0, plane1, plane2, pt)
+    visualizePlane plane0, pt, radius, 1
+    visualizePlane plane1, pt, radius, 2
+    visualizePlane plane2, pt, radius, 3
+
+    ' Visualize plane-plane intersections
+    visualizePlanePlaneIntersectionLine plane0, plane1, pt, radius
+    visualizePlanePlaneIntersectionLine plane0, plane2, pt, radius
+    visualizePlanePlaneIntersectionLine plane1, plane2, pt, radius
+
+End Sub
+
+Sub TestIntersect3HessianPlanes()
+    Dim oLine As LineElement
+    Dim n0 As Point3d, n1 As Point3d, n2 As Point3d
+    Dim d0 As Double, d1 As Double, d2 As Double
+    Dim plane0 As Plane3d, plane1 As Plane3d, plane2 As Plane3d
+    Dim pt As Point3d
+    Dim radius As Double
+
+    ' Hessian normal form of xy-plane at dist z=1
+    n0 = Point3dFromXYZ(0, 0, 1)
+    d0 = -1
+
+    ' Hessian normal form of yz-plane at dist x=1
+    n1 = Point3dFromXYZ(1, 0, 0)
+    d1 = -1
+
+    ' Hessian normal form of xz-plane at dist y=1
+    n2 = Point3dFromXYZ(0, 1, 0)
+    d2 = -1
+
+    If Not IntersectThreeHessianPlanes(pt, n0, d0, n1, d1, n2, d2) Then
+        Debug.Print "Planes do not intersect"
+    Else
+        Debug.Print "Planes intersect at ("; pt.x; ","; pt.y; ","; pt.Z; ")"
+    End If
+
+    ' Visualize the intersection point
+    Set oLine = CreateLineElement2(Nothing, pt, pt)
+    oLine.LineWeight = 5
+    ActiveModelReference.AddElement oLine
+    oLine.Redraw
+
+    ' Convert Hessian normal forms so we can display the geometry
+    plane0.normal = n0
+    plane0.origin = <A href="usmthPoint3dScale.htm">Point3dScale</A>(n0, -d0)
+    plane1.normal = n1
+    plane1.origin = Point3dScale(n1, -d1)
+    plane2.normal = n2
+    plane2.origin = Point3dScale(n2, -d2)
+
+    ' Visualize planes
+    radius = findCommonRadius(plane0, plane1, plane2, pt)
+    visualizePlane plane0, pt, radius, 1
+    visualizePlane plane1, pt, radius, 2
+    visualizePlane plane2, pt, radius, 3
+
+    ' Visualize plane-plane intersections
+    visualizePlanePlaneIntersectionLine plane0, plane1, pt, radius
+    visualizePlanePlaneIntersectionLine plane0, plane2, pt, radius
+    visualizePlanePlaneIntersectionLine plane1, plane2, pt, radius
+
+End Sub
+
+Function IntersectThreeHessianPlanes(intersectionPt As Point3d, n0 As Point3d, d0 As Double, n1 As Point3d, d1 As Double, n2 As Point3d, d2 As Double) As Boolean
+    Dim M As <A href="usudtMatrix3d.htm">Matrix3d</A>
+    Dim d As Point3d
+
+    M = <A href="usmthMatrix3dFromPoint3dRows.htm">Matrix3dFromPoint3dRows</A>(n0, n1, n2)
+    d = Point3dFromXYZ(-d0, -d1, -d2)
+
+    If <A href="usmthMatrix3dHasInverse.htm">Matrix3dHasInverse</A>(M) Then
+        intersectionPt = <A href="usmthPoint3dFromMatrix3dInverseTimesPoint3d.htm">Point3dFromMatrix3dInverseTimesPoint3d</A>(M, d)
+        IntersectThreeHessianPlanes = True
+    Else
+        intersectionPt = <A href="usmthPoint3dZero.htm">Point3dZero</A>
+        IntersectThreeHessianPlanes = False
+    End If
+End Function
+
+' Find radius of sphere at center such that it contains all three plane origins
+Function findCommonRadius(plane0 As Plane3d, plane1 As Plane3d, plane2 As Plane3d, center As Point3d) As Double
+    Dim swell As Double, radius As Double, dist As Double
+
+    swell = 1.2
+    radius = <A href="usmthPoint3dDistance.htm">Point3dDistance</A>(center, plane0.origin)
+    dist = Point3dDistance(center, plane1.origin)
+    If dist &gt; radius Then
+        radius = dist
+    End If
+    dist = Point3dDistance(center, plane2.origin)
+    If dist &gt; radius Then
+        radius = dist
+    End If
+
+    findCommonRadius = radius * swell
+End Function
+
+' Visualize plane as disc at given center and with given radius and color
+Sub visualizePlane(plane As Plane3d, center As Point3d, radius As Double, color As Long)
+    Dim oPlane As <A href="usobjEllipseElement.htm">EllipseElement</A>
+    Dim oLine As LineElement
+    Dim frame As Matrix3d
+    Dim ellipse As <A href="usudtEllipse3d.htm">Ellipse3d</A>
+
+    frame = <A href="usmthMatrix3dRotationFromRowZ.htm">Matrix3dRotationFromRowZ</A>(plane.normal)
+    ellipse.<A href="usevtStart.htm">Start</A> = 0
+    ellipse.Sweep = 2 * <A href="usmthPi.htm">Pi</A>
+    ellipse.center = center
+    ellipse.Vector0 = Point3dScale(frame.RowX, radius)
+    ellipse.Vector90 = Point3dScale(frame.RowY, radius)
+    Set oPlane = <A href="usmthCreateEllipticalElement1.htm">CreateEllipticalElement1</A>(Nothing, ellipse)
+    oPlane.color = color
+    ActiveModelReference.AddElement oPlane
+    oPlane.Redraw
+
+    ' Draw plane center too
+    Set oLine = CreateLineElement2(oPlane, plane.origin, plane.origin)
+    oLine.LineWeight = 5
+    ActiveModelReference.AddElement oLine
+    oLine.Redraw
+End Sub
+
+' Draw intersection between two planes that are drawn as discs with common center and radius
+Sub visualizePlanePlaneIntersectionLine(plane0 As Plane3d, plane1 As Plane3d, center As Point3d, radius As Double)
+    Dim oLine As LineElement
+    Dim ray As Ray3d
+    Dim semiAxisVector As Point3d
+
+    Plane3dIntersectsPlane3d ray, plane0, plane1
+    semiAxisVector = Point3dScale(<A href="usmthPoint3dNormalize.htm">Point3dNormalize</A>(ray.direction), radius)
+    Set oLine = CreateLineElement2(Nothing, <A href="usmthPoint3dAdd.htm">Point3dAdd</A>(center, semiAxisVector), <A href="usmthPoint3dSubtract.htm">Point3dSubtract</A>(center, semiAxisVector))
+    ActiveModelReference.AddElement oLine
+    oLine.Redraw
+
+End Sub
+
+</CODE></PRE>

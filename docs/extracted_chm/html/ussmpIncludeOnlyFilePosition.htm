@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Find Dropped Cell Using IncludeOnlyFilePositionRange</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Find Dropped Cell Using IncludeOnlyFilePositionRange</H1>
+
+<P class=T>
+
+</P>
+<PRE class=CT><CODE>
+'   Creates a collection and populates it with all of the elements between
+'   filePos and the end of the file.  This is inclusive, so the element
+'   at filePos is the first one returned.
+'
+Function GetNewElements(filePos As Long) As Collection
+    Set GetNewElements = New Collection
+
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+    Dim esc As New ElementScanCriteria
+
+    '  Include all elements from filePos through the file position of the last element.
+    esc.<A href="usmthIncludeOnlyFilePositionRange.htm">IncludeOnlyFilePositionRange</A> filePos, <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetLastValidGraphicalElement.htm">GetLastValidGraphicalElement</A>.<A href="usproFilePosition.htm">FilePosition</A>
+
+    Set ee = ActiveModelReference.<A href="usmthScan.htm">Scan</A>(esc)
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        GetNewElements.<A href="usmthAdd.htm">Add</A> ee.<A href="usproCurrent.htm">Current</A>
+    Loop
+End Function
+
+'  Drops a shared cell to a normal cell.  Doing so causes MicroStation to write the new
+'  cell element to the end of the cache.
+'
+Sub DoDrop(eleSC As <A href="usobjSharedCellElement.htm">SharedCellElement</A>)
+    Dim lastFilePos As Long
+    Dim oColl As Collection
+    Dim ele As <A href="usobjElement.htm">Element</A>
+
+    ' Remember the old end of the cache
+    lastFilePos = ActiveModelReference.GetLastValidGraphicalElement.FilePosition
+
+    '  Drop the shared cell and then call CommandState.StartDefaultCommand to leave
+    '  MicroStation in a normal state.
+    <A href="usproCadInputQueue.htm">CadInputQueue</A>.<A href="usmthSendCommand.htm">SendCommand</A> "DROP SHARECELL", True
+    CadInputQueue.<A href="usmthSendDataPointForLocate.htm">SendDataPointForLocate</A> eleSC, <A href="usmthPoint3dZero.htm">Point3dZero</A>
+    CadInputQueue.<A href="usmthSendDataPoint.htm">SendDataPoint</A> Point3dZero
+    <A href="usproCommandState.htm">CommandState</A>.<A href="usmthStartDefaultCommand.htm">StartDefaultCommand</A>
+
+    ' Now get everything that appears after the old end-of-cache. For this example, the only elements
+    ' there are the new cell element and the sub-elements of that cell element.  GetNewElements only
+    ' adds the cell element to the collection.
+    Set oColl = GetNewElements(lastFilePos + 1)
+    For Each ele In oColl
+        Debug.Print "Have element type " & ele.<A href="usproType.htm">Type</A> & ", ID " & <A href="usmthDLongToString.htm">DLongToString</A>(ele.<A href="usproID.htm">ID</A>)
+    Next
+End Sub
+Sub DropLastElement()
+    Dim ele As Element
+
+    Set ele = ActiveModelReference.GetLastValidGraphicalElement
+    If Not ele.<A href="usproIsSharedCellElement.htm">IsSharedCellElement</A> Then
+        MsgBox "The most recently added element is not a shared cell element"
+        Exit Sub
+    End If
+    DoDrop ele
+End Sub
+
+</CODE></PRE>

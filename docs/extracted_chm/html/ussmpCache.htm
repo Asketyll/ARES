@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>References an Element from its Cache</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>References an Element from its Cache</H1>
+
+<PRE class=CT><CODE>
+Function AddShape(points() As <A href="usudtPoint3d.htm">Point3d</A>) As <A href="usobjShapeElement.htm">ShapeElement</A>
+    Set AddShape = <A href="usmthCreateShapeElement1.htm">CreateShapeElement1</A>(Nothing, points, msdFillModeUseActive)
+    <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthAddElement.htm">AddElement</A> AddShape
+    AddShape.<A href="usmthRedraw.htm">Redraw</A>
+End Function
+
+Sub Macro1()
+    Dim eleSolid As ShapeElement
+    Dim eleHole As ShapeElement
+    Dim ee As <A href="usobjElementEnumerator.htm">ElementEnumerator</A>
+    Dim eleCell As <A href="usobjCellElement.htm">CellElement</A>
+    Dim points(0 To 4) As Point3d
+    Dim lIndex As Long
+    Dim ec As <A href="usobjElementCache.htm">ElementCache</A>
+    Dim dbArea As Double
+
+    points(0) = <A href="usmthPoint3dFromXY.htm">Point3dFromXY</A>(0, 0)
+    points(1) = Point3dFromXY(5, 0)
+    points(2) = Point3dFromXY(5, 5)
+    points(3) = Point3dFromXY(0, 5)
+    points(4) = Point3dFromXY(0, 0)
+
+    Set eleSolid = AddShape(points)
+
+    points(0) = Point3dFromXY(1, 1)
+    points(1) = Point3dFromXY(4, 1)
+    points(2) = Point3dFromXY(4, 4)
+    points(3) = Point3dFromXY(1, 4)
+    points(4) = Point3dFromXY(1, 1)
+
+    Set eleHole = AddShape(points)
+
+    '  This groups the elements into a cell.
+    <A href="usproCadInputQueue.htm">CadInputQueue</A>.<A href="usmthSendCommand.htm">SendCommand</A> "GROUP HOLES"
+    CadInputQueue.<A href="usmthSendDataPointForLocate.htm">SendDataPointForLocate</A> eleSolid, Point3dFromXY(0, 0)
+    CadInputQueue.SendDataPointForLocate eleHole, Point3dFromXY(1, 1)
+    CadInputQueue.<A href="usmthSendDataPoint.htm">SendDataPoint</A> Point3dFromXY(1, 1)
+
+    <A href="usproCommandState.htm">CommandState</A>.<A href="usmthStartDefaultCommand.htm">StartDefaultCommand</A>
+
+    '  The command "GROUP HOLES" updated the element cache, so the eleSolid and eleHole objects are stale.
+    '  Since element ID remains constant after the element is written to the file, it is never stale.
+    '  This logic takes advantage of that by using the ID to refresh eleSolid.
+    Set eleSolid = ActiveModelReference.<A href="usmthGetElementByID.htm">GetElementByID</A>(eleSolid.<A href="usproID.htm">ID</A>)
+
+    Set ec = eleSolid.<A href="usproCache.htm">Cache</A>
+    lIndex = eleSolid.<A href="usproCacheIndex.htm">CacheIndex</A>
+    lIndex = ec.<A href="usmthElementParentIndex.htm">ElementParentIndex</A>(lIndex)
+    Set eleCell = ec.<A href="usmthGetElement.htm">GetElement</A>(lIndex)
+
+    Set ee = eleCell.<A href="usmthGetSubElements.htm">GetSubElements</A>
+
+    dbArea = 0
+    Do While ee.<A href="usmthMoveNext.htm">MoveNext</A>
+        With ee.<A href="usproCurrent.htm">Current</A>.<A href="usproAsClosedElement.htm">AsClosedElement</A>
+            Dim dbTemp As Double
+
+            dbTemp = .<A href="usmthArea.htm">Area</A>
+            If .<A href="usproIsHole.htm">IsHole</A> Then
+                dbArea = dbArea - dbTemp
+            Else
+                dbArea = dbArea + dbTemp
+            End If
+        End With
+    Loop
+
+    Debug.Print "The area is " & dbArea
+End Sub
+
+
+
+</CODE></PRE>

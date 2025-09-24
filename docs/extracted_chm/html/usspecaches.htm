@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Caches, Cache Indices, and File Position</TITLE>
+<style>@import url(msdn_ie4.css);</style>
+<link disabled rel="stylesheet" href="msdn_ie3.css"></HEAD>
+<BODY>
+
+
+
+<P class=RLNSR><B><A NAME="caches"></A>Element Cache, Cache Index, and File Position</B></P>
+
+<P class=T>It is possible to retrieve an element from a MicroStation model using either the element's ID,
+cache index, or file position.</P>
+<P class=T>Use the <A href="usproID.htm">ID</A> whenever possible.  It is a persistent value.  It does not change when the element is written
+back to the design file. It will be the same the next time MicroStation loads the design file.</P>
+<P class=T>Use a cache index to read an element from a specific location of an <A href="usobjElementCache.htm">ElementCache</A>.
+<P class=T>Whenever a design file is in use, its elements are managed in element caches. An element cache is essentially an array of elements. There are several
+element caches, each containing elements that serve a common purpose:</P>
+    <ul>
+        <li>Each design file has a <A href="usproNonModelElementCache.htm">NonModelElementCache</A>, which holds the elements that pertain to the overall
+        design file.</li>
+        <li>Each model has a <A href="usproGraphicalElementCache.htm">GraphicalElementCache</A>, which holds the model's graphical elements.</li>
+        <li>Each model also has a <A href="usproControlElementCache.htm">ControlElementCache</A>, which holds the model's control (non-graphical) elements.</li>
+    </ul>
+<P class=T>An element's cache index may change when it is written back to the cache.  Calling <A href="usmthRewrite.htm">Rewrite</A>
+after an operation that increases the size of an element is guaranteed to cause MicroStation to append the updated element to the
+end of the cache thus changing the cache index.</P>
+<P class=T>MicroStation writes new elements to the end of the cache.  Consequently, a program can sequence MicroStation commands
+to create a new element, and then read that element from the active model's graphical element cache.  For example,</P>
+<PRE class=CT><CODE>Sub ReadElement()
+    Dim index As Long
+    Dim ec As ElementCache
+    Dim ele As Element
+
+    Set ec = ActiveModelReference.GraphicalElementCache
+    index = ec.Count
+
+    CadInputQueue.SendCommand "Place Line"
+    CadInputQueue.SendDataPoint Point3dFromXY(0, 0)
+    CadInputQueue.SendDataPoint Point3dFromXY(5, 5)
+    CommandState.StartDefaultCommand
+
+    Set ele = ec.GetElement(index + 1)
+    ele.Color = 4
+    ele.Redraw
+    ele.Rewrite
+End Sub
+</CODE></PRE>
+<P class=T>With previous versions of MicroStation, programs have used file position to directly read an element.
+It was possible to step from one element to the next by adding an element's size to the element's file position.
+The equivalent operation in the object model is to just add 1 to the cache index to get the cache index of the
+next element.  The cache may contain deleted elements, so it is best to use <A href="usmthIsElementValid.htm">IsElementValid</A>
+to determine if the cache position contains a valid element.</P>
+<P class=T>A program can use the property <A href="usproFilePosition.htm">FilePosition</A> to get a file position. The file position
+is really just a number that has a cache identifier and cache index encoded in it.  Use
+<A href="usmthIndexFromFilePosition.htm">IndexFromFilePosition</A> to translate from file position to cache index.
+Use <A href="usmthElementCacheContainingFilePosition.htm">ElementCacheContainingFilePosition</A> to derive the cache from a
+file position. Use <A href="usmthFilePositionFromIndex.htm">FilePositionFromIndex</A> to derive the file position
+from the cache and cache index.</P>
+</BODY>
+</HTML>

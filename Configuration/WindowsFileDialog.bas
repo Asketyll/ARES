@@ -1,12 +1,13 @@
 ' Module: WindowsFileDialog
-' Description: PowerShell-based file dialog for MicroStation VBA (event-driven)
+' Description: PowerShell-based file dialog with corrected MicroStation COM callback
 ' License: This project is licensed under the AGPL-3.0.
 Option Explicit
 
-' Global handler instance
+' Global handler for current dialog and result file
 Public DialogHandler As FileDialogHandler
+Public CurrentResultFile As String
 
-' Show save file dialog (event-driven)
+' Show save file dialog (event-driven with VBScript callback)
 Public Sub ShowSaveFileDialogAsync(ByVal Title As String, _
                                    ByVal InitialDir As String, _
                                    ByVal DefaultFileName As String, _
@@ -16,7 +17,7 @@ Public Sub ShowSaveFileDialogAsync(ByVal Title As String, _
     ' Store handler reference
     Set DialogHandler = Handler
     
-    ' Launch PowerShell dialog asynchronously
+    ' Launch PowerShell dialog with VBScript callback
     ExecutePowerShellSaveDialog Title, InitialDir, DefaultFileName
     
     Exit Sub
@@ -28,7 +29,7 @@ ErrorHandler:
     End If
 End Sub
 
-' Show open file dialog (event-driven)
+' Show open file dialog (event-driven with VBScript callback)
 Public Sub ShowOpenFileDialogAsync(ByVal Title As String, _
                                    ByVal InitialDir As String, _
                                    ByVal Handler As FileDialogHandler)
@@ -37,7 +38,7 @@ Public Sub ShowOpenFileDialogAsync(ByVal Title As String, _
     ' Store handler reference
     Set DialogHandler = Handler
     
-    ' Launch PowerShell dialog asynchronously
+    ' Launch PowerShell dialog with VBScript callback
     ExecutePowerShellOpenDialog Title, InitialDir
     
     Exit Sub
@@ -49,17 +50,21 @@ ErrorHandler:
     End If
 End Sub
 
-' Execute PowerShell save dialog
+' Modified ExecutePowerShellSaveDialog
 Private Sub ExecutePowerShellSaveDialog(ByVal Title As String, ByVal InitialDir As String, ByVal DefaultFileName As String)
     On Error GoTo ErrorHandler
     
-    Dim PSScript As String
-    Dim TempScript As String
-    Dim CallbackScript As String
+    Dim PSCommand As String
+    Dim BatchCommand As String
+    Dim BatchFile As String
+    Dim VBSFile As String
     
-    ' Create unique temporary script file
-    TempScript = Environ("TEMP") & "\ares_save_dialog_" & Format(Now, "hhmmssfffff") & ".ps1"
-    CallbackScript = Environ("TEMP") & "\ares_callback_" & Format(Now, "hhmmssfffff") & ".vbs"
+    ' Create unique files
+    Dim TimeStamp As String
+    TimeStamp = Format(Now, "hhmmssfffff")
+    CurrentResultFile = Environ("TEMP") & "\ares_result_" & TimeStamp & ".txt"
+    BatchFile = Environ("TEMP") & "\ares_monitor_" & TimeStamp & ".bat"
+    VBSFile = Environ("TEMP") & "\ares_callback_" & TimeStamp & ".vbs"
     
     ' Escape paths for PowerShell
     Dim SafeTitle As String, SafeInitialDir As String, SafeDefaultFileName As String
@@ -67,35 +72,54 @@ Private Sub ExecutePowerShellSaveDialog(ByVal Title As String, ByVal InitialDir 
     SafeInitialDir = Replace(InitialDir, "\", "\\")
     SafeDefaultFileName = Replace(DefaultFileName, "'", "''")
     
-    ' Build PowerShell script
-    PSScript = "Add-Type -AssemblyName System.Windows.Forms" & vbCrLf & _
-               "$dialog = New-Object System.Windows.Forms.SaveFileDialog" & vbCrLf & _
-               "$dialog.Title = '" & SafeTitle & "'" & vbCrLf & _
-               "$dialog.Filter = 'ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*'" & vbCrLf & _
-               "$dialog.DefaultExt = 'cfg'" & vbCrLf & _
-               "$dialog.InitialDirectory = '" & SafeInitialDir & "'" & vbCrLf & _
-               "$dialog.FileName = '" & SafeDefaultFileName & "'" & vbCrLf & _
-               "if($dialog.ShowDialog() -eq 'OK') {" & vbCrLf & _
-               "    $result = $dialog.FileName" & vbCrLf & _
-               "} else {" & vbCrLf & _
-               "    $result = ''" & vbCrLf & _
-               "}" & vbCrLf & _
-               "& cscript.exe //nologo '" & CallbackScript & "' ""$result""" & vbCrLf
+    ' Build PowerShell command
+    PSCommand = "Add-Type -AssemblyName System.Windows.Forms; " & _
+                "$dialog = New-Object System.Windows.Forms.SaveFileDialog; " & _
+                "$dialog.Title = '" & SafeTitle & "'; " & _
+                "$dialog.Filter = 'ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*'; " & _
+                "$dialog.DefaultExt = 'cfg'; " & _
+                "$dialog.InitialDirectory = '" & SafeInitialDir & "'; " & _
+                "$dialog.FileName = '" & SafeDefaultFileName & "'; " & _
+                "if($dialog.ShowDialog() -eq 'OK') { " & _
+                "    $dialog.FileName | Out-File -FilePath '" & Replace(CurrentResultFile, "\", "\\") & "' -Encoding ASCII -NoNewline " & _
+                "} else { " & _
+                "    'CANCELLED' | Out-File -FilePath '" & Replace(CurrentResultFile, "\", "\\") & "' -Encoding ASCII -NoNewline " & _
+                "}; " & _
+                "& """ & BatchFile & """"
     
-    ' Create callback VBScript
-    Dim CallbackVBS As String
-    CallbackVBS = "Dim objExcel" & vbCrLf & _
-                  "Set objExcel = CreateObject(""Excel.Application"")" & vbCrLf & _
-                  "objExcel.Run ""'" & Application.VBE.ActiveVBProject.FileName & "'!PowerShellSaveCallback"", WScript.Arguments(0)" & vbCrLf & _
-                  "objExcel.Quit" & vbCrLf & _
-                  "Set objExcel = Nothing"
+    ' Create VBScript with your corrected version
+    Dim VBSContent As String
+    VBSContent = "Option Explicit" & vbCrLf & _
+                 "Dim oConnector, msApp" & vbCrLf & _
+                 "' Use ApplicationObjectConnector to get active MicroStation" & vbCrLf & _
+                 "Set oConnector = GetObject(, ""MicroStationDGN.ApplicationObjectConnector"")" & vbCrLf & _
+                 "If Err.Number <> 0 Then" & vbCrLf & _
+                 "    WScript.Echo ""No active MicroStation ApplicationObjectConnector found""" & vbCrLf & _
+                 "    WScript.Quit" & vbCrLf & _
+                 "End If" & vbCrLf & _
+                 "Set msApp = oConnector.Application" & vbCrLf & _
+                 "' Execute VBA function" & vbCrLf & _
+                 "msApp.CommandState.StartDefaultCommand" & vbCrLf & _
+                 "msApp.CadInputQueue.SendCommand(""macro vba run WindowsFileDialog.PowerShellDialogCallback"")" & vbCrLf & _
+                 "If Err.Number <> 0 Then" & vbCrLf & _
+                 "    WScript.Echo ""VBA execution failed: "" & Err.Description" & vbCrLf & _
+                 "End If" & vbCrLf & _
+                 "On Error GoTo 0" & vbCrLf & _
+                 "Set msApp = Nothing" & vbCrLf & _
+                 "Set oConnector = Nothing"
     
-    ' Write scripts to temp files
-    WriteTextFile TempScript, PSScript
-    WriteTextFile CallbackScript, CallbackVBS
+    ' Create batch monitor (without deleting ResultFile)
+    BatchCommand = "@echo off" & vbCrLf & _
+                   "timeout /t 1 /nobreak > nul" & vbCrLf & _
+                   "cscript //nologo """ & VBSFile & """" & vbCrLf & _
+                   "timeout /t 2 /nobreak > nul" & vbCrLf & _
+                   "del /q """ & VBSFile & """ 2>nul" & vbCrLf & _
+                   "del /q """ & BatchFile & """ 2>nul"
     
-    ' Execute PowerShell script asynchronously
-    Shell "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & TempScript & """", vbHide
+    ' Write files and execute
+    WriteTextFile VBSFile, VBSContent
+    WriteTextFile BatchFile, BatchCommand
+    Shell "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command """ & PSCommand & """", vbHide
     
     Exit Sub
     
@@ -106,53 +130,76 @@ ErrorHandler:
     End If
 End Sub
 
-' Execute PowerShell open dialog
+' Execute PowerShell open dialog with VBScript callback
 Private Sub ExecutePowerShellOpenDialog(ByVal Title As String, ByVal InitialDir As String)
     On Error GoTo ErrorHandler
     
-    Dim PSScript As String
-    Dim TempScript As String
-    Dim CallbackScript As String
+    Dim PSCommand As String
+    Dim BatchCommand As String
+    Dim BatchFile As String
+    Dim VBSFile As String
     
-    ' Create unique temporary script files
-    TempScript = Environ("TEMP") & "\ares_open_dialog_" & Format(Now, "hhmmssfffff") & ".ps1"
-    CallbackScript = Environ("TEMP") & "\ares_callback_" & Format(Now, "hhmmssfffff") & ".vbs"
+    ' Create unique files
+    Dim TimeStamp As String
+    TimeStamp = Format(Now, "hhmmssfffff")
+    CurrentResultFile = Environ("TEMP") & "\ares_result_" & TimeStamp & ".txt"
+    BatchFile = Environ("TEMP") & "\ares_monitor_" & TimeStamp & ".bat"
+    VBSFile = Environ("TEMP") & "\ares_callback_" & TimeStamp & ".vbs"
     
     ' Escape paths for PowerShell
     Dim SafeTitle As String, SafeInitialDir As String
     SafeTitle = Replace(Title, "'", "''")
     SafeInitialDir = Replace(InitialDir, "\", "\\")
     
-    ' Build PowerShell script
-    PSScript = "Add-Type -AssemblyName System.Windows.Forms" & vbCrLf & _
-               "$dialog = New-Object System.Windows.Forms.OpenFileDialog" & vbCrLf & _
-               "$dialog.Title = '" & SafeTitle & "'" & vbCrLf & _
-               "$dialog.Filter = 'ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*'" & vbCrLf & _
-               "$dialog.DefaultExt = 'cfg'" & vbCrLf & _
-               "$dialog.CheckFileExists = $true" & vbCrLf & _
-               "$dialog.Multiselect = $false" & vbCrLf & _
-               "$dialog.InitialDirectory = '" & SafeInitialDir & "'" & vbCrLf & _
-               "if($dialog.ShowDialog() -eq 'OK') {" & vbCrLf & _
-               "    $result = $dialog.FileName" & vbCrLf & _
-               "} else {" & vbCrLf & _
-               "    $result = ''" & vbCrLf & _
-               "}" & vbCrLf & _
-               "& cscript.exe //nologo '" & CallbackScript & "' ""$result""" & vbCrLf
+    ' Build PowerShell command
+    PSCommand = "Add-Type -AssemblyName System.Windows.Forms; " & _
+                "$dialog = New-Object System.Windows.Forms.OpenFileDialog; " & _
+                "$dialog.Title = '" & SafeTitle & "'; " & _
+                "$dialog.Filter = 'ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*'; " & _
+                "$dialog.DefaultExt = 'cfg'; " & _
+                "$dialog.CheckFileExists = $true; " & _
+                "$dialog.Multiselect = $false; " & _
+                "$dialog.InitialDirectory = '" & SafeInitialDir & "'; " & _
+                "if($dialog.ShowDialog() -eq 'OK') { " & _
+                "    $dialog.FileName | Out-File -FilePath '" & Replace(CurrentResultFile, "\", "\\") & "' -Encoding ASCII -NoNewline " & _
+                "} else { " & _
+                "    'CANCELLED' | Out-File -FilePath '" & Replace(CurrentResultFile, "\", "\\") & "' -Encoding ASCII -NoNewline " & _
+                "}; " & _
+                "& """ & BatchFile & """"
     
-    ' Create callback VBScript
-    Dim CallbackVBS As String
-    CallbackVBS = "Dim objExcel" & vbCrLf & _
-                  "Set objExcel = CreateObject(""Excel.Application"")" & vbCrLf & _
-                  "objExcel.Run ""'" & Application.VBE.ActiveVBProject.FileName & "'!PowerShellOpenCallback"", WScript.Arguments(0)" & vbCrLf & _
-                  "objExcel.Quit" & vbCrLf & _
-                  "Set objExcel = Nothing"
+    ' Create VBScript with your corrected version
+    Dim VBSContent As String
+    VBSContent = "Option Explicit" & vbCrLf & _
+                 "Dim oConnector, msApp" & vbCrLf & _
+                 "' Use ApplicationObjectConnector to get active MicroStation" & vbCrLf & _
+                 "Set oConnector = GetObject(, ""MicroStationDGN.ApplicationObjectConnector"")" & vbCrLf & _
+                 "If Err.Number <> 0 Then" & vbCrLf & _
+                 "    WScript.Echo ""No active MicroStation ApplicationObjectConnector found""" & vbCrLf & _
+                 "    WScript.Quit" & vbCrLf & _
+                 "End If" & vbCrLf & _
+                 "Set msApp = oConnector.Application" & vbCrLf & _
+                 "' Execute VBA function" & vbCrLf & _
+                 "msApp.CommandState.StartDefaultCommand" & vbCrLf & _
+                 "msApp.CadInputQueue.SendCommand(""macro vba run WindowsFileDialog.PowerShellDialogCallback"")" & vbCrLf & _
+                 "If Err.Number <> 0 Then" & vbCrLf & _
+                 "    WScript.Echo ""VBA execution failed: "" & Err.Description" & vbCrLf & _
+                 "End If" & vbCrLf & _
+                 "On Error GoTo 0" & vbCrLf & _
+                 "Set msApp = Nothing" & vbCrLf & _
+                 "Set oConnector = Nothing"
     
-    ' Write scripts to temp files
-    WriteTextFile TempScript, PSScript
-    WriteTextFile CallbackScript, CallbackVBS
+    ' Create batch monitor (without deleting ResultFile)
+    BatchCommand = "@echo off" & vbCrLf & _
+                   "timeout /t 1 /nobreak > nul" & vbCrLf & _
+                   "cscript //nologo """ & VBSFile & """" & vbCrLf & _
+                   "timeout /t 2 /nobreak > nul" & vbCrLf & _
+                   "del /q """ & VBSFile & """ 2>nul" & vbCrLf & _
+                   "del /q """ & BatchFile & """ 2>nul"
     
-    ' Execute PowerShell script asynchronously
-    Shell "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File """ & TempScript & """", vbHide
+    ' Write files and execute
+    WriteTextFile VBSFile, VBSContent
+    WriteTextFile BatchFile, BatchCommand
+    Shell "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command """ & PSCommand & """", vbHide
     
     Exit Sub
     
@@ -163,28 +210,51 @@ ErrorHandler:
     End If
 End Sub
 
-' Helper to write text file
-Private Sub WriteTextFile(ByVal FilePath As String, ByVal Content As String)
+' Callback function called by VBScript
+Public Sub PowerShellDialogCallback()
+    On Error GoTo ErrorHandler
+    
+    If DialogHandler Is Nothing Then Exit Sub
+    
+    Dim Result As String
     Dim FileNum As Integer
-    FileNum = FreeFile
-    Open FilePath For Output As #FileNum
-    Print #FileNum, Content
-    Close #FileNum
-End Sub
-
-' Callback functions called by VBScript
-Public Sub PowerShellSaveCallback(ByVal FilePath As String)
-    On Error Resume Next
-    If Not DialogHandler Is Nothing Then
-        DialogHandler.OnFileDialogCompleted FilePath
+    
+    ' Read result from file
+    If Dir(CurrentResultFile) <> "" Then
+        FileNum = FreeFile
+        Open CurrentResultFile For Input As #FileNum
+        If Not EOF(FileNum) Then
+            Result = Input(LOF(FileNum), FileNum)
+        End If
+        Close #FileNum
+        
+        ' Delete the result file
+        Kill CurrentResultFile
     End If
-End Sub
-
-Public Sub PowerShellOpenCallback(ByVal FilePath As String)
-    On Error Resume Next
-    If Not DialogHandler Is Nothing Then
-        DialogHandler.OnFileDialogCompleted FilePath
+    
+    ' Process result
+    If Result = "CANCELLED" Or Len(Result) = 0 Then
+        DialogHandler.OnFileDialogCancelled
+    Else
+        DialogHandler.OnFileDialogCompleted Result
     End If
+    
+    ' Clean up reference
+    Set DialogHandler = Nothing
+    
+    Exit Sub
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "WindowsFileDialog.PowerShellDialogCallback"
+    If Not DialogHandler Is Nothing Then
+        DialogHandler.OnFileDialogCancelled
+        Set DialogHandler = Nothing
+    End If
+    
+    ' Clean up file if it exists
+    On Error Resume Next
+    If Dir(CurrentResultFile) <> "" Then Kill CurrentResultFile
+    On Error GoTo 0
 End Sub
 
 ' Helper functions
@@ -201,3 +271,11 @@ Public Function GenerateDefaultConfigFileName(Optional ByVal Prefix As String = 
     GenerateDefaultConfigFileName = Prefix & "_" & Format(Now, "yyyymmdd_hhmmss") & ".cfg"
 End Function
 
+' Helper to write text file
+Private Sub WriteTextFile(ByVal FilePath As String, ByVal Content As String)
+    Dim FileNum As Integer
+    FileNum = FreeFile
+    Open FilePath For Output As #FileNum
+    Print #FileNum, Content
+    Close #FileNum
+End Sub

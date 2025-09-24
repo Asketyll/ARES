@@ -48,56 +48,7 @@ Sub ShowARESConfigSummary()
     Exit Sub
     
 ErrorHandler:
-    If LangManager.IsInit Then
-        ShowStatus "Failed to show configuration summary: " & Err.Description
-    Else
-        ShowStatus "Configuration summary failed: " & Err.Description
-    End If
-End Sub
-
-' Create configuration backup using event-driven UI
-Sub BackupARESConfig()
-    On Error GoTo ErrorHandler
-    ConfigurationUI.BackupConfigurationUI
-    Exit Sub
-    
-ErrorHandler:
-    If LangManager.IsInit Then
-        ShowStatus GetTranslation("ConfigBackupFailed") & ": " & Err.Description
-    Else
-        ShowStatus "Configuration backup failed: " & Err.Description
-    End If
-End Sub
-
-' Quick backup with automatic filename (no dialog)
-Sub QuickBackupARESConfig()
-    On Error GoTo ErrorHandler
-    
-    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
-        Set BootLoader.ARESConfig = New ARESConfigClass
-        ARESConfig.Initialize
-    End If
-    
-    If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    
-    ' Generate automatic backup path
-    Dim BackupPath As String
-    If Not ActiveDesignFile Is Nothing Then
-        BackupPath = ActiveDesignFile.Path & "\ARES_QuickBackup_" & Format(Now, "yyyymmdd_hhmmss") & ".cfg"
-    Else
-        BackupPath = Environ("USERPROFILE") & "\Desktop\ARES_QuickBackup_" & Format(Now, "yyyymmdd_hhmmss") & ".cfg"
-    End If
-    
-    If ARESConfig.ExportConfig(BackupPath) Then
-        ShowStatus "Quick backup created: " & BackupPath
-    Else
-        ShowStatus GetTranslation("ConfigBackupFailed")
-    End If
-    
-    Exit Sub
-    
-ErrorHandler:
-    ShowStatus "Quick backup failed: " & Err.Description
+    ShowStatus "Configuration summary failed: " & Err.Description
 End Sub
 
 ' === VARIABLE MANAGEMENT COMMANDS ===

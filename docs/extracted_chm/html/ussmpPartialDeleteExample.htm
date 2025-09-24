@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using PartialDelete</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Using PartialDelete</H1>
+
+<P class=T>
+The DataPoint event handler in this example uses PartialDelete to delete part of an element.  It
+        uses the first 2 data points to decide where to cut. The third data point accepts the change. For closed shapes,
+        it also selects the portion of the element to remove.
+</P>
+<PRE class=CT><CODE>
+Implements <A href="usobjIPrimitiveCommandEvents.htm">IPrimitiveCommandEvents</A>
+
+Private aPoints(0 To 2) As <A href="usudtPoint3d.htm">Point3d</A>
+Private nPoints As Long
+Private oldID As <A href="usudtDLong.htm">DLong</A>
+'
+'''  Called every place we want to restart the command
+'
+Private Sub RestartCommand()
+    nPoints = 0
+    <A href="usproCommandState.htm">CommandState</A>.<A href="usmthStartPrimitive.htm">StartPrimitive</A> Me
+End Sub
+'
+'   Main event handler for this example
+'
+Private Sub IPrimitiveCommandEvents_<A href="usevtDataPoint.htm">DataPoint</A>(<A href="usproPoint.htm">Point</A> As Point3d, ByVal <A href="usproView.htm">View</A> As <A href="usobjView.htm">View</A>)
+    Dim ele As <A href="usobjElement.htm">Element</A>
+
+    If nPoints = 0 Then
+        '
+        ''  <A href="usmthFind.htm">Find</A> the element.  Abort if <A href="usmthLocateElement.htm">LocateElement</A> does not find an element
+        '
+        Set ele = CommandState.LocateElement(Point, View, True)
+        If ele Is Nothing Then
+            MsgBox "The point did not select an element. Restarting command."
+            RestartCommand
+            Exit Sub
+        End If
+        '
+        ''  Record the state
+        '
+        aPoints(0) = Point
+        nPoints = 1
+        oldID = ele.<A href="usproID.htm">ID</A>
+        '
+        ''  Now wait for the next point
+        '
+        <A href="usmthShowPrompt.htm">ShowPrompt</A> "Select the second point"
+        Exit Sub
+    End If
+    If nPoints = 1 Then
+        Set ele = CommandState.LocateElement(Point, View, True)
+        If ele Is Nothing Then
+            MsgBox "The point did not select an element. Try again."
+            Exit Sub
+        End If
+        '
+        '   Verify that this point is on the same element
+        '
+        Do While (<A href="usmthDLongComp.htm">DLongComp</A>(ele.ID, oldID) &lt;&gt; 0)
+            ''  Pass False as the last argument to get other elements
+            ''  selected by this point
+            Set ele = CommandState.LocateElement(Point, View, False)
+            If ele Is Nothing Then
+                MsgBox "The points must be on the same element. Restarting the command."
+                RestartCommand
+                Exit Sub
+            End If
+        Loop
+        '
+        '' The point is on the same element.  Record the state and wait for the user to accept.
+        '
+        aPoints(1) = Point
+        ShowPrompt "Accept"
+        CommandState.<A href="usmthStartDynamics.htm">StartDynamics</A>
+        nPoints = 2
+        Exit Sub
+    End If
+    If nPoints = 2 Then
+        Dim eleOld As Element
+        Dim eleNew1 As Element
+        Dim eleNew2 As Element
+
+        Set eleOld = <A href="usproActiveModelReference.htm">ActiveModelReference</A>.<A href="usmthGetElementByID.htm">GetElementByID</A>(oldID)
+        eleOld.<A href="usmthPartialDelete.htm">PartialDelete</A> eleNew1, eleNew2, aPoints(0), aPoints(1), Point, View
+        '
+        '  If the entire element is deleted, both eleNew1 and eleNew2 are Nothing
+        '
+        If Not eleNew1 Is Nothing Then
+            eleNew1.<A href="usproLineWeight.htm">LineWeight</A> = 10
+            eleNew1.<A href="usproColor.htm">Color</A> = 3
+            eleNew1.<A href="usmthRedraw.htm">Redraw</A>
+        End If
+        '
+        '   If the element is closed, or one of the points is an end point of the element
+        '   then eleNew2 is Nothing
+        '
+        If Not eleNew2 Is Nothing Then
+            eleNew2.LineWeight = 10
+            eleNew2.Color = 5
+            eleNew2.Redraw
+        End If
+        RestartCommand
+    End If
+End Sub
+
+Private Sub IPrimitiveCommandEvents_<A href="usevtDynamics.htm">Dynamics</A>(Point As Point3d, ByVal View As View, ByVal DrawMode As <A href="usenmMsdDrawingMode.htm">MsdDrawingMode</A>)
+        Dim eleOld As Element
+        Dim eleNew1 As Element
+        Dim eleNew2 As Element
+        Dim oldWeight As Long
+
+        Set eleOld = ActiveModelReference.GetElementByID(oldID)
+        eleOld.PartialDelete eleNew1, eleNew2, aPoints(0), aPoints(1), Point, View
+        oldWeight = eleOld.LineWeight
+        If Not eleNew1 Is Nothing Then
+            eleNew1.LineWeight = oldWeight + 5
+            eleNew1.Redraw DrawMode
+        End If
+        If Not eleNew2 Is Nothing Then
+            eleNew2.LineWeight = oldWeight + 5
+            eleNew2.Redraw DrawMode
+        End If
+End Sub
+
+Private Sub IPrimitiveCommandEvents_<A href="usmthReset.htm">Reset</A>()
+    RestartCommand '  Keep it simple. Back out all the way.
+End Sub
+
+Private Sub IPrimitiveCommandEvents_<A href="usevtStart.htm">Start</A>()
+    CommandState.<A href="usmthSetLocateCursor.htm">SetLocateCursor</A>
+    ShowPrompt "Select the first point"
+End Sub
+
+'
+'' The remaining methods of IPrimitiveCommandEvents were omitted because
+'' they do not do anything in this example.
+'
+</CODE></PRE>

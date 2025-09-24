@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Uses FindSavedView to Find Saved Views</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>Uses FindSavedView to Find Saved Views</H1>
+
+<P class=T>
+
+</P>
+<PRE class=CT><CODE>
+Function UseFindSavedViews(strNamePattern As String) As Collection
+    Dim eleSV As <A href="usobjSavedViewElement.htm">SavedViewElement</A>
+    Set UseFindSavedViews = New Collection
+
+    '  This call to FindSavedView does not supply the optional argument FindSavedView. Therefore,
+    '  FindSavedView returns the first SavedViewElement that it finds.
+    Set eleSV = <A href="usproActiveDesignFile.htm">ActiveDesignFile</A>.<A href="usmthFindSavedView.htm">FindSavedView</A>(strNamePattern)
+    Do While Not eleSV Is Nothing
+        UseFindSavedViews.<A href="usmthAdd.htm">Add</A> eleSV
+        '   Passing in the previous value of eleSV causes FindSavedView to start
+        '   with the name saved view.
+        Set eleSV = ActiveDesignFile.FindSavedView(strNamePattern, eleSV)
+    Loop
+End Function
+
+Sub RunFind()
+    Dim eleSV As SavedViewElement
+    Dim oColl As Collection
+
+    Set oColl = UseFindSavedViews("*vba*")
+    For Each eleSV In oColl
+        Debug.Print "Found saved view element " & eleSV.<A href="usproName.htm">Name</A> & " that can be applied to model " & eleSV.<A href="usproSavedViewModelReference.htm">SavedViewModelReference</A>.Name
+    Next
+End Sub
+
+
+</CODE></PRE>

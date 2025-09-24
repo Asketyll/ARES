@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Redraw Method</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+
+<H1 class=RH1><A NAME="usmthredraw"></A>Redraw Method</H1>
+
+<P class=ALNSR>
+<OBJECT ID="hhobj_4403" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:See Also">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRedrawC">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4404" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Example">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRedrawX">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4405" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Applies To">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRedrawA">
+</OBJECT>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<OBJECT ID="hhobj_4406" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+        <param name="Command" value="ALink">
+        <param name="Font" value="Verdana,8,1">
+        <param name="Text" value="Text:Specifics">
+        <param name="Flags" value=",,1">
+        <param name="Item1" value="">
+        <param name="Item2" value="usmthRedrawS">
+</OBJECT>
+</P>
+
+<P class=T>
+Redraws this object.
+</P>
+<P class=RL><B>Syntax</B></P>
+<P>For the <B>TextNodeElement</B> object, <B>TextElement</B> object, <B>TagElement</B> object, <B>SmartSolidElement</B> object, <B>SharedCellElement</B> object, <B>SharedCellDefinitionElement</B> object, <B>ShapeElement</B> object, <B>SavedViewElement</B> object, <B>PointStringElement</B> object, <B>NamedGroupElement</B> object, <B>MultiLineElement</B> object, <B>LineElement</B> object, <B>EllipseElement</B> object, <B>Element</B> object, <B>DimensionElement</B> object, <B>CurveElement</B> object, <B>ConeElement</B> object, <B>ComplexStringElement</B> object, <B>ComplexShapeElement</B> object, <B>CellElement</B> object, <B>BsplineSurfaceElement</B> object, <B>BsplineCurveElement</B> object, <B>AuxiliaryCoordinateSystemElement</B> object, <B>Attachment</B> object, <B>ArcElement</B> object and <B>ApplicationElement</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>Redraw</B> [<I>DrawMode</I>]
+<P>For the <B>View</B> object:</P>
+<P class=SYN>&nbsp;&nbsp;&nbsp;<I>object</I>.<B>Redraw</B> 
+<P class=T>The <B>Redraw</B> method syntax has these parts:</P>
+<TABLE cellpadding=4 cellspacing=4 cols=3>
+<TR VALIGN="top">
+<TH width=17%>Part</TH>
+<TH width=79%>Description</TH>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>object</I></TD>
+<TD class=TT width=79%%>A valid object.</TD>
+</TR>
+<TR VALIGN="top">
+<TD class=TT width=17%><I>DrawMode</I></TD>
+<TD class=TT width=79%>
+Optional. An <A href="usenmMsdDrawingMode.htm">MsdDrawingMode</A> expression. How the element is drawn. Its default value is <B>msdNormalDraw</B>.
+</TR>
+</TABLE><BR>
+<P class=RL><B>Remarks</B></P>
+
+<P>
+<A href="usobjElement.htm">Element</A>.<B>Redraw</B> redraws the element in all views where it is visible.
+</P>
+<P>
+For an element, calling <B>Redraw</B> raises an error if the element is not graphical.
+    If you're in doubt, firstly check the element's <A href="usproIsGraphical.htm">IsGraphical</A> property.
+</P>
+<P>
+<A href="usobjView.htm">View</A>.<B>Redraw</B> first clears the view, then redraws its contents.
+</P>
+<P class=RL><B>Version</B></P>
+<P>
+08.00.00
+</P>
+</BODY>
+</HTML>

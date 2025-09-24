@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ColorTable Object Example</TITLE>
+<style>@import url(/Office.css);</style>
+<link disabled rel="stylesheet" href="/MSOffice.css"></HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000">
+
+<H1 class=RH1>ColorTable Object Example</H1>
+
+<P class=T>
+This example illustrates how to get a copy of the colortable that is currently attached
+        to the active design file.
+            It uses the <A href="usmthExtractColorTable.htm">ExtractColorTable</A> property of <A href="usproActiveDesignFile.htm">ActiveDesignFile</A> to
+            get the ColorTable object attached to the active design file,  and uses <A href="usmthAttachColorTable.htm">AttachColorTable</A> method
+        of <B>ActiveDesignFile</B> to attach a ColorTable object to the active design file. It also shows how to
+        change the properties of a ColorTable object.
+</P>
+<PRE class=CT><CODE>
+Public Sub ExtractRGB(ByVal longColor As Long, intRed As Byte, intGreen As Byte, intBlue As Byte)
+    Dim lngColor As Long
+
+    lngColor = longColor
+    intRed = lngColor Mod &H100
+    lngColor = lngColor \ &H100
+    intGreen = lngColor Mod &H100
+    lngColor = lngColor \ &H100
+    intBlue = lngColor Mod &H100
+End Sub
+
+Private Sub PrintColorTable(ct As <A href="usobjColorTable.htm">ColorTable</A>)
+    Dim cIndex As Long
+    Dim r As Byte, g As Byte, b As Byte
+    Dim ArrayRGBLongs () as long
+
+    Debug.Print " The name of the color table is : " & ct.<A href="usproName.htm">Name</A>
+    Debug.Print " The background color of the color table is : " & ct.<A href="usproBackColor.htm">BackColor</A>
+    ' Get an array of all of the RGB color values
+    ArrayRGBLongs = ct.<A href="usmthGetColors.htm">GetColors</A>
+    For cIndex = 0 To UBound(ArrayRGBLongs)
+        ExtractRGB ArrayRGBLongs(cIndex), r, g, b
+        Debug.Print "The RGB color at color index " & cIndex & " is: " & ArrayRGBLongs(cIndex) & " (r = " & r & ", g = " & g & ", b = " & b & ")"
+    Next
+End Sub
+
+Private Sub TestColorTable()
+    Dim ct As ColorTable
+    Dim ArrayRGBLongs() As Long
+    Dim color As Long
+    Dim r As Byte, g As Byte, b As Byte
+
+    ' Get a copy of the colortable that is currently attached to the active design file
+    Set ct = <A href="usproApplication.htm">Application</A>.ActiveDesignFile.ExtractColorTable
+
+    PrintColorTable ct
+
+    ' Get the rgb color at index 2
+    color = ct.<A href="usmthGetColorAtIndex.htm">GetColorAtIndex</A>(2)
+    ExtractRGB color, r, g, b
+    Debug.Print "The RGB color at color index 2 is: " & color & " (r = " & r & ", g = " & g & ", b = " & b & ")"
+
+
+    ' Redefine the RGB values for color index 0
+    ct.<A href="usmthSetColorAtIndex.htm">SetColorAtIndex</A> 0, RGB(255, 0, 0)
+
+   ' ct.SetColorsToDefaultColorTable
+    ct.Name = "My Table"
+    ct.BackColor = color
+
+    Debug.Print " ColorTable after setting name and backcolor and redefine the RGB value at index 0"
+    PrintColorTable ct
+
+    ' Set the colortable to AutoCad's default colortable
+    ct.<A href="usmthSetColorsToAutoCADColorTable.htm">SetColorsToAutoCADColorTable</A>
+    Debug.Print " ColorTable after calling SetColorsToAutoCADColorTable "
+    PrintColorTable ct
+
+    ' find the closest matching RGB to a target RGB
+    color = ct.<A href="usmthFindClosestColor.htm">FindClosestColor</A>(RGB(244, 244, 244))
+    ExtractRGB color, r, g, b
+    Debug.Print "The closest matching RGB to RGB(244, 244, 244) is: color = " & color & " (r = " & r & ", g = " & g & ", b = " & b & ")"
+
+    ' Lets an application attach a new color table to a design file
+    Application.ActiveDesignFile.AttachColorTable ct
+
+End Sub
+
+
+
+
+
+
+</CODE></PRE>
