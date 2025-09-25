@@ -16,7 +16,7 @@ End Sub
 ' Export current configuration using event-driven UI
 Sub ExportARESConfig()
     On Error GoTo ErrorHandler
-    ConfigurationUI.ExportConfigurationUI
+    FileDialogs.ExportConfigurationUI
     Exit Sub
     
 ErrorHandler:
@@ -30,7 +30,7 @@ End Sub
 ' Import configuration using event-driven UI
 Sub ImportARESConfig()
     On Error GoTo ErrorHandler
-    ConfigurationUI.ImportConfigurationUI
+    FileDialogs.ImportConfigurationUI
     Exit Sub
     
 ErrorHandler:
