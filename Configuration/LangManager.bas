@@ -91,7 +91,7 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_DGNOpenCloseInitError", "Erreur lors de l'initialisation des événements d'ouverture/fermeture DGN: "
     mTranslations.Add "FR_AutoLengthsGUIInvalidSelectedElement", "L'élément sélectionné n'est pas valide."
     mTranslations.Add "FR_AutoLengthsGUISelectElementsCaption", "Sélectionner:"
-    mTranslations.Add "FR_AutoLengthsGUIOptionsCaption", "Modifier les options de longueurs automatiques :"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsCaption", "Modifier les options de longueurs automatiques :"
     mTranslations.Add "FR_AutoLengthsGUIOptionsMain_LabelCaption", "Activer les longueurs auto."
     mTranslations.Add "FR_AutoLengthsGUIOptionsColor_LabelCaption", "Activer la MAJ de la couleur"
     mTranslations.Add "FR_AutoLengthsGUIOptionsCell_LabelCaption", "Activer la MAJ des cellules ATLAS"
