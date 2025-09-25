@@ -82,32 +82,32 @@ ErrorHandler:
 End Function
 
 ' Create a single configuration variable
-Private Function CreateConfigVar(ByVal key As String, ByVal defaultValue As String) As ARES_MS_VAR_Class
+Private Function CreateConfigVar(ByVal Key As String, ByVal DefaultValue As String) As ARES_MS_VAR_Class
     Dim ConfigVar As ARES_MS_VAR_Class
     Set ConfigVar = New ARES_MS_VAR_Class
 
-    ConfigVar.key = key
-    ConfigVar.defaultValue = defaultValue
+    ConfigVar.Key = Key
+    ConfigVar.DefaultValue = DefaultValue
 
     ' Get current value from MicroStation
     Dim currentValue As String
-    currentValue = Config.GetVar(key)
+    currentValue = Config.GetVar(Key)
 
     ' If variable is not defined, set to default
     If currentValue = ARES_NAVD Then
-        currentValue = defaultValue
-        Config.SetVar key, defaultValue
+        currentValue = DefaultValue
+        Config.SetVar Key, DefaultValue
     End If
 
     ConfigVar.Value = currentValue
-    pConfigVariables.Add ConfigVar, key
+    pConfigVariables.Add ConfigVar, Key
     Set CreateConfigVar = ConfigVar
 End Function
 
 ' Get a configuration variable by key
-Public Function GetConfigVar(ByVal key As String) As ARES_MS_VAR_Class
+Public Function GetConfigVar(ByVal Key As String) As ARES_MS_VAR_Class
     On Error Resume Next
-    Set GetConfigVar = pConfigVariables(key)
+    Set GetConfigVar = pConfigVariables(Key)
     If Err.Number <> 0 Then
         Set GetConfigVar = Nothing
     End If
@@ -115,11 +115,11 @@ Public Function GetConfigVar(ByVal key As String) As ARES_MS_VAR_Class
 End Function
 
 ' Reset a configuration variable to its default value
-Public Function ResetConfigVar(ByVal key As String) As Boolean
+Public Function ResetConfigVar(ByVal Key As String) As Boolean
     On Error GoTo ErrorHandler
 
     Dim ConfigVar As ARES_MS_VAR_Class
-    Set ConfigVar = pConfigVariables(key)
+    Set ConfigVar = pConfigVariables(Key)
 
     If ConfigVar Is Nothing Then
         ResetConfigVar = False
@@ -127,7 +127,7 @@ Public Function ResetConfigVar(ByVal key As String) As Boolean
     End If
 
     ' Reset in MicroStation
-    If Not Config.SetVar(key, ConfigVar.defaultValue) Then
+    If Not Config.SetVar(Key, ConfigVar.DefaultValue) Then
         ResetConfigVar = False
         Exit Function
     End If
@@ -144,11 +144,11 @@ ErrorHandler:
 End Function
 
 ' Remove a configuration variable
-Public Function RemoveConfigVar(ByVal key As String, Optional showConfirmation As Boolean = True) As Boolean
+Public Function RemoveConfigVar(ByVal Key As String, Optional showConfirmation As Boolean = True) As Boolean
     On Error GoTo ErrorHandler
 
     Dim ConfigVar As ARES_MS_VAR_Class
-    Set ConfigVar = pConfigVariables(key)
+    Set ConfigVar = pConfigVariables(Key)
 
     If ConfigVar Is Nothing Then
         RemoveConfigVar = False
@@ -157,20 +157,20 @@ Public Function RemoveConfigVar(ByVal key As String, Optional showConfirmation A
 
     ' Ask for confirmation
     If showConfirmation Then
-        If MsgBox(GetTranslation("VarRemoveConfirm", key), vbYesNo) = vbNo Then
+        If MsgBox(GetTranslation("VarRemoveConfirm", Key), vbYesNo) = vbNo Then
             RemoveConfigVar = False
             Exit Function
         End If
     End If
 
     ' Remove from MicroStation
-    If Not Config.RemoveValue(key) Then
+    If Not Config.RemoveValue(Key) Then
         RemoveConfigVar = False
         Exit Function
     End If
 
     ' Remove from collection
-    pConfigVariables.Remove key
+    pConfigVariables.Remove Key
     RemoveConfigVar = True
 
     Exit Function
@@ -189,7 +189,7 @@ Public Function ResetAllConfigVars() As Boolean
 
     Success = True
     For Each var In pConfigVariables
-        If Not ResetConfigVar(var.key) Then
+        If Not ResetConfigVar(var.Key) Then
             Success = False
         End If
     Next var
@@ -217,7 +217,7 @@ Public Function RemoveAllConfigVars() As Boolean
 
     Success = True
     For Each var In pConfigVariables
-        If Not RemoveConfigVar(var.key, False) Then
+        If Not RemoveConfigVar(var.Key, False) Then
             Success = False
         End If
     Next var
@@ -320,11 +320,6 @@ Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteE
     
     Close #FileNum
     
-    ' Show results
-    Dim ResultMsg As String
-    ResultMsg = "Import completed: " & ImportedCount & " imported, " & SkippedCount & " skipped"
-    ErrorHandler.HandleError ResultMsg, 0, "ARESConfigClass.ImportConfig"
-    
     ImportConfig = True
     Exit Function
     
@@ -344,9 +339,9 @@ Public Function GetConfigSummary() As String
     Summary = "=== ARES Configuration Summary ===" & vbCrLf & vbCrLf
     
     For Each ConfigVar In pConfigVariables
-        Summary = Summary & ConfigVar.key & " = " & ConfigVar.Value
+        Summary = Summary & ConfigVar.Key & " = " & ConfigVar.Value
         If Not ConfigVar.IsDefault() Then
-            Summary = Summary & " (Modified from: " & ConfigVar.defaultValue & ")"
+            Summary = Summary & " (Modified from: " & ConfigVar.DefaultValue & ")"
         End If
         Summary = Summary & vbCrLf
     Next ConfigVar
@@ -379,7 +374,7 @@ Private Function FormatConfigForExport(ByVal ConfigVar As ARES_MS_VAR_Class) As 
     Dim Result As String
     
     ' Format: KEY=VALUE|DEFAULT=defaultvalue|MODIFIED=true/false
-    Result = ConfigVar.key & "=" & ConfigVar.Value & "|DEFAULT=" & ConfigVar.defaultValue
+    Result = ConfigVar.Key & "=" & ConfigVar.Value & "|DEFAULT=" & ConfigVar.DefaultValue
     Result = Result & "|MODIFIED=" & CStr(ConfigVar.IsModified())
     
     FormatConfigForExport = Result
