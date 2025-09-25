@@ -44,7 +44,7 @@ End Sub
 ' Show current configuration summary
 Sub ShowARESConfigSummary()
     On Error GoTo ErrorHandler
-    ConfigurationUI.ShowConfigurationSummaryUI
+    FileDialogs.ShowConfigurationSummaryUI
     Exit Sub
     
 ErrorHandler:
@@ -117,6 +117,28 @@ Sub EditAutoLengthsOptions()
     
 ErrorHandler:
     ShowStatus "Failed to open AutoLengths options: " & Err.Description
+End Sub
+
+' === TESTING COMMANDS ===
+
+' Run all unit tests
+Sub RunARESTests()
+    On Error GoTo ErrorHandler
+    UnitTesting.RunAllTests
+    Exit Sub
+    
+ErrorHandler:
+    ShowStatus "Unit tests failed: " & Err.Description
+End Sub
+
+' Run performance tests
+Sub RunARESPerformanceTests()
+    On Error GoTo ErrorHandler
+    UnitTesting.RunPerformanceTests
+    Exit Sub
+    
+ErrorHandler:
+    ShowStatus "Performance tests failed: " & Err.Description
 End Sub
 
 ' === LANGUAGE COMMANDS ===
