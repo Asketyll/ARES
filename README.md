@@ -1,10 +1,9 @@
 # 🚀 Quick Install
 powershell
-## One-line PowerShell installation
+# One-line PowerShell installation
 Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/raw/main/dist/latest/AresInstaller.exe" -OutFile "$env:TEMP\AresInstaller.exe"; Start-Process "$env:TEMP\AresInstaller.exe" -Verb RunAs
 
-##📥 Manual Downloads
-
+#📥 Manual Downloads
 AresInstaller.exe - Complete installer
 MVBA Source Code - VBA source files
 
@@ -17,7 +16,6 @@ ARES/
 └── dist/                  # Compiled binaries
 
 #✨ Features
-
 - Auto Lengths: Automatic length calculation for linked graphical elements
 - License Management: AES-256 encrypted license validation
 - Multi-language: French/English interface support
@@ -25,7 +23,6 @@ ARES/
 - Error Handling: Comprehensive logging and recovery
 
 #📋 System Requirements
-
 - Windows 7/10/11
 - .NET Framework 4.7.2+
 - MicroStation Connect Edition or OpenCities Map PowerView
@@ -41,7 +38,6 @@ Installs license generation tools
 Configures MicroStation integration
 
 #📖 Usage
-
 Run AresInstaller.exe as Administrator
 Choose language (English/Français)
 Click Install and wait for completion
