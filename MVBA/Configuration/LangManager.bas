@@ -83,6 +83,7 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_ConfigOperationCancelled", "Operation cancelled by user"
     mTranslations.Add "EN_ConfigSummaryTitle", "ARES Configuration Summary"
     mTranslations.Add "EN_ConfigImportedCount", "Import completed: {0} imported, {1} skipped"
+    mTranslations.Add "EN_WikiOpenFailed", "Failed to open ARES wiki"
     
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -145,6 +146,7 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_ConfigOperationCancelled", "Opération annulée par l'utilisateur"
     mTranslations.Add "FR_ConfigSummaryTitle", "Résumé de la Configuration ARES"
     mTranslations.Add "FR_ConfigImportedCount", "Import terminé: {0} importées, {1} ignorées"
+    mTranslations.Add "FR_WikiOpenFailed", "Échec de l'ouverture du wiki ARES"
     
     IsInit = True
     Exit Sub

@@ -174,3 +174,26 @@ Sub Français()
 ErrorHandler:
     ShowStatus "Failed to set French language: " & Err.Description
 End Sub
+
+' Sub to open ARES wiki in default browser
+Sub OpenARESWiki()
+    On Error GoTo ErrorHandler
+    
+    Dim WikiURL As String
+    Dim Result As Long
+    
+    WikiURL = "https://github.com/Asketyll/ARES/wiki"
+    
+    ' Use Shell to open URL in default browser
+    Result = Shell("rundll32.exe url.dll,FileProtocolHandler " & WikiURL, vbNormalFocus)
+    
+    Exit Sub
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Command.OpenARESWiki"
+    If LangManager.IsInit Then
+        ShowStatus GetTranslation("WikiOpenFailed") & ": " & Err.Description
+    Else
+        ShowStatus "Failed to open ARES wiki: " & Err.Description
+    End If
+End Sub
