@@ -9,6 +9,7 @@ CLAUDE.md
 *.suo
 *.userosscache
 *.sln.docstates
+*.snk
 
 # Build results
 [Dd]ebug/

@@ -12,6 +12,9 @@
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>AresLicenseValidator.snk</AssemblyOriginatorKeyFile>
+    <DelaySign>false</DelaySign>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -53,10 +56,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="AresLicenseValidator.snk" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>regasm "$(TargetPath)" /tlb /codebase</PostBuildEvent>
+    <PostBuildEvent>if exist "$(FrameworkSDKDir)bin\NETFX 4.7.2 Tools\regasm.exe" (
+  "$(FrameworkSDKDir)bin\NETFX 4.7.2 Tools\regasm.exe" "$(TargetPath)" /tlb /codebase
+) else (
+  "C:\Windows\Microsoft.NET\Framework\v4.0.30319\regasm.exe" "$(TargetPath)" /tlb /codebase
+)</PostBuildEvent>
   </PropertyGroup>
 </Project>
