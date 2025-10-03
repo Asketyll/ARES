@@ -1,0 +1,52 @@
+# Claude Code configuration files - keep locally but not in repository
+.claude/
+docs/
+CLAUDE.md
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+*.txt
+
+# Temporary files
+*.tmp
+*.temp
+~$*
+
+# Exclude dist except .gitkeep
+dist/*
+!dist/.gitkeep
+!dist/latest/
+!dist/releases/
+
+# Keep structure but ignore content
+dist/latest/*
+!dist/latest/.gitkeep
