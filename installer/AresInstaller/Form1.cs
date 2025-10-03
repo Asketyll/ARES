@@ -26,6 +26,68 @@ namespace AresInstaller
         private string currentLanguage = "EN";
         private bool installationCompleted = false;
 
+        #region Version Management
+        private string ExtractVersionFromFilename(string filename)
+        {
+            // Extract version from format: AresLicenseValidator-1.0.0.dll
+            try
+            {
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(filename);
+                var parts = nameWithoutExt.Split('-');
+
+                if (parts.Length >= 2)
+                {
+                    return parts[parts.Length - 1]; // Return last part (version)
+                }
+            }
+            catch
+            {
+                // Ignore parsing errors
+            }
+
+            return string.Empty;
+        }
+
+        private bool IsSameVersion(string sourceFile, string targetFile)
+        {
+            if (!File.Exists(targetFile))
+            {
+                return false;
+            }
+
+            var sourceVersion = ExtractVersionFromFilename(sourceFile);
+            var targetVersion = ExtractVersionFromFilename(targetFile);
+
+            if (string.IsNullOrEmpty(sourceVersion) || string.IsNullOrEmpty(targetVersion))
+            {
+                return false;
+            }
+
+            return sourceVersion.Equals(targetVersion, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string FindExistingDllWithBaseName(string dllBaseName)
+        {
+            // Find any DLL matching the base name pattern (e.g., AresLicenseValidator-*.dll)
+            try
+            {
+                var searchPattern = $"{dllBaseName}-*.dll";
+                var existingFiles = Directory.GetFiles(DLL_PATH, searchPattern);
+
+                if (existingFiles.Length > 0)
+                {
+                    return existingFiles[0]; // Return first match
+                }
+            }
+            catch
+            {
+                // Ignore errors
+            }
+
+            return null;
+        }
+        #endregion
+
         #region UI Controls
         private ProgressBar progressBar;
         private Label statusLabel;
@@ -520,13 +582,15 @@ namespace AresInstaller
 
                 await CopyDLLsToInstallPath(extractPath);
 
-                var dllPath = Path.Combine(DLL_PATH, "AresLicenseValidator.dll");
-                if (!File.Exists(dllPath))
+                // Find the AresLicenseValidator DLL (with any version)
+                var validatorDll = FindExistingDllWithBaseName("AresLicenseValidator");
+
+                if (string.IsNullOrEmpty(validatorDll) || !File.Exists(validatorDll))
                 {
                     throw new FileNotFoundException("AresLicenseValidator.dll not found after copying to Rsc folder");
                 }
 
-                await RegisterSingleDLL(dllPath);
+                await RegisterSingleDLL(validatorDll);
                 LogMessage("COM registration completed");
             }
             catch (Exception ex)
@@ -539,36 +603,67 @@ namespace AresInstaller
 
         private async Task CopyDLLsToInstallPath(string sourcePath)
         {
-            var dllFiles = new[] { "AresLicenseValidator.dll", "Newtonsoft.Json.dll" };
+            // Find all DLL files in source (they may have version suffixes)
+            var dllFiles = Directory.GetFiles(sourcePath, "*.dll");
 
-            foreach (var dllFile in dllFiles)
+            foreach (var sourceDll in dllFiles)
             {
-                await CopySingleDLL(sourcePath, dllFile);
+                await CopySingleDLL(sourcePath, Path.GetFileName(sourceDll));
             }
         }
 
-        private async Task CopySingleDLL(string sourcePath, string dllFile)
+        private async Task CopySingleDLL(string sourcePath, string dllFileName)
         {
-            var sourceDll = Path.Combine(sourcePath, dllFile);
-            var targetDll = Path.Combine(DLL_PATH, dllFile);
+            var sourceDll = Path.Combine(sourcePath, dllFileName);
 
             if (!File.Exists(sourceDll))
             {
-                LogMessage($"Not found: {dllFile}");
+                LogMessage($"Not found: {dllFileName}");
                 return;
             }
 
-            // Backup existing file if it exists
-            if (File.Exists(targetDll))
+            // Extract base name without version (e.g., AresLicenseValidator from AresLicenseValidator-1.0.0.dll)
+            var dllBaseName = Path.GetFileNameWithoutExtension(dllFileName);
+            var lastDashIndex = dllBaseName.LastIndexOf('-');
+
+            if (lastDashIndex > 0)
             {
-                var backupPath = Path.Combine(INSTALL_PATH, "Backup",
-                    $"{dllFile}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
-                File.Move(targetDll, backupPath);
-                LogMessage($"Backed up existing: {dllFile}");
+                dllBaseName = dllBaseName.Substring(0, lastDashIndex);
             }
 
+            // Check if same version already exists
+            var existingDll = FindExistingDllWithBaseName(dllBaseName);
+
+            if (!string.IsNullOrEmpty(existingDll) && IsSameVersion(sourceDll, existingDll))
+            {
+                LogMessage($"Same version already installed: {Path.GetFileName(existingDll)} - Skipping");
+                return;
+            }
+
+            // Backup and remove old version if exists
+            if (!string.IsNullOrEmpty(existingDll))
+            {
+                var backupPath = Path.Combine(INSTALL_PATH, "Backup",
+                    $"{Path.GetFileName(existingDll)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
+
+                File.Move(existingDll, backupPath);
+                LogMessage($"Backed up old version: {Path.GetFileName(existingDll)}");
+
+                // Also backup the TLB file if it exists
+                var existingTlb = Path.ChangeExtension(existingDll, ".tlb");
+                if (File.Exists(existingTlb))
+                {
+                    var tlbBackupPath = Path.Combine(INSTALL_PATH, "Backup",
+                        $"{Path.GetFileName(existingTlb)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
+                    File.Move(existingTlb, tlbBackupPath);
+                    LogMessage($"Backed up old TLB: {Path.GetFileName(existingTlb)}");
+                }
+            }
+
+            // Copy new version
+            var targetDll = Path.Combine(DLL_PATH, dllFileName);
             File.Copy(sourceDll, targetDll, true);
-            LogMessage($"Copied: {dllFile} to Rsc folder");
+            LogMessage($"Copied: {dllFileName} to Rsc folder");
             await Task.Delay(100);
         }
 
