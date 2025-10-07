@@ -255,12 +255,9 @@ namespace AresInstaller
             LogMessage($"Main project: {INSTALL_PATH}");
             LogMessage($"DLL components: {DLL_PATH}");
             LogMessage("COM components registered");
-            LogMessage($"License tools: {Path.Combine(INSTALL_PATH, "Tools")}");
             LogMessage("");
             LogMessage("Next steps:");
-            LogMessage("1. Generate licenses using Tools/Generate-License.bat");
-            LogMessage("2. Place license files on network share");
-            LogMessage("3. Load ARES.mvba manually in MicroStation");
+            LogMessage("Load ARES.mvba manually in MicroStation");
         }
         #endregion
 
@@ -340,7 +337,6 @@ namespace AresInstaller
                     INSTALL_PATH,
                     DLL_PATH,
                     Path.Combine(INSTALL_PATH, "Backup"),
-                    Path.Combine(INSTALL_PATH, "Tools")
                 };
 
                 foreach (var directory in directoriesToCreate)
@@ -582,11 +578,19 @@ namespace AresInstaller
 
                 await CopyDLLsToInstallPath(extractPath);
 
-                // Find the AresLicenseValidator DLL (with any version)
-                var validatorDll = FindExistingDllWithBaseName("AresLicenseValidator");
+                // Find the AresLicenseValidator DLL (flexible search)
+                var validatorDll = FindAresLicenseValidatorDll();
 
                 if (string.IsNullOrEmpty(validatorDll) || !File.Exists(validatorDll))
                 {
+                    // Log what we found in the Rsc folder for debugging
+                    LogMessage("DEBUG: Files in Rsc folder:");
+                    var rscFiles = Directory.GetFiles(DLL_PATH);
+                    foreach (var file in rscFiles)
+                    {
+                        LogMessage($"  - {Path.GetFileName(file)}");
+                    }
+
                     throw new FileNotFoundException("AresLicenseValidator.dll not found after copying to Rsc folder");
                 }
 
@@ -601,10 +605,47 @@ namespace AresInstaller
             LogMessage("");
         }
 
+        private string FindAresLicenseValidatorDll()
+        {
+            try
+            {
+                // Search for any AresLicenseValidator DLL (flexible)
+                var searchPatterns = new[]
+                {
+            "AresLicenseValidator.dll",      // Without version
+            "AresLicenseValidator-*.dll"     // With version pattern
+        };
+
+                foreach (var pattern in searchPatterns)
+                {
+                    var files = Directory.GetFiles(DLL_PATH, pattern);
+                    if (files.Length > 0)
+                    {
+                        LogMessage($"Found validator DLL: {Path.GetFileName(files[0])}");
+                        return files[0];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Error searching for DLL: {ex.Message}");
+            }
+
+            return null;
+        }
+
         private async Task CopyDLLsToInstallPath(string sourcePath)
         {
-            // Find all DLL files in source (they may have version suffixes)
+            // Find all DLL files in source
             var dllFiles = Directory.GetFiles(sourcePath, "*.dll");
+
+            LogMessage($"Found {dllFiles.Length} DLL file(s) in download");
+
+            if (dllFiles.Length == 0)
+            {
+                LogMessage("WARNING: No DLL files found in download");
+                return;
+            }
 
             foreach (var sourceDll in dllFiles)
             {
@@ -622,27 +663,31 @@ namespace AresInstaller
                 return;
             }
 
-            // Extract base name without version (e.g., AresLicenseValidator from AresLicenseValidator-1.0.0.dll)
-            var dllBaseName = Path.GetFileNameWithoutExtension(dllFileName);
-            var lastDashIndex = dllBaseName.LastIndexOf('-');
+            // Extract base name without version
+            // e.g., "AresLicenseValidator-1.0.0.dll" or "AresLicenseValidator.dll" 
+            // both become "AresLicenseValidator"
+            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(dllFileName);
+            var dllBaseName = fileNameWithoutExt;
 
+            var lastDashIndex = fileNameWithoutExt.LastIndexOf('-');
             if (lastDashIndex > 0)
             {
-                dllBaseName = dllBaseName.Substring(0, lastDashIndex);
+                dllBaseName = fileNameWithoutExt.Substring(0, lastDashIndex);
             }
 
-            // Check if same version already exists
+            // Check if same version already exists (only if source has version)
             var existingDll = FindExistingDllWithBaseName(dllBaseName);
 
-            if (!string.IsNullOrEmpty(existingDll) && IsSameVersion(sourceDll, existingDll))
-            {
-                LogMessage($"Same version already installed: {Path.GetFileName(existingDll)} - Skipping");
-                return;
-            }
-
-            // Backup and remove old version if exists
             if (!string.IsNullOrEmpty(existingDll))
             {
+                // Only check version if both files have versions in their names
+                if (lastDashIndex > 0 && IsSameVersion(sourceDll, existingDll))
+                {
+                    LogMessage($"Same version already installed: {Path.GetFileName(existingDll)} - Skipping");
+                    return;
+                }
+
+                // Backup old version
                 var backupPath = Path.Combine(INSTALL_PATH, "Backup",
                     $"{Path.GetFileName(existingDll)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
 
@@ -664,6 +709,16 @@ namespace AresInstaller
             var targetDll = Path.Combine(DLL_PATH, dllFileName);
             File.Copy(sourceDll, targetDll, true);
             LogMessage($"Copied: {dllFileName} to Rsc folder");
+
+            // Also copy TLB if it exists in source
+            var sourceTlb = Path.ChangeExtension(sourceDll, ".tlb");
+            if (File.Exists(sourceTlb))
+            {
+                var targetTlb = Path.Combine(DLL_PATH, Path.GetFileName(sourceTlb));
+                File.Copy(sourceTlb, targetTlb, true);
+                LogMessage($"Copied: {Path.GetFileName(sourceTlb)} to Rsc folder");
+            }
+
             await Task.Delay(100);
         }
 
@@ -755,7 +810,6 @@ namespace AresInstaller
                 var extractPath = GetTempPath(TEMP_EXTRACT_FOLDER);
 
                 await CopyMVBAFile(extractPath);
-                await CopyPowerShellTools(extractPath);
 
                 await Task.Delay(500);
             }
@@ -781,52 +835,6 @@ namespace AresInstaller
             {
                 LogMessage("ARES.mvba not found in download");
             }
-
-            await Task.Delay(100);
-        }
-
-        private async Task CopyPowerShellTools(string extractPath)
-        {
-            try
-            {
-                var toolsPath = Path.Combine(INSTALL_PATH, "Tools");
-                var psFiles = Directory.GetFiles(extractPath, "*.ps1", SearchOption.AllDirectories);
-
-                foreach (var psFile in psFiles)
-                {
-                    var fileName = Path.GetFileName(psFile);
-                    var targetPath = Path.Combine(toolsPath, fileName);
-
-                    File.Copy(psFile, targetPath, true);
-                    LogMessage($"Copied tool: {fileName}");
-
-                    await Task.Delay(50);
-                }
-
-                await CreateLicenseGeneratorShortcut(toolsPath);
-            }
-            catch (Exception ex)
-            {
-                LogMessage($"Could not copy PowerShell tools: {ex.Message}");
-            }
-        }
-
-        private async Task CreateLicenseGeneratorShortcut(string toolsPath)
-        {
-            var shortcutScript = Path.Combine(toolsPath, "Generate-License.bat");
-            var shortcutContent = new[]
-            {
-                "@echo off",
-                "echo ARES License Generator",
-                "echo ======================",
-                "echo.",
-                $"powershell.exe -ExecutionPolicy Bypass -File \"{Path.Combine(toolsPath, "Generate-ARESLicense.ps1")}\"",
-                "pause"
-            };
-
-            // Use synchronous version for .NET Framework compatibility
-            File.WriteAllLines(shortcutScript, shortcutContent, Encoding.UTF8);
-            LogMessage("Created license generator shortcut");
 
             await Task.Delay(100);
         }
