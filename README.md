@@ -9,9 +9,13 @@ MVBA Source Code - VBA source files
 
 #📁 Project Structure
 ARES/
+
 ├── MVBA/                  # MicroStation VBA project
+
 ├── installer/             # Windows installer source
+
 ├── license-validator/     # License DLL source
+
 └── tools/                 # PowerShell utilities
 
 #✨ Features
