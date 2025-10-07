@@ -1,7 +1,7 @@
 # 🚀 Quick Install
 powershell
 # One-line PowerShell installation
-Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/raw/main/dist/latest/AresInstaller.exe" -OutFile "$env:TEMP\AresInstaller.exe"; Start-Process "$env:TEMP\AresInstaller.exe" -Verb RunAs
+Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/installer-v1.0.0/AresInstaller.exe" -OutFile "$env:TEMP\AresInstaller.exe"; Start-Process "$env:TEMP\AresInstaller.exe" -Verb RunAs
 
 #📥 Manual Downloads
 AresInstaller.exe - Complete installer
@@ -11,9 +11,8 @@ MVBA Source Code - VBA source files
 ARES/
 ├── MVBA/                  # MicroStation VBA project
 ├── installer/             # Windows installer source
-├── license-validator/     # License DLL source (coming soon)
-├── tools/                 # PowerShell utilities (coming soon)
-└── dist/                  # Compiled binaries
+├── license-validator/     # License DLL source
+└── tools/                 # PowerShell utilities
 
 #✨ Features
 - Auto Lengths: Automatic length calculation for linked graphical elements
@@ -34,8 +33,6 @@ The installer automatically:
 Creates C:\ARES\ directory structure
 Downloads latest components
 Registers COM components
-Installs license generation tools
-Configures MicroStation integration
 
 #📖 Usage
 Run AresInstaller.exe as Administrator
