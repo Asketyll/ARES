@@ -11,9 +11,8 @@ MVBA Source Code - VBA source files
 ARES/
 ├── MVBA/                  # MicroStation VBA project
 ├── installer/             # Windows installer source
-├── license-validator/     # License DLL source (coming soon)
-├── tools/                 # PowerShell utilities (coming soon)
-└── dist/                  # Compiled binaries
+├── license-validator/     # License DLL source
+└── tools/                 # PowerShell utilities
 
 #✨ Features
 - Auto Lengths: Automatic length calculation for linked graphical elements
@@ -34,8 +33,6 @@ The installer automatically:
 Creates C:\ARES\ directory structure
 Downloads latest components
 Registers COM components
-Installs license generation tools
-Configures MicroStation integration
 
 #📖 Usage
 Run AresInstaller.exe as Administrator
