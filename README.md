@@ -1,7 +1,7 @@
 # 🚀 Quick Install
 powershell
 # One-line PowerShell installation
-Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/raw/main/dist/latest/AresInstaller.exe" -OutFile "$env:TEMP\AresInstaller.exe"; Start-Process "$env:TEMP\AresInstaller.exe" -Verb RunAs
+Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/installer-v1.0.0/AresInstaller.exe" -OutFile "$env:TEMP\AresInstaller.exe"; Start-Process "$env:TEMP\AresInstaller.exe" -Verb RunAs
 
 #📥 Manual Downloads
 AresInstaller.exe - Complete installer
