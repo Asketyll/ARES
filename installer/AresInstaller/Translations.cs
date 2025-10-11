@@ -55,8 +55,6 @@ namespace AresInstaller
             { "COMRegistered", new Dictionary<string, string> { { "EN", "COM components registered" }, { "FR", "Composants COM enregistrés" } } },
             { "LicenseTools", new Dictionary<string, string> { { "EN", "License tools: {0}" }, { "FR", "Outils de licence : {0}" } } },
             { "NextSteps", new Dictionary<string, string> { { "EN", "Next steps:" }, { "FR", "Prochaines étapes :" } } },
-            { "Step1", new Dictionary<string, string> { { "EN", "1. Generate licenses using Tools/Generate-License.bat" }, { "FR", "1. Générer des licences avec Tools/Generate-License.bat" } } },
-            { "Step2", new Dictionary<string, string> { { "EN", "2. Place license files on network share" }, { "FR", "2. Placer les fichiers de licence sur le partage réseau" } } },
             { "Step3", new Dictionary<string, string> { { "EN", "3. Load ARES.mvba manually in MicroStation" }, { "FR", "3. Charger ARES.mvba manuellement dans MicroStation" } } },
         };
 
