@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Newtonsoft.Json.Linq;
 
 namespace AresInstaller
 {
@@ -255,12 +256,11 @@ namespace AresInstaller
             LogMessage($"Main project: {INSTALL_PATH}");
             LogMessage($"DLL components: {DLL_PATH}");
             LogMessage("COM components registered");
-            LogMessage($"License tools: {Path.Combine(INSTALL_PATH, "Tools")}");
             LogMessage("");
             LogMessage("Next steps:");
-            LogMessage("1. Generate licenses using Tools/Generate-License.bat");
-            LogMessage("2. Place license files on network share");
-            LogMessage("3. Load ARES.mvba manually in MicroStation");
+            LogMessage("1. Open MicroStation");
+            LogMessage("2. Load ARES.mvba from the MicroStation VBA Manager");
+            LogMessage("3. Create license");
         }
         #endregion
 
@@ -340,7 +340,6 @@ namespace AresInstaller
                     INSTALL_PATH,
                     DLL_PATH,
                     Path.Combine(INSTALL_PATH, "Backup"),
-                    Path.Combine(INSTALL_PATH, "Tools")
                 };
 
                 foreach (var directory in directoriesToCreate)
@@ -369,11 +368,21 @@ namespace AresInstaller
 
                 try
                 {
+                    LogMessage("Fetching release information from GitHub API...");
                     var releaseInfo = await GetLatestReleaseInfo(client);
+
+                    LogMessage("Parsing release assets...");
                     await DownloadReleaseAssets(client, releaseInfo);
                 }
                 catch (Exception ex)
                 {
+                    LogMessage($"DOWNLOAD ERROR: {ex.GetType().Name}");
+                    LogMessage($"Message: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        LogMessage($"Inner Exception: {ex.InnerException.Message}");
+                    }
+                    LogMessage($"Stack Trace: {ex.StackTrace}");
                     throw new DownloadException($"Failed to download from GitHub: {ex.Message}", ex);
                 }
             }
@@ -390,107 +399,167 @@ namespace AresInstaller
         private async Task<string> GetLatestReleaseInfo(HttpClient client)
         {
             LogMessage("Fetching release information...");
-            var releaseResponse = await client.GetStringAsync(GITHUB_RELEASES_URL);
 
-            var tagName = ExtractJsonValue(releaseResponse, "tag_name");
-            LogMessage($"Latest version: {tagName}");
+            try
+            {
+                var releaseResponse = await client.GetStringAsync(GITHUB_RELEASES_URL);
+                LogMessage($"Received response ({releaseResponse.Length} characters)");
 
-            return releaseResponse;
+                // Parse with Newtonsoft.Json to extract tag name
+                var release = JObject.Parse(releaseResponse);
+                var tagName = release["tag_name"]?.ToString();
+
+                if (string.IsNullOrEmpty(tagName))
+                {
+                    LogMessage("WARNING: Could not find tag_name in response");
+                }
+                else
+                {
+                    LogMessage($"Latest version: {tagName}");
+                }
+
+                return releaseResponse;
+            }
+            catch (HttpRequestException httpEx)
+            {
+                LogMessage($"HTTP ERROR: {httpEx.Message}");
+                throw;
+            }
+            catch (Newtonsoft.Json.JsonException jsonEx)
+            {
+                LogMessage($"JSON PARSE ERROR: {jsonEx.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"ERROR: {ex.Message}");
+                throw;
+            }
         }
 
         private async Task DownloadReleaseAssets(HttpClient client, string releaseResponse)
         {
-            var assetsSection = ExtractJsonSection(releaseResponse, "assets");
-            var downloadUrls = ExtractDownloadUrls(assetsSection);
+            LogMessage("Parsing release JSON with Newtonsoft.Json...");
 
-            var downloadPath = GetTempPath(TEMP_DOWNLOAD_FOLDER);
-            Directory.CreateDirectory(downloadPath);
-
-            foreach (var (fileName, downloadUrl) in downloadUrls)
+            try
             {
-                await DownloadFile(client, fileName, downloadUrl, downloadPath);
-            }
+                // Parse JSON with Newtonsoft.Json (much more reliable!)
+                var release = JObject.Parse(releaseResponse);
+                var assets = release["assets"] as JArray;
 
-            LogMessage($"Files saved to: {downloadPath}");
+                if (assets == null || assets.Count == 0)
+                {
+                    LogMessage("ERROR: No assets found in release!");
+                    LogMessage($"Full release response: {releaseResponse}");
+                    throw new DownloadException("No assets found in the latest release. Please ensure files are uploaded to the GitHub release.");
+                }
+
+                LogMessage($"Found {assets.Count} asset(s) to download");
+
+                var downloadPath = GetTempPath(TEMP_DOWNLOAD_FOLDER);
+                LogMessage($"Creating download directory: {downloadPath}");
+                Directory.CreateDirectory(downloadPath);
+
+                if (!Directory.Exists(downloadPath))
+                {
+                    throw new DownloadException($"Failed to create download directory: {downloadPath}");
+                }
+
+                LogMessage($"Download directory created successfully");
+
+                // Download each asset
+                foreach (var asset in assets)
+                {
+                    var fileName = asset["name"]?.ToString();
+                    var downloadUrl = asset["browser_download_url"]?.ToString();
+                    var fileSize = asset["size"]?.ToString();
+
+                    if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(downloadUrl))
+                    {
+                        LogMessage($"Asset: {fileName} ({fileSize} bytes)");
+                        LogMessage($"  URL: {downloadUrl}");
+
+                        try
+                        {
+                            await DownloadFile(client, fileName, downloadUrl, downloadPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            LogMessage($"ERROR downloading {fileName}: {ex.Message}");
+                            throw;
+                        }
+                    }
+                    else
+                    {
+                        LogMessage($"WARNING: Skipped asset with missing name or URL");
+                    }
+                }
+
+                // Verify downloaded files
+                var downloadedFiles = Directory.GetFiles(downloadPath);
+                LogMessage($"Download complete. Total files in directory: {downloadedFiles.Length}");
+                foreach (var file in downloadedFiles)
+                {
+                    var fileInfo = new FileInfo(file);
+                    LogMessage($"  Downloaded: {Path.GetFileName(file)} ({fileInfo.Length} bytes)");
+                }
+
+                LogMessage($"Files saved to: {downloadPath}");
+            }
+            catch (Newtonsoft.Json.JsonException jsonEx)
+            {
+                LogMessage($"JSON PARSE ERROR: {jsonEx.Message}");
+                throw new DownloadException($"Failed to parse GitHub release JSON: {jsonEx.Message}", jsonEx);
+            }
+            catch (DownloadException)
+            {
+                // Re-throw DownloadException as-is
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"ERROR: {ex.Message}");
+                throw new DownloadException($"Failed to download assets: {ex.Message}", ex);
+            }
         }
 
         private async Task DownloadFile(HttpClient client, string fileName, string downloadUrl, string downloadPath)
         {
             LogMessage($"Downloading: {fileName}");
+            LogMessage($"  From: {downloadUrl}");
 
-            var fileBytes = await client.GetByteArrayAsync(downloadUrl);
-            var filePath = Path.Combine(downloadPath, fileName);
-
-            // Use synchronous version for .NET Framework compatibility
-            File.WriteAllBytes(filePath, fileBytes);
-            LogMessage($"Downloaded: {fileName} ({fileBytes.Length / 1024} KB)");
-        }
-        #endregion
-
-        #region JSON Parsing
-        private string ExtractJsonValue(string json, string key)
-        {
-            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key))
-                return string.Empty;
-
-            var searchPattern = $"\"{key}\":\"";
-            var startIndex = json.IndexOf(searchPattern, StringComparison.Ordinal);
-            if (startIndex == -1) return string.Empty;
-
-            startIndex += searchPattern.Length;
-            var endIndex = json.IndexOf("\"", startIndex, StringComparison.Ordinal);
-
-            return endIndex > startIndex ? json.Substring(startIndex, endIndex - startIndex) : string.Empty;
-        }
-
-        private string ExtractJsonSection(string json, string sectionName)
-        {
-            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(sectionName))
-                return string.Empty;
-
-            var searchPattern = $"\"{sectionName}\":[";
-            var startIndex = json.IndexOf(searchPattern, StringComparison.Ordinal);
-            if (startIndex == -1) return string.Empty;
-
-            startIndex += searchPattern.Length - 1;
-            var bracketCount = 0;
-            var endIndex = startIndex;
-
-            for (int i = startIndex; i < json.Length; i++)
+            try
             {
-                if (json[i] == '[') bracketCount++;
-                if (json[i] == ']') bracketCount--;
-                if (bracketCount == 0)
+                var fileBytes = await client.GetByteArrayAsync(downloadUrl);
+                LogMessage($"  Downloaded {fileBytes.Length} bytes");
+
+                var filePath = Path.Combine(downloadPath, fileName);
+                LogMessage($"  Saving to: {filePath}");
+
+                File.WriteAllBytes(filePath, fileBytes);
+
+                // Verify file was written
+                if (File.Exists(filePath))
                 {
-                    endIndex = i;
-                    break;
+                    var fileInfo = new FileInfo(filePath);
+                    LogMessage($"  Saved successfully: {fileName} ({fileInfo.Length} bytes)");
+                }
+                else
+                {
+                    throw new IOException($"File was not created: {filePath}");
                 }
             }
-
-            return json.Substring(startIndex, endIndex - startIndex + 1);
-        }
-
-        private List<(string fileName, string downloadUrl)> ExtractDownloadUrls(string assetsJson)
-        {
-            var results = new List<(string, string)>();
-
-            if (string.IsNullOrEmpty(assetsJson))
-                return results;
-
-            var parts = assetsJson.Split(new[] { "}," }, StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (var part in parts)
+            catch (HttpRequestException httpEx)
             {
-                var name = ExtractJsonValue(part, "name");
-                var downloadUrl = ExtractJsonValue(part, "browser_download_url");
-
-                if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(downloadUrl))
-                {
-                    results.Add((name, downloadUrl));
-                }
+                LogMessage($"  HTTP ERROR: {httpEx.Message}");
+                // StatusCode not available in .NET Framework 4.7.2
+                throw;
             }
-
-            return results;
+            catch (Exception ex)
+            {
+                LogMessage($"  ERROR: {ex.GetType().Name} - {ex.Message}");
+                throw;
+            }
         }
         #endregion
 
@@ -582,14 +651,32 @@ namespace AresInstaller
 
                 await CopyDLLsToInstallPath(extractPath);
 
-                // Find the AresLicenseValidator DLL (with any version)
-                var validatorDll = FindExistingDllWithBaseName("AresLicenseValidator");
-
-                if (string.IsNullOrEmpty(validatorDll) || !File.Exists(validatorDll))
+                // DEBUG: List all files in Rsc folder
+                LogMessage("DEBUG: Listing all files in Rsc folder:");
+                var rscFiles = Directory.GetFiles(DLL_PATH);
+                LogMessage($"  Total files: {rscFiles.Length}");
+                foreach (var file in rscFiles)
                 {
+                    LogMessage($"  - {Path.GetFileName(file)}");
+                }
+
+                // Find the AresLicenseValidator DLL (flexible search)
+                LogMessage("Searching for AresLicenseValidator DLL...");
+                var validatorDll = FindAresLicenseValidatorDll();
+
+                if (string.IsNullOrEmpty(validatorDll))
+                {
+                    LogMessage("ERROR: FindAresLicenseValidatorDll() returned null or empty");
                     throw new FileNotFoundException("AresLicenseValidator.dll not found after copying to Rsc folder");
                 }
 
+                if (!File.Exists(validatorDll))
+                {
+                    LogMessage($"ERROR: File.Exists() returned false for: {validatorDll}");
+                    throw new FileNotFoundException($"AresLicenseValidator.dll not found at path: {validatorDll}");
+                }
+
+                LogMessage($"Found DLL: {validatorDll}");
                 await RegisterSingleDLL(validatorDll);
                 LogMessage("COM registration completed");
             }
@@ -599,6 +686,53 @@ namespace AresInstaller
             }
 
             LogMessage("");
+        }
+
+        private string FindAresLicenseValidatorDll()
+        {
+            try
+            {
+                LogMessage($"Searching in directory: {DLL_PATH}");
+
+                // Check if directory exists
+                if (!Directory.Exists(DLL_PATH))
+                {
+                    LogMessage($"ERROR: Directory does not exist: {DLL_PATH}");
+                    return null;
+                }
+
+                // Search for any AresLicenseValidator DLL (flexible)
+                var searchPatterns = new[]
+                {
+            "AresLicenseValidator.dll",      // Without version
+            "AresLicenseValidator-*.dll"     // With version pattern
+        };
+
+                foreach (var pattern in searchPatterns)
+                {
+                    LogMessage($"Searching with pattern: {pattern}");
+                    var files = Directory.GetFiles(DLL_PATH, pattern);
+                    LogMessage($"  Found {files.Length} file(s)");
+
+                    if (files.Length > 0)
+                    {
+                        var foundFile = files[0];
+                        LogMessage($"  Using: {Path.GetFileName(foundFile)}");
+                        LogMessage($"  Full path: {foundFile}");
+                        LogMessage($"  File exists: {File.Exists(foundFile)}");
+                        return foundFile;
+                    }
+                }
+
+                LogMessage("No matching DLL found");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"ERROR in FindAresLicenseValidatorDll: {ex.Message}");
+                LogMessage($"Stack trace: {ex.StackTrace}");
+            }
+
+            return null;
         }
 
         private async Task CopyDLLsToInstallPath(string sourcePath)
@@ -611,43 +745,52 @@ namespace AresInstaller
                 await CopySingleDLL(sourcePath, Path.GetFileName(sourceDll));
             }
         }
-
         private async Task CopySingleDLL(string sourcePath, string dllFileName)
         {
             var sourceDll = Path.Combine(sourcePath, dllFileName);
 
+            LogMessage($"Processing: {dllFileName}");
+            LogMessage($"  Source path: {sourceDll}");
+            LogMessage($"  File exists: {File.Exists(sourceDll)}");
+
             if (!File.Exists(sourceDll))
             {
-                LogMessage($"Not found: {dllFileName}");
+                LogMessage($"  Not found: {dllFileName}");
                 return;
             }
 
-            // Extract base name without version (e.g., AresLicenseValidator from AresLicenseValidator-1.0.0.dll)
-            var dllBaseName = Path.GetFileNameWithoutExtension(dllFileName);
-            var lastDashIndex = dllBaseName.LastIndexOf('-');
+            // Extract base name without version
+            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(dllFileName);
+            var dllBaseName = fileNameWithoutExt;
 
+            var lastDashIndex = fileNameWithoutExt.LastIndexOf('-');
             if (lastDashIndex > 0)
             {
-                dllBaseName = dllBaseName.Substring(0, lastDashIndex);
+                dllBaseName = fileNameWithoutExt.Substring(0, lastDashIndex);
             }
+
+            LogMessage($"  Base name: {dllBaseName}");
 
             // Check if same version already exists
             var existingDll = FindExistingDllWithBaseName(dllBaseName);
 
-            if (!string.IsNullOrEmpty(existingDll) && IsSameVersion(sourceDll, existingDll))
-            {
-                LogMessage($"Same version already installed: {Path.GetFileName(existingDll)} - Skipping");
-                return;
-            }
-
-            // Backup and remove old version if exists
             if (!string.IsNullOrEmpty(existingDll))
             {
+                LogMessage($"  Found existing: {Path.GetFileName(existingDll)}");
+
+                // Only check version if both files have versions in their names
+                if (lastDashIndex > 0 && IsSameVersion(sourceDll, existingDll))
+                {
+                    LogMessage($"  Same version already installed - Skipping");
+                    return;
+                }
+
+                // Backup old version
                 var backupPath = Path.Combine(INSTALL_PATH, "Backup",
                     $"{Path.GetFileName(existingDll)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
 
                 File.Move(existingDll, backupPath);
-                LogMessage($"Backed up old version: {Path.GetFileName(existingDll)}");
+                LogMessage($"  Backed up old version to: {Path.GetFileName(backupPath)}");
 
                 // Also backup the TLB file if it exists
                 var existingTlb = Path.ChangeExtension(existingDll, ".tlb");
@@ -656,14 +799,45 @@ namespace AresInstaller
                     var tlbBackupPath = Path.Combine(INSTALL_PATH, "Backup",
                         $"{Path.GetFileName(existingTlb)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
                     File.Move(existingTlb, tlbBackupPath);
-                    LogMessage($"Backed up old TLB: {Path.GetFileName(existingTlb)}");
+                    LogMessage($"  Backed up old TLB to: {Path.GetFileName(tlbBackupPath)}");
                 }
             }
 
             // Copy new version
             var targetDll = Path.Combine(DLL_PATH, dllFileName);
+            LogMessage($"  Copying to: {targetDll}");
+
             File.Copy(sourceDll, targetDll, true);
-            LogMessage($"Copied: {dllFileName} to Rsc folder");
+
+            // Verify copy
+            if (File.Exists(targetDll))
+            {
+                var fileInfo = new FileInfo(targetDll);
+                LogMessage($"  ✓ Copied: {dllFileName} ({fileInfo.Length} bytes)");
+            }
+            else
+            {
+                throw new IOException($"Failed to copy DLL to: {targetDll}");
+            }
+
+            // Also copy TLB if it exists in source
+            var sourceTlb = Path.ChangeExtension(sourceDll, ".tlb");
+            if (File.Exists(sourceTlb))
+            {
+                var targetTlb = Path.Combine(DLL_PATH, Path.GetFileName(sourceTlb));
+                LogMessage($"  Copying TLB to: {targetTlb}");
+                File.Copy(sourceTlb, targetTlb, true);
+
+                if (File.Exists(targetTlb))
+                {
+                    LogMessage($"  ✓ Copied TLB: {Path.GetFileName(sourceTlb)}");
+                }
+            }
+            else
+            {
+                LogMessage($"  No TLB file found for {dllFileName}");
+            }
+
             await Task.Delay(100);
         }
 
@@ -753,10 +927,7 @@ namespace AresInstaller
             try
             {
                 var extractPath = GetTempPath(TEMP_EXTRACT_FOLDER);
-
                 await CopyMVBAFile(extractPath);
-                await CopyPowerShellTools(extractPath);
-
                 await Task.Delay(500);
             }
             catch (Exception ex)
@@ -781,52 +952,6 @@ namespace AresInstaller
             {
                 LogMessage("ARES.mvba not found in download");
             }
-
-            await Task.Delay(100);
-        }
-
-        private async Task CopyPowerShellTools(string extractPath)
-        {
-            try
-            {
-                var toolsPath = Path.Combine(INSTALL_PATH, "Tools");
-                var psFiles = Directory.GetFiles(extractPath, "*.ps1", SearchOption.AllDirectories);
-
-                foreach (var psFile in psFiles)
-                {
-                    var fileName = Path.GetFileName(psFile);
-                    var targetPath = Path.Combine(toolsPath, fileName);
-
-                    File.Copy(psFile, targetPath, true);
-                    LogMessage($"Copied tool: {fileName}");
-
-                    await Task.Delay(50);
-                }
-
-                await CreateLicenseGeneratorShortcut(toolsPath);
-            }
-            catch (Exception ex)
-            {
-                LogMessage($"Could not copy PowerShell tools: {ex.Message}");
-            }
-        }
-
-        private async Task CreateLicenseGeneratorShortcut(string toolsPath)
-        {
-            var shortcutScript = Path.Combine(toolsPath, "Generate-License.bat");
-            var shortcutContent = new[]
-            {
-                "@echo off",
-                "echo ARES License Generator",
-                "echo ======================",
-                "echo.",
-                $"powershell.exe -ExecutionPolicy Bypass -File \"{Path.Combine(toolsPath, "Generate-ARESLicense.ps1")}\"",
-                "pause"
-            };
-
-            // Use synchronous version for .NET Framework compatibility
-            File.WriteAllLines(shortcutScript, shortcutContent, Encoding.UTF8);
-            LogMessage("Created license generator shortcut");
 
             await Task.Delay(100);
         }
