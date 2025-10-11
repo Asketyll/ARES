@@ -100,14 +100,6 @@ namespace AresInstaller
                 return ALLOWED_EXTENSIONS.Contains(extension);
             }
 
-            public static bool IsPathWithinDirectory(string filePath, string directoryPath)
-            {
-                var fullFilePath = Path.GetFullPath(filePath);
-                var fullDirectoryPath = Path.GetFullPath(directoryPath);
-
-                return fullFilePath.StartsWith(fullDirectoryPath, StringComparison.OrdinalIgnoreCase);
-            }
-
             public static string SanitizeLogMessage(string message)
             {
                 if (string.IsNullOrEmpty(message))
@@ -691,16 +683,16 @@ namespace AresInstaller
 
             try
             {
-                var downloadPath = Path.Combine(Path.GetTempPath(), $"{TEMP_DOWNLOAD_FOLDER}_{Guid.NewGuid():N}");
-                var extractPath = GetSecureTempPath(TEMP_EXTRACT_FOLDER);
-
-                // Find actual download folder
                 var tempBase = Path.GetTempPath();
                 var downloadFolders = Directory.GetDirectories(tempBase, $"{TEMP_DOWNLOAD_FOLDER}_*");
-                if (downloadFolders.Length > 0)
+
+                if (downloadFolders.Length == 0)
                 {
-                    downloadPath = downloadFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
+                    throw new ExtractionException("Download folder not found");
                 }
+
+                var downloadPath = downloadFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
+                var extractPath = GetSecureTempPath(TEMP_EXTRACT_FOLDER);
 
                 Directory.CreateDirectory(extractPath);
 
@@ -742,11 +734,18 @@ namespace AresInstaller
         private async Task ExtractZipEntry(ZipArchiveEntry entry, string extractPath)
         {
             // SECURITY FIX: Validate against path traversal (Zip Slip)
-            var entryPath = Path.Combine(extractPath, entry.FullName);
-            var fullEntryPath = Path.GetFullPath(entryPath);
-            var fullExtractPath = Path.GetFullPath(extractPath);
+            // Resolve the full path where the entry would be extracted
+            string fullEntryPath = Path.GetFullPath(Path.Combine(extractPath, entry.FullName));
 
-            if (!PathValidator.IsPathWithinDirectory(fullEntryPath, fullExtractPath))
+            // Ensure extraction directory path ends with separator for accurate comparison
+            string fullExtractPath = Path.GetFullPath(extractPath);
+            if (!fullExtractPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                fullExtractPath += Path.DirectorySeparatorChar;
+            }
+
+            // Check if the resolved path is within the extraction directory
+            if (!fullEntryPath.StartsWith(fullExtractPath, StringComparison.OrdinalIgnoreCase))
             {
                 LogMessage($"SECURITY: Blocked path traversal attempt: {entry.FullName}");
                 throw new SecurityException($"Invalid archive entry path detected: {entry.FullName}");
@@ -807,6 +806,12 @@ namespace AresInstaller
             {
                 var tempBase = Path.GetTempPath();
                 var extractFolders = Directory.GetDirectories(tempBase, $"{TEMP_EXTRACT_FOLDER}_*");
+
+                if (extractFolders.Length == 0)
+                {
+                    throw new RegistrationException("Extract folder not found");
+                }
+
                 var extractPath = extractFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
 
                 await CopyDLLsToInstallPath(extractPath);
@@ -822,12 +827,6 @@ namespace AresInstaller
                 if (!File.Exists(validatorDll))
                 {
                     throw new FileNotFoundException(Translations.Format("ValidatorNotFoundAtPath", currentLanguage, validatorDll));
-                }
-
-                // Validate DLL path
-                if (!PathValidator.IsPathWithinDirectory(validatorDll, DLL_PATH))
-                {
-                    throw new SecurityException("DLL path outside expected directory");
                 }
 
                 LogMessage(Translations.Format("FoundDLL", currentLanguage, validatorDll));
@@ -970,11 +969,16 @@ namespace AresInstaller
         {
             LogMessage(Translations.Format("RegisteringDLL", currentLanguage, Path.GetFileName(dllPath)));
 
-            // SECURITY: Validate DLL path
-            var fullDllPath = Path.GetFullPath(dllPath);
-            var fullDllDirectory = Path.GetFullPath(DLL_PATH);
+            // SECURITY: Validate DLL path is within expected directory
+            string fullDllPath = Path.GetFullPath(dllPath);
+            string fullDllDirectory = Path.GetFullPath(DLL_PATH);
 
-            if (!PathValidator.IsPathWithinDirectory(fullDllPath, fullDllDirectory))
+            if (!fullDllDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                fullDllDirectory += Path.DirectorySeparatorChar;
+            }
+
+            if (!fullDllPath.StartsWith(fullDllDirectory, StringComparison.OrdinalIgnoreCase))
             {
                 throw new SecurityException("DLL path outside expected directory");
             }
@@ -1063,6 +1067,12 @@ namespace AresInstaller
             {
                 var tempBase = Path.GetTempPath();
                 var extractFolders = Directory.GetDirectories(tempBase, $"{TEMP_EXTRACT_FOLDER}_*");
+
+                if (extractFolders.Length == 0)
+                {
+                    throw new InstallationException("Extract folder not found");
+                }
+
                 var extractPath = extractFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
 
                 await CopyMVBAFile(extractPath);
