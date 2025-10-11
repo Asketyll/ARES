@@ -760,13 +760,14 @@ namespace AresInstaller
                 return;
             }
 
-            var directory = Path.GetDirectoryName(entryPath);
+            // CRITICAL: Use fullEntryPath (sanitized) for all file operations
+            var directory = Path.GetDirectoryName(fullEntryPath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            entry.ExtractToFile(entryPath, true);
+            entry.ExtractToFile(fullEntryPath, true);
             LogMessage(Translations.Format("Extracted", currentLanguage, entry.Name));
 
             await Task.Delay(50);
