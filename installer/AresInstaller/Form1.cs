@@ -6,6 +6,10 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Security;
+using System.Security.AccessControl;
+using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -21,16 +25,106 @@ namespace AresInstaller
         private const string DLL_PATH = @"C:\ARES\Rsc\";
         private const string TEMP_DOWNLOAD_FOLDER = "ARES_Download";
         private const string TEMP_EXTRACT_FOLDER = "ARES_Extract";
-        private const int DOTNET_FRAMEWORK_MIN_RELEASE = 461808; // .NET Framework 4.7.2
+        private const int DOTNET_FRAMEWORK_MIN_RELEASE = 461808;
+        private const long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB per file
+        private const long MAX_TOTAL_DOWNLOAD_SIZE = 500 * 1024 * 1024; // 500 MB total
+        private static readonly string[] ALLOWED_EXTENSIONS = { ".dll", ".mvba", ".zip", ".tlb", ".sha256", ".md" };
+        private const int MAX_RETRY_ATTEMPTS = 3;
+        private const int BASE_RETRY_DELAY_MS = 1000;
         #endregion
 
         private string currentLanguage = "EN";
         private bool installationCompleted = false;
+        private long totalDownloadedBytes = 0;
+
+        #region Security Helper Classes
+        private class FileIntegrityValidator
+        {
+            private Dictionary<string, string> expectedHashes;
+
+            public FileIntegrityValidator()
+            {
+                expectedHashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            public void LoadHashesFromFile(string hashFilePath)
+            {
+                if (!File.Exists(hashFilePath))
+                    return;
+
+                foreach (var line in File.ReadAllLines(hashFilePath))
+                {
+                    var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        expectedHashes[parts[1]] = parts[0].ToLowerInvariant();
+                    }
+                }
+            }
+
+            public bool VerifyFile(string filePath)
+            {
+                var fileName = Path.GetFileName(filePath);
+                if (!expectedHashes.ContainsKey(fileName))
+                    return false;
+
+                using (var sha256 = SHA256.Create())
+                using (var stream = File.OpenRead(filePath))
+                {
+                    var hash = BitConverter.ToString(sha256.ComputeHash(stream))
+                        .Replace("-", "").ToLowerInvariant();
+                    return hash.Equals(expectedHashes[fileName], StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            public bool HasHash(string fileName)
+            {
+                return expectedHashes.ContainsKey(fileName);
+            }
+        }
+
+        private class PathValidator
+        {
+            public static bool IsValidFileName(string fileName)
+            {
+                if (string.IsNullOrWhiteSpace(fileName))
+                    return false;
+
+                if (fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                    return false;
+
+                if (fileName.Contains("..") || fileName.Contains("/") || fileName.Contains("\\"))
+                    return false;
+
+                var extension = Path.GetExtension(fileName).ToLowerInvariant();
+                return ALLOWED_EXTENSIONS.Contains(extension);
+            }
+
+            public static bool IsPathWithinDirectory(string filePath, string directoryPath)
+            {
+                var fullFilePath = Path.GetFullPath(filePath);
+                var fullDirectoryPath = Path.GetFullPath(directoryPath);
+
+                return fullFilePath.StartsWith(fullDirectoryPath, StringComparison.OrdinalIgnoreCase);
+            }
+
+            public static string SanitizeLogMessage(string message)
+            {
+                if (string.IsNullOrEmpty(message))
+                    return string.Empty;
+
+                return message
+                    .Replace("\r", "")
+                    .Replace("\n", " ")
+                    .Replace("\0", "")
+                    .Substring(0, Math.Min(message.Length, 500));
+            }
+        }
+        #endregion
 
         #region Version Management
         private string ExtractVersionFromFilename(string filename)
         {
-            // Extract version from format: AresLicenseValidator-1.0.0.dll
             try
             {
                 var nameWithoutExt = Path.GetFileNameWithoutExtension(filename);
@@ -38,7 +132,7 @@ namespace AresInstaller
 
                 if (parts.Length >= 2)
                 {
-                    return parts[parts.Length - 1]; // Return last part (version)
+                    return parts[parts.Length - 1];
                 }
             }
             catch
@@ -69,7 +163,6 @@ namespace AresInstaller
 
         private string FindExistingDllWithBaseName(string dllBaseName)
         {
-            // Find any DLL matching the base name pattern (e.g., AresLicenseValidator-*.dll)
             try
             {
                 var searchPattern = $"{dllBaseName}-*.dll";
@@ -77,7 +170,7 @@ namespace AresInstaller
 
                 if (existingFiles.Length > 0)
                 {
-                    return existingFiles[0]; // Return first match
+                    return existingFiles[0];
                 }
             }
             catch
@@ -109,13 +202,11 @@ namespace AresInstaller
         #region UI Setup
         private void SetupCustomControls()
         {
-            // Window configuration
             this.Size = new System.Drawing.Size(600, 500);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
 
-            // ProgressBar
             progressBar = new ProgressBar
             {
                 Location = new System.Drawing.Point(20, 20),
@@ -124,7 +215,6 @@ namespace AresInstaller
             };
             this.Controls.Add(progressBar);
 
-            // Status Label
             statusLabel = new Label
             {
                 Location = new System.Drawing.Point(20, 50),
@@ -132,7 +222,6 @@ namespace AresInstaller
             };
             this.Controls.Add(statusLabel);
 
-            // Install/Close Button
             installButton = new Button
             {
                 Location = new System.Drawing.Point(250, 80),
@@ -141,7 +230,6 @@ namespace AresInstaller
             installButton.Click += InstallButton_Click;
             this.Controls.Add(installButton);
 
-            // Log TextBox
             logTextBox = new RichTextBox
             {
                 Location = new System.Drawing.Point(20, 120),
@@ -158,7 +246,6 @@ namespace AresInstaller
         {
             if (installationCompleted)
             {
-                // Close/Exit button behavior
                 this.Close();
                 return;
             }
@@ -175,7 +262,6 @@ namespace AresInstaller
                     MessageBoxIcon.Information
                 );
 
-                // Change button to "Close" on success
                 installationCompleted = true;
                 installButton.Text = Translations.Get("ExitButton", currentLanguage);
                 installButton.Enabled = true;
@@ -188,9 +274,8 @@ namespace AresInstaller
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error
                 );
-                LogMessage($"ERROR: {ex}");
+                LogMessage($"ERROR: {ex.GetType().Name} - {ex.Message}");
 
-                // Change button to "Exit" on error
                 installationCompleted = true;
                 installButton.Text = Translations.Get("ExitButton", currentLanguage);
                 installButton.Enabled = true;
@@ -271,13 +356,11 @@ namespace AresInstaller
 
             await Task.Delay(500);
 
-            // Check administrator privileges (silent check, it's always true due to manifest)
             if (!IsRunningAsAdministrator())
             {
                 LogMessage(Translations.Get("NotRunningAsAdmin", currentLanguage));
             }
 
-            // Check .NET Framework
             if (IsDotNetFrameworkInstalled())
             {
                 LogMessage(Translations.Get("DotNetAvailable", currentLanguage));
@@ -287,6 +370,12 @@ namespace AresInstaller
                 throw new InvalidOperationException(Translations.Get("DotNetRequired", currentLanguage));
             }
 
+            // Verify HTTPS is used
+            if (!GITHUB_RELEASES_URL.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new SecurityException("Only HTTPS connections are allowed for downloads");
+            }
+
             LogMessage("");
         }
 
@@ -294,9 +383,9 @@ namespace AresInstaller
         {
             try
             {
-                var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
-                var principal = new System.Security.Principal.WindowsPrincipal(identity);
-                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+                var identity = WindowsIdentity.GetCurrent();
+                var principal = new WindowsPrincipal(identity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
             catch
             {
@@ -351,6 +440,37 @@ namespace AresInstaller
 
             LogMessage("");
         }
+
+        private string GetSecureTempPath(string folderName)
+        {
+            var uniqueFolderName = $"{folderName}_{Guid.NewGuid():N}";
+            var tempPath = Path.Combine(Path.GetTempPath(), uniqueFolderName);
+
+            var dirInfo = Directory.CreateDirectory(tempPath);
+
+            try
+            {
+                var dirSecurity = dirInfo.GetAccessControl();
+                dirSecurity.SetAccessRuleProtection(true, false);
+
+                var currentUser = WindowsIdentity.GetCurrent();
+                var rule = new FileSystemAccessRule(
+                    currentUser.User,
+                    FileSystemRights.FullControl,
+                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                    PropagationFlags.None,
+                    AccessControlType.Allow);
+
+                dirSecurity.AddAccessRule(rule);
+                dirInfo.SetAccessControl(dirSecurity);
+            }
+            catch
+            {
+                // Continue even if ACL setup fails
+            }
+
+            return tempPath;
+        }
         #endregion
 
         #region GitHub Download
@@ -365,21 +485,15 @@ namespace AresInstaller
                 try
                 {
                     LogMessage(Translations.Get("FetchingReleaseInfoAPI", currentLanguage));
-                    var releaseInfo = await GetLatestReleaseInfo(client);
+                    var releaseInfo = await RetryWithExponentialBackoff(() => GetLatestReleaseInfo(client));
 
                     LogMessage(Translations.Get("ParsingReleaseAssets", currentLanguage));
                     await DownloadReleaseAssets(client, releaseInfo);
                 }
                 catch (Exception ex)
                 {
-                    // DEBUG messages stay in English
                     LogMessage($"DOWNLOAD ERROR: {ex.GetType().Name}");
                     LogMessage($"Message: {ex.Message}");
-                    if (ex.InnerException != null)
-                    {
-                        LogMessage($"Inner Exception: {ex.InnerException.Message}");
-                    }
-                    LogMessage($"Stack Trace: {ex.StackTrace}");
                     throw new DownloadException(Translations.Format("FailedDownload", currentLanguage, ex.Message), ex);
                 }
             }
@@ -399,13 +513,12 @@ namespace AresInstaller
             {
                 var releaseResponse = await client.GetStringAsync(GITHUB_RELEASES_URL);
 
-                // Parse with Newtonsoft.Json to extract tag name
                 var release = JObject.Parse(releaseResponse);
                 var tagName = release["tag_name"]?.ToString();
 
                 if (string.IsNullOrEmpty(tagName))
                 {
-                    LogMessage("WARNING: Could not find tag_name in response"); // DEBUG
+                    LogMessage("WARNING: Could not find tag_name in response");
                 }
                 else
                 {
@@ -414,19 +527,9 @@ namespace AresInstaller
 
                 return releaseResponse;
             }
-            catch (HttpRequestException httpEx)
-            {
-                LogMessage($"HTTP ERROR: {httpEx.Message}"); // DEBUG
-                throw;
-            }
-            catch (Newtonsoft.Json.JsonException jsonEx)
-            {
-                LogMessage($"JSON PARSE ERROR: {jsonEx.Message}"); // DEBUG
-                throw;
-            }
             catch (Exception ex)
             {
-                LogMessage($"ERROR: {ex.Message}"); // DEBUG
+                LogMessage($"ERROR: {ex.Message}");
                 throw;
             }
         }
@@ -435,68 +538,77 @@ namespace AresInstaller
         {
             try
             {
-                // Parse JSON with Newtonsoft.Json
                 var release = JObject.Parse(releaseResponse);
                 var assets = release["assets"] as JArray;
 
                 if (assets == null || assets.Count == 0)
                 {
-                    LogMessage("ERROR: No assets found in release!"); // DEBUG
-                    LogMessage($"Full release response: {releaseResponse}"); // DEBUG
                     throw new DownloadException(Translations.Get("NoAssetsFound", currentLanguage));
                 }
 
                 LogMessage(Translations.Format("FoundAssets", currentLanguage, assets.Count));
 
-                var downloadPath = GetTempPath(TEMP_DOWNLOAD_FOLDER);
+                var downloadPath = GetSecureTempPath(TEMP_DOWNLOAD_FOLDER);
                 Directory.CreateDirectory(downloadPath);
 
-                if (!Directory.Exists(downloadPath))
+                // Look for checksum file first
+                var checksumAsset = assets.FirstOrDefault(a =>
+                    a["name"]?.ToString().EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) == true);
+
+                FileIntegrityValidator validator = null;
+                if (checksumAsset != null)
                 {
-                    throw new DownloadException(Translations.Format("FailedCreateDownloadDir", currentLanguage, downloadPath));
+                    var checksumFileName = checksumAsset["name"]?.ToString();
+                    var checksumUrl = checksumAsset["browser_download_url"]?.ToString();
+
+                    if (!string.IsNullOrEmpty(checksumFileName) && !string.IsNullOrEmpty(checksumUrl))
+                    {
+                        await DownloadFile(client, checksumFileName, checksumUrl, downloadPath);
+                        validator = new FileIntegrityValidator();
+                        validator.LoadHashesFromFile(Path.Combine(downloadPath, checksumFileName));
+                        LogMessage("Checksum file loaded for integrity verification");
+                    }
                 }
 
-                // Download each asset
                 foreach (var asset in assets)
                 {
                     var fileName = asset["name"]?.ToString();
                     var downloadUrl = asset["browser_download_url"]?.ToString();
 
-                    if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(downloadUrl))
+                    if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(downloadUrl))
+                        continue;
+
+                    // Skip checksum file itself
+                    if (fileName.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Validate filename
+                    if (!PathValidator.IsValidFileName(fileName))
                     {
-                        try
-                        {
-                            await DownloadFile(client, fileName, downloadUrl, downloadPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            LogMessage($"ERROR downloading {fileName}: {ex.Message}"); // DEBUG
-                            throw;
-                        }
+                        LogMessage($"SECURITY: Skipped invalid filename: {fileName}");
+                        continue;
                     }
-                    else
+
+                    await DownloadFile(client, fileName, downloadUrl, downloadPath);
+
+                    // Verify hash if available
+                    if (validator != null && validator.HasHash(fileName))
                     {
-                        LogMessage($"WARNING: Skipped asset with missing name or URL"); // DEBUG
+                        var filePath = Path.Combine(downloadPath, fileName);
+                        if (!validator.VerifyFile(filePath))
+                        {
+                            File.Delete(filePath);
+                            throw new SecurityException($"Hash verification failed for {fileName}");
+                        }
+                        LogMessage($"  ✓ Hash verified for {fileName}");
                     }
                 }
 
-                // Summary: show total files downloaded
                 var downloadedFiles = Directory.GetFiles(downloadPath);
                 LogMessage(Translations.Format("DownloadComplete", currentLanguage, downloadedFiles.Length));
             }
-            catch (Newtonsoft.Json.JsonException jsonEx)
-            {
-                LogMessage($"JSON PARSE ERROR: {jsonEx.Message}"); // DEBUG
-                throw new DownloadException(Translations.Format("FailedParseJSON", currentLanguage, jsonEx.Message), jsonEx);
-            }
-            catch (DownloadException)
-            {
-                // Re-throw DownloadException as-is
-                throw;
-            }
             catch (Exception ex)
             {
-                LogMessage($"ERROR: {ex.Message}"); // DEBUG
                 throw new DownloadException(Translations.Format("FailedDownloadAssets", currentLanguage, ex.Message), ex);
             }
         }
@@ -507,26 +619,68 @@ namespace AresInstaller
 
             try
             {
-                var fileBytes = await client.GetByteArrayAsync(downloadUrl);
-                var filePath = Path.Combine(downloadPath, fileName);
-                File.WriteAllBytes(filePath, fileBytes);
-
-                // Verify file was written (silent check)
-                if (!File.Exists(filePath))
+                using (var response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
                 {
-                    throw new IOException($"File was not created: {filePath}"); // DEBUG message
+                    response.EnsureSuccessStatusCode();
+
+                    if (response.Content.Headers.ContentLength.HasValue)
+                    {
+                        var fileSize = response.Content.Headers.ContentLength.Value;
+
+                        if (fileSize > MAX_FILE_SIZE)
+                        {
+                            throw new SecurityException($"File {fileName} exceeds maximum size ({MAX_FILE_SIZE} bytes)");
+                        }
+
+                        if (totalDownloadedBytes + fileSize > MAX_TOTAL_DOWNLOAD_SIZE)
+                        {
+                            throw new SecurityException($"Total download size exceeds limit ({MAX_TOTAL_DOWNLOAD_SIZE} bytes)");
+                        }
+                    }
+
+                    var fileBytes = await response.Content.ReadAsByteArrayAsync();
+
+                    if (response.Content.Headers.ContentLength.HasValue &&
+                        fileBytes.Length != response.Content.Headers.ContentLength.Value)
+                    {
+                        throw new SecurityException($"File size mismatch for {fileName}");
+                    }
+
+                    totalDownloadedBytes += fileBytes.Length;
+
+                    var filePath = Path.Combine(downloadPath, fileName);
+                    File.WriteAllBytes(filePath, fileBytes);
+
+                    if (!File.Exists(filePath))
+                    {
+                        throw new IOException($"File was not created: {filePath}");
+                    }
                 }
-            }
-            catch (HttpRequestException httpEx)
-            {
-                LogMessage($"HTTP ERROR: {httpEx.Message}"); // DEBUG
-                throw;
             }
             catch (Exception ex)
             {
-                LogMessage($"ERROR: {ex.GetType().Name} - {ex.Message}"); // DEBUG
+                LogMessage($"ERROR: {ex.GetType().Name} - {ex.Message}");
                 throw;
             }
+        }
+
+        private async Task<T> RetryWithExponentialBackoff<T>(Func<Task<T>> operation)
+        {
+            for (int i = 0; i < MAX_RETRY_ATTEMPTS; i++)
+            {
+                try
+                {
+                    return await operation();
+                }
+                catch (Exception ex) when (i < MAX_RETRY_ATTEMPTS - 1)
+                {
+                    var delay = BASE_RETRY_DELAY_MS * (int)Math.Pow(2, i);
+                    LogMessage($"Retry {i + 1}/{MAX_RETRY_ATTEMPTS} after {delay}ms: {ex.Message}");
+                    await Task.Delay(delay);
+                }
+            }
+
+            return await operation();
         }
         #endregion
 
@@ -537,8 +691,16 @@ namespace AresInstaller
 
             try
             {
-                var downloadPath = GetTempPath(TEMP_DOWNLOAD_FOLDER);
-                var extractPath = GetTempPath(TEMP_EXTRACT_FOLDER);
+                var downloadPath = Path.Combine(Path.GetTempPath(), $"{TEMP_DOWNLOAD_FOLDER}_{Guid.NewGuid():N}");
+                var extractPath = GetSecureTempPath(TEMP_EXTRACT_FOLDER);
+
+                // Find actual download folder
+                var tempBase = Path.GetTempPath();
+                var downloadFolders = Directory.GetDirectories(tempBase, $"{TEMP_DOWNLOAD_FOLDER}_*");
+                if (downloadFolders.Length > 0)
+                {
+                    downloadPath = downloadFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
+                }
 
                 Directory.CreateDirectory(extractPath);
 
@@ -555,6 +717,9 @@ namespace AresInstaller
 
         private async Task ExtractZipFiles(string downloadPath, string extractPath)
         {
+            if (!Directory.Exists(downloadPath))
+                return;
+
             var zipFiles = Directory.GetFiles(downloadPath, "*.zip");
 
             foreach (var zipFile in zipFiles)
@@ -576,9 +741,26 @@ namespace AresInstaller
 
         private async Task ExtractZipEntry(ZipArchiveEntry entry, string extractPath)
         {
+            // SECURITY FIX: Validate against path traversal (Zip Slip)
             var entryPath = Path.Combine(extractPath, entry.FullName);
-            var directory = Path.GetDirectoryName(entryPath);
+            var fullEntryPath = Path.GetFullPath(entryPath);
+            var fullExtractPath = Path.GetFullPath(extractPath);
 
+            if (!PathValidator.IsPathWithinDirectory(fullEntryPath, fullExtractPath))
+            {
+                LogMessage($"SECURITY: Blocked path traversal attempt: {entry.FullName}");
+                throw new SecurityException($"Invalid archive entry path detected: {entry.FullName}");
+            }
+
+            // Validate filename
+            var fileName = Path.GetFileName(entry.Name);
+            if (!PathValidator.IsValidFileName(fileName))
+            {
+                LogMessage($"SECURITY: Skipped invalid filename in archive: {fileName}");
+                return;
+            }
+
+            var directory = Path.GetDirectoryName(entryPath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
@@ -587,17 +769,27 @@ namespace AresInstaller
             entry.ExtractToFile(entryPath, true);
             LogMessage(Translations.Format("Extracted", currentLanguage, entry.Name));
 
-            await Task.Delay(50); // Visual feedback
+            await Task.Delay(50);
         }
 
         private void CopyNonZipFiles(string downloadPath, string extractPath)
         {
+            if (!Directory.Exists(downloadPath))
+                return;
+
             var otherFiles = Directory.GetFiles(downloadPath)
                 .Where(f => !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
 
             foreach (var file in otherFiles)
             {
                 var fileName = Path.GetFileName(file);
+
+                if (!PathValidator.IsValidFileName(fileName))
+                {
+                    LogMessage($"SECURITY: Skipped invalid filename: {fileName}");
+                    continue;
+                }
+
                 var destPath = Path.Combine(extractPath, fileName);
                 File.Copy(file, destPath, true);
                 LogMessage(Translations.Format("Copied", currentLanguage, fileName));
@@ -612,33 +804,29 @@ namespace AresInstaller
 
             try
             {
-                var extractPath = GetTempPath(TEMP_EXTRACT_FOLDER);
+                var tempBase = Path.GetTempPath();
+                var extractFolders = Directory.GetDirectories(tempBase, $"{TEMP_EXTRACT_FOLDER}_*");
+                var extractPath = extractFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
 
                 await CopyDLLsToInstallPath(extractPath);
 
-                // DEBUG: List all files in Rsc folder
-                LogMessage("DEBUG: Listing all files in Rsc folder:");
-                var rscFiles = Directory.GetFiles(DLL_PATH);
-                LogMessage($"  Total files: {rscFiles.Length}");
-                foreach (var file in rscFiles)
-                {
-                    LogMessage($"  - {Path.GetFileName(file)}");
-                }
-
-                // Find the AresLicenseValidator DLL (flexible search)
                 LogMessage(Translations.Get("SearchingValidator", currentLanguage));
                 var validatorDll = FindAresLicenseValidatorDll();
 
                 if (string.IsNullOrEmpty(validatorDll))
                 {
-                    LogMessage("ERROR: FindAresLicenseValidatorDll() returned null or empty"); // DEBUG
                     throw new FileNotFoundException(Translations.Get("ValidatorNotFound", currentLanguage));
                 }
 
                 if (!File.Exists(validatorDll))
                 {
-                    LogMessage($"ERROR: File.Exists() returned false for: {validatorDll}"); // DEBUG
                     throw new FileNotFoundException(Translations.Format("ValidatorNotFoundAtPath", currentLanguage, validatorDll));
+                }
+
+                // Validate DLL path
+                if (!PathValidator.IsPathWithinDirectory(validatorDll, DLL_PATH))
+                {
+                    throw new SecurityException("DLL path outside expected directory");
                 }
 
                 LogMessage(Translations.Format("FoundDLL", currentLanguage, validatorDll));
@@ -657,44 +845,30 @@ namespace AresInstaller
         {
             try
             {
-                LogMessage($"Searching in directory: {DLL_PATH}"); // DEBUG
-
-                // Check if directory exists
                 if (!Directory.Exists(DLL_PATH))
                 {
-                    LogMessage($"ERROR: Directory does not exist: {DLL_PATH}"); // DEBUG
                     return null;
                 }
 
-                // Search for any AresLicenseValidator DLL (flexible)
                 var searchPatterns = new[]
                 {
-                    "AresLicenseValidator.dll",      // Without version
-                    "AresLicenseValidator-*.dll"     // With version pattern
+                    "AresLicenseValidator.dll",
+                    "AresLicenseValidator-*.dll"
                 };
 
                 foreach (var pattern in searchPatterns)
                 {
-                    LogMessage($"Searching with pattern: {pattern}"); // DEBUG
                     var files = Directory.GetFiles(DLL_PATH, pattern);
-                    LogMessage($"  Found {files.Length} file(s)"); // DEBUG
 
                     if (files.Length > 0)
                     {
-                        var foundFile = files[0];
-                        LogMessage($"  Using: {Path.GetFileName(foundFile)}"); // DEBUG
-                        LogMessage($"  Full path: {foundFile}"); // DEBUG
-                        LogMessage($"  File exists: {File.Exists(foundFile)}"); // DEBUG
-                        return foundFile;
+                        return files[0];
                     }
                 }
-
-                LogMessage("No matching DLL found"); // DEBUG
             }
             catch (Exception ex)
             {
-                LogMessage($"ERROR in FindAresLicenseValidatorDll: {ex.Message}"); // DEBUG
-                LogMessage($"Stack trace: {ex.StackTrace}"); // DEBUG
+                LogMessage($"ERROR in FindAresLicenseValidatorDll: {ex.Message}");
             }
 
             return null;
@@ -702,12 +876,19 @@ namespace AresInstaller
 
         private async Task CopyDLLsToInstallPath(string sourcePath)
         {
-            // Find all DLL files in source (they may have version suffixes)
             var dllFiles = Directory.GetFiles(sourcePath, "*.dll");
 
             foreach (var sourceDll in dllFiles)
             {
-                await CopySingleDLL(sourcePath, Path.GetFileName(sourceDll));
+                var fileName = Path.GetFileName(sourceDll);
+
+                if (!PathValidator.IsValidFileName(fileName))
+                {
+                    LogMessage($"SECURITY: Skipped invalid DLL filename: {fileName}");
+                    continue;
+                }
+
+                await CopySingleDLL(sourcePath, fileName);
             }
         }
 
@@ -722,7 +903,6 @@ namespace AresInstaller
                 return;
             }
 
-            // Extract base name without version
             var fileNameWithoutExt = Path.GetFileNameWithoutExtension(dllFileName);
             var dllBaseName = fileNameWithoutExt;
 
@@ -732,26 +912,22 @@ namespace AresInstaller
                 dllBaseName = fileNameWithoutExt.Substring(0, lastDashIndex);
             }
 
-            // Check if same version already exists
             var existingDll = FindExistingDllWithBaseName(dllBaseName);
 
             if (!string.IsNullOrEmpty(existingDll))
             {
-                // Only check version if both files have versions in their names
                 if (lastDashIndex > 0 && IsSameVersion(sourceDll, existingDll))
                 {
                     LogMessage(Translations.Get("SameVersionInstalled", currentLanguage));
                     return;
                 }
 
-                // Backup old version
                 var backupPath = Path.Combine(INSTALL_PATH, "Backup",
                     $"{Path.GetFileName(existingDll)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
 
                 File.Move(existingDll, backupPath);
                 LogMessage(Translations.Format("BackedUpOldVersion", currentLanguage, Path.GetFileName(backupPath)));
 
-                // Also backup the TLB file if it exists
                 var existingTlb = Path.ChangeExtension(existingDll, ".tlb");
                 if (File.Exists(existingTlb))
                 {
@@ -762,11 +938,9 @@ namespace AresInstaller
                 }
             }
 
-            // Copy new version
             var targetDll = Path.Combine(DLL_PATH, dllFileName);
             File.Copy(sourceDll, targetDll, true);
 
-            // Verify copy
             if (File.Exists(targetDll))
             {
                 LogMessage(Translations.Format("CopiedDLL", currentLanguage, dllFileName, new FileInfo(targetDll).Length));
@@ -776,7 +950,6 @@ namespace AresInstaller
                 throw new IOException(Translations.Format("FailedCopyDLL", currentLanguage, targetDll));
             }
 
-            // Also copy TLB if it exists in source (silent)
             var sourceTlb = Path.ChangeExtension(sourceDll, ".tlb");
             if (File.Exists(sourceTlb))
             {
@@ -795,6 +968,20 @@ namespace AresInstaller
         private async Task RegisterSingleDLL(string dllPath)
         {
             LogMessage(Translations.Format("RegisteringDLL", currentLanguage, Path.GetFileName(dllPath)));
+
+            // SECURITY: Validate DLL path
+            var fullDllPath = Path.GetFullPath(dllPath);
+            var fullDllDirectory = Path.GetFullPath(DLL_PATH);
+
+            if (!PathValidator.IsPathWithinDirectory(fullDllPath, fullDllDirectory))
+            {
+                throw new SecurityException("DLL path outside expected directory");
+            }
+
+            if (!File.Exists(dllPath))
+            {
+                throw new FileNotFoundException($"DLL not found: {dllPath}");
+            }
 
             var regasmPath = FindRegAsmPath();
             if (string.IsNullOrEmpty(regasmPath))
@@ -847,7 +1034,6 @@ namespace AresInstaller
             if (exitCode == 0)
             {
                 LogMessage(Translations.Get("DLLRegisteredSuccess", currentLanguage));
-                // RegAsm output is too verbose and not useful for end users
             }
             else
             {
@@ -874,7 +1060,10 @@ namespace AresInstaller
 
             try
             {
-                var extractPath = GetTempPath(TEMP_EXTRACT_FOLDER);
+                var tempBase = Path.GetTempPath();
+                var extractFolders = Directory.GetDirectories(tempBase, $"{TEMP_EXTRACT_FOLDER}_*");
+                var extractPath = extractFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
+
                 await CopyMVBAFile(extractPath);
                 await Task.Delay(500);
             }
@@ -912,18 +1101,27 @@ namespace AresInstaller
 
             try
             {
-                var tempPaths = new[]
+                var tempBase = Path.GetTempPath();
+                var foldersToClean = new[]
                 {
-                    GetTempPath(TEMP_DOWNLOAD_FOLDER),
-                    GetTempPath(TEMP_EXTRACT_FOLDER)
+                    $"{TEMP_DOWNLOAD_FOLDER}_*",
+                    $"{TEMP_EXTRACT_FOLDER}_*"
                 };
 
-                foreach (var tempPath in tempPaths)
+                foreach (var pattern in foldersToClean)
                 {
-                    if (Directory.Exists(tempPath))
+                    var matchingFolders = Directory.GetDirectories(tempBase, pattern);
+                    foreach (var folder in matchingFolders)
                     {
-                        Directory.Delete(tempPath, true);
-                        await Task.Delay(100);
+                        try
+                        {
+                            Directory.Delete(folder, true);
+                            await Task.Delay(100);
+                        }
+                        catch
+                        {
+                            // Continue cleanup even if some folders fail
+                        }
                     }
                 }
 
@@ -941,7 +1139,7 @@ namespace AresInstaller
         #region Utility Methods
         private string GetTempPath(string folderName)
         {
-            return Path.Combine(Path.GetTempPath(), folderName);
+            return GetSecureTempPath(folderName);
         }
 
         private void UpdateStatus(string key)
@@ -960,7 +1158,8 @@ namespace AresInstaller
 
         private void LogMessage(string message)
         {
-            var logEntry = $"{DateTime.Now:HH:mm:ss} - {message}\n";
+            var sanitized = PathValidator.SanitizeLogMessage(message);
+            var logEntry = $"{DateTime.Now:HH:mm:ss} - {sanitized}\n";
 
             if (logTextBox.InvokeRequired)
             {
@@ -988,7 +1187,6 @@ namespace AresInstaller
         {
             if (!installationCompleted && installButton.Enabled == false)
             {
-                // Prevent closing while installation is in progress
                 MessageBox.Show(
                     Translations.Get("InstallationInProgress", currentLanguage),
                     this.Text,
