@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
+  <Costura>
+    <!-- Include only the assemblies we need -->
+    <IncludeAssemblies>
+      Newtonsoft.Json
+    </IncludeAssemblies>
+    
+    <!-- Unmanaged assemblies (none in our case) -->
+    <Unmanaged32Assemblies />
+    <Unmanaged64Assemblies />
+    
+    <!-- Create temporary files in temp folder -->
+    <CreateTemporaryAssemblies>false</CreateTemporaryAssemblies>
+  </Costura>
+</Weavers>
