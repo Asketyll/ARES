@@ -131,8 +131,9 @@ function Sign-LicenseData {
         $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
         $rsa.FromXmlString($PrivateKey)
         
-        # Create JSON exactly as DLL will verify it (order matters)
-        $dataToSign = @{
+        # Create JSON exactly as DLL will verify it (order matters!)
+        # CRITICAL: Use [ordered] hashtable to maintain field order
+        $dataToSign = [ordered]@{
             company = $LicenseData.company
             domain = $LicenseData.domain
             installed_by = $LicenseData.installed_by
@@ -173,7 +174,8 @@ function New-LicenseFile {
     $environmentHash = Get-EnvironmentHash -Company $Company -Domain $Domain
     
     # Create license data structure
-    $licenseData = @{
+    # CRITICAL: Order must match exactly with C# DLL verification order
+    $licenseData = [ordered]@{
         company = $Company
         domain = $Domain
         installed_by = $installedBy
@@ -293,19 +295,25 @@ try {
     
     if (-not $AuthorizedUsers -or $AuthorizedUsers.Count -eq 0) {
         Write-ColorOutput "`nEnter authorized users (format: DOMAIN\username)" White
+        Write-ColorOutput "Examples: GRPL\e.duperey, ACME\john.doe, CORP\jane-smith" Gray
         Write-ColorOutput "Enter blank line when done" Gray
         $userList = @()
         do {
             $user = Read-Host "User $($userList.Count + 1)"
             if (-not [string]::IsNullOrWhiteSpace($user)) {
-                # Validate format
-                if ($user -match '^\w+\\\w+$') {
+                # Validate format - allow alphanumeric, dots, hyphens, underscores
+                if ($user -match '^[\w\-]+\\[\w\.\-]+$') {
                     $userList += $user
+                    Write-ColorOutput "  Added: $user" Green
                 } else {
-                    Write-ColorOutput "Invalid format. Use: DOMAIN\username" Yellow
+                    Write-ColorOutput "  Invalid format. Use: DOMAIN\username (letters, numbers, dots, hyphens allowed)" Yellow
                 }
             }
         } while (-not [string]::IsNullOrWhiteSpace($user))
+        
+        if ($userList.Count -eq 0) {
+            throw "At least one user must be specified"
+        }
         
         $AuthorizedUsers = $userList
     }

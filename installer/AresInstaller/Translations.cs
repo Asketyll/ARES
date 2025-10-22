@@ -8,11 +8,35 @@ namespace AresInstaller
         {
             // Window titles
             { "WindowTitle", new Dictionary<string, string> { { "EN", "ARES Installer" }, { "FR", "Installateur ARES" } } },
+            { "ProductSelection", new Dictionary<string, string> { { "EN", "Bentley Product Selection" }, { "FR", "Sélection de produit Bentley" } } },
             
             // Buttons
             { "InstallButton", new Dictionary<string, string> { { "EN", "Install" }, { "FR", "Installer" } } },
             { "ExitButton", new Dictionary<string, string> { { "EN", "Exit" }, { "FR", "Quitter" } } },
+            { "OKButton", new Dictionary<string, string> { { "EN", "OK" }, { "FR", "OK" } } },
+            { "NextButton", new Dictionary<string, string> { { "EN", "Next" }, { "FR", "Suivant" } } },
+            { "CancelButton", new Dictionary<string, string> { { "EN", "Cancel" }, { "FR", "Annuler" } } },
 
+            // Bentley Product Selection
+            { "SelectBentleyProduct", new Dictionary<string, string> { { "EN", "Select Bentley Product for ARES Integration" }, { "FR", "Sélectionnez un produit Bentley pour l'intégration ARES" } } },
+            { "ConfigurationPath", new Dictionary<string, string> { { "EN", "Configuration Path:" }, { "FR", "Chemin de configuration :" } } },
+            { "NoBentleyProducts", new Dictionary<string, string> { { "EN", "No Bentley products found in registry." }, { "FR", "Aucun produit Bentley trouvé dans le registre." } } },
+            { "NoValidBentleyProducts", new Dictionary<string, string> { { "EN", "No valid Bentley products (MicroStation or MapPowerView) found." }, { "FR", "Aucun produit Bentley valide (MicroStation ou MapPowerView) trouvé." } } },
+            { "NoConfigPath", new Dictionary<string, string> { { "EN", "This product does not have a configuration path defined." }, { "FR", "Ce produit n'a pas de chemin de configuration défini." } } },
+            { "NoConfigPathAvailable", new Dictionary<string, string> { { "EN", "(No configuration path available)" }, { "FR", "(Aucun chemin de configuration disponible)" } } },
+            { "FailedLoadProducts", new Dictionary<string, string> { { "EN", "Failed to load Bentley products: {0}" }, { "FR", "Échec du chargement des produits Bentley : {0}" } } },
+            { "ProductSelectionError", new Dictionary<string, string> { { "EN", "Product Selection Error" }, { "FR", "Erreur de sélection de produit" } } },
+
+            // Auto-configuration
+            { "Configuration", new Dictionary<string, string> { { "EN", "Configuration" }, { "FR", "Configuration" } } },
+            { "ConfigurationSuccess", new Dictionary<string, string> { { "EN", "ARES has been successfully configured for the selected product!" }, { "FR", "ARES a été configuré avec succès pour le produit sélectionné !" } } },
+            { "ConfigurationError", new Dictionary<string, string> { { "EN", "Configuration error: {0}" }, { "FR", "Erreur de configuration : {0}" } } },
+            { "BentleyProductPathNotFound", new Dictionary<string, string> { { "EN", "Bentley product path not found: {0}" }, { "FR", "Chemin du produit Bentley introuvable : {0}" } } },
+            { "NoPersonalUcfFound", new Dictionary<string, string> { { "EN", "No Personal.ucf file found in: {0}" }, { "FR", "Aucun fichier Personal.ucf trouvé dans : {0}" } } },
+            { "AlreadyConfigured", new Dictionary<string, string> { { "EN", "ARES is already configured for this product." }, { "FR", "ARES est déjà configuré pour ce produit." } } },
+            { "ErrorSearchingUcfFiles", new Dictionary<string, string> { { "EN", "Error searching for UCF files: {0}" }, { "FR", "Erreur lors de la recherche des fichiers UCF : {0}" } } },
+            { "ErrorProcessingUcfFile", new Dictionary<string, string> { { "EN", "Error processing file {0}: {1}" }, { "FR", "Erreur lors du traitement du fichier {0} : {1}" } } },
+            
             // Status messages
             { "ReadyToInstall", new Dictionary<string, string> { { "EN", "Ready to install ARES" }, { "FR", "Prêt à installer ARES" } } },
             { "CheckingPrerequisites", new Dictionary<string, string> { { "EN", "Checking prerequisites..." }, { "FR", "Vérification des prérequis..." } } },
