@@ -254,6 +254,27 @@ namespace AresInstaller
                     MessageBoxIcon.Information
                 );
 
+                // Show Bentley product selection form
+                using (var productSelectionForm = new BentleyProductSelectionForm(currentLanguage))
+                {
+                    if (productSelectionForm.ShowDialog() == DialogResult.OK)
+                    {
+                        var selectedProduct = productSelectionForm.SelectedProduct;
+                        var configPath = productSelectionForm.SelectedConfigurationPath;
+
+                        LogMessage("");
+                        LogMessage("=== Bentley Product Selection ===");
+                        LogMessage($"Selected Product: {selectedProduct.DisplayName}");
+                        LogMessage($"Version: {selectedProduct.Version}");
+                        LogMessage($"Product Name: {selectedProduct.ProductName}");
+                        LogMessage($"Configuration Path: {configPath}");
+                        LogMessage("");
+
+                        // Here you can add additional logic to save this information
+                        // or configure ARES for the selected product
+                    }
+                }
+
                 installationCompleted = true;
                 installButton.Text = Translations.Get("ExitButton", currentLanguage);
                 installButton.Enabled = true;
