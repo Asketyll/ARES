@@ -10,21 +10,22 @@ This directory contains the complete MVBA (MicroStation Visual Basic for Applica
 - **Core/** - System core (constants, boot loader, error handling)
 - **EventHandlers/** - Event management (DGN open/close, element changes)
 - **LengthsFeature/** - Auto-lengths functionality with GUI
-- **Security/** - Security and validation (encryption, UUID)
+- **Security/** - Security and validation (encryption, UUID, License)
 - **Tests/** - Unit testing suite
 
 ## Development
 
 ### Loading in MicroStation
 
-1. Open MicroStation VBA editor (Alt+F11)
+1. Open MicroStation VBA editor
 2. File → Import File
-3. Import all .bas, .cls, and .frm files maintaining the structure
-4. Compile as ARES.mvba
+3. Import all `.bas`, `.cls`, and `.frm` files maintaining the structure
+4. Compile as `ARES.mvba`
+5. Create ARES License
 
 ### Dependencies
 
-- Tested on MicroStation Connect Edition, OpenCities Map PowerView by Bentley Systems and Atlas/Eras by Sogelink.
+- Tested on MicroStation Connect Edition, OpenCities Map PowerView by Bentley Systems and Atlas/Eras by Sogelink
 - MVBA 7.1 environment
 
 ## License
