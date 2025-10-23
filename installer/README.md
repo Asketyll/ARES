@@ -11,14 +11,16 @@ Windows installer application for ARES MicroStation Add-in.
 - Progress tracking and logging
 
 ## Building
-- bash
+```bash
 # Restore NuGet packages
 nuget restore AresInstaller.sln
 
 # Build with MSBuild
 msbuild AresInstaller.sln /p:Configuration=Release
+```
 
 # Development
+
 Built with:
 
 - .NET Framework 4.7.2
