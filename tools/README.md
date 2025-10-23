@@ -13,12 +13,12 @@ Generate RSA-signed JSON license files for network deployment.
 - Administrator privileges (for network path access)
 - RSA key pair (generated on first run)
 
-### Quick Start
+# Quick Start
 
-#### 1. Generate RSA Key Pair (First Time Only)
+## 1. Generate RSA Key Pair (First Time Only)
 powershell:
 .\Generate-ARESLicense.ps1
-# Choose 'Y' when prompted to generate keys
+### Choose 'Y' when prompted to generate keys
 This creates:
 
 rsa_private_key.xml - Keep secure, used for license generation<br>
@@ -34,14 +34,14 @@ private const string PUBLIC_KEY = @"<RSAKeyValue>
 </RSAKeyValue>";
 ```
 
-#### 2. Update Script Configuration
+### 2. Update Script Configuration
 Open Generate-ARESLicense.ps1 and replace $RSA_PRIVATE_KEY with the content of rsa_private_key.xml.
 
-#### 3. Generate License
+### 3. Generate License
 #Interactive Mode:
 .\Generate-ARESLicense.ps1
 
-#Command Line Mode:
+###Command Line Mode:
 ```
 .\Generate-ARESLicense.ps1 `
     -Company "Acme Corporation" `
@@ -51,7 +51,7 @@ Open Generate-ARESLicense.ps1 and replace $RSA_PRIVATE_KEY with the content of r
     -OutputPath "\\fileserver\shared"
 ```
 
-#Parameters
+##Parameters
 ```
 Parameter			Required	Default			Description	
 Company				No*			-				Company name (used in environment hash)
@@ -141,23 +141,23 @@ Generate new keys<br>
 Choose 'Y' at prompt<br>
 Update script and DLL with generated keys<br>
 
-#Error: "Cannot continue without RSA keys"<br>
+##Error: "Cannot continue without RSA keys"<br>
 Ensure $RSA_PRIVATE_KEY in script is updated with valid key<br>
 Or use -PrivateKeyPath parameter to load key from file<br>
 
-#License validation fails in MicroStation<br>
+##License validation fails in MicroStation<br>
 Verify username format: DOMAIN\username (case-sensitive)<br>
 Check network path accessibility from client machine<br>
 Confirm Windows domain matches license domain<br>
 Ensure user is in authorized_users array<br>
 Verify license file permissions (read access required)<br>
 
-#Error: "Domain mismatch"<br>
+##Error: "Domain mismatch"<br>
 License domain must match current Windows domain exactly<br>
 Check with: $env:USERDOMAIN in PowerShell<br>
 Generate new license if domain has changed<br>
 
-#Error: "User not authorized"<br>
+##Error: "User not authorized"<br>
 Verify exact username with: whoami in cmd<br>
 Check user format in license: DOMAIN\username<br>
 Usernames are case-insensitive but domain must match<br>
