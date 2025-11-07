@@ -35,7 +35,12 @@ Public Property Let Value(ByVal strNewValue As String)
     
     ' Track modification state
     mbIsModified = (mstrValue <> DefaultValue)
-    
+
+    ' Persist to MicroStation configuration
+    If Len(Key) > 0 Then
+        Config.SetVar Key, strNewValue
+    End If
+	
     Exit Property
     
 ErrorHandler:
