@@ -36,12 +36,32 @@ Private Sub Color_CheckBox_Change()
     ElseIf ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value <> CVal Then
         Locked
         ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value = CVal
+        ARESConfig.ARES_AUTO_LENGTHS.IsModified
         Locked
     End If
     Exit Sub
     
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLenghts_GUI_Options.Color_CheckBox_Change"
+End Sub
+
+Private Sub Only_Color_CheckBox_Change()
+    On Error GoTo ErrorHandler
+    Dim CVal As String
+    
+    CVal = IIf(Only_Color_CheckBox.Value, "True", "False")
+    If mLocked Then
+    
+    ElseIf ARESConfig.ARES_ONLY_COLOR.Value <> CVal Then
+        Locked
+        ARESConfig.ARES_ONLY_COLOR.Value = CVal
+        ARESConfig.ARES_AUTO_LENGTHS.IsModified
+        Locked
+    End If
+    Exit Sub
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLenghts_GUI_Options.Only_Color_CheckBox_Change"
 End Sub
 
 Private Sub Edit_Cells_List_Command_Click()
@@ -245,6 +265,7 @@ Private Sub UserForm_Initialize()
     Me.Caption = GetTranslation("AutoLengthsGUIOptionsCaption")
     Main_Label.Caption = GetTranslation("AutoLengthsGUIOptionsMain_LabelCaption")
     Color_Label.Caption = GetTranslation("AutoLengthsGUIOptionsColor_LabelCaption")
+    Only_Color_Label.Caption = GetTranslation("AutoLengthsGUIOptionsOnly_Color_LabelCaption")
     Cell_Label.Caption = GetTranslation("AutoLengthsGUIOptionsCell_LabelCaption")
     Edit_Trigger_Command.Caption = GetTranslation("AutoLengthsGUIOptionsEdit_Trigger_CommandCaption", ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)
     Edit_Triggers_List_Command.Caption = GetTranslation("AutoLengthsGUIOptionsEdit_Triggers_List_CommandCaption")
@@ -261,6 +282,11 @@ Private Sub UserForm_Initialize()
         Color_CheckBox.Value = "True"
     Else
         Color_CheckBox.Value = "False"
+    End If
+    If ARESConfig.ARES_ONLY_COLOR.Value Then
+        Only_Color_CheckBox.Value = "True"
+    Else
+        Only_Color_CheckBox.Value = "False"
     End If
     If ARESConfig.ARES_UPDATE_ATLASCELLLABEL.Value Then
         Cell_CheckBox.Value = "True"
@@ -309,6 +335,7 @@ End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     On Error GoTo ErrorHandler
+    
     If mLocked Then
         Cancel = True
         Select Case True
@@ -322,6 +349,8 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
                 Me.TextBox_Trigger.SetFocus
                 SeeActiveTextBox TextBox_Trigger
         End Select
+    Else
+        command.OnAutoLengthsGUIClosed
     End If
     Exit Sub
     

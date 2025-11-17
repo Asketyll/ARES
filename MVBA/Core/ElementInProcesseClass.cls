@@ -1,21 +1,19 @@
 ' Class Module: ElementInProcesseClass
-' Description: Thread-safe collection manager for MicroStation elements currently being processed
-' Prevents duplicate processing and provides efficient element tracking
+' Description: Thread-safe collection manager for MicroStation element IDs currently being processed
+' Prevents duplicate processing and provides efficient element ID tracking
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ErrorHandlerClass (via BootLoader), ARESConstants
 Option Explicit
 
 ' === PRIVATE MEMBERS ===
-Private moElements As Collection    ' Collection of elements keyed by ID string
-Private mlElementCount As Long      ' Cached count for performance
-Private mbInitialized As Boolean    ' Initialization flag
+Private moElementIds As Collection   ' Collection of element ID strings
+Private mbInitialized As Boolean     ' Initialization flag
 
 ' Initialize the collection when class is created
 Private Sub Class_Initialize()
     On Error GoTo ErrorHandler
     
-    Set moElements = New Collection
-    mlElementCount = 0
+    Set moElementIds = New Collection
     mbInitialized = True
     
     Exit Sub
@@ -25,40 +23,25 @@ ErrorHandler:
     mbInitialized = False
 End Sub
 
-' Add an element to the processing collection
+' Add an element ID to the processing collection
 ' Returns True if added successfully, False if already exists or error
 Public Function Add(ByVal oElement As element) As Boolean
     On Error GoTo ErrorHandler
     
     Add = False
     
-    ' Validate inputs
-    If Not mbInitialized Then
-        ErrorHandler.HandleError "ElementInProcesse not initialized", 0, "ElementInProcesseClass.Add", "ERROR"
-        Exit Function
-    End If
-    
-    If oElement Is Nothing Then
-        ErrorHandler.HandleError "Cannot add null element", 0, "ElementInProcesseClass.Add", "WARNING"
-        Exit Function
-    End If
+    If Not mbInitialized Then Exit Function
+    If oElement Is Nothing Then Exit Function
     
     Dim strElementId As String
     strElementId = DLongToString(oElement.ID)
     
-    ' Check if element already exists
-    If ContainsElementId(strElementId) Then
-        ' Element already in collection - this is normal, not an error
-        Exit Function
-    End If
+    ' Check if element ID already exists
+    If ContainsId(strElementId) Then Exit Function
     
-    ' Add element to collection
-    moElements.Add oElement, strElementId
-    mlElementCount = mlElementCount + 1
+    ' Add element ID to collection
+    moElementIds.Add strElementId, strElementId
     Add = True
-    
-    ' Log for debugging if needed
-    ' ErrorHandler.HandleError "Added element ID: " & strElementId, 0, "ElementInProcesseClass.Add", "DEBUG"
     
     Exit Function
     
@@ -67,32 +50,19 @@ ErrorHandler:
     Add = False
 End Function
 
-' Remove an element from the processing collection
+' Remove an element ID from the collection
 Public Function Remove(ByVal oElement As element) As Boolean
     On Error GoTo ErrorHandler
     
     Remove = False
     
-    ' Validate inputs
-    If Not mbInitialized Then
-        ErrorHandler.HandleError "ElementInProcesse not initialized", 0, "ElementInProcesseClass.Remove", "ERROR"
-        Exit Function
-    End If
-    
-    If oElement Is Nothing Then
-        ErrorHandler.HandleError "Cannot remove null element", 0, "ElementInProcesseClass.Remove", "WARNING"
-        Exit Function
-    End If
+    If Not mbInitialized Then Exit Function
+    If oElement Is Nothing Then Exit Function
     
     Dim strElementId As String
     strElementId = DLongToString(oElement.ID)
     
-    ' Remove element if it exists
-    If ContainsElementId(strElementId) Then
-        moElements.Remove strElementId
-        mlElementCount = mlElementCount - 1
-        Remove = True
-    End If
+    Remove = RemoveById(strElementId)
     
     Exit Function
     
@@ -101,17 +71,17 @@ ErrorHandler:
     Remove = False
 End Function
 
-' Remove element by ID string (more efficient)
-Public Function RemoveById(ByVal strElementId As String) As Boolean
+' Remove element by ID string
+Private Function RemoveById(ByVal strElementId As String) As Boolean
     On Error GoTo ErrorHandler
     
     RemoveById = False
     
-    If Not mbInitialized Or Len(strElementId) = 0 Then Exit Function
+    If Not mbInitialized Then Exit Function
+    If Len(strElementId) = 0 Then Exit Function
     
-    If ContainsElementId(strElementId) Then
-        moElements.Remove strElementId
-        mlElementCount = mlElementCount - 1
+    If ContainsId(strElementId) Then
+        moElementIds.Remove strElementId
         RemoveById = True
     End If
     
@@ -122,19 +92,20 @@ ErrorHandler:
     RemoveById = False
 End Function
 
-' Check if an element is currently being processed
+' Check if an element is in the collection
 Public Function Contains(ByVal oElement As element) As Boolean
     On Error GoTo ErrorHandler
     
     Contains = False
     
-    ' Validate inputs
-    If Not mbInitialized Or oElement Is Nothing Then Exit Function
+    If Not mbInitialized Then Exit Function
+    If oElement Is Nothing Then Exit Function
     
     Dim strElementId As String
     strElementId = DLongToString(oElement.ID)
     
-    Contains = ContainsElementId(strElementId)
+    Contains = ContainsId(strElementId)
+    
     Exit Function
     
 ErrorHandler:
@@ -142,43 +113,21 @@ ErrorHandler:
     Contains = False
 End Function
 
-' Check if element ID is in collection (more efficient)
-Public Function ContainsId(ByVal strElementId As String) As Boolean
-    On Error GoTo ErrorHandler
+' Check if element ID is in collection
+Private Function ContainsId(ByVal strElementId As String) As Boolean
+    On Error Resume Next
     
-    ContainsId = False
-    
-    If Not mbInitialized Or Len(strElementId) = 0 Then Exit Function
-    
-    ContainsId = ContainsElementId(strElementId)
-    Exit Function
-    
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementInProcesseClass.ContainsId"
-    ContainsId = False
+    Dim strTest As String
+    strTest = moElementIds(strElementId)
+    ContainsId = (Err.Number = 0)
 End Function
 
-' Internal method to check if element ID exists
-Private Function ContainsElementId(ByVal strElementId As String) As Boolean
-    On Error GoTo ErrorHandler
-    
-    Dim oTempElement As element
-    Set oTempElement = moElements(strElementId)
-    ContainsElementId = True
-    Exit Function
-    
-ErrorHandler:
-    ' Element not found - this is normal
-    ContainsElementId = False
-End Function
-
-' Clear all elements from the collection
+' Clear all element IDs from the collection
 Public Sub Clear()
     On Error GoTo ErrorHandler
     
     If mbInitialized Then
-        Set moElements = New Collection
-        mlElementCount = 0
+        Set moElementIds = New Collection
     End If
     
     Exit Sub
@@ -192,15 +141,16 @@ Public Sub Reset()
     Clear
 End Sub
 
-' Get the count of elements currently being processed
+' Get the count of element IDs
 Public Property Get Count() As Long
     On Error GoTo ErrorHandler
     
     If mbInitialized Then
-        Count = mlElementCount
+        Count = moElementIds.Count
     Else
         Count = 0
     End If
+    
     Exit Property
     
 ErrorHandler:
@@ -213,64 +163,82 @@ Public Property Get IsEmpty() As Boolean
     IsEmpty = (Count = 0)
 End Property
 
-' Get element by ID string
-Public Function GetElementById(ByVal strElementId As String) As element
-    On Error GoTo ErrorHandler
-    
-    Set GetElementById = Nothing
-    
-    If mbInitialized And Len(strElementId) > 0 Then
-        Set GetElementById = moElements(strElementId)
-    End If
-    
-    Exit Function
-    
-ErrorHandler:
-    ' Element not found
-    Set GetElementById = Nothing
-End Function
+' Check if collection has elements
+Public Property Get HasElements() As Boolean
+    HasElements = (Count > 0)
+End Property
 
-' Get all element IDs as an array (for debugging)
-Public Function GetAllElementIds() As String()
+' Get all elements as a Collection (retrieved fresh from MicroStation)
+' Returns a Collection of valid Element objects, skipping deleted/invalid elements
+Public Function GetAllElements() As Collection
     On Error GoTo ErrorHandler
     
-    Dim strIds() As String
+    Dim colElements As Collection
+    Dim strElementId As Variant
     Dim oElement As element
-    Dim intIndex As Integer
     
-    If Count = 0 Then
-        ReDim strIds(0 To 0)
-        strIds(0) = ""
-        GetAllElementIds = strIds
+    Set colElements = New Collection
+    
+    ' Check if initialized and has IDs
+    If Not mbInitialized Then
+        Set GetAllElements = colElements
         Exit Function
     End If
     
-    ReDim strIds(0 To Count - 1)
-    intIndex = 0
+    If moElementIds.Count = 0 Then
+        Set GetAllElements = colElements
+        Exit Function
+    End If
     
-    For Each oElement In moElements
-        strIds(intIndex) = DLongToString(oElement.ID)
-        intIndex = intIndex + 1
-    Next oElement
+    ' Iterate through all stored IDs and retrieve fresh elements
+    For Each strElementId In moElementIds
+        On Error Resume Next
+        
+        ' Retrieve fresh element from MicroStation
+        Set oElement = Nothing
+        Set oElement = ActiveModelReference.GetElementById(DLongFromString(CStr(strElementId)))
+        
+        ' Only add if element was successfully retrieved
+        If Err.Number = 0 And Not oElement Is Nothing Then
+            colElements.Add oElement
+        End If
+        
+        On Error GoTo ErrorHandler
+    Next strElementId
     
-    GetAllElementIds = strIds
+    Set GetAllElements = colElements
+    Exit Function
+    
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementInProcesseClass.GetAllElements"
+    
+    ' Return empty collection on error
+    If colElements Is Nothing Then
+        Set colElements = New Collection
+    End If
+    Set GetAllElements = colElements
+End Function
+
+' Get all element IDs as a Collection (raw IDs, no validation)
+Public Function GetAllElementIds() As Collection
+    On Error GoTo ErrorHandler
+    
+    Set GetAllElementIds = moElementIds
     Exit Function
     
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementInProcesseClass.GetAllElementIds"
-    ReDim strIds(0 To 0)
-    GetAllElementIds = strIds
+    Set GetAllElementIds = Nothing
 End Function
 
 ' Clean up when class is destroyed
 Private Sub Class_Terminate()
     On Error Resume Next
     
-    If mbInitialized And mlElementCount > 0 Then
-        ErrorHandler.HandleError "ElementInProcesse terminated with " & mlElementCount & " elements still in queue", 0, "ElementInProcesseClass.Class_Terminate", "WARNING"
+    If mbInitialized And Count > 0 Then
+        ErrorHandler.HandleError "ElementInProcesse terminated with " & Count & " element IDs still in queue", 0, "", "ElementInProcesseClass.Class_Terminate"
     End If
     
-    Set moElements = Nothing
-    mlElementCount = 0
+    Set moElementIds = Nothing
     mbInitialized = False
 End Sub

@@ -33,6 +33,8 @@ Public ARES_CELL_LIKE_LABEL As ARES_MS_VAR_Class 'Default Value:ETI076|ETI01E|ET
 Public ARES_UPDATE_ATLASCELLLABEL As ARES_MS_VAR_Class 'Dafault Value: True          True or False (Boolean)
 ' Used in UnitTesting module
 Public ARES_UnitTesting As ARES_MS_VAR_Class 'Default Value: I'm a ARES test unit variable
+' Used in ElementChangeHandler ClassModule for automatically enable only color update.
+Public ARES_ONLY_COLOR As ARES_MS_VAR_Class 'Dafault Value: True        True or False (Boolean)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -72,7 +74,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_UPDATE_COLOR_WITH_LENGTH = CreateConfigVar("ARES_Update_Color_With_Length", "True")
     Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True")
     Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O")
-    
+    Set ARES_ONLY_COLOR = CreateConfigVar("ARES_Only_Color_Update", "True")
     CreateConfigVariables = True
     Exit Function
 
