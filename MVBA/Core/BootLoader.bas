@@ -12,7 +12,6 @@ Public ARESConfig As New ARESConfigClass
 
 ' === PRIVATE OBJECTS ===
 Private moOpenClose As DGNOpenClose
-Private moIdleEventHandler As IdleEventHandler
 Private mbLicenseChecked As Boolean
 Private mbLicenseValid As Boolean
 
@@ -32,7 +31,7 @@ Public Sub OnProjectLoad()
     
     ' Initialize core components in dependency order
     If Not InitializeDGNHandlers() Then Exit Sub
-    If Not InitializeEventHandlers() Then Exit Sub
+    If Not InitializeInitialIdleHandler() Then Exit Sub
     
     Exit Sub
 
@@ -124,20 +123,28 @@ ErrorHandler:
     InitializeDGNHandlers = False
 End Function
 
-' Initialize event handlers
-Private Function InitializeEventHandlers() As Boolean
+' Initialize the INITIAL idle event handler (for project initialization only)
+' Note: IdleHandlers for element processing are created dynamically by ElementChangeHandler
+Private Function InitializeInitialIdleHandler() As Boolean
     On Error GoTo ErrorHandler
     
-    ' Create and register idle event handler
-    Set moIdleEventHandler = New IdleEventHandler
-    AddEnterIdleEventHandler moIdleEventHandler
+    Dim oInitialIdleHandler As IdleEventHandler
     
-    InitializeEventHandlers = True
+    ' Create and register idle event handler for initial project setup
+    ' This handler will:
+    '   1. Set the application caption
+    '   2. Initialize translations
+    '   3. Initialize ARESConfig
+    '   4. Remove itself after execution
+    Set oInitialIdleHandler = New IdleEventHandler
+    AddEnterIdleEventHandler oInitialIdleHandler
+    
+    InitializeInitialIdleHandler = True
     Exit Function
     
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.InitializeEventHandlers"
-    InitializeEventHandlers = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.InitializeInitialIdleHandler"
+    InitializeInitialIdleHandler = False
 End Function
 
 ' Public function to check if license is valid (can be called from other modules)
@@ -174,7 +181,6 @@ Public Sub OnProjectUnload()
     On Error Resume Next
     
     ' Clean up objects in reverse order of initialization
-    Set moIdleEventHandler = Nothing
     Set moOpenClose = Nothing
     Set ElementInProcesse = Nothing
     Set ChangeHandler = Nothing

@@ -14,26 +14,26 @@
 Option Explicit
 
 ' Public function to get and set texts within elements
-Public Function GetSetTextsInEl(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -1) As String()
+Public Function GetSetTextsInEl(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -2) As String()
     On Error GoTo ErrorHandler
-    Dim result() As String
+    Dim Result() As String
     
     ' Determine the type of element and process accordingly
     If Not TextElement.IsLocked Then
         Select Case True
             Case TextElement.IsTextElement
                 ' Process as a single text element
-                result = ProcessTextElement(TextElement, txt, Triggers, Color)
+                Result = ProcessTextElement(TextElement, txt, Triggers, Color)
             Case TextElement.IsTextNodeElement
                 ' Process as a text node element
-                result = ProcessTextNodeElement(TextElement, txt, Triggers, Color)
+                Result = ProcessTextNodeElement(TextElement, txt, Triggers, Color)
             Case TextElement.IsCellElement
                 ' Process as a cell element, which may contain nested elements
-                result = ProcessCellElement(TextElement, txt, Triggers, Color)
+                Result = ProcessCellElement(TextElement, txt, Triggers, Color)
         End Select
     End If
     
-    GetSetTextsInEl = result
+    GetSetTextsInEl = Result
     Exit Function
     
 ErrorHandler:
@@ -45,7 +45,7 @@ ErrorHandler:
 End Function
 
 ' Private function to process a text element
-Private Function ProcessTextElement(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -1) As String()
+Private Function ProcessTextElement(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -2) As String()
     On Error GoTo ErrorHandler
 
     If Triggers = "" And txt = "" Then
@@ -61,7 +61,7 @@ Private Function ProcessTextElement(ByRef TextElement As element, Optional txt A
         Dim oldcolor As Long
         oldcolor = TextElement.Color
         
-        If Color <> -1 Then
+        If Color <> -2 Then
             TextElement.Color = Color
         End If
         OldTxt = TextElement.AsTextElement.text
@@ -91,7 +91,7 @@ ErrorHandler:
 End Function
 
 ' Private function to process a text node element
-Private Function ProcessTextNodeElement(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -1) As String()
+Private Function ProcessTextNodeElement(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -2) As String()
     On Error GoTo ErrorHandler
     
     If Triggers = "" And txt = "" Then
@@ -108,19 +108,19 @@ End Function
 
 ' Helper function to get text lines from a text node element
 Private Function GetTextLines(ByVal TextElement As element) As String()
-    Dim result() As String
+    Dim Result() As String
     Dim i As Long
     
-    ReDim result(TextElement.AsTextNodeElement.TextLinesCount - 1)
-    For i = 0 To UBound(result)
-        result(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
+    ReDim Result(TextElement.AsTextNodeElement.TextLinesCount - 1)
+    For i = 0 To UBound(Result)
+        Result(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
     Next i
     
-    GetTextLines = result
+    GetTextLines = Result
 End Function
 
 ' Helper function to update text lines in a text node element
-Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As String, ByVal Triggers As String, Optional Color As Long = -1) As String()
+Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As String, ByVal Triggers As String, Optional Color As Long = -2) As String()
     Dim i As Long, j As Long
     Dim OldTxts() As String, NewTxts() As String
     Dim SubTxtEnum As ElementEnumerator, SubTxt As TextElement
@@ -139,7 +139,7 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
                 SubTxtEnum.MoveNext
                 Set SubTxt = SubTxtEnum.Current
                 If SubTxt.text <> NewTxts(i) Then
-                    If Color <> -1 And oldcolor <> Color Then
+                    If Color <> -2 And oldcolor <> Color Then
                         TextElement.Color = Color
                         oldcolor = Color
                         TextElement.Rewrite
@@ -147,7 +147,7 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
                     End If
                     SubTxt.text = NewTxts(i)
                     SubTxt.Rewrite
-                    Set TextElement = ActiveModelReference.GetElementByID(TextElement.id)
+                    Set TextElement = ActiveModelReference.GetElementById(TextElement.ID)
                 End If
             Next i
         End If
@@ -171,7 +171,7 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
             SubTxtEnum.MoveNext
             Set SubTxt = SubTxtEnum.Current
             If SubTxt.text <> NewTxts(i) Then
-                If Color <> -1 And oldcolor <> Color Then
+                If Color <> -2 And oldcolor <> Color Then
                     TextElement.Color = Color
                     oldcolor = Color
                     TextElement.Rewrite
@@ -179,7 +179,7 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
                 End If
                 SubTxt.text = NewTxts(i)
                 SubTxt.Rewrite
-                Set TextElement = ActiveModelReference.GetElementByID(TextElement.id)
+                Set TextElement = ActiveModelReference.GetElementById(TextElement.ID)
             End If
         Next i
     End If
@@ -188,12 +188,12 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
 End Function
 
 ' Private function to process a cell element, including nested cells
-Private Function ProcessCellElement(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -1) As String()
+Private Function ProcessCellElement(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -2) As String()
     On Error GoTo ErrorHandler
     Dim ELEnum As ElementEnumerator
-    Dim subel As element
-    Dim result() As String
-    Dim result2() As String
+    Dim subEl As element
+    Dim Result() As String
+    Dim Result2() As String
     Dim oldcolor As Long
     Dim fillcolor As Long
     Dim IsEdited As Boolean
@@ -203,48 +203,48 @@ Private Function ProcessCellElement(ByRef TextElement As element, Optional txt A
     ' Get an enumerator for the sub-elements of the cell
     Set ELEnum = TextElement.AsCellElement.GetSubElements
     Do While ELEnum.MoveNext
-        Set subel = ELEnum.Current
+        Set subEl = ELEnum.Current
         ' Determine the type of sub-element and process accordingly
         Select Case True
-            Case subel.IsTextElement
-                result2 = GetSetTextsInEl(subel)
-                result = ProcessTextElement(subel, txt, Triggers, Color)
-                For i = 0 To UBound(result)
-                    If result2(i) <> result(i) Then
+            Case subEl.IsTextElement
+                Result2 = GetSetTextsInEl(subEl)
+                Result = ProcessTextElement(subEl, txt, Triggers, Color)
+                For i = 0 To UBound(Result)
+                    If Result2(i) <> Result(i) Then
                         IsEdited = True
                     End If
                 Next i
-            Case subel.IsTextNodeElement
-                result2 = GetSetTextsInEl(subel)
-                result = ProcessTextNodeElement(subel, txt, Triggers, Color)
-                For i = 0 To UBound(result)
-                    If result2(i) <> result(i) Then
+            Case subEl.IsTextNodeElement
+                Result2 = GetSetTextsInEl(subEl)
+                Result = ProcessTextNodeElement(subEl, txt, Triggers, Color)
+                For i = 0 To UBound(Result)
+                    If Result2(i) <> Result(i) Then
                         IsEdited = True
                     End If
                 Next i
-            Case subel.IsCellElement
+            Case subEl.IsCellElement
                 ' Recursively process nested cells
-                result2 = GetSetTextsInEl(subel)
-                result = ProcessCellElement(subel, txt, Triggers, Color)
-                For i = 0 To UBound(result)
-                    If result2(i) <> result(i) Then
+                Result2 = GetSetTextsInEl(subEl)
+                Result = ProcessCellElement(subEl, txt, Triggers, Color)
+                For i = 0 To UBound(Result)
+                    If Result2(i) <> Result(i) Then
                         IsEdited = True
                     End If
                 Next i
         End Select
-        If subel.Color = oldcolor And Color <> -1 And Color <> oldcolor Then
-            If subel.IsShapeElement Then
-                If subel.AsShapeElement.FillMode = 2 Then
-                    fillcolor = subel.AsShapeElement.fillcolor
-                    subel.AsShapeElement.Color = Color
-                    subel.AsShapeElement.fillcolor = fillcolor
+        If subEl.Color = oldcolor And Color <> -2 And Color <> oldcolor Then
+            If subEl.IsShapeElement Then
+                If subEl.AsShapeElement.FillMode = 2 Then
+                    fillcolor = subEl.AsShapeElement.fillcolor
+                    subEl.AsShapeElement.Color = Color
+                    subEl.AsShapeElement.fillcolor = fillcolor
                 Else
-                    subel.AsShapeElement.Color = Color
+                    subEl.AsShapeElement.Color = Color
                 End If
             Else
-                subel.Color = Color
+                subEl.Color = Color
             End If
-            subel.Rewrite
+            subEl.Rewrite
         End If
     Loop
     
@@ -252,7 +252,7 @@ Private Function ProcessCellElement(ByRef TextElement As element, Optional txt A
         CellRedreaw.ATLASCellLabelUpdate TextElement
     End If
     ' Return the result of processing the cell element
-    ProcessCellElement = result
+    ProcessCellElement = Result
     Exit Function
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "StringsInEl.ProcessCellElement"

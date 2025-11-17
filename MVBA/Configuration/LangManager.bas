@@ -47,8 +47,9 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_AutoLengthsGUIInvalidSelectedElement", "The selected item is invalid."
     mTranslations.Add "EN_AutoLengthsGUISelectElementsCaption", "Select:"
     mTranslations.Add "EN_AutoLengthsGUIOptionsCaption", "Edit auto lengths options:"
-    mTranslations.Add "EN_AutoLengthsGUIOptionsMain_LabelCaption", "Enable auto Lenght"
-    mTranslations.Add "EN_AutoLengthsGUIOptionsColor_LabelCaption", "Enable color update"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsMain_LabelCaption", "Enable auto lenght"
+    mTranslations.Add "EN_AutoLengthsGUIOptionsColor_LabelCaption", "Update color."
+    mTranslations.Add "EN_AutoLengthsGUIOptionsOnly_Color_LabelCaption", "Update color without lenght."
     mTranslations.Add "EN_AutoLengthsGUIOptionsCell_LabelCaption", "Enable ATLAS cell update"
     mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Trigger_CommandCaption", "Edit value {0}"
     mTranslations.Add "EN_AutoLengthsGUIOptionsEdit_Triggers_List_CommandCaption", "Edit triggers list"
@@ -111,7 +112,8 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_AutoLengthsGUISelectElementsCaption", "Sélectionner:"
     mTranslations.Add "FR_AutoLengthsGUIOptionsCaption", "Modifier les options de longueurs automatiques :"
     mTranslations.Add "FR_AutoLengthsGUIOptionsMain_LabelCaption", "Activer les longueurs auto."
-    mTranslations.Add "FR_AutoLengthsGUIOptionsColor_LabelCaption", "Activer la MAJ de la couleur"
+    mTranslations.Add "FR_AutoLengthsGUIOptionsColor_LabelCaption", "MAJ de la couleur."
+    mTranslations.Add "FR_AutoLengthsGUIOptionsOnly_Color_LabelCaption", "MAJ de la couleur sans longueur."
     mTranslations.Add "FR_AutoLengthsGUIOptionsCell_LabelCaption", "Activer la MAJ des cellules ATLAS"
     mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Trigger_CommandCaption", "Editer la valeur {0}"
     mTranslations.Add "FR_AutoLengthsGUIOptionsEdit_Triggers_List_CommandCaption", "Editer la liste des déclencheurs"
@@ -159,16 +161,16 @@ End Sub
 
 ' Get translation for specified key with optional parameter substitution
 ' Returns localized string based on user language preference
-Public Function GetTranslation(StrKey As String, ParamArray params() As Variant) As String
+Public Function GetTranslation(strKey As String, ParamArray params() As Variant) As String
     On Error GoTo ErrorHandler
     
     ' Validate inputs
     If Not IsInit Then
-        GetTranslation = "[Translation system not initialized] " & StrKey
+        GetTranslation = "[Translation system not initialized] " & strKey
         Exit Function
     End If
     
-    If Len(Trim(StrKey)) = 0 Then
+    If Len(Trim(strKey)) = 0 Then
         GetTranslation = "[Empty translation key]"
         Exit Function
     End If
@@ -178,19 +180,19 @@ Public Function GetTranslation(StrKey As String, ParamArray params() As Variant)
     Dim i As Long
     
     ' Construct language-specific key
-    strBaseKey = UCase(Left(mUserLanguage, 2)) & "_" & StrKey
+    strBaseKey = UCase(Left(mUserLanguage, 2)) & "_" & strKey
     
     ' Try to find translation in user's language
     If mTranslations.Exists(strBaseKey) Then
         strTranslatedText = mTranslations(strBaseKey)
     Else
         ' Fallback to English if user language not available
-        strBaseKey = "EN_" & StrKey
+        strBaseKey = "EN_" & strKey
         If mTranslations.Exists(strBaseKey) Then
             strTranslatedText = mTranslations(strBaseKey)
         Else
             ' Last resort: return error message with key
-            GetTranslation = "[Missing translation: " & StrKey & "]"
+            GetTranslation = "[Missing translation: " & strKey & "]"
             Exit Function
         End If
     End If
@@ -207,7 +209,7 @@ Public Function GetTranslation(StrKey As String, ParamArray params() As Variant)
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetTranslation"
-    GetTranslation = "[Translation error for: " & StrKey & "]"
+    GetTranslation = "[Translation error for: " & strKey & "]"
 End Function
 
 ' Determine user's preferred language from various sources
