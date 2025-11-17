@@ -4,6 +4,8 @@
 ' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, ConfigurationUI
 Option Explicit
 
+Private moAutoLengthsGUI As AutoLengths_GUI_Options
+
 ' === AUTO LENGTHS COMMANDS ===
 
 ' Sub to call CommandState for manual update length in string
@@ -110,8 +112,13 @@ Sub EditAutoLengthsOptions()
     
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
     
-    Dim frm As New AutoLengths_GUI_Options
-    frm.Show vbModeless
+    ' Create form only if it doesn't exist
+    If moAutoLengthsGUI Is Nothing Then
+        Set moAutoLengthsGUI = New AutoLengths_GUI_Options
+    End If
+    
+    ' Show will bring to front if already visible
+    moAutoLengthsGUI.Show vbModeless
     
     Exit Sub
     
@@ -196,4 +203,9 @@ ErrorHandler:
     Else
         ShowStatus "Failed to open ARES wiki: " & Err.Description
     End If
+End Sub
+
+' Called from UserForm_QueryClose when form closes
+Public Sub OnAutoLengthsGUIClosed()
+    Set moAutoLengthsGUI = Nothing
 End Sub
