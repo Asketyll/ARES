@@ -142,6 +142,43 @@ namespace AresInstaller
                 return false;
             }
 
+            try
+            {
+                // Get FileVersionInfo from both files
+                var sourceVersion = FileVersionInfo.GetVersionInfo(sourceFile);
+                var targetVersion = FileVersionInfo.GetVersionInfo(targetFile);
+
+                // Compare FileVersion (or ProductVersion as fallback)
+                var sourceVer = sourceVersion.FileVersion ?? sourceVersion.ProductVersion;
+                var targetVer = targetVersion.FileVersion ?? targetVersion.ProductVersion;
+
+                if (string.IsNullOrEmpty(sourceVer) || string.IsNullOrEmpty(targetVer))
+                {
+                    // If no version info, fallback to filename-based comparison
+                    return IsSameVersionFromFilename(sourceFile, targetFile);
+                }
+
+                return sourceVer.Equals(targetVer, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (FileNotFoundException ex)
+            {
+                LogMessage($"Version file not found: {ex.Message}");
+                return IsSameVersionFromFilename(sourceFile, targetFile);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                LogMessage($"Access denied reading version info: {ex.Message}");
+                return IsSameVersionFromFilename(sourceFile, targetFile);
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Error reading version info: {ex.Message}");
+                return IsSameVersionFromFilename(sourceFile, targetFile);
+            }
+        }
+
+        private bool IsSameVersionFromFilename(string sourceFile, string targetFile)
+        {
             var sourceVersion = ExtractVersionFromFilename(sourceFile);
             var targetVersion = ExtractVersionFromFilename(targetFile);
 
@@ -157,17 +194,38 @@ namespace AresInstaller
         {
             try
             {
-                var searchPattern = $"{dllBaseName}-*.dll";
-                var existingFiles = Directory.GetFiles(DLL_PATH, searchPattern);
-
-                if (existingFiles.Length > 0)
+                if (!Directory.Exists(DLL_PATH))
                 {
-                    return existingFiles[0];
+                    return null;
+                }
+
+                var searchPatterns = new[]
+                {
+            $"{dllBaseName}.dll",           // Exact match: AresLicenseValidator.dll
+            $"{dllBaseName}-*.dll"          // Versioned: AresLicenseValidator-1.0.0.dll
+        };
+
+                foreach (var pattern in searchPatterns)
+                {
+                    var files = Directory.GetFiles(DLL_PATH, pattern);
+
+                    if (files.Length > 0)
+                    {
+                        return files[0];
+                    }
                 }
             }
-            catch
+            catch (UnauthorizedAccessException ex)
             {
-                // Ignore errors
+                LogMessage($"Access denied while searching for DLL: {ex.Message}");
+            }
+            catch (IOException ex)
+            {
+                LogMessage($"IO error while searching for DLL: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Unexpected error while searching for DLL: {ex.Message}");
             }
 
             return null;
@@ -928,6 +986,7 @@ namespace AresInstaller
             var dllBaseName = fileNameWithoutExt;
 
             var lastDashIndex = fileNameWithoutExt.LastIndexOf('-');
+
             if (lastDashIndex > 0)
             {
                 dllBaseName = fileNameWithoutExt.Substring(0, lastDashIndex);
@@ -937,7 +996,10 @@ namespace AresInstaller
 
             if (!string.IsNullOrEmpty(existingDll))
             {
-                if (lastDashIndex > 0 && IsSameVersion(sourceDll, existingDll))
+                // Check version
+                bool sameVersion = IsSameVersion(sourceDll, existingDll);
+
+                if (sameVersion)
                 {
                     LogMessage(Translations.Get("SameVersionInstalled", currentLanguage));
                     return;
@@ -947,7 +1009,8 @@ namespace AresInstaller
                     $"{Path.GetFileName(existingDll)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
 
                 File.Move(existingDll, backupPath);
-                LogMessage(Translations.Format("BackedUpOldVersion", currentLanguage, Path.GetFileName(backupPath)));
+                LogMessage(Translations.Format("BackedUpOldVersion", currentLanguage,
+                    Path.GetFileName(backupPath)));
 
                 var existingTlb = Path.ChangeExtension(existingDll, ".tlb");
                 if (File.Exists(existingTlb))
@@ -955,16 +1018,19 @@ namespace AresInstaller
                     var tlbBackupPath = Path.Combine(INSTALL_PATH, "Backup",
                         $"{Path.GetFileName(existingTlb)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
                     File.Move(existingTlb, tlbBackupPath);
-                    LogMessage(Translations.Format("BackedUpOldTLB", currentLanguage, Path.GetFileName(tlbBackupPath)));
+                    LogMessage(Translations.Format("BackedUpOldTLB", currentLanguage,
+                        Path.GetFileName(tlbBackupPath)));
                 }
             }
 
             var targetDll = Path.Combine(DLL_PATH, dllFileName);
+
             File.Copy(sourceDll, targetDll, true);
 
             if (File.Exists(targetDll))
             {
-                LogMessage(Translations.Format("CopiedDLL", currentLanguage, dllFileName, new FileInfo(targetDll).Length));
+                LogMessage(Translations.Format("CopiedDLL", currentLanguage, dllFileName,
+                    new FileInfo(targetDll).Length));
             }
             else
             {
@@ -979,11 +1045,38 @@ namespace AresInstaller
 
                 if (File.Exists(targetTlb))
                 {
-                    LogMessage(Translations.Format("CopiedTLB", currentLanguage, Path.GetFileName(sourceTlb)));
+                    LogMessage(Translations.Format("CopiedTLB", currentLanguage,
+                        Path.GetFileName(sourceTlb)));
                 }
             }
 
             await Task.Delay(100);
+        }
+        private void LogVersionInfo(string sourceFile, string existingFile, string backupPath = null)
+        {
+            try
+            {
+                var sourceVersion = FileVersionInfo.GetVersionInfo(sourceFile);
+                var existingVersion = FileVersionInfo.GetVersionInfo(existingFile);
+
+                var sourceVer = sourceVersion.FileVersion ?? sourceVersion.ProductVersion ?? "Unknown";
+                var existingVer = existingVersion.FileVersion ?? existingVersion.ProductVersion ?? "Unknown";
+
+                if (backupPath != null)
+                {
+                    // Version upgrade
+                    LogMessage($"  Version change: {existingVer} → {sourceVer}");
+                }
+                else
+                {
+                    // Same version
+                    LogMessage($"  Current version: {sourceVer}");
+                }
+            }
+            catch
+            {
+                // Ignore logging errors
+            }
         }
 
         private async Task RegisterSingleDLL(string dllPath)
