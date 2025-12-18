@@ -116,30 +116,25 @@ Private Function GetOrCreateLevel(ByVal LevelName As String, _
     On Error GoTo ErrorHandler
 
     Dim Level As Level
-    Dim LevelTable As Levels
 
     Set GetOrCreateLevel = Nothing
 
-    ' Get the level table from the active design file
-    Set LevelTable = ActiveDesignFile.Levels
+    ' Check if level exists
+    If Not GetElements.IsValidLevelName(LevelName) Then
+        ' Level doesn't exist, create it
+        Set Level = ActiveDesignFile.AddNewLevel(LevelName)
 
-    ' Try to find the level by name
-    On Error Resume Next
-    Set Level = LevelTable.Find(LevelName)
-    On Error GoTo ErrorHandler
+        ' Set level properties
+        Level.ElementColor = Color
+        Level.ElementLineStyle = Style
+        Level.ElementLineWeight = Weight
 
-    ' If level doesn't exist, log error and return Nothing
-    If Level Is Nothing Then
-        ErrorHandler.HandleError "Level '" & LevelName & "' does not exist. Please create it manually first.", 0, "Zoning.GetOrCreateLevel", "ERROR"
-        Set GetOrCreateLevel = Nothing
-        Exit Function
+        ' Save changes
+        ActiveDesignFile.Levels.Rewrite
+    Else
+        ' Level exists, get it
+        Set Level = ActiveDesignFile.Levels(LevelName)
     End If
-
-    ' Level exists, optionally update its properties
-    ' (Only if you want to override existing level properties)
-    ' Level.ElementColor = Color
-    ' Level.ElementLineStyle = Style
-    ' Level.ElementLineWeight = Weight
 
     Set GetOrCreateLevel = Level
 
