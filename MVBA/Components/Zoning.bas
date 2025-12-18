@@ -153,7 +153,7 @@ End Function
 '       - Option 1: Use MicroStation OFFSET command via CommandState
 '       - Option 2: Use Element.ConstructOffset() API if available
 '       - Option 3: Manual geometric calculation
-Private Function CreateBufferAroundElement(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateBufferAroundElement(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Dim BufferedElement As Element
@@ -224,7 +224,7 @@ ErrorHandler:
 End Function
 
 ' Function to create buffer from element's bounding box
-Private Function CreateBufferFromBoundingBox(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateBufferFromBoundingBox(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Dim Rng As Range3d
@@ -274,7 +274,7 @@ ErrorHandler:
 End Function
 
 ' Function to create buffer with arc corners for linear elements
-Private Function CreateBufferWithArcs(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateBufferWithArcs(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateBufferWithArcs = Nothing
@@ -308,7 +308,7 @@ ErrorHandler:
 End Function
 
 ' Function to create symmetric buffer for curved elements
-Private Function CreateSymmetricCurveBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateSymmetricCurveBuffer(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateSymmetricCurveBuffer = Nothing
@@ -345,7 +345,7 @@ End Function
 ' === GEOMETRIC BUFFER CREATION FUNCTIONS ===
 
 ' Create buffer around a line element
-Private Function CreateLineBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateLineBuffer(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateLineBuffer = Nothing
@@ -439,7 +439,7 @@ ErrorHandler:
 End Function
 
 ' Create buffer around polyline/shape element
-Private Function CreatePolylineBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreatePolylineBuffer(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreatePolylineBuffer = Nothing
@@ -463,7 +463,7 @@ ErrorHandler:
 End Function
 
 ' Create buffer around complex element
-Private Function CreateComplexBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateComplexBuffer(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateComplexBuffer = Nothing
@@ -482,7 +482,7 @@ ErrorHandler:
 End Function
 
 ' Create buffer around arc element
-Private Function CreateArcBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateArcBuffer(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateArcBuffer = Nothing
@@ -523,7 +523,7 @@ ErrorHandler:
 End Function
 
 ' Create buffer around ellipse element
-Private Function CreateEllipseBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+Private Function CreateEllipseBuffer(ByVal El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateEllipseBuffer = Nothing
@@ -634,7 +634,7 @@ ErrorHandler:
 End Function
 
 ' Function to check if an element is a raster type
-Private Function IsRasterElement(ByRef El As Element) As Boolean
+Private Function IsRasterElement(ByVal El As Element) As Boolean
     On Error GoTo ErrorHandler
 
     Dim ElType As MsdElementType
