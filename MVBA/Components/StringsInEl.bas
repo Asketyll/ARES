@@ -4,12 +4,12 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, CellRedreaw
 
-                    'Color Property is eras if y use TextLine Write Property
+                    'Color Property is erased if you use TextLine Write Property
                     'Using TextLine is not recommended. This feature has been buggy for 20 years and has numerous technical limitations not
                     'stated in Bentley's technical documentation. For example, if the TextNodeElement is in a cell, TextLine Property doesn't work.
                     'My workaround is to treat the TextNodeElement as a cell composed of TextElements.
                     'You need to create an ElementEnumerator and GetSubElements to interact directly with the sub-elements.
-                    'or .color Property to get befor change and set color of TextNodeElement befor Rewrite
+                    'or .color Property to get before change and set color of TextNodeElement before Rewrite
 
 Option Explicit
 
