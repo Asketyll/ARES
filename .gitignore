@@ -1,7 +1,6 @@
 # Claude Code configuration files - keep locally but not in repository
 .claude/
 docs/
-CLAUDE.md
 
 # Visual Studio
 .vs/
