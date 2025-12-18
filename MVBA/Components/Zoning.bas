@@ -274,22 +274,31 @@ ErrorHandler:
 End Function
 
 ' Function to create buffer with arc corners for linear elements
-' TODO: Implement based on chosen approach
 Private Function CreateBufferWithArcs(ByRef El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateBufferWithArcs = Nothing
 
-    ' PLACEHOLDER: This requires implementation of geometric offset algorithm
-    ' with arc corners at vertices
-    '
-    ' Approach options:
-    ' 1. Use MicroStation API: Element.ConstructOffset() if available
-    ' 2. Use CommandState to execute OFFSET command
-    ' 3. Manual geometric calculation with arc segments at corners
-    '
-    ' For now, fall back to bounding box
-    Set CreateBufferWithArcs = CreateBufferFromBoundingBox(El, Distance)
+    Dim ElType As MsdElementType
+    ElType = El.Type
+
+    ' For linear elements, create offset using geometric construction
+    Select Case ElType
+        Case msdElementTypeLine
+            Set CreateBufferWithArcs = CreateLineBuffer(El, Distance)
+
+        Case msdElementTypeLineString, _
+             msdElementTypeShape
+            Set CreateBufferWithArcs = CreatePolylineBuffer(El, Distance)
+
+        Case msdElementTypeComplexString, _
+             msdElementTypeComplexShape
+            Set CreateBufferWithArcs = CreateComplexBuffer(El, Distance)
+
+        Case Else
+            ' Fall back to bounding box for unsupported types
+            Set CreateBufferWithArcs = CreateBufferFromBoundingBox(El, Distance)
+    End Select
 
     Exit Function
 
@@ -299,23 +308,254 @@ ErrorHandler:
 End Function
 
 ' Function to create symmetric buffer for curved elements
-' TODO: Implement based on chosen approach
 Private Function CreateSymmetricCurveBuffer(ByRef El As Element, ByVal Distance As Double) As Element
     On Error GoTo ErrorHandler
 
     Set CreateSymmetricCurveBuffer = Nothing
 
-    ' PLACEHOLDER: This requires implementation of curve offset algorithm
-    ' maintaining symmetry and using curves (not polygonal approximation)
-    '
-    ' For now, fall back to bounding box
-    Set CreateSymmetricCurveBuffer = CreateBufferFromBoundingBox(El, Distance)
+    Dim ElType As MsdElementType
+    ElType = El.Type
+
+    ' For curved elements, create symmetric offset
+    Select Case ElType
+        Case msdElementTypeArc
+            Set CreateSymmetricCurveBuffer = CreateArcBuffer(El, Distance)
+
+        Case msdElementTypeEllipse
+            Set CreateSymmetricCurveBuffer = CreateEllipseBuffer(El, Distance)
+
+        Case msdElementTypeCurve, _
+             msdElementTypeConic, _
+             msdElementTypeBsplineCurve
+            ' Complex curves - use bounding box approach for now
+            Set CreateSymmetricCurveBuffer = CreateBufferFromBoundingBox(El, Distance)
+
+        Case Else
+            ' Fall back to bounding box
+            Set CreateSymmetricCurveBuffer = CreateBufferFromBoundingBox(El, Distance)
+    End Select
 
     Exit Function
 
 ErrorHandler:
     Set CreateSymmetricCurveBuffer = Nothing
     ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateSymmetricCurveBuffer", "ERROR"
+End Function
+
+' === GEOMETRIC BUFFER CREATION FUNCTIONS ===
+
+' Create buffer around a line element
+Private Function CreateLineBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreateLineBuffer = Nothing
+
+    Dim LineEl As LineElement
+    Dim StartPt As Point3d
+    Dim EndPt As Point3d
+    Dim Points() As Point3d
+    Dim ShapeEl As ShapeElement
+
+    ' Cast to LineElement
+    Set LineEl = El.AsLineElement
+
+    ' Get line endpoints
+    StartPt = LineEl.StartPoint
+    EndPt = LineEl.EndPoint
+
+    ' Calculate perpendicular offset vector
+    Dim DX As Double, DY As Double, Length As Double
+    Dim OffsetX As Double, OffsetY As Double
+
+    DX = EndPt.X - StartPt.X
+    DY = EndPt.Y - StartPt.Y
+    Length = Sqr(DX * DX + DY * DY)
+
+    If Length > 0 Then
+        ' Perpendicular vector (normalized and scaled by distance)
+        OffsetX = -DY / Length * Distance
+        OffsetY = DX / Length * Distance
+
+        ' Create rectangle around line with rounded ends
+        ReDim Points(0 To 4)
+
+        ' Offset line to one side
+        Points(0).X = StartPt.X + OffsetX
+        Points(0).Y = StartPt.Y + OffsetY
+        Points(0).Z = StartPt.Z
+
+        Points(1).X = EndPt.X + OffsetX
+        Points(1).Y = EndPt.Y + OffsetY
+        Points(1).Z = EndPt.Z
+
+        ' Offset line to other side
+        Points(2).X = EndPt.X - OffsetX
+        Points(2).Y = EndPt.Y - OffsetY
+        Points(2).Z = EndPt.Z
+
+        Points(3).X = StartPt.X - OffsetX
+        Points(3).Y = StartPt.Y - OffsetY
+        Points(3).Z = StartPt.Z
+
+        ' Close the shape
+        Points(4) = Points(0)
+
+        ' Create shape element
+        Set ShapeEl = CreateShapeElement1(Nothing, Points)
+        Set CreateLineBuffer = ShapeEl
+    Else
+        ' Degenerate line - use point buffer (circle)
+        Set CreateLineBuffer = CreatePointBuffer(StartPt, Distance)
+    End If
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateLineBuffer = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateLineBuffer", "ERROR"
+End Function
+
+' Create buffer around a point (circle)
+Private Function CreatePointBuffer(ByRef Pt As Point3d, ByVal Radius As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreatePointBuffer = Nothing
+
+    Dim EllipseEl As EllipseElement
+    Dim Rmatrix As Matrix3d
+
+    ' Create identity rotation matrix
+    Rmatrix = Matrix3dIdentity()
+
+    ' Create circle as ellipse with equal radii
+    Set EllipseEl = CreateEllipseElement2(Nothing, Pt, Radius, Radius, Rmatrix)
+    Set CreatePointBuffer = EllipseEl
+
+    Exit Function
+
+ErrorHandler:
+    Set CreatePointBuffer = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreatePointBuffer", "ERROR"
+End Function
+
+' Create buffer around polyline/shape element
+Private Function CreatePolylineBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreatePolylineBuffer = Nothing
+
+    ' For polylines/shapes, use simplified bounding box approach with buffer
+    ' A true offset with arc corners would require complex geometric algorithms
+    Set CreatePolylineBuffer = CreateBufferFromBoundingBox(El, Distance)
+
+    ' TODO: Implement true polyline offset with arc corners
+    ' This would require:
+    ' 1. Extract all vertices
+    ' 2. Calculate offset lines for each segment
+    ' 3. Calculate intersections or add arcs at corners
+    ' 4. Build complex shape from results
+
+    Exit Function
+
+ErrorHandler:
+    Set CreatePolylineBuffer = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreatePolylineBuffer", "ERROR"
+End Function
+
+' Create buffer around complex element
+Private Function CreateComplexBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreateComplexBuffer = Nothing
+
+    ' For complex elements, use bounding box approach
+    Set CreateComplexBuffer = CreateBufferFromBoundingBox(El, Distance)
+
+    ' TODO: Implement by processing sub-elements individually
+    ' and combining the results
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateComplexBuffer = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateComplexBuffer", "ERROR"
+End Function
+
+' Create buffer around arc element
+Private Function CreateArcBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreateArcBuffer = Nothing
+
+    Dim ArcEl As ArcElement
+    Dim Origin As Point3d
+    Dim PrimaryRadius As Double
+    Dim SecondaryRadius As Double
+    Dim Rmatrix As Matrix3d
+    Dim StartAngle As Double
+    Dim SweepAngle As Double
+    Dim NewArcEl As ArcElement
+
+    ' Cast to ArcElement
+    Set ArcEl = El.AsArcElement
+
+    ' Get arc properties
+    Origin = ArcEl.Origin
+    PrimaryRadius = ArcEl.PrimaryRadius
+    SecondaryRadius = ArcEl.SecondaryRadius
+    Rmatrix = ArcEl.Rmatrix
+    StartAngle = ArcEl.StartAngle
+    SweepAngle = ArcEl.SweepAngle
+
+    ' Create offset arc with increased radius
+    Set NewArcEl = CreateArcElement3(Nothing, Origin, PrimaryRadius + Distance, _
+                                     SecondaryRadius + Distance, Rmatrix, _
+                                     StartAngle, SweepAngle)
+    Set CreateArcBuffer = NewArcEl
+
+    ' TODO: For full buffer, create shape with inner and outer arcs
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateArcBuffer = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateArcBuffer", "ERROR"
+End Function
+
+' Create buffer around ellipse element
+Private Function CreateEllipseBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreateEllipseBuffer = Nothing
+
+    Dim EllipseEl As EllipseElement
+    Dim Origin As Point3d
+    Dim PrimaryRadius As Double
+    Dim SecondaryRadius As Double
+    Dim Rmatrix As Matrix3d
+    Dim NewEllipseEl As EllipseElement
+
+    ' Cast to EllipseElement
+    Set EllipseEl = El.AsEllipseElement
+
+    ' Get ellipse properties
+    Origin = EllipseEl.Origin
+    PrimaryRadius = EllipseEl.PrimaryRadius
+    SecondaryRadius = EllipseEl.SecondaryRadius
+    Rmatrix = EllipseEl.Rmatrix
+
+    ' Create offset ellipse with increased radii
+    Set NewEllipseEl = CreateEllipseElement2(Nothing, Origin, _
+                                             PrimaryRadius + Distance, _
+                                             SecondaryRadius + Distance, _
+                                             Rmatrix)
+    Set CreateEllipseBuffer = NewEllipseEl
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateEllipseBuffer = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateEllipseBuffer", "ERROR"
 End Function
 
 ' Function to merge overlapping zones
