@@ -1,205 +1,247 @@
 Attribute VB_Name = "GetElements"
 ' Module: GetElements
-' Description: This module provides functions to validate levels and retrieve elements from MicroStation.
+' Description: This module provides functions to get ElementEnumerator
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ErrorHandlerClass, MicroStationDefinition, ARESConstants
+' Dependencies: ErrorHandlerClass, ARESConstants, MicroStationDefinition
 Option Explicit
 
-' === PUBLIC FUNCTIONS ===
-
-' Function to validate if a level name exists in the active design file
-Public Function IsValidLevelName(ByVal LevelName As String) As Boolean
+Public Function ByEE(Optional Levels As Variant, Optional Range As Variant, Optional CellName As String = Empty, Optional GraphicGroup As Long = -1, Optional AllowNoGraphicGroup As Boolean = False, Optional ElTypes As Variant, Optional Colors As Variant, Optional LineStyles As Variant, Optional LineWeights As Variant) As ElementEnumerator
     On Error GoTo ErrorHandler
 
-    Dim Level As Level
-    Dim LevelTable As Levels
+    Dim ByLevel As Boolean
+    Dim ByRange As Boolean
+    Dim ByCellName As Boolean
+    Dim ByGG As Boolean
+    Dim ByType As Boolean
+    Dim ByColor As Boolean
+    Dim ByLineStyle As Boolean
+    Dim ByLineWeight As Boolean
+    Dim oLevel() As Level
+    Dim oLineStyle() As LineStyle
+    Dim oElType() As MsdElementType
+    Dim oColor() As Long
+    Dim oLineWeight() As Long
+    ReDim oLevel(0)
+    ReDim oLineStyle(0)
+    ReDim oElType(0)
+    ReDim oColor(0)
+    ReDim oLineWeight(0)
+    Dim oRange As Range3d
+    Dim i As Integer
+    Dim esc As New ElementScanCriteria
 
-    IsValidLevelName = False
-
-    ' Check if there is an active model reference
-    If Not Application.HasActiveModelReference Then
-        ErrorHandler.HandleError "No active model reference", 0, "GetElements.IsValidLevelName", "WARNING"
+    If Not IsMissing(Levels) Then
+        ByLevel = True
+    End If
+    If Not IsMissing(Range) Then
+        ByRange = True
+    End If
+    If CellName <> "" Then
+        ByCellName = True
+    End If
+    If GraphicGroup <> -1 Then
+        ByGG = True
+    End If
+    If Not IsMissing(ElTypes) Then
+        ByType = True
+    End If
+    If Not IsMissing(Colors) Then
+        ByColor = True
+    End If
+    If Not IsMissing(LineStyles) Then
+        ByLineStyle = True
+    End If
+    If Not IsMissing(LineWeights) Then
+        ByLineWeight = True
+    End If
+    If Not ByLevel And Not ByRange And Not ByCellName And Not ByGG And Not ByType And Not ByColor And Not ByLineStyle And Not ByLineWeight Then
+        Set ByEE = ActiveModelReference.Scan(esc)
         Exit Function
     End If
 
-    ' Get the level table from the active design file
-    Set LevelTable = ActiveDesignFile.Levels
+    ' Process Levels parameter
+    If ByLevel Then
+        esc.ExcludeAllLevels
+        If IsArray(Levels) Then
+            For i = LBound(Levels) To UBound(Levels)
+                If IsValidLevelName(Levels(i)) Then
+                    If oLevel(UBound(oLevel)) Is Nothing Then
+                        Set oLevel(UBound(oLevel)) = ActiveDesignFile.Levels(Levels(i))
+                    Else
+                        ReDim Preserve oLevel(UBound(oLevel) + 1)
+                        Set oLevel(UBound(oLevel)) = ActiveDesignFile.Levels(Levels(i))
+                    End If
+                End If
+            Next i
+        Else
+            If IsValidLevelName(Levels) Then
+                Set oLevel(0) = ActiveDesignFile.Levels(Levels)
+            End If
+        End If
+        If Not oLevel(UBound(oLevel)) Is Nothing Then
+            For i = LBound(oLevel) To UBound(oLevel)
+                esc.IncludeLevel oLevel(i)
+            Next i
+        End If
+    End If
 
-    ' Try to find the level by name
-    On Error Resume Next
-    Set Level = LevelTable.Find(LevelName)
+    If ByRange Then
+        oRange = Range
+        esc.IncludeOnlyWithinRange oRange
+    End If
 
-    ' If no error occurred and level is not Nothing, the level exists
-    If Err.Number = 0 And Not Level Is Nothing Then
+    If ByCellName Then
+        esc.IncludeOnlyCell CellName
+        esc.ExcludeAllTypes
+        esc.IncludeType msdElementTypeCellHeader
+    End If
+
+    If ByGG Then
+        ' Check if GraphicGroup is 0 when AllowNoGraphicGroup is False
+        If GraphicGroup = ARESConstants.ARES_DEFAULT_GRAPHIC_GROUP_ID And Not AllowNoGraphicGroup Then
+            ' Skip graphic group filter
+        Else
+            esc.IncludeOnlyGraphicGroup GraphicGroup
+        End If
+    End If
+
+    ' Process ElTypes parameter
+    If ByType Then
+        If Not ByCellName Then
+            esc.ExcludeAllTypes
+        End If
+        If IsArray(ElTypes) Then
+            For i = LBound(ElTypes) To UBound(ElTypes)
+                If MicroStationDefinition.IsValidElementType(ElTypes(i)) Then
+                    If oElType(UBound(oElType)) = 0 Then
+                        oElType(UBound(oElType)) = ElTypes(i)
+                    Else
+                        ReDim Preserve oElType(UBound(oElType) + 1)
+                        oElType(UBound(oElType)) = ElTypes(i)
+                    End If
+                End If
+            Next i
+        Else
+            If MicroStationDefinition.IsValidElementType(ElTypes) Then
+                oElType(0) = ElTypes
+            End If
+        End If
+        If oElType(UBound(oElType)) <> 0 Then
+            For i = LBound(oElType) To UBound(oElType)
+                esc.IncludeType oElType(i)
+            Next i
+        End If
+    End If
+
+    ' Process Colors parameter
+    If ByColor Then
+        esc.ExcludeAllColors
+        If IsArray(Colors) Then
+            For i = LBound(Colors) To UBound(Colors)
+                esc.IncludeColor Colors(i)
+            Next i
+        Else
+            esc.IncludeColor Colors
+        End If
+    End If
+
+    ' Process LineStyles parameter
+    If ByLineStyle Then
+        esc.ExcludeAllLineStyles
+        If IsArray(LineStyles) Then
+            For i = LBound(LineStyles) To UBound(LineStyles)
+                If IsValidLineStyleName(LineStyles(i)) Then
+                    If oLineStyle(UBound(oLineStyle)) Is Nothing Then
+                        Set oLineStyle(UBound(oLineStyle)) = ActiveDesignFile.LineStyles(LineStyles(i))
+                    Else
+                        ReDim Preserve oLineStyle(UBound(oLineStyle) + 1)
+                        Set oLineStyle(UBound(oLineStyle)) = ActiveDesignFile.LineStyles(LineStyles(i))
+                    End If
+                End If
+            Next i
+        Else
+            If IsValidLineStyleName(LineStyles) Then
+                Set oLineStyle(0) = ActiveDesignFile.LineStyles(LineStyles)
+            End If
+        End If
+        If Not oLineStyle(UBound(oLineStyle)) Is Nothing Then
+            For i = LBound(oLineStyle) To UBound(oLineStyle)
+                esc.IncludeLineStyle oLineStyle(i)
+            Next i
+        End If
+    End If
+
+    ' Process LineWeights parameter
+    If ByLineWeight Then
+        esc.ExcludeAllLineWeights
+        If IsArray(LineWeights) Then
+            For i = LBound(LineWeights) To UBound(LineWeights)
+                esc.IncludeLineWeight LineWeights(i)
+            Next i
+        Else
+            esc.IncludeLineWeight LineWeights
+        End If
+    End If
+
+    Set ByEE = ActiveModelReference.Scan(esc)
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "GetElements.ByEE"
+    Dim esc2 As New ElementScanCriteria
+    esc2.ExcludeAllTypes
+    esc2.ExcludeAllLevels
+    Set ByEE = ActiveModelReference.Scan(esc2)
+End Function
+
+Public Function IsValidLevelName(ByVal levelName As String) As Boolean
+    IsValidLevelName = False
+    On Error GoTo ErrorHandler
+
+    Dim oLevel As Level
+    Set oLevel = ActiveDesignFile.Levels(levelName)
+
+    If oLevel Is Nothing Then
+        IsValidLevelName = False
+    Else
         IsValidLevelName = True
     End If
 
-    On Error GoTo ErrorHandler
-
+    Set oLevel = Nothing
     Exit Function
 
 ErrorHandler:
-    IsValidLevelName = False
-    ErrorHandler.HandleError Err.Description, Err.Number, "GetElements.IsValidLevelName", "ERROR"
+    Select Case Err.Number
+        Case 5:     '   Level not found
+        Resume Next
+        Case -2147024809:
+        Resume Next
+    Case Else
+        ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "GetElements.IsValidLevelName"
+    End Select
 End Function
 
-' Function to get all graphical elements from specified levels (excluding rasters)
-Public Function GetElementsByLevels(Lvls() As String, _
-                                   Optional FilterByTypes As Variant, _
-                                   Optional IncludeRasters As Boolean = False) As Variant
+Public Function IsValidLineStyleName(ByVal lineStyleName As String) As Boolean
+    IsValidLineStyleName = False
     On Error GoTo ErrorHandler
 
-    Dim Elements() As Element
-    Dim Esc As ElementScanCriteria
-    Dim ee As ElementEnumerator
-    Dim CurrentElement As Element
-    Dim i As Long
-    Dim Count As Long
-    Dim ValidLevels() As String
-    Dim ValidLevelCount As Long
-    Dim MSDEType() As MsdElementType
+    Dim oLineStyle As LineStyle
+    Set oLineStyle = ActiveDesignFile.LineStyles(lineStyleName)
 
-    ' Check if there is an active model reference
-    If Not Application.HasActiveModelReference Then
-        ErrorHandler.HandleError "No active model reference", 0, "GetElements.GetElementsByLevels", "WARNING"
-        ReDim Elements(0)
-        GetElementsByLevels = Elements
-        Exit Function
-    End If
-
-    ' Validate and collect valid level names
-    ValidLevelCount = 0
-    ReDim ValidLevels(LBound(Lvls) To UBound(Lvls))
-
-    For i = LBound(Lvls) To UBound(Lvls)
-        If IsValidLevelName(Lvls(i)) Then
-            ValidLevels(ValidLevelCount) = Lvls(i)
-            ValidLevelCount = ValidLevelCount + 1
-        Else
-            ErrorHandler.HandleError "Invalid level name: " & Lvls(i), 0, "GetElements.GetElementsByLevels", "WARNING"
-        End If
-    Next i
-
-    ' If no valid levels, return empty array
-    If ValidLevelCount = 0 Then
-        ErrorHandler.HandleError "No valid levels found", 0, "GetElements.GetElementsByLevels", "WARNING"
-        ReDim Elements(0)
-        GetElementsByLevels = Elements
-        Exit Function
-    End If
-
-    ' Resize array to actual valid level count
-    ReDim Preserve ValidLevels(0 To ValidLevelCount - 1)
-
-    ' Initialize element scan criteria
-    Set Esc = New ElementScanCriteria
-
-    ' Include only graphical elements
-    Esc.ExcludeNonGraphical
-
-    ' Exclude raster types unless explicitly included
-    If Not IncludeRasters Then
-        Esc.ExcludeType msdElementTypeRasterHeader
-        Esc.ExcludeType msdElementTypeRasterComponent
-        Esc.ExcludeType msdElementTypeRasterReference
-        Esc.ExcludeType msdElementTypeRasterReferenceComponent
-        Esc.ExcludeType msdElementTypeRasterFrame
-    End If
-
-    ' Apply type filter if provided
-    If Not IsMissing(FilterByTypes) Then
-        MSDEType = EnsureElementTypeArray(FilterByTypes)
-        Esc.ExcludeAllTypes
-        For i = LBound(MSDEType) To UBound(MSDEType)
-            If IsValidElementType(MSDEType(i)) And MSDEType(i) <> ARES_MSDETYPE_ERROR Then
-                Esc.IncludeType MSDEType(i)
-            End If
-        Next i
-    End If
-
-    ' Scan and collect elements from all valid levels
-    ReDim Elements(0)
-    Count = 0
-
-    For i = LBound(ValidLevels) To UBound(ValidLevels)
-        ' Set level filter
-        Esc.IncludeOnlyLevel ActiveDesignFile.Levels.Find(ValidLevels(i))
-
-        ' Scan for elements
-        Set ee = ActiveModelReference.Scan(Esc)
-
-        ' Count and collect elements
-        Do While ee.MoveNext
-            Set CurrentElement = ee.Current
-            If CurrentElement.IsGraphical Then
-                Count = Count + 1
-                ReDim Preserve Elements(1 To Count)
-                Set Elements(Count) = CurrentElement
-            End If
-        Loop
-    Next i
-
-    GetElementsByLevels = Elements
-    Exit Function
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, "GetElements.GetElementsByLevels", "ERROR"
-    ReDim Elements(0)
-    GetElementsByLevels = Elements
-End Function
-
-' === PRIVATE HELPER FUNCTIONS ===
-
-' Private function to ensure a variant is an array of MsdElementType
-Private Function EnsureElementTypeArray(ByVal Value As Variant) As Variant
-    On Error GoTo ErrorHandler
-    Dim tempArray() As MsdElementType
-    Dim i As Long
-
-    If IsArray(Value) Then
-        ' Check each element in the array and convert if necessary
-        ReDim tempArray(LBound(Value) To UBound(Value))
-        For i = LBound(Value) To UBound(Value)
-            Select Case VarType(Value(i))
-                Case vbString
-                    tempArray(i) = StringToMsdElementType(Value(i))
-                Case vbLong
-                    tempArray(i) = Value(i)
-                Case vbInteger
-                    tempArray(i) = CLng(Value(i))
-                Case Else
-                    ReDim tempArray(0)
-                    tempArray(0) = ARES_MSDETYPE_ERROR
-                    EnsureElementTypeArray = tempArray
-                    Exit Function
-            End Select
-        Next i
-        EnsureElementTypeArray = tempArray
-    ElseIf Not IsMissing(Value) And Not IsEmpty(Value) Then
-        ' Create a single-element array
-        ReDim tempArray(0)
-        Select Case VarType(Value)
-            Case vbString
-                tempArray(0) = StringToMsdElementType(Value)
-            Case vbLong
-                tempArray(0) = Value
-            Case vbInteger
-                tempArray(0) = CLng(Value)
-            Case Else
-                ReDim tempArray(0)
-                tempArray(0) = ARES_MSDETYPE_ERROR
-                EnsureElementTypeArray = tempArray
-                Exit Function
-        End Select
-        EnsureElementTypeArray = tempArray
+    If oLineStyle Is Nothing Then
+        IsValidLineStyleName = False
     Else
-        EnsureElementTypeArray = Array(ARES_MSDETYPE_ERROR)
+        IsValidLineStyleName = True
     End If
+
+    Set oLineStyle = Nothing
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, "GetElements.EnsureElementTypeArray", "ERROR"
-    ReDim tempArray(0)
-    tempArray(0) = ARES_MSDETYPE_ERROR
-    EnsureElementTypeArray = tempArray
+    Select Case Err.Number
+        Case 5:     '   LineStyle not found
+        Resume Next
+    Case Else
+        ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "GetElements.IsValidLineStyleName"
+    End Select
 End Function

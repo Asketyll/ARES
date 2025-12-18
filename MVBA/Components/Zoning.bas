@@ -54,7 +54,15 @@ Public Sub Zoning(Lvls() As String, _
     End If
 
     ' Get all graphical elements from specified levels (excluding rasters)
-    Elements = GetElementsByLevels(Lvls, , False)
+    Dim ee As ElementEnumerator
+    Dim CurrentElement As Element
+    Dim ElementCount As Long
+
+    ' Use GetElements.ByEE to get element enumerator
+    Set ee = GetElements.ByEE(Levels:=Lvls)
+
+    ' Build array from enumerator contents
+    Elements = ee.BuildArrayFromContents
 
     ' Check if elements were found
     If IsArray(Elements) Then
@@ -66,6 +74,9 @@ Public Sub Zoning(Lvls() As String, _
         ErrorHandler.HandleError "Failed to retrieve elements", 0, "Zoning.Zoning", "ERROR"
         Exit Sub
     End If
+
+    ' Filter out raster elements
+    Elements = FilterOutRasterElements(Elements)
 
     ' Create buffer around each element
     ReDim BufferedElements(LBound(Elements) To UBound(Elements))
@@ -328,6 +339,83 @@ Private Function MergeOverlappingZones(BufferedElements As Variant) As Variant
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.MergeOverlappingZones", "ERROR"
     MergeOverlappingZones = BufferedElements
+End Function
+
+' Function to filter out raster elements from an array
+Private Function FilterOutRasterElements(Elements As Variant) As Variant
+    On Error GoTo ErrorHandler
+
+    Dim FilteredElements() As Element
+    Dim Count As Long
+    Dim i As Long
+    Dim El As Element
+
+    Count = 0
+
+    ' Check if elements is an array
+    If Not IsArray(Elements) Then
+        FilterOutRasterElements = Elements
+        Exit Function
+    End If
+
+    ' Count non-raster elements
+    For i = LBound(Elements) To UBound(Elements)
+        If Not Elements(i) Is Nothing Then
+            Set El = Elements(i)
+            If Not IsRasterElement(El) Then
+                Count = Count + 1
+            End If
+        End If
+    Next i
+
+    ' Build filtered array
+    If Count > 0 Then
+        ReDim FilteredElements(1 To Count)
+        Count = 0
+        For i = LBound(Elements) To UBound(Elements)
+            If Not Elements(i) Is Nothing Then
+                Set El = Elements(i)
+                If Not IsRasterElement(El) Then
+                    Count = Count + 1
+                    Set FilteredElements(Count) = El
+                End If
+            End If
+        Next i
+    Else
+        ReDim FilteredElements(0)
+    End If
+
+    FilterOutRasterElements = FilteredElements
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.FilterOutRasterElements", "ERROR"
+    FilterOutRasterElements = Elements
+End Function
+
+' Function to check if an element is a raster type
+Private Function IsRasterElement(ByRef El As Element) As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim ElType As MsdElementType
+    ElType = El.Type
+
+    Select Case ElType
+        Case msdElementTypeRasterHeader, _
+             msdElementTypeRasterComponent, _
+             msdElementTypeRasterReference, _
+             msdElementTypeRasterReferenceComponent, _
+             msdElementTypeRasterFrame
+            IsRasterElement = True
+        Case Else
+            IsRasterElement = False
+    End Select
+
+    Exit Function
+
+ErrorHandler:
+    IsRasterElement = False
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.IsRasterElement", "ERROR"
 End Function
 
 ' Function to apply graphical properties and place elements on target level
