@@ -94,12 +94,10 @@ Public Sub Zoning(Lvls() As String, _
     ApplyZoningProperties MergedElements, TargetLevel, Color, Style, Weight
 
     ' Refresh the active view
-    If Not ActiveDesignFile.ActiveModelReference Is Nothing Then
-        Dim oView As View
-        Set oView = ActiveDesignFile.ActiveModelReference.Views(1)
-        If Not oView Is Nothing Then
-            oView.Redraw
-        End If
+    Dim oView As View
+    Set oView = CommandState.LastView
+    If Not oView Is Nothing Then
+        oView.Redraw
     End If
 
     Exit Sub
