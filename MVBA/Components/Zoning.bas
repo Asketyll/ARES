@@ -1,0 +1,369 @@
+Attribute VB_Name = "Zoning"
+' Module: Zoning
+' Description: This module provides functions to create zoning (buffer/offset) around elements with arc corners
+' License: This project is licensed under the AGPL-3.0.
+' Dependencies: ErrorHandlerClass, GetElements, MicroStationDefinition, ARESConstants
+Option Explicit
+
+' === PUBLIC FUNCTIONS ===
+
+' Main function to create zoning around elements from specified levels
+' Parameters:
+'   Lvls() - Array of level names to process
+'   Dist - Buffer distance around elements
+'   OutputLevel - Name of the level for zoning output (default: "ARES_Zoning")
+'   Color - Color for zoning elements (default: 5)
+'   Style - Line style for zoning elements (default: 0)
+'   Weight - Line weight for zoning elements (default: 1)
+Public Sub Zoning(Lvls() As String, _
+                  Dist As Double, _
+                  Optional OutputLevel As String = "ARES_Zoning", _
+                  Optional Color As Long = 5, _
+                  Optional Style As Long = 0, _
+                  Optional Weight As Long = 1)
+    On Error GoTo ErrorHandler
+
+    Dim Elements As Variant
+    Dim BufferedElements As Variant
+    Dim MergedElements As Variant
+    Dim i As Long
+    Dim TargetLevel As Level
+
+    ' Validate input parameters
+    If Dist <= 0 Then
+        ErrorHandler.HandleError "Distance must be greater than zero", 0, "Zoning.Zoning", "ERROR"
+        Exit Sub
+    End If
+
+    If UBound(Lvls) < LBound(Lvls) Then
+        ErrorHandler.HandleError "No levels provided", 0, "Zoning.Zoning", "ERROR"
+        Exit Sub
+    End If
+
+    ' Check if there is an active model reference
+    If Not Application.HasActiveModelReference Then
+        ErrorHandler.HandleError "No active model reference", 0, "Zoning.Zoning", "ERROR"
+        Exit Sub
+    End If
+
+    ' Get or create the output level
+    Set TargetLevel = GetOrCreateLevel(OutputLevel, Color, Style, Weight)
+    If TargetLevel Is Nothing Then
+        ErrorHandler.HandleError "Failed to get or create output level: " & OutputLevel, 0, "Zoning.Zoning", "ERROR"
+        Exit Sub
+    End If
+
+    ' Get all graphical elements from specified levels (excluding rasters)
+    Elements = GetElementsByLevels(Lvls, , False)
+
+    ' Check if elements were found
+    If IsArray(Elements) Then
+        If UBound(Elements) < LBound(Elements) Then
+            ErrorHandler.HandleError "No elements found on specified levels", 0, "Zoning.Zoning", "WARNING"
+            Exit Sub
+        End If
+    Else
+        ErrorHandler.HandleError "Failed to retrieve elements", 0, "Zoning.Zoning", "ERROR"
+        Exit Sub
+    End If
+
+    ' Create buffer around each element
+    ReDim BufferedElements(LBound(Elements) To UBound(Elements))
+    For i = LBound(Elements) To UBound(Elements)
+        Set BufferedElements(i) = CreateBufferAroundElement(Elements(i), Dist)
+        If BufferedElements(i) Is Nothing Then
+            ErrorHandler.HandleError "Failed to create buffer for element ID: " & Elements(i).ID, 0, "Zoning.Zoning", "WARNING"
+        End If
+    Next i
+
+    ' Merge overlapping zones
+    MergedElements = MergeOverlappingZones(BufferedElements)
+
+    ' Apply graphical properties and place on output level
+    ApplyZoningProperties MergedElements, TargetLevel, Color, Style, Weight
+
+    ' Refresh the view
+    ActiveModelReference.Rewrite
+
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.Zoning", "ERROR"
+End Sub
+
+' === PRIVATE HELPER FUNCTIONS ===
+
+' Function to get an existing level or create a new one
+Private Function GetOrCreateLevel(ByVal LevelName As String, _
+                                 ByVal Color As Long, _
+                                 ByVal Style As Long, _
+                                 ByVal Weight As Long) As Level
+    On Error GoTo ErrorHandler
+
+    Dim Level As Level
+    Dim LevelTable As Levels
+
+    Set GetOrCreateLevel = Nothing
+
+    ' Get the level table from the active design file
+    Set LevelTable = ActiveDesignFile.Levels
+
+    ' Try to find the level by name
+    On Error Resume Next
+    Set Level = LevelTable.Find(LevelName)
+
+    ' If level doesn't exist, create it
+    If Level Is Nothing Or Err.Number <> 0 Then
+        On Error GoTo ErrorHandler
+
+        ' Create new level
+        Set Level = LevelTable.Add(LevelName)
+
+        ' Set level properties
+        Level.ElementColor = Color
+        Level.ElementLineStyle = Style
+        Level.ElementLineWeight = Weight
+
+        ' Update the level table
+        LevelTable.Rewrite
+    End If
+
+    Set GetOrCreateLevel = Level
+
+    Exit Function
+
+ErrorHandler:
+    Set GetOrCreateLevel = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.GetOrCreateLevel", "ERROR"
+End Function
+
+' Function to create buffer/offset around an element with arc corners
+' NOTE: This function requires implementation based on chosen approach:
+'       - Option 1: Use MicroStation OFFSET command via CommandState
+'       - Option 2: Use Element.ConstructOffset() API if available
+'       - Option 3: Manual geometric calculation
+Private Function CreateBufferAroundElement(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Dim BufferedElement As Element
+    Dim ElType As MsdElementType
+
+    Set CreateBufferAroundElement = Nothing
+
+    ' Check if element is graphical
+    If Not El.IsGraphical Then
+        Exit Function
+    End If
+
+    ' Get element type
+    ElType = El.Type
+
+    ' Handle different element types
+    Select Case ElType
+        ' === RASTER TYPES (SKIP) ===
+        Case msdElementTypeRasterHeader, _
+             msdElementTypeRasterComponent, _
+             msdElementTypeRasterReference, _
+             msdElementTypeRasterReferenceComponent, _
+             msdElementTypeRasterFrame
+            ' Skip raster elements
+            Exit Function
+
+        ' === TEXT ELEMENTS (USE BOUNDING BOX) ===
+        Case msdElementTypeText, msdElementTypeTextNode
+            Set BufferedElement = CreateBufferFromBoundingBox(El, Distance)
+
+        ' === CELL ELEMENTS (USE CELL HEADER ONLY) ===
+        Case msdElementTypeCellHeader, msdElementTypeSharedCell
+            Set BufferedElement = CreateBufferFromBoundingBox(El, Distance)
+
+        ' === LINEAR ELEMENTS ===
+        Case msdElementTypeLine, _
+             msdElementTypeLineString, _
+             msdElementTypeShape, _
+             msdElementTypeComplexString, _
+             msdElementTypeComplexShape
+            ' TODO: Implement buffer with arc corners for linear elements
+            ' This requires geometric offset calculation
+            Set BufferedElement = CreateBufferWithArcs(El, Distance)
+
+        ' === CURVED ELEMENTS ===
+        Case msdElementTypeArc, _
+             msdElementTypeEllipse, _
+             msdElementTypeCurve, _
+             msdElementTypeConic, _
+             msdElementTypeBsplineCurve
+            ' TODO: Implement symmetric buffer for curved elements
+            Set BufferedElement = CreateSymmetricCurveBuffer(El, Distance)
+
+        ' === OTHER GRAPHICAL ELEMENTS (USE BOUNDING BOX) ===
+        Case Else
+            If El.IsGraphical Then
+                Set BufferedElement = CreateBufferFromBoundingBox(El, Distance)
+            End If
+    End Select
+
+    Set CreateBufferAroundElement = BufferedElement
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateBufferAroundElement = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateBufferAroundElement", "ERROR"
+End Function
+
+' Function to create buffer from element's bounding box
+Private Function CreateBufferFromBoundingBox(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Dim Rng As Range3d
+    Dim Points(0 To 4) As Point3d
+    Dim ShapeElement As ShapeElement
+    Dim i As Integer
+
+    Set CreateBufferFromBoundingBox = Nothing
+
+    ' Get element range
+    Rng = El.Range
+
+    ' Create rectangle points with buffer distance
+    ' Bottom-left
+    Points(0).X = Rng.Low.X - Distance
+    Points(0).Y = Rng.Low.Y - Distance
+    Points(0).Z = Rng.Low.Z
+
+    ' Bottom-right
+    Points(1).X = Rng.High.X + Distance
+    Points(1).Y = Rng.Low.Y - Distance
+    Points(1).Z = Rng.Low.Z
+
+    ' Top-right
+    Points(2).X = Rng.High.X + Distance
+    Points(2).Y = Rng.High.Y + Distance
+    Points(2).Z = Rng.Low.Z
+
+    ' Top-left
+    Points(3).X = Rng.Low.X - Distance
+    Points(3).Y = Rng.High.Y + Distance
+    Points(3).Z = Rng.Low.Z
+
+    ' Close the shape
+    Points(4) = Points(0)
+
+    ' Create shape element
+    Set ShapeElement = CreateShapeElement1(Nothing, Points)
+
+    Set CreateBufferFromBoundingBox = ShapeElement
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateBufferFromBoundingBox = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateBufferFromBoundingBox", "ERROR"
+End Function
+
+' Function to create buffer with arc corners for linear elements
+' TODO: Implement based on chosen approach
+Private Function CreateBufferWithArcs(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreateBufferWithArcs = Nothing
+
+    ' PLACEHOLDER: This requires implementation of geometric offset algorithm
+    ' with arc corners at vertices
+    '
+    ' Approach options:
+    ' 1. Use MicroStation API: Element.ConstructOffset() if available
+    ' 2. Use CommandState to execute OFFSET command
+    ' 3. Manual geometric calculation with arc segments at corners
+    '
+    ' For now, fall back to bounding box
+    Set CreateBufferWithArcs = CreateBufferFromBoundingBox(El, Distance)
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateBufferWithArcs = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateBufferWithArcs", "ERROR"
+End Function
+
+' Function to create symmetric buffer for curved elements
+' TODO: Implement based on chosen approach
+Private Function CreateSymmetricCurveBuffer(ByRef El As Element, ByVal Distance As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CreateSymmetricCurveBuffer = Nothing
+
+    ' PLACEHOLDER: This requires implementation of curve offset algorithm
+    ' maintaining symmetry and using curves (not polygonal approximation)
+    '
+    ' For now, fall back to bounding box
+    Set CreateSymmetricCurveBuffer = CreateBufferFromBoundingBox(El, Distance)
+
+    Exit Function
+
+ErrorHandler:
+    Set CreateSymmetricCurveBuffer = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.CreateSymmetricCurveBuffer", "ERROR"
+End Function
+
+' Function to merge overlapping zones
+' TODO: Implement zone merging algorithm
+Private Function MergeOverlappingZones(BufferedElements As Variant) As Variant
+    On Error GoTo ErrorHandler
+
+    ' PLACEHOLDER: This requires implementation of geometric union algorithm
+    ' to merge overlapping zones
+    '
+    ' Possible approaches:
+    ' 1. Use MicroStation API for Boolean operations if available
+    ' 2. Use external library for geometric unions
+    ' 3. Simplified approach: keep all zones without merging
+    '
+    ' For now, return the buffered elements as-is
+    MergeOverlappingZones = BufferedElements
+
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.MergeOverlappingZones", "ERROR"
+    MergeOverlappingZones = BufferedElements
+End Function
+
+' Function to apply graphical properties and place elements on target level
+Private Sub ApplyZoningProperties(Elements As Variant, _
+                                 ByRef TargetLevel As Level, _
+                                 ByVal Color As Long, _
+                                 ByVal Style As Long, _
+                                 ByVal Weight As Long)
+    On Error GoTo ErrorHandler
+
+    Dim i As Long
+    Dim El As Element
+
+    ' Check if elements is an array
+    If Not IsArray(Elements) Then Exit Sub
+
+    ' Apply properties to each element
+    For i = LBound(Elements) To UBound(Elements)
+        If Not Elements(i) Is Nothing Then
+            Set El = Elements(i)
+
+            ' Set level
+            El.Level = TargetLevel
+
+            ' Set graphical properties
+            El.Color = Color
+            El.Style = Style
+            El.Weight = Weight
+
+            ' Add to model
+            ActiveModelReference.AddElement El
+        End If
+    Next i
+
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, "Zoning.ApplyZoningProperties", "ERROR"
+End Sub
