@@ -93,8 +93,14 @@ Public Sub Zoning(Lvls() As String, _
     ' Apply graphical properties and place on output level
     ApplyZoningProperties MergedElements, TargetLevel, Color, Style, Weight
 
-    ' Refresh the view
-    ActiveModelReference.Rewrite
+    ' Refresh the active view
+    If Not ActiveDesignFile.ActiveModelReference Is Nothing Then
+        Dim oView As View
+        Set oView = ActiveDesignFile.ActiveModelReference.Views(1)
+        If Not oView Is Nothing Then
+            oView.Redraw
+        End If
+    End If
 
     Exit Sub
 
@@ -134,9 +140,6 @@ Private Function GetOrCreateLevel(ByVal LevelName As String, _
         Level.ElementColor = Color
         Level.ElementLineStyle = Style
         Level.ElementLineWeight = Weight
-
-        ' Update the level table
-        LevelTable.Rewrite
     End If
 
     Set GetOrCreateLevel = Level
