@@ -126,19 +126,20 @@ Private Function GetOrCreateLevel(ByVal LevelName As String, _
     ' Try to find the level by name
     On Error Resume Next
     Set Level = LevelTable.Find(LevelName)
+    On Error GoTo ErrorHandler
 
-    ' If level doesn't exist, create it
-    If Level Is Nothing Or Err.Number <> 0 Then
-        On Error GoTo ErrorHandler
-
-        ' Create new level
-        Set Level = LevelTable.Add(LevelName)
-
-        ' Set level properties
-        Level.ElementColor = Color
-        Level.ElementLineStyle = Style
-        Level.ElementLineWeight = Weight
+    ' If level doesn't exist, log error and return Nothing
+    If Level Is Nothing Then
+        ErrorHandler.HandleError "Level '" & LevelName & "' does not exist. Please create it manually first.", 0, "Zoning.GetOrCreateLevel", "ERROR"
+        Set GetOrCreateLevel = Nothing
+        Exit Function
     End If
+
+    ' Level exists, optionally update its properties
+    ' (Only if you want to override existing level properties)
+    ' Level.ElementColor = Color
+    ' Level.ElementLineStyle = Style
+    ' Level.ElementLineWeight = Weight
 
     Set GetOrCreateLevel = Level
 
