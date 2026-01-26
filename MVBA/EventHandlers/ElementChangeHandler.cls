@@ -44,44 +44,38 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
     Dim els() As element
     Dim i As Long
 
+    ' PERFORMANCE: Early exit if all ARES features are disabled
+    If Not IsAnyFeatureEnabled() Then Exit Sub
+
     Select Case Action
         ' Handle element addition - queue the new element for processing
         Case msdChangeTrackActionAdd
-            If AfterChange.IsGraphical Then
-                ' Ignore elements with default graphic group (not part of ARES workflow)
-                If AfterChange.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID Then
-                    If ElementInProcesse.Add(AfterChange) Then
-                        EnsureIdleHandlerRegistered
-                    End If
+            If ShouldQueueElement(AfterChange) Then
+                If ElementInProcesse.Add(AfterChange) Then
+                    EnsureIdleHandlerRegistered
                 End If
             End If
 
         ' Handle element modification - queue the modified element for processing
         Case msdChangeTrackActionModify
-            If AfterChange.IsGraphical Then
-                ' Ignore elements with default graphic group (not part of ARES workflow)
-                If AfterChange.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID Then
-                    If ElementInProcesse.Add(AfterChange) Then
-                        EnsureIdleHandlerRegistered
-                    End If
+            If ShouldQueueElement(AfterChange) Then
+                If ElementInProcesse.Add(AfterChange) Then
+                    EnsureIdleHandlerRegistered
                 End If
             End If
 
         ' Handle element deletion - queue linked elements for update
         Case msdChangeTrackActionDelete
-            If BeforeChange.IsGraphical Then
-                ' Ignore elements with default graphic group (not part of ARES workflow)
-                If BeforeChange.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID Then
-                    ' Get all elements linked to the deleted element
-                    els = Link.GetLink(BeforeChange)
-                    If UBound(els) = -1 Then Exit Sub
-                    ' Queue each linked element for processing
-                    For i = LBound(els) To UBound(els)
-                        If ElementInProcesse.Add(els(i)) Then
-                            EnsureIdleHandlerRegistered
-                        End If
-                    Next i
-                End If
+            If ShouldQueueForDeletion(BeforeChange) Then
+                ' Get all elements linked to the deleted element
+                els = Link.GetLink(BeforeChange)
+                If UBound(els) = -1 Then Exit Sub
+                ' Queue each linked element for processing
+                For i = LBound(els) To UBound(els)
+                    If ElementInProcesse.Add(els(i)) Then
+                        EnsureIdleHandlerRegistered
+                    End If
+                Next i
             End If
     End Select
     Exit Sub
@@ -394,4 +388,94 @@ Private Function IsNumericText(ByVal text As String) As Boolean
         End If
     Next k
     IsNumericText = (k > Len(text))
+End Function
+
+' ========================================
+' PRIVATE HELPER FUNCTIONS - Performance Filtering
+' ========================================
+
+' Checks if any ARES feature is enabled
+' Used for early exit to avoid unnecessary processing
+' Returns:
+'   True if at least one feature (auto lengths or color sync) is enabled
+Private Function IsAnyFeatureEnabled() As Boolean
+    Dim autoLengthEnabled As Boolean
+    Dim onlyColorEnabled As Boolean
+
+    ' Auto lengths requires both flags to be True
+    autoLengthEnabled = ARESConfig.ARES_AUTO_LENGTHS.Value And ARESConfig.ARES_UPDATE_LENGTHS.Value
+    onlyColorEnabled = ARESConfig.ARES_ONLY_COLOR.Value
+
+    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled
+End Function
+
+' Determines if an element should be queued for processing (Add/Modify actions)
+' Filters by: graphical, graphic group, element type, and ARES links
+' Parameters:
+'   oElement - The element to evaluate
+' Returns:
+'   True if the element should be queued for processing
+Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
+    On Error GoTo ErrorHandler
+    Dim els() As element
+
+    ShouldQueueElement = False
+
+    ' Must be graphical
+    If Not oElement.IsGraphical Then Exit Function
+
+    ' Ignore elements with default graphic group (not part of ARES workflow)
+    If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
+
+    ' Text/Cell elements: check if they have ARES links
+    If IsTextOrCellElement(oElement) Then
+        els = Link.GetLink(oElement)
+        If UBound(els) >= LBound(els) Then
+            ShouldQueueElement = True
+        End If
+        Exit Function
+    End If
+
+    ' Geometric elements: check if they have links to text/cell elements
+    els = Link.GetLink(oElement)
+    If UBound(els) >= LBound(els) Then
+        ShouldQueueElement = True
+    End If
+
+    Exit Function
+
+ErrorHandler:
+    ' On error, allow queuing to be safe
+    ShouldQueueElement = True
+End Function
+
+' Determines if linked elements should be queued when an element is deleted
+' Filters by: graphical, graphic group, and existing links
+' Parameters:
+'   oElement - The element being deleted
+' Returns:
+'   True if linked elements should be queued
+Private Function ShouldQueueForDeletion(ByVal oElement As element) As Boolean
+    On Error GoTo ErrorHandler
+    Dim els() As element
+
+    ShouldQueueForDeletion = False
+
+    ' Must be graphical
+    If Not oElement.IsGraphical Then Exit Function
+
+    ' Ignore elements with default graphic group
+    If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
+
+    ' Check if element has links (linked elements need to be updated)
+    els = Link.GetLink(oElement)
+    If UBound(els) >= LBound(els) Then
+        ShouldQueueForDeletion = True
+    End If
+
+    Exit Function
+
+ErrorHandler:
+    ' On error, allow queuing to be safe
+    ShouldQueueForDeletion = True
 End Function
