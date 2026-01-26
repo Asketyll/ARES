@@ -111,18 +111,21 @@ Private Sub HandleSingleElement()
     Dim Results() As String
     Dim lengthValue As String
     Dim Color As Long
-    
+    Dim srcElement As element
+
     ' Get the length of the first (and only) linked element
     lengthValue = CStr(pLengths(UBound(pLinkedElements)))
-    
+
     If ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value Then
-        Color = pLinkedElements(UBound(pLinkedElements)).Color
+        ' Get the source color from the linked element
+        Set srcElement = pLinkedElements(UBound(pLinkedElements))
+        Color = GetSourceColor(srcElement)
         Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value, Color)
     Else
         ' Get and update the texts in the element with the calculated length
         Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
     End If
-    
+
     ' If the operation was successful, remove the element from the list of elements being processed
     If Not IsEmpty(Results) Then
         ElementInProcesse.Remove pNewElement
@@ -226,13 +229,16 @@ Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterEleme
 
     Dim Results() As String
     Dim lengthValue As String
-    
+    Dim Color As Long
+
     ' Get the length of the selected element with the specified precision
     lengthValue = CStr(Length.GetLength(selectedElement, ARESConfig.ARES_LENGTH_ROUND.Value))
-    
+
     If ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value Then
+        ' Get the source color from the selected element
+        Color = GetSourceColor(selectedElement)
         ' Get and update the texts in the master element with the calculated length
-        Results = StringsInEl.GetSetTextsInEl(MasterElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value, selectedElement.Color)
+        Results = StringsInEl.GetSetTextsInEl(MasterElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value, Color)
     Else
         Results = StringsInEl.GetSetTextsInEl(MasterElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
     End If
@@ -313,3 +319,30 @@ Private Sub ILocateCommandEvents_Start()
     ShowCommand GetTranslation("AutoLengthsSelectanelementC")
     ShowPrompt GetTranslation("AutoLengthsSelectanelementP")
 End Sub
+
+' Helper function to get the source color from an element
+' If the element is a ClosedElement with FillMode = 2 (outlined), use its fill color
+' Exception: if fill color is black (0) or white (255), use outline color instead
+' Parameters:
+'   srcElement - The element to get the color from
+' Returns:
+'   The appropriate color value to use
+Private Function GetSourceColor(ByVal srcElement As element) As Long
+    Dim fillcolor As Long
+
+    If srcElement.IsClosedElement Then
+        If srcElement.AsClosedElement.FillMode = 2 Then
+            fillcolor = srcElement.AsClosedElement.fillcolor
+            ' Use outline color if fill is black or white
+            If fillcolor = 0 Or fillcolor = 255 Then
+                GetSourceColor = srcElement.Color
+            Else
+                GetSourceColor = fillcolor
+            End If
+        Else
+            GetSourceColor = srcElement.Color
+        End If
+    Else
+        GetSourceColor = srcElement.Color
+    End If
+End Function

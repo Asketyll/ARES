@@ -271,13 +271,33 @@ Public Sub ProcessElement(ByVal oElement As element)
             If UBound(els) = -1 Then Exit Sub
             Set linkedElement = els(1)
 
+            ' Determine the source color from the linked element
+            ' If the source is a ClosedElement with FillMode = 2 (outlined), use its fill color
+            ' Exception: if fill color is black (0) or white (255), use outline color instead
+            Dim sourceColor As Long
+            If linkedElement.IsClosedElement Then
+                If linkedElement.AsClosedElement.FillMode = 2 Then
+                    fillcolor = linkedElement.AsClosedElement.fillcolor
+                    ' Use outline color if fill is black or white
+                    If fillcolor = 0 Or fillcolor = 255 Then
+                        sourceColor = linkedElement.Color
+                    Else
+                        sourceColor = fillcolor
+                    End If
+                Else
+                    sourceColor = linkedElement.Color
+                End If
+            Else
+                sourceColor = linkedElement.Color
+            End If
+
             ' Process cell elements - iterate through all sub-elements
             If oElement.IsCellElement Then
                 Set ELEnum = oElement.AsCellElement.GetSubElements
                 Do While ELEnum.MoveNext
                     Set subEl = ELEnum.Current
                     ' Only update if colors differ
-                    If subEl.Color <> linkedElement.Color Then
+                    If subEl.Color <> sourceColor Then
                         ' Handle closed elements (shapes, ellipses, etc.) specially to preserve fill color
                         ' ClosedElement interface covers all fillable elements: ShapeElement, EllipseElement, etc.
                         ' FillMode = 2 (msdFillModeOutlined) means the element has separate outline and fill colors
@@ -285,15 +305,15 @@ Public Sub ProcessElement(ByVal oElement As element)
                             If subEl.AsClosedElement.FillMode = 2 Then
                                 ' Save fill color, update outline color, restore fill color
                                 fillcolor = subEl.AsClosedElement.fillcolor
-                                subEl.Color = linkedElement.Color
+                                subEl.Color = sourceColor
                                 subEl.AsClosedElement.fillcolor = fillcolor
                             Else
                                 ' No fill or solid fill - just update the color
-                                subEl.Color = linkedElement.Color
+                                subEl.Color = sourceColor
                             End If
                         Else
                             ' Non-closed elements (lines, text, etc.) - simple color update
-                            subEl.Color = linkedElement.Color
+                            subEl.Color = sourceColor
                         End If
                         subEl.Rewrite
                     End If
@@ -301,15 +321,15 @@ Public Sub ProcessElement(ByVal oElement As element)
 
             ' Process standalone text elements
             ElseIf oElement.IsTextElement Then
-                If oElement.AsTextElement.Color <> linkedElement.Color Then
-                    oElement.AsTextElement.Color = linkedElement.Color
+                If oElement.AsTextElement.Color <> sourceColor Then
+                    oElement.AsTextElement.Color = sourceColor
                     oElement.Rewrite
                 End If
 
             ' Process text node elements (multi-line text)
             ElseIf oElement.IsTextNodeElement Then
-                If oElement.AsTextNodeElement.Color <> linkedElement.Color Then
-                    oElement.AsTextNodeElement.Color = linkedElement.Color
+                If oElement.AsTextNodeElement.Color <> sourceColor Then
+                    oElement.AsTextNodeElement.Color = sourceColor
                     oElement.Rewrite
                 End If
             End If
