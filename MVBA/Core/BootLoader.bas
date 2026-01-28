@@ -1,7 +1,15 @@
 ' Module: BootLoader
-' Description: Initializes the VBA project on load and manages global objects
+' Description: Initializes the VBA project on load and manages global objects.
+'              Also provides change tracking suspension for bulk operations.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: DGNOpenClose, ElementChangeHandler, LangManager, ErrorHandlerClass, ElementInProcesseClass, ARESConfigClass, LicenseManager
+' Dependencies: DGNOpenClose, ElementChangeHandler, LangManager, ErrorHandlerClass,
+'               ElementInProcesseClass, ARESConfigClass, LicenseManager
+'
+' Modification History:
+'   2026-01-27 - Added change tracking suspension mechanism for bulk operations (merge, reprojection).
+'                New functions: SuspendChangeTracking, ResumeChangeTracking, MarkChangeTrackingSuspended.
+'                This significantly improves performance during file merges and GCS reprojections
+'                by temporarily unregistering IChangeTrackEvents.
 Option Explicit
 
 ' === GLOBAL OBJECT INSTANCES ===
@@ -14,6 +22,7 @@ Public ARESConfig As New ARESConfigClass
 Private moOpenClose As DGNOpenClose
 Private mbLicenseChecked As Boolean
 Private mbLicenseValid As Boolean
+Private mbChangeTrackingSuspended As Boolean
 
 ' Entry point when the project is loaded
 ' Initializes all global objects and event handlers required for ARES operation
@@ -179,14 +188,74 @@ End Sub
 ' Clean up global objects when project is unloaded
 Public Sub OnProjectUnload()
     On Error Resume Next
-    
+
     ' Clean up objects in reverse order of initialization
+    mbChangeTrackingSuspended = False
     Set moOpenClose = Nothing
     Set ElementInProcesse = Nothing
     Set ChangeHandler = Nothing
     Set ARESConfig = Nothing
     Set ErrorHandler = Nothing
-    
+
     mbLicenseChecked = False
     mbLicenseValid = False
+End Sub
+
+' ========================================
+' CHANGE TRACKING SUSPENSION - For bulk operations
+' ========================================
+
+' Suspend change tracking to improve performance during bulk operations
+' Usage: Run keyin "vba run [ARES]BootLoader.SuspendChangeTracking"
+' Then perform merge/reprojection, then call ResumeChangeTracking
+Public Sub SuspendChangeTracking()
+    On Error GoTo ErrorHandler
+
+    If mbChangeTrackingSuspended Then
+        ShowStatus "ARES: Change tracking already suspended"
+        Exit Sub
+    End If
+
+    If Not ChangeHandler Is Nothing Then
+        RemoveChangeTrackEventsHandler ChangeHandler
+        mbChangeTrackingSuspended = True
+        ShowStatus "ARES: Change tracking SUSPENDED - perform bulk operation then resume"
+    Else
+        ShowStatus "ARES: No change handler to suspend"
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "ARES: Error suspending change tracking: " & Err.Description
+End Sub
+
+' Resume change tracking after bulk operations
+' Usage: Run keyin "vba run [ARES]BootLoader.ResumeChangeTracking"
+' Also called automatically by ReRegisterIdleHandler after auto-suspend
+Public Sub ResumeChangeTracking()
+    On Error GoTo ErrorHandler
+
+    If Not ChangeHandler Is Nothing Then
+        AddChangeTrackEventsHandler ChangeHandler
+        mbChangeTrackingSuspended = False
+    Else
+        ' ChangeHandler doesn't exist, create a new one
+        Set ChangeHandler = New ElementChangeHandler
+        AddChangeTrackEventsHandler ChangeHandler
+        mbChangeTrackingSuspended = False
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.ResumeChangeTracking"
+End Sub
+
+' Check if change tracking is currently suspended
+Public Function IsChangeTrackingSuspended() As Boolean
+    IsChangeTrackingSuspended = mbChangeTrackingSuspended
+End Function
+
+' Mark change tracking as suspended (called by ElementChangeHandler during auto-suspend)
+Public Sub MarkChangeTrackingSuspended()
+    mbChangeTrackingSuspended = True
 End Sub

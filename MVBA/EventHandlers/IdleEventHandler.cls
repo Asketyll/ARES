@@ -1,7 +1,9 @@
 ' Class Module: IdleEventHandler
-' Description: This class handles the IEnterIdleEvent to execute code when MicroStation is idle.
+' Description: Handles IEnterIdleEvent to execute deferred element processing when MicroStation is idle.
+'              This implements a batch processing pattern to avoid blocking the UI during active modeling.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, ElementChangeHandler, ElementInProcesseClass
+
 Option Explicit
 
 Implements IEnterIdleEvent
@@ -96,10 +98,10 @@ Private Sub ProcessPendingElements()
     
     For Each oElement In colElements
         On Error Resume Next
-        
+
         ' Process the element
         ChangeHandler.ProcessElement oElement
-        
+
         If Err.Number = 0 Then
             intProcessedCount = intProcessedCount + 1
         Else

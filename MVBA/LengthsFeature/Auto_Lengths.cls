@@ -1,7 +1,10 @@
 ' Class Module: AutoLengths
-' Description: This module provides functions to add length with rounding to a text if they are graphically linked and the trigger is present in the text.
+' Description: Provides functions to add length with rounding to text elements when they are
+'              graphically linked and contain a trigger pattern.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, Length, ARESConfigClass, ARESConstants, AutoLengths_GUI_SelectElements, LangManager, ElementInProcesseClass, ElementChangeHandler, link, ErrorHandlerClass
+' Dependencies: Config, Length, ARESConfigClass, ARESConstants, AutoLengths_GUI_SelectElements,
+'               LangManager, ElementInProcesseClass, ElementChangeHandler, Link, ErrorHandlerClass
+
 Option Explicit
 
 ' Class to handle selection
@@ -318,6 +321,14 @@ Private Sub ILocateCommandEvents_Start()
     CommandState.SetLocateCriteria lc
     ShowCommand GetTranslation("AutoLengthsSelectanelementC")
     ShowPrompt GetTranslation("AutoLengthsSelectanelementP")
+End Sub
+
+' Explicit cleanup to avoid errors during implicit destruction
+Private Sub Class_Terminate()
+    On Error Resume Next
+    Set pNewElement = Nothing
+    Erase pLinkedElements
+    Erase pLengths
 End Sub
 
 ' Helper function to get the source color from an element
