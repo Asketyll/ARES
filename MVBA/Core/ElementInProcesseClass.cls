@@ -1,8 +1,9 @@
 ' Class Module: ElementInProcesseClass
-' Description: Thread-safe collection manager for MicroStation element IDs currently being processed
-' Prevents duplicate processing and provides efficient element ID tracking
+' Description: Thread-safe collection manager for MicroStation element IDs currently being processed.
+'              Prevents duplicate processing and provides efficient element ID tracking.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ErrorHandlerClass (via BootLoader), ARESConstants
+
 Option Explicit
 
 ' === PRIVATE MEMBERS ===
@@ -116,10 +117,11 @@ End Function
 ' Check if element ID is in collection
 Private Function ContainsId(ByVal strElementId As String) As Boolean
     On Error Resume Next
-    
+
     Dim strTest As String
     strTest = moElementIds(strElementId)
     ContainsId = (Err.Number = 0)
+    Err.Clear  ' Important: clear error to prevent leaking to caller
 End Function
 
 ' Clear all element IDs from the collection

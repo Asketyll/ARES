@@ -1,15 +1,23 @@
 ' Class Module: ElementChangeHandler
 ' Description: Handles element change events for automatic length and color updates.
-' This class module is responsible for managing events related to changes in elements within MicroStation.
-' It implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
+'              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
+'              Includes automatic detection of bulk operations to suspend tracking for performance.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl, ElementInProcesseClass, ErrorHandlerClass
+' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl,
+'               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler
+
 Option Explicit
 Implements IChangeTrackEvents
 
 ' === PRIVATE MEMBERS ===
 Private moIdleHandler As IdleEventHandler       ' Reference to the idle event handler for deferred processing
 Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle handler registrations
+
+' === BULK OPERATION DETECTION ===
+' These members track consecutive empty CommandName events to detect bulk operations
+' like GCS reprojection that don't set a CommandName
+Private mlEmptyCommandCount As Long             ' Counter for consecutive empty command names
+Private Const BULK_THRESHOLD As Long = 100      ' Number of empty commands to trigger bulk mode
 
 ' ========================================
 ' ICHANGETRACKEVENTS INTERFACE IMPLEMENTATION
@@ -44,38 +52,46 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
     Dim els() As element
     Dim i As Long
 
+    ' PERFORMANCE: Detect and suspend during bulk operations
+    If DetectAndSuspendBulkOperation() Then Exit Sub
+
     ' PERFORMANCE: Early exit if all ARES features are disabled
     If Not IsAnyFeatureEnabled() Then Exit Sub
 
     Select Case Action
         ' Handle element addition - queue the new element for processing
+        ' Note: BeforeChange is Nothing for Add actions
         Case msdChangeTrackActionAdd
-            If ShouldQueueElement(AfterChange) Then
-                If ElementInProcesse.Add(AfterChange) Then
-                    EnsureIdleHandlerRegistered
+            If Not AfterChange Is Nothing Then
+                If ShouldQueueElement(AfterChange) Then
+                    If ElementInProcesse.Add(AfterChange) Then
+                        EnsureIdleHandlerRegistered
+                    End If
                 End If
             End If
 
         ' Handle element modification - queue the modified element for processing
         Case msdChangeTrackActionModify
-            If ShouldQueueElement(AfterChange) Then
-                If ElementInProcesse.Add(AfterChange) Then
-                    EnsureIdleHandlerRegistered
+            If Not AfterChange Is Nothing Then
+                If ShouldQueueElement(AfterChange) Then
+                    If ElementInProcesse.Add(AfterChange) Then
+                        EnsureIdleHandlerRegistered
+                    End If
                 End If
             End If
 
         ' Handle element deletion - queue linked elements for update
+        ' Note: AfterChange is Nothing for Delete actions
         Case msdChangeTrackActionDelete
-            If ShouldQueueForDeletion(BeforeChange) Then
-                ' Get all elements linked to the deleted element
-                els = Link.GetLink(BeforeChange)
-                If UBound(els) = -1 Then Exit Sub
-                ' Queue each linked element for processing
-                For i = LBound(els) To UBound(els)
-                    If ElementInProcesse.Add(els(i)) Then
-                        EnsureIdleHandlerRegistered
-                    End If
-                Next i
+            If Not BeforeChange Is Nothing Then
+                If ShouldQueueForDeletion(BeforeChange, els) Then
+                    ' Queue each linked element for processing
+                    For i = LBound(els) To UBound(els)
+                        If ElementInProcesse.Add(els(i)) Then
+                            EnsureIdleHandlerRegistered
+                        End If
+                    Next i
+                End If
             End If
     End Select
     Exit Sub
@@ -180,6 +196,11 @@ Public Sub ProcessElement(ByVal oElement As element)
     Dim ELEnum As ElementEnumerator ' Enumerator for cell sub-elements
     Dim fillcolor As Long           ' Saved fill color for closed elements
 
+    ' === VALIDATION: Check element is still valid ===
+    ' Elements can become invalid if deleted between queueing and processing
+    If oElement Is Nothing Then Exit Sub
+    If Not IsElementValid(oElement) Then Exit Sub
+
     ' Load configuration flags
     AUTO_LENGTH = ARESConfig.ARES_AUTO_LENGTHS.Value
     UPDATE_LENGTH = ARESConfig.ARES_UPDATE_LENGTHS.Value
@@ -187,7 +208,7 @@ Public Sub ProcessElement(ByVal oElement As element)
     ONLY_COLOR = ARESConfig.ARES_ONLY_COLOR.Value
 
     ' Validate element - skip if it has the default graphic group (not part of ARES workflow)
-    If Not (oElement.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID) Then
+    If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then
         Exit Sub
     End If
 
@@ -250,9 +271,11 @@ Public Sub ProcessElement(ByVal oElement As element)
 
             ' If a trigger was found, delegate to AutoLengths class for length calculation and update
             If TriggerFinded Then
-                Dim AutoLengths As New AutoLengths
-                AutoLengths.Initialize oElement
-                AutoLengths.UpdateLengths
+                Dim oAutoLengths As AutoLengths
+                Set oAutoLengths = New AutoLengths
+                oAutoLengths.Initialize oElement
+                oAutoLengths.UpdateLengths
+                Set oAutoLengths = Nothing
                 Exit Sub
             End If
         End If
@@ -262,8 +285,12 @@ Public Sub ProcessElement(ByVal oElement As element)
         If ONLY_COLOR Then
             ' Get the linked geometric element
             els = Link.GetLink(oElement)
-            If UBound(els) = -1 Then Exit Sub
-            Set linkedElement = els(1)
+            If Not HasElements(els) Then Exit Sub
+            Set linkedElement = els(LBound(els))
+
+            ' Validate linked element
+            If linkedElement Is Nothing Then Exit Sub
+            If Not IsElementValid(linkedElement) Then Exit Sub
 
             ' Determine the source color from the linked element
             ' If the source is a ClosedElement with FillMode = 2 (outlined), use its fill color
@@ -340,14 +367,17 @@ Public Sub ProcessElement(ByVal oElement As element)
 
         ' Get all elements linked to this geometry
         els = Link.GetLink(oElement)
-        If UBound(els) = -1 Then Exit Sub
+        If Not HasElements(els) Then Exit Sub
 
         ' Queue each linked element for processing
         For i = LBound(els) To UBound(els)
             Set linkedElement = els(i)
-            If ElementInProcesse.Add(linkedElement) Then
-                ' Recursive call to process the linked text element
-                ProcessElement linkedElement
+            ' Validate linked element before processing
+            If Not linkedElement Is Nothing Then
+                If ElementInProcesse.Add(linkedElement) Then
+                    ' Recursive call to process the linked text element
+                    ProcessElement linkedElement
+                End If
             End If
         Next i
     End If
@@ -373,6 +403,31 @@ Private Function IsTextOrCellElement(ByVal element As element) As Boolean
     IsTextOrCellElement = (element.IsCellElement Or element.IsTextElement Or element.IsTextNodeElement)
 End Function
 
+' Validates that an element is still valid and accessible
+' Elements can become invalid if deleted between queueing and processing
+' Parameters:
+'   oElement - The element to validate
+' Returns:
+'   True if the element is valid and can be processed
+Private Function IsElementValid(ByVal oElement As element) As Boolean
+    On Error GoTo InvalidElement
+    Dim lTest As Long
+
+    IsElementValid = False
+
+    ' Try to access a property - will fail if element is invalid/deleted
+    lTest = oElement.Type
+
+    ' Check if element is graphical (required for ARES processing)
+    If Not oElement.IsGraphical Then Exit Function
+
+    IsElementValid = True
+    Exit Function
+
+InvalidElement:
+    IsElementValid = False
+End Function
+
 ' Validates if a string contains only numeric characters
 ' Used to identify length values between trigger patterns
 ' Allowed characters: digits (0-9), spaces, commas, and decimal points
@@ -391,6 +446,89 @@ Private Function IsNumericText(ByVal text As String) As Boolean
 End Function
 
 ' ========================================
+' PRIVATE HELPER FUNCTIONS - Bulk Operation Detection
+' ========================================
+
+' Detects bulk operations and suspends change tracking if needed
+' Returns True if bulk operation detected and handler was suspended
+Private Function DetectAndSuspendBulkOperation() As Boolean
+    On Error GoTo ErrorHandler
+    Dim strCommandName As String
+
+    DetectAndSuspendBulkOperation = False
+    strCommandName = CommandState.CommandName
+
+    ' Check for known bulk operation commands (localized names)
+    If IsBulkCommand(strCommandName) Then
+        SuspendAndScheduleResume
+        DetectAndSuspendBulkOperation = True
+        Exit Function
+    End If
+
+    ' Track consecutive empty command names (reprojection and other bulk ops)
+    If Len(strCommandName) = 0 Then
+        mlEmptyCommandCount = mlEmptyCommandCount + 1
+        If mlEmptyCommandCount >= BULK_THRESHOLD Then
+            SuspendAndScheduleResume
+            DetectAndSuspendBulkOperation = True
+        End If
+    Else
+        ' Reset counter on non-empty command
+        mlEmptyCommandCount = 0
+    End If
+
+    Exit Function
+
+ErrorHandler:
+    ' On error, don't suspend - let normal processing continue
+    DetectAndSuspendBulkOperation = False
+End Function
+
+' Checks if command name matches known bulk operations
+Private Function IsBulkCommand(strCommandName As String) As Boolean
+    IsBulkCommand = False
+    If Len(strCommandName) = 0 Then Exit Function
+
+    Select Case UCase(strCommandName)
+        ' French
+        Case "FUSIONNER RÉFÉRENCES", "FUSIONNER REFERENCES"
+            IsBulkCommand = True
+        ' English
+        Case "MERGE REFERENCES", "REFERENCE MERGE", "MERGE INTO MASTER"
+            IsBulkCommand = True
+    End Select
+End Function
+
+' Suspends change tracking and schedules re-registration on idle
+Private Sub SuspendAndScheduleResume()
+    On Error GoTo ErrorHandler
+    Dim oReRegHandler As ReRegisterIdleHandler
+
+    ' Mark as suspended in BootLoader
+    MarkChangeTrackingSuspended
+
+    ' Unregister change tracking
+    If Not ChangeHandler Is Nothing Then
+        RemoveChangeTrackEventsHandler ChangeHandler
+    End If
+
+    ' Clear any pending elements (they'll be stale after bulk operation)
+    ElementInProcesse.Clear
+
+    ' Register idle handler to re-enable change tracking
+    Set oReRegHandler = New ReRegisterIdleHandler
+    AddEnterIdleEventHandler oReRegHandler
+
+    ' Reset counter
+    mlEmptyCommandCount = 0
+
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementChangeHandler.SuspendAndScheduleResume"
+End Sub
+
+' ========================================
 ' PRIVATE HELPER FUNCTIONS - Performance Filtering
 ' ========================================
 
@@ -402,23 +540,22 @@ Private Function IsAnyFeatureEnabled() As Boolean
     Dim autoLengthEnabled As Boolean
     Dim onlyColorEnabled As Boolean
 
+    ' Config values are stored as Strings, convert to Boolean with CBool
     ' Auto lengths requires both flags to be True
-    autoLengthEnabled = ARESConfig.ARES_AUTO_LENGTHS.Value And ARESConfig.ARES_UPDATE_LENGTHS.Value
-    onlyColorEnabled = ARESConfig.ARES_ONLY_COLOR.Value
+    autoLengthEnabled = CBool(ARESConfig.ARES_AUTO_LENGTHS.Value) And CBool(ARESConfig.ARES_UPDATE_LENGTHS.Value)
+    onlyColorEnabled = CBool(ARESConfig.ARES_ONLY_COLOR.Value)
 
     IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled
 End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)
-' Filters by: graphical, graphic group, element type, and ARES links
+' Filters by: graphical and graphic group only (fast path)
+' Note: Link validation is deferred to ProcessElement for performance
 ' Parameters:
 '   oElement - The element to evaluate
 ' Returns:
 '   True if the element should be queued for processing
 Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
-    On Error GoTo ErrorHandler
-    Dim els() As element
-
     ShouldQueueElement = False
 
     ' Must be graphical
@@ -427,37 +564,19 @@ Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
     ' Ignore elements with default graphic group (not part of ARES workflow)
     If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
 
-    ' Text/Cell elements: check if they have ARES links
-    If IsTextOrCellElement(oElement) Then
-        els = Link.GetLink(oElement)
-        If UBound(els) >= LBound(els) Then
-            ShouldQueueElement = True
-        End If
-        Exit Function
-    End If
-
-    ' Geometric elements: check if they have links to text/cell elements
-    els = Link.GetLink(oElement)
-    If UBound(els) >= LBound(els) Then
-        ShouldQueueElement = True
-    End If
-
-    Exit Function
-
-ErrorHandler:
-    ' On error, allow queuing to be safe
     ShouldQueueElement = True
 End Function
 
 ' Determines if linked elements should be queued when an element is deleted
 ' Filters by: graphical, graphic group, and existing links
+' Also returns the linked elements array to avoid double Link.GetLink call
 ' Parameters:
 '   oElement - The element being deleted
+'   linkedEls - Output: array of linked elements (if any)
 ' Returns:
 '   True if linked elements should be queued
-Private Function ShouldQueueForDeletion(ByVal oElement As element) As Boolean
+Private Function ShouldQueueForDeletion(ByVal oElement As element, ByRef linkedEls() As element) As Boolean
     On Error GoTo ErrorHandler
-    Dim els() As element
 
     ShouldQueueForDeletion = False
 
@@ -468,14 +587,31 @@ Private Function ShouldQueueForDeletion(ByVal oElement As element) As Boolean
     If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
 
     ' Check if element has links (linked elements need to be updated)
-    els = Link.GetLink(oElement)
-    If UBound(els) >= LBound(els) Then
+    linkedEls = Link.GetLink(oElement)
+    ' Check if array is valid and has elements
+    If HasElements(linkedEls) Then
         ShouldQueueForDeletion = True
     End If
 
     Exit Function
 
 ErrorHandler:
-    ' On error, allow queuing to be safe
-    ShouldQueueForDeletion = True
+    ' On error, don't queue to avoid cascading errors
+    ShouldQueueForDeletion = False
+End Function
+
+' Helper function to safely check if an element array has elements
+' Handles cases where the array may not be properly initialized
+' Parameters:
+'   arr - The element array to check
+' Returns:
+'   True if the array is valid and contains at least one element
+Private Function HasElements(ByRef arr() As element) As Boolean
+    On Error Resume Next
+    HasElements = False
+    ' UBound returns -1 for empty array, raises error for uninitialized
+    If UBound(arr) <> -1 Then
+        HasElements = True
+    End If
+    On Error GoTo 0
 End Function
