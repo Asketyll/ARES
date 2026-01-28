@@ -2,7 +2,7 @@
 
 Automatic length calculation and graphical linking tools for MicroStation VBA.
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-yellow.svg)](LICENSE)
 [![GitHub release](https://img.shields.io/github/release/Asketyll/ARES.svg)](https://github.com/Asketyll/ARES/releases/latest)
 
 ## Quick Install
