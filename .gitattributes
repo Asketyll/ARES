@@ -6,6 +6,11 @@
 *.dll filter=lfs diff=lfs merge=lfs -text
 *.mvba filter=lfs diff=lfs merge=lfs -text
 
+# VBA extensions: Prevent LF normalization (VBE requires CRLF)
+*.bas -text
+*.cls -text
+*.frm -text
+
 # Force binary for these files
 *.png binary
 *.jpg binary
