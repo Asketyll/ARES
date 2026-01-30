@@ -16,7 +16,7 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 | Component | Release | Description |
 |-----------|---------|-------------|
 | [Installer](https://github.com/Asketyll/ARES/releases/tag/installer-v1.0.0) | `installer-v1.0.0` | Windows installer with automatic setup |
-| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | `v1.0.0` | MicroStation VBA source code |
+| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | `v1.0.1` | MicroStation VBA source code |
 
 ## Components
 
