@@ -1,10 +1,14 @@
 ' Class Module: ElementChangeHandler
 ' Description: Handles element change events for automatic length and color updates.
 '              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
-'              Includes automatic detection of bulk operations to suspend tracking for performance.
+'              Includes automatic detection of bulk operations using frequency-based detection.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler
+'
+' Modification History:
+'   2026-02-09 - Replaced CommandName-based bulk detection with frequency-based detection.
+'                Configurable via ARES_Bulk_Threshold and ARES_Bulk_Interval variables.
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -13,11 +17,16 @@ Implements IChangeTrackEvents
 Private moIdleHandler As IdleEventHandler       ' Reference to the idle event handler for deferred processing
 Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle handler registrations
 
-' === BULK OPERATION DETECTION ===
-' These members track consecutive empty CommandName events to detect bulk operations
-' like GCS reprojection that don't set a CommandName
-Private mlEmptyCommandCount As Long             ' Counter for consecutive empty command names
-Private Const BULK_THRESHOLD As Long = 100      ' Number of empty commands to trigger bulk mode
+' === BULK OPERATION DETECTION (Frequency-based) ===
+' Detects bulk operations by tracking call frequency within a time window
+Private mdEntryTime As Double                   ' Timestamp of first call in current window
+Private mlCallCount As Long                     ' Counter for calls within current window
+Private mlCachedThreshold As Long               ' Cached threshold value (refreshed on window reset)
+Private mlCachedInterval As Long                ' Cached interval value (refreshed on window reset)
+Private Const DEFAULT_BULK_THRESHOLD As Long = 50    ' Fallback if config invalid
+Private Const DEFAULT_BULK_INTERVAL As Long = 1000   ' Fallback if config invalid (ms)
+Private Const MAX_BULK_THRESHOLD As Long = 1000      ' Max allowed threshold
+Private Const MAX_BULK_INTERVAL As Long = 60000      ' Max allowed interval (60 seconds)
 
 ' ========================================
 ' ICHANGETRACKEVENTS INTERFACE IMPLEMENTATION
@@ -449,32 +458,43 @@ End Function
 ' PRIVATE HELPER FUNCTIONS - Bulk Operation Detection
 ' ========================================
 
-' Detects bulk operations and suspends change tracking if needed
+' Detects bulk operations using frequency-based detection
 ' Returns True if bulk operation detected and handler was suspended
 Private Function DetectAndSuspendBulkOperation() As Boolean
     On Error GoTo ErrorHandler
-    Dim strCommandName As String
+    Dim dCurrentTime As Double
+    Dim dElapsedMs As Double
 
     DetectAndSuspendBulkOperation = False
-    strCommandName = CommandState.CommandName
+    dCurrentTime = Timer
 
-    ' Check for known bulk operation commands (localized names)
-    If IsBulkCommand(strCommandName) Then
-        SuspendAndScheduleResume
-        DetectAndSuspendBulkOperation = True
+    ' Handle midnight rollover - Timer resets to 0 at midnight
+    ' If current time is less than entry time, we crossed midnight - start new window
+    If dCurrentTime < mdEntryTime Then
+        RefreshCachedConfig
+        mdEntryTime = dCurrentTime
+        mlCallCount = 1
         Exit Function
     End If
 
-    ' Track consecutive empty command names (reprojection and other bulk ops)
-    If Len(strCommandName) = 0 Then
-        mlEmptyCommandCount = mlEmptyCommandCount + 1
-        If mlEmptyCommandCount >= BULK_THRESHOLD Then
-            SuspendAndScheduleResume
-            DetectAndSuspendBulkOperation = True
-        End If
-    Else
-        ' Reset counter on non-empty command
-        mlEmptyCommandCount = 0
+    ' Calculate elapsed time in milliseconds
+    dElapsedMs = (dCurrentTime - mdEntryTime) * 1000
+
+    ' Check if we're outside the time window - reset and refresh config
+    If dElapsedMs > mlCachedInterval Or mlCachedInterval = 0 Then
+        RefreshCachedConfig
+        mdEntryTime = dCurrentTime
+        mlCallCount = 1
+        Exit Function
+    End If
+
+    ' Increment call counter
+    mlCallCount = mlCallCount + 1
+
+    ' Check if threshold reached
+    If mlCallCount >= mlCachedThreshold Then
+        SuspendAndScheduleResume
+        DetectAndSuspendBulkOperation = True
     End If
 
     Exit Function
@@ -484,19 +504,46 @@ ErrorHandler:
     DetectAndSuspendBulkOperation = False
 End Function
 
-' Checks if command name matches known bulk operations
-Private Function IsBulkCommand(strCommandName As String) As Boolean
-    IsBulkCommand = False
-    If Len(strCommandName) = 0 Then Exit Function
+' Refreshes cached config values - called on window reset for performance
+Private Sub RefreshCachedConfig()
+    mlCachedThreshold = GetBulkThreshold()
+    mlCachedInterval = GetBulkInterval()
+End Sub
 
-    Select Case UCase(strCommandName)
-        ' French
-        Case "FUSIONNER RÉFÉRENCES", "FUSIONNER REFERENCES"
-            IsBulkCommand = True
-        ' English
-        Case "MERGE REFERENCES", "REFERENCE MERGE", "MERGE INTO MASTER"
-            IsBulkCommand = True
-    End Select
+' Gets bulk threshold from config with fallback to default
+' Validates range: must be > 0 and <= MAX_BULK_THRESHOLD
+Private Function GetBulkThreshold() As Long
+    On Error GoTo UseDefault
+    Dim lValue As Long
+
+    If ARESConfig.ARES_BULK_THRESHOLD.IsValid() Then
+        lValue = CLng(ARESConfig.ARES_BULK_THRESHOLD.Value)
+        If lValue > 0 And lValue <= MAX_BULK_THRESHOLD Then
+            GetBulkThreshold = lValue
+            Exit Function
+        End If
+    End If
+
+UseDefault:
+    GetBulkThreshold = DEFAULT_BULK_THRESHOLD
+End Function
+
+' Gets bulk interval from config with fallback to default
+' Validates range: must be > 0 and <= MAX_BULK_INTERVAL
+Private Function GetBulkInterval() As Long
+    On Error GoTo UseDefault
+    Dim lValue As Long
+
+    If ARESConfig.ARES_BULK_INTERVAL.IsValid() Then
+        lValue = CLng(ARESConfig.ARES_BULK_INTERVAL.Value)
+        If lValue > 0 And lValue <= MAX_BULK_INTERVAL Then
+            GetBulkInterval = lValue
+            Exit Function
+        End If
+    End If
+
+UseDefault:
+    GetBulkInterval = DEFAULT_BULK_INTERVAL
 End Function
 
 ' Suspends change tracking and schedules re-registration on idle
@@ -519,8 +566,11 @@ Private Sub SuspendAndScheduleResume()
     Set oReRegHandler = New ReRegisterIdleHandler
     AddEnterIdleEventHandler oReRegHandler
 
-    ' Reset counter
-    mlEmptyCommandCount = 0
+    ' Reset detection state for next cycle
+    mlCallCount = 0
+    mdEntryTime = 0
+    mlCachedThreshold = 0
+    mlCachedInterval = 0
 
     Exit Sub
 
