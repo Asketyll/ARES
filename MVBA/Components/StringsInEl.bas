@@ -318,6 +318,8 @@ End Function
 ' Returns:
 '   Array of the new text values
 Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As String, ByVal Triggers As String, Optional Color As Long = -2) As String()
+    On Error GoTo ErrorHandler
+
     Dim i As Long, j As Long
     Dim OldTxts() As String             ' Original text content
     Dim NewTxts() As String             ' New text content after modification
@@ -405,5 +407,10 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
         Next i
     End If
 
+    UpdateTextLines = NewTxts
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "StringsInEl.UpdateTextLines"
     UpdateTextLines = NewTxts
 End Function
