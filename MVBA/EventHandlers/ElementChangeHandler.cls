@@ -159,6 +159,11 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementChangeHandler.EnsureIdleHandlerRegistered"
 End Sub
 
+' Called by ReRegisterIdleHandler after bulk resume to release the member reference
+Public Sub ClearReRegHandler()
+    Set moReRegHandler = Nothing
+End Sub
+
 ' Called by IdleEventHandler to reset the registration flag after processing
 ' This allows a new idle handler to be registered for the next batch of changes
 Public Sub ResetIdleHandlerFlag()
@@ -240,12 +245,16 @@ Public Sub ProcessElement(ByVal oElement As element)
             ' Load trigger patterns from configuration (e.g., "(Xx_m)" where Xx_ is replaced by length)
             Triggers = Split(ARESConfig.ARES_LENGTH_TRIGGER.Value, ARES_VAR_DELIMITER)
 
+            ' Cache trigger ID once — avoids repeated config access inside nested loop
+            Dim sTriggerID As String
+            sTriggerID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
+
             ' RECALCULATE MODE: Clean up existing numeric values between trigger parts
             ' This allows updating lengths when the linked geometry changes
             For i = LBound(txts) To UBound(txts)
                 For j = LBound(Triggers) To UBound(Triggers)
                     ' Split trigger by the ID placeholder (e.g., "(" and "_m)" for "(Xx_m)")
-                    SplitedTrigger = Split(Triggers(j), ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)
+                    SplitedTrigger = Split(Triggers(j), sTriggerID)
                     If UBound(SplitedTrigger) = 1 Then
                         ' Find positions of trigger parts in the text
                         FirstPartIndex = InStr(1, txts(i), SplitedTrigger(0))
@@ -269,7 +278,7 @@ Public Sub ProcessElement(ByVal oElement As element)
                 For i = LBound(txts) To UBound(txts)
                     For j = LBound(Triggers) To UBound(Triggers)
                         ' Check if text contains the trigger pattern (without the ID placeholder)
-                        If InStr(1, txts(i), StringsInEl.RemovePattern(Triggers(j), ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)) > 0 Then
+                        If InStr(1, txts(i), StringsInEl.RemovePattern(Triggers(j), sTriggerID)) > 0 Then
                             TriggerFinded = True
                             Exit For
                         End If

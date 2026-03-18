@@ -13,15 +13,15 @@ Public Delta(4) As Integer
 
 ' Constants
 Private Const DEFAULT_TOLERANCE_RATIO As Double = 50
-Private PI_OVER_2 As Double
-Private PI_OVER_7 As Double
 
 Public Function ATLASCellLabelUpdate(El As element) As Boolean
     On Error GoTo ErrorHandler
-    
+
+    Dim PI_OVER_2 As Double
+    Dim PI_OVER_7 As Double
     PI_OVER_2 = Application.Pi / 2
     PI_OVER_7 = Application.Pi / 7
-    
+
     Dim LinesIndex() As Integer
     Dim RectanglesIndex() As Integer
     Dim TextSize() As Double
@@ -174,10 +174,7 @@ Private Function CheckInitialConditions(El As element) As Boolean
     Dim i As Long
     
     ' Check if the configuration allows updating ATLAS cell labels
-    If ARESConfig.ARES_UPDATE_ATLASCELLLABEL.Value Then
-    Else
-        Exit Function
-    End If
+    If Not CBool(ARESConfig.ARES_UPDATE_ATLASCELLLABEL.Value) Then Exit Function
     ' Check if the element is a cell element
     If Not El.IsCellElement Then Exit Function
     
@@ -617,9 +614,6 @@ Private Function UpdateShapeInCell(CellEl As CellElement, ShapeIndex As Integer,
     For i = 0 To ShapeEl.VerticesCount - 1
         ShapeEl.ModifyVertex Delta(i), NewVertices(i)
     Next i
-    ShapeEl.Rewrite
-    
-    ' Rewrite the ShapeEl to apply the changes
     ShapeEl.Rewrite
     
     ' Refresh object for refresh sub element
