@@ -230,6 +230,8 @@ End Sub
 Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterElement As element)
     On Error GoTo ErrorHandler
 
+    If selectedElement Is Nothing Or MasterElement Is Nothing Then Exit Sub
+
     Dim Results() As String
     Dim lengthValue As String
     Dim Color As Long
