@@ -5,10 +5,6 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler
-'
-' Modification History:
-'   2026-02-09 - Replaced CommandName-based bulk detection with frequency-based detection.
-'                Configurable via ARES_Bulk_Threshold and ARES_Bulk_Interval variables.
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -16,6 +12,7 @@ Implements IChangeTrackEvents
 ' === PRIVATE MEMBERS ===
 Private moIdleHandler As IdleEventHandler       ' Reference to the idle event handler for deferred processing
 Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle handler registrations
+Private moReRegHandler As ReRegisterIdleHandler ' Member-scoped ref to prevent premature VBA GC after bulk suspend
 
 ' === BULK OPERATION DETECTION (Frequency-based) ===
 ' Detects bulk operations by tracking call frequency within a time window
@@ -63,6 +60,9 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
 
     ' PERFORMANCE: Detect and suspend during bulk operations
     If DetectAndSuspendBulkOperation() Then Exit Sub
+
+    ' GUARD: Config not yet initialized (e.g. seed elements added before first idle fires)
+    If Not ARESConfig.IsInitialized Then Exit Sub
 
     ' PERFORMANCE: Early exit if all ARES features are disabled
     If Not IsAnyFeatureEnabled() Then Exit Sub
@@ -549,7 +549,6 @@ End Function
 ' Suspends change tracking and schedules re-registration on idle
 Private Sub SuspendAndScheduleResume()
     On Error GoTo ErrorHandler
-    Dim oReRegHandler As ReRegisterIdleHandler
 
     ' Mark as suspended in BootLoader
     MarkChangeTrackingSuspended
@@ -559,12 +558,20 @@ Private Sub SuspendAndScheduleResume()
         RemoveChangeTrackEventsHandler ChangeHandler
     End If
 
+    ' Clean up existing idle handler if present (prevents coexisting handlers with undefined order)
+    If mbIdleHandlerRegistered And Not moIdleHandler Is Nothing Then
+        RemoveEnterIdleEventHandler moIdleHandler
+        Set moIdleHandler = Nothing
+        mbIdleHandlerRegistered = False
+    End If
+
     ' Clear any pending elements (they'll be stale after bulk operation)
     ElementInProcesse.Clear
 
     ' Register idle handler to re-enable change tracking
-    Set oReRegHandler = New ReRegisterIdleHandler
-    AddEnterIdleEventHandler oReRegHandler
+    ' Stored as member (not local var) to prevent premature VBA GC before idle fires
+    Set moReRegHandler = New ReRegisterIdleHandler
+    AddEnterIdleEventHandler moReRegHandler
 
     ' Reset detection state for next cycle
     mlCallCount = 0

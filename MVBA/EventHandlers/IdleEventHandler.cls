@@ -146,7 +146,9 @@ Private Sub CleanupHandler()
     RemoveEnterIdleEventHandler Me
     
     ' Reset the registration flag in ChangeHandler
-    ChangeHandler.ResetIdleHandlerFlag
+    If Not ChangeHandler Is Nothing Then
+        ChangeHandler.ResetIdleHandlerFlag
+    End If
     
     ' Reset processing flag
     mbIsProcessing = False

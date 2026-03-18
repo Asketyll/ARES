@@ -4,12 +4,7 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: DGNOpenClose, ElementChangeHandler, LangManager, ErrorHandlerClass,
 '               ElementInProcesseClass, ARESConfigClass, LicenseManager
-'
-' Modification History:
-'   2026-01-27 - Added change tracking suspension mechanism for bulk operations (merge, reprojection).
-'                New functions: SuspendChangeTracking, ResumeChangeTracking, MarkChangeTrackingSuspended.
-'                This significantly improves performance during file merges and GCS reprojections
-'                by temporarily unregistering IChangeTrackEvents.
+
 Option Explicit
 
 ' === GLOBAL OBJECT INSTANCES ===
@@ -235,6 +230,10 @@ End Sub
 Public Sub ResumeChangeTracking()
     On Error GoTo ErrorHandler
 
+    ' Guard: if not suspended (e.g. InitializeChangeHandler already ran after a file close/open), skip
+    ' This prevents double AddChangeTrackEventsHandler when a stale ReRegisterIdleHandler fires late
+    If Not mbChangeTrackingSuspended Then Exit Sub
+
     If Not ChangeHandler Is Nothing Then
         AddChangeTrackEventsHandler ChangeHandler
         mbChangeTrackingSuspended = False
@@ -258,4 +257,9 @@ End Function
 ' Mark change tracking as suspended (called by ElementChangeHandler during auto-suspend)
 Public Sub MarkChangeTrackingSuspended()
     mbChangeTrackingSuspended = True
+End Sub
+
+' Reset suspension state on file close so stale ReRegisterIdleHandler won't re-register on next open
+Public Sub ResetSuspensionState()
+    mbChangeTrackingSuspended = False
 End Sub

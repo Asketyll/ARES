@@ -25,6 +25,8 @@ Private Sub Hooks_OnDesignFileClosed(ByVal DesignFileName As String)
     ' Call a sub or function when a DGN file is closed
     ARESConfig.Initialize
     ErrorHandler.UpdateLogFilePath
+    ' Reset bulk suspension state so any stale ReRegisterIdleHandler doesn't double-register on next open
+    ResetSuspensionState
     Exit Sub
 
 ErrorHandler:
