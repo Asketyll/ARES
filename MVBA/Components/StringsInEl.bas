@@ -223,10 +223,12 @@ Private Function ProcessCellElement(ByRef TextElement As element, Optional txt A
                 ' Save current text for comparison, then process
                 Result2 = GetSetTextsInEl(subEl)
                 Result = ProcessTextElement(subEl, txt, Triggers, Color)
-                ' Check if any text line changed
+                ' Check if any text line changed (guard against mismatched array sizes)
                 For i = 0 To UBound(Result)
-                    If Result2(i) <> Result(i) Then
-                        IsEdited = True
+                    If i <= UBound(Result2) Then
+                        If Result2(i) <> Result(i) Then
+                            IsEdited = True
+                        End If
                     End If
                 Next i
 
@@ -234,10 +236,12 @@ Private Function ProcessCellElement(ByRef TextElement As element, Optional txt A
                 ' Save current text for comparison, then process
                 Result2 = GetSetTextsInEl(subEl)
                 Result = ProcessTextNodeElement(subEl, txt, Triggers, Color)
-                ' Check if any text line changed
+                ' Check if any text line changed (guard against mismatched array sizes)
                 For i = 0 To UBound(Result)
-                    If Result2(i) <> Result(i) Then
-                        IsEdited = True
+                    If i <= UBound(Result2) Then
+                        If Result2(i) <> Result(i) Then
+                            IsEdited = True
+                        End If
                     End If
                 Next i
 
@@ -245,10 +249,12 @@ Private Function ProcessCellElement(ByRef TextElement As element, Optional txt A
                 ' Recursively process nested cells
                 Result2 = GetSetTextsInEl(subEl)
                 Result = ProcessCellElement(subEl, txt, Triggers, Color)
-                ' Check if any text line changed
+                ' Check if any text line changed (guard against mismatched array sizes)
                 For i = 0 To UBound(Result)
-                    If Result2(i) <> Result(i) Then
-                        IsEdited = True
+                    If i <= UBound(Result2) Then
+                        If Result2(i) <> Result(i) Then
+                            IsEdited = True
+                        End If
                     End If
                 Next i
         End Select

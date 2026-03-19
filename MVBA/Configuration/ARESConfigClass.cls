@@ -129,11 +129,6 @@ Public Function ResetConfigVar(ByVal Key As String) As Boolean
     Dim ConfigVar As ARES_MS_VAR_Class
     Set ConfigVar = pConfigVariables(Key)
 
-    If ConfigVar Is Nothing Then
-        ResetConfigVar = False
-        Exit Function
-    End If
-
     ' Reset in MicroStation
     If Not Config.SetVar(Key, ConfigVar.DefaultValue) Then
         ResetConfigVar = False
@@ -223,12 +218,24 @@ Public Function RemoveAllConfigVars() As Boolean
         Exit Function
     End If
 
-    Success = True
+    ' Collect keys first to avoid modifying the collection during For Each iteration
+    Dim keysToRemove() As String
+    Dim keyCount As Long
+    Dim k As Long
+    keyCount = pConfigVariables.Count
+    ReDim keysToRemove(1 To keyCount)
+    k = 1
     For Each var In pConfigVariables
-        If Not RemoveConfigVar(var.Key, False) Then
+        keysToRemove(k) = var.Key
+        k = k + 1
+    Next var
+
+    Success = True
+    For k = 1 To keyCount
+        If Not RemoveConfigVar(keysToRemove(k), False) Then
             Success = False
         End If
-    Next var
+    Next k
 
     RemoveAllConfigVars = Success
     Exit Function
@@ -284,6 +291,7 @@ Public Function ExportConfig(Optional ByVal FilePath As String = "") As Boolean
     Exit Function
     
 ErrorHandler:
+    If FileNum > 0 Then Close #FileNum
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ExportConfig"
     ExportConfig = False
 End Function
@@ -306,8 +314,8 @@ Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteE
     
     Dim FileNum As Integer
     Dim Line As String
-    Dim ImportedCount As Integer
-    Dim SkippedCount As Integer
+    Dim ImportedCount As Long
+    Dim SkippedCount As Long
     
     ' Read and process file
     FileNum = FreeFile
@@ -327,7 +335,11 @@ Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteE
     Loop
     
     Close #FileNum
-    
+
+    If SkippedCount > 0 Then
+        ErrorHandler.HandleError SkippedCount & " line(s) skipped during import of: " & FilePath, 0, "ARESConfigClass.ImportConfig", "WARNING"
+    End If
+
     ImportConfig = True
     Exit Function
     
@@ -395,19 +407,20 @@ Private Function ProcessImportLine(ByVal Line As String, ByVal OverwriteExisting
     
     ' Parse line format: KEY=VALUE|DEFAULT=defaultvalue|MODIFIED=true/false
     Dim Parts() As String
-    Dim KeyValue() As String
     Dim ConfigKey As String
     Dim ConfigValue As String
     Dim ConfigVar As ARES_MS_VAR_Class
-    
+    Dim EqPos As Long
+
     Parts = Split(Line, "|")
     If UBound(Parts) < 0 Then Exit Function
-    
-    KeyValue = Split(Parts(0), "=")
-    If UBound(KeyValue) < 1 Then Exit Function
-    
-    ConfigKey = Trim(KeyValue(0))
-    ConfigValue = Trim(KeyValue(1))
+
+    ' Use InStr to find only the first "=" so values containing "=" are not truncated
+    EqPos = InStr(Parts(0), "=")
+    If EqPos < 2 Then Exit Function
+
+    ConfigKey = Trim(Left(Parts(0), EqPos - 1))
+    ConfigValue = Trim(Mid(Parts(0), EqPos + 1))
     
     ' Check if key exists in our configuration
     Set ConfigVar = GetConfigVar(ConfigKey)
@@ -435,5 +448,5 @@ ErrorHandler:
 End Function
 
 Private Function GetARESVersion() As String
-    GetARESVersion = "1.0.0" ' Update with your actual version
+    GetARESVersion = ARES_VERSION
 End Function

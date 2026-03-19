@@ -238,9 +238,14 @@ Private Function GetRoundValue() As Variant
     On Error GoTo ErrorHandler
     Dim roundValue As String
     roundValue = ARESConfig.ARES_ROUNDS.Value
-    ' Handle empty rounding value
+    ' Handle empty rounding value - reset to default and read it back
     If roundValue = "" Then
-        ResetRound
+        If ResetRound() Then
+            roundValue = ARESConfig.ARES_ROUNDS.defaultValue
+        Else
+            GetRoundValue = ARES_RND_ERROR_VALUE
+            Exit Function
+        End If
     End If
     GetRoundValue = CByte(roundValue)
     Exit Function
