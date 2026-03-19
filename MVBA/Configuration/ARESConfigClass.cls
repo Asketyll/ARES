@@ -153,11 +153,6 @@ Public Function RemoveConfigVar(ByVal Key As String, Optional showConfirmation A
     Dim ConfigVar As ARES_MS_VAR_Class
     Set ConfigVar = pConfigVariables(Key)
 
-    If ConfigVar Is Nothing Then
-        RemoveConfigVar = False
-        Exit Function
-    End If
-
     ' Ask for confirmation
     If showConfirmation Then
         If MsgBox(GetTranslation("VarRemoveConfirm", Key), vbYesNo) = vbNo Then
@@ -324,6 +319,15 @@ Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteE
     Do While Not EOF(FileNum)
         Line Input #FileNum, Line
         
+        ' Check version header
+        If Left(Trim(Line), 10) = "# Version:" Then
+            Dim fileVersion As String
+            fileVersion = Trim(Mid(Trim(Line), 11))
+            If fileVersion <> ARES_CONFIG_VERSION Then
+                ErrorHandler.HandleError "Config version mismatch: file=" & fileVersion & ", expected=" & ARES_CONFIG_VERSION, 0, "ARESConfigClass.ImportConfig", "WARNING"
+            End If
+        End If
+
         ' Skip comments and empty lines
         If Len(Trim(Line)) > 0 And Left(Trim(Line), 1) <> "#" Then
             If ProcessImportLine(Line, OverwriteExisting) Then
