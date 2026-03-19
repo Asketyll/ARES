@@ -340,6 +340,7 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
     Dim trigger() As String             ' Array of trigger patterns
     Dim SplitedTriggers() As String     ' Trigger split by ID placeholder
     Dim oldcolor As Long                ' Original element color
+    Dim TriggerID As String             ' Cached trigger ID to avoid repeated config access
 
     ' Save original color
     oldcolor = TextElement.Color
@@ -383,7 +384,6 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
         trigger = Split(Triggers, ARES_VAR_DELIMITER)
 
         ' Cache trigger ID to avoid repeated property access in loop
-        Dim TriggerID As String
         TriggerID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
 
         ' Build new text content by processing each line

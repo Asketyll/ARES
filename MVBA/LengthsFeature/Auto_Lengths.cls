@@ -131,7 +131,7 @@ Private Sub HandleSingleElement()
     If Not IsEmpty(Results) Then
         ElementInProcesse.Remove pNewElement
     Else
-        ShowStatus "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID)
+        ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.HandleSingleElement", "WARNING"
     End If
 End Sub
 
@@ -173,7 +173,7 @@ Private Sub UpdateSingleNonZeroLength()
                 ElementInProcesse.Remove pNewElement
                 Success = True
             Else
-                ShowStatus "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID)
+                ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.UpdateSingleNonZeroLength", "WARNING"
             End If
             Exit For
         End If
@@ -254,7 +254,7 @@ Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterEleme
             ElementInProcesse.Remove linkedElement
         Next linkedElement
     Else
-        ShowStatus "Failed to update texts in master element with ID: " & DLongToString(MasterElement.ID)
+        ErrorHandler.HandleError "Failed to update texts in master element with ID: " & DLongToString(MasterElement.ID), 0, "AutoLengths.OnElementSelected", "WARNING"
     End If
 
     Exit Sub
@@ -305,7 +305,7 @@ Private Sub ILocateCommandEvents_LocateFilter(ByVal element As element, Point As
     End Select
     If Accepted Then
         If ElementInProcesse.Add(element) Then
-            ChangeHandler.HandleElementModified element
+            ChangeHandler.ProcessElement element
         End If
     End If
 End Sub
