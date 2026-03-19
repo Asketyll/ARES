@@ -23,7 +23,12 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
         HandleInitialIdle
         Exit Sub
     End If
-    
+
+    ' Ensure ARESConfig is initialized even if LangManager was already init
+    If Not ARESConfig.IsInitialized Then
+        ARESConfig.Initialize
+    End If
+
     ' Check if there are pending elements to process
     If ElementInProcesse.HasElements Then
         ProcessPendingElements
