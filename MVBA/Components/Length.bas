@@ -173,22 +173,28 @@ ErrorHandler:
 End Function
 
 ' Helper function to get the longest side from a complex shape
-Private Function GetLongestSideFromComplexShape(ByVal El As ComplexShapeElement) As Double
+Private Function GetLongestSideFromComplexShape(ByVal El As ComplexShapeElement, Optional ByVal Depth As Integer = 0) As Double
     On Error GoTo ErrorHandler
-    
+
+    Const MAX_DEPTH As Integer = 10
+    If Depth > MAX_DEPTH Then
+        GetLongestSideFromComplexShape = 0
+        Exit Function
+    End If
+
     Dim ELEnum As ElementEnumerator
     Dim subel As element
     Dim ElementLength As Double
     Dim LongestSide As Double
-    
+
     LongestSide = 0
     Set ELEnum = El.GetSubElements
-    
+
     ' Iterate through sub-elements and find the longest one
     Do While ELEnum.MoveNext
         Set subel = ELEnum.Current
         ElementLength = 0
-        
+
         Select Case True
             Case subel.IsLineElement
                 ElementLength = subel.AsLineElement.Length
@@ -199,14 +205,14 @@ Private Function GetLongestSideFromComplexShape(ByVal El As ComplexShapeElement)
                 ElementLength = GetLongestSideFromShape(subel.AsShapeElement)
             Case subel.IsComplexShapeElement
                 ' For nested complex shapes, get their longest side recursively
-                ElementLength = GetLongestSideFromComplexShape(subel.AsComplexShapeElement)
+                ElementLength = GetLongestSideFromComplexShape(subel.AsComplexShapeElement, Depth + 1)
         End Select
-        
+
         If ElementLength > LongestSide Then
             LongestSide = ElementLength
         End If
     Loop
-    
+
     GetLongestSideFromComplexShape = LongestSide
     Exit Function
 

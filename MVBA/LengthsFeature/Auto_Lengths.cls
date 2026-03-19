@@ -27,8 +27,6 @@ Public Sub Initialize(ByVal NewElement As element)
     If Not UBound(pLinkedElements) = -1 Then
         ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
         CalculateLengths
-    Else
-        ShowStatus "No linked elements found for element ID: " & DLongToString(pNewElement.ID)
     End If
     Exit Sub
     

@@ -83,8 +83,7 @@ Public Function GetLink(ByRef El As element, _
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Link.GetLink"
-    ' Handle errors by returning an empty array of Element type
-    ReDim LinkedElements(0) As element
+    ' Return uninitialized array (consistent with the no-elements-found path)
     GetLink = LinkedElements
 End Function
 

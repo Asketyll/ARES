@@ -109,6 +109,7 @@ Private Function ProcessTextElement(ByRef TextElement As element, Optional txt A
         Dim trigger() As String, SplitedTriggers() As String
         Dim i As Long
         Dim oldcolor As Long
+        Dim TriggerID As String
 
         ' Save original color for comparison
         oldcolor = TextElement.Color
@@ -125,11 +126,14 @@ Private Function ProcessTextElement(ByRef TextElement As element, Optional txt A
         ' Parse trigger patterns (pipe-delimited)
         trigger = Split(Triggers, ARES_VAR_DELIMITER)
 
+        ' Cache trigger ID to avoid repeated property access in loop
+        TriggerID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
+
         ' Process each trigger pattern
         ' Trigger format: "prefix" + TRIGGER_ID + "suffix" (e.g., "(" + "Xx_" + "m)")
         ' We replace "prefix" + "suffix" with "prefix" + txt + "suffix"
         For i = LBound(trigger) To UBound(trigger)
-            SplitedTriggers = Split(trigger(i), ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)
+            SplitedTriggers = Split(trigger(i), TriggerID)
             If UBound(SplitedTriggers) = 1 Then
                 NewTxt = Replace(NewTxt, SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
             End If
@@ -162,6 +166,8 @@ End Function
 '   Array of strings, one per text line
 Private Function ProcessTextNodeElement(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -2) As String()
     On Error GoTo ErrorHandler
+
+    If Not TextElement.IsTextNodeElement Then Exit Function
 
     ' GET MODE: Return all text lines
     If Triggers = "" And txt = "" Then
@@ -370,6 +376,10 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
         ' Parse trigger patterns
         trigger = Split(Triggers, ARES_VAR_DELIMITER)
 
+        ' Cache trigger ID to avoid repeated property access in loop
+        Dim TriggerID As String
+        TriggerID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
+
         ' Build new text content by processing each line
         For i = 0 To UBound(OldTxts)
             OldTxts(i) = TextElement.AsTextNodeElement.TextLine(i + 1)
@@ -377,7 +387,7 @@ Private Function UpdateTextLines(ByRef TextElement As element, ByVal txt As Stri
 
             ' Apply each trigger pattern to this line
             For j = LBound(trigger) To UBound(trigger)
-                SplitedTriggers = Split(trigger(j), ARESConfig.ARES_LENGTH_TRIGGER_ID.Value)
+                SplitedTriggers = Split(trigger(j), TriggerID)
                 If UBound(SplitedTriggers) = 1 Then
                     NewTxts(i) = Replace(NewTxts(i), SplitedTriggers(0) & SplitedTriggers(1), SplitedTriggers(0) & txt & SplitedTriggers(1))
                 End If
