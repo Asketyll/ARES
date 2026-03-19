@@ -189,8 +189,11 @@ End Sub
 ' Processing logic:
 '   1. For text/cell elements: Update lengths if triggers are found, or sync colors
 '   2. For geometric elements: Find linked text elements and process them recursively
-Public Sub ProcessElement(ByVal oElement As element)
+Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Integer = 0)
     On Error GoTo ErrorHandler
+
+    Const MAX_DEPTH As Integer = 20
+    If Depth > MAX_DEPTH Then Exit Sub
 
     ' === LOCAL VARIABLES ===
     Dim AUTO_LENGTH As Boolean      ' Flag: automatic length addition enabled
@@ -394,7 +397,7 @@ Public Sub ProcessElement(ByVal oElement As element)
             If Not linkedElement Is Nothing Then
                 If ElementInProcesse.Add(linkedElement) Then
                     ' Recursive call to process the linked text element
-                    ProcessElement linkedElement
+                    ProcessElement linkedElement, Depth + 1
                 End If
             End If
         Next i
@@ -456,7 +459,7 @@ End Function
 Private Function IsNumericText(ByVal text As String) As Boolean
     Dim k As Long
     For k = 1 To Len(text)
-        If Not (Mid(text, k, 1) Like "[0-9 ,.]" Or Mid(text, k, 1) = " ") Then
+        If Not (Mid(text, k, 1) Like "[0-9 ,.]") Then
             Exit For
         End If
     Next k

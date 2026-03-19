@@ -67,7 +67,7 @@ Private Sub CalculateLengths()
             pLengths(i) = Length.GetLength(linkedElement, ARESConfig.ARES_LENGTH_ROUND.Value)
         Else
             pLengths(i) = 0
-            ShowStatus "Linked element at index " & i & " is Nothing"
+            ErrorHandler.HandleError "Linked element at index " & i & " is Nothing", 0, "AutoLengths.CalculateLengths", "WARNING"
         End If
     Next i
 

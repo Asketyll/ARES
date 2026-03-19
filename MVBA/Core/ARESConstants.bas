@@ -41,3 +41,7 @@ Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"
 ' === CUSTOMPROPERTY ITEM NAME CONSTANTS ===
 ' Used in CustomPropertyHandler module
 Public Const ARES_NAME_ITEM_TYPE As String = "ARESAutoLengthObject"
+
+' === VERSION CONSTANT ===
+' Update this when releasing a new version
+Public Const ARES_VERSION As String = "1.0.0"
