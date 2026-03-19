@@ -189,6 +189,8 @@ Private Function CheckInitialConditions(El As element) As Boolean
         End If
     Next i
 
+    Exit Function
+
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CellRedraw.CheckInitialConditions"
     CheckInitialConditions = False
