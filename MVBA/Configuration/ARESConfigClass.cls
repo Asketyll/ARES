@@ -448,5 +448,5 @@ ErrorHandler:
 End Function
 
 Private Function GetARESVersion() As String
-    GetARESVersion = ARES_VERSION
+    GetARESVersion = ARES_CONFIG_VERSION
 End Function

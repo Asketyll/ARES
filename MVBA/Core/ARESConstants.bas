@@ -44,4 +44,4 @@ Public Const ARES_NAME_ITEM_TYPE As String = "ARESAutoLengthObject"
 
 ' === VERSION CONSTANT ===
 ' Update this when releasing a new version
-Public Const ARES_VERSION As String = "1.0.0"
+Public Const ARES_CONFIG_VERSION As String = "1.0.0"
