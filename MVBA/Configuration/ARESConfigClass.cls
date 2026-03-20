@@ -396,11 +396,12 @@ End Function
 
 Private Function FormatConfigForExport(ByVal ConfigVar As ARES_MS_VAR_Class) As String
     Dim Result As String
-    
-    ' Format: KEY=VALUE|DEFAULT=defaultvalue|MODIFIED=true/false
-    Result = ConfigVar.Key & "=" & ConfigVar.Value & "|DEFAULT=" & ConfigVar.DefaultValue
-    Result = Result & "|MODIFIED=" & CStr(ConfigVar.IsModified())
-    
+
+    ' Format: KEY=VALUE:::DEFAULT=defaultvalue:::MODIFIED=true/false
+    ' ":::" is used instead of "|" to avoid conflict with ARES_VAR_DELIMITER used inside config values
+    Result = ConfigVar.Key & "=" & ConfigVar.Value & ":::DEFAULT=" & ConfigVar.DefaultValue
+    Result = Result & ":::MODIFIED=" & CStr(ConfigVar.IsModified())
+
     FormatConfigForExport = Result
 End Function
 
@@ -409,14 +410,14 @@ Private Function ProcessImportLine(ByVal Line As String, ByVal OverwriteExisting
     
     ProcessImportLine = False
     
-    ' Parse line format: KEY=VALUE|DEFAULT=defaultvalue|MODIFIED=true/false
+    ' Parse line format: KEY=VALUE:::DEFAULT=defaultvalue:::MODIFIED=true/false
     Dim Parts() As String
     Dim ConfigKey As String
     Dim ConfigValue As String
     Dim ConfigVar As ARES_MS_VAR_Class
     Dim EqPos As Long
 
-    Parts = Split(Line, "|")
+    Parts = Split(Line, ":::")
     If UBound(Parts) < 0 Then Exit Function
 
     ' Use InStr to find only the first "=" so values containing "=" are not truncated
