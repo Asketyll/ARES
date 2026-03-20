@@ -36,8 +36,8 @@ Public Property Let Value(ByVal strNewValue As String)
     ' Track modification state
     mbIsModified = (mstrValue <> DefaultValue)
 
-    ' Persist to MicroStation configuration
-    If Len(Key) > 0 Then
+    ' Persist to MicroStation configuration only if value actually changed
+    If Len(Key) > 0 And strNewValue <> strOldValue Then
         Config.SetVar Key, strNewValue
     End If
 	
@@ -95,21 +95,6 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARES_MS_VAR_Class.IsValid"
     IsValid = False
 End Function
-
-' Initialize the variable with key and default value
-Public Sub Initialize(ByVal StrKey As String, ByVal strDefaultValue As String)
-    On Error GoTo ErrorHandler
-    
-    Key = StrKey
-    DefaultValue = strDefaultValue
-    mstrValue = strDefaultValue
-    mbIsModified = False
-    
-    Exit Sub
-    
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARES_MS_VAR_Class.Initialize"
-End Sub
 
 ' Get a string representation of this variable for debugging
 Public Function ToString() As String

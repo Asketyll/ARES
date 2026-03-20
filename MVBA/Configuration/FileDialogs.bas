@@ -13,11 +13,8 @@ Public Sub ExportConfigurationUI()
     
     ' Initialize if needed
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
-        Set BootLoader.ARESConfig = New ARESConfigClass
-        ARESConfig.Initialize
-    End If
-    
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+
     ' Show save dialog
     Dim filePath As String
     filePath = ShowSaveFileDialog(GetTranslation("ConfigExportTitle"), _
@@ -48,11 +45,8 @@ Public Sub ImportConfigurationUI()
     
     ' Initialize if needed
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
-        Set BootLoader.ARESConfig = New ARESConfigClass
-        ARESConfig.Initialize
-    End If
-    
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+
     ' Show open dialog
     Dim filePath As String
     filePath = ShowOpenFileDialog(GetTranslation("ConfigImportTitle"), _
@@ -100,11 +94,8 @@ Public Sub ShowConfigurationSummaryUI()
     On Error GoTo ErrorHandler
     
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
-        Set BootLoader.ARESConfig = New ARESConfigClass
-        ARESConfig.Initialize
-    End If
-    
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+
     Dim summary As String
     summary = ARESConfig.GetConfigSummary()
     
@@ -214,9 +205,11 @@ Private Function GetCommandOutput(ByVal command As String) As String
     
     Set wshShell = CreateObject("WScript.Shell")
     
-    ' Create unique temp files
-    tempFile = Environ("TEMP") & "\ares_output_" & Format(Now, "hhmmssfffff") & ".txt"
-    batFile = Environ("TEMP") & "\ares_cmd_" & Format(Now, "hhmmssfffff") & ".bat"
+    ' Create unique temp files (CLng(Timer * 1000) gives milliseconds since midnight)
+    Dim uniqueID As String
+    uniqueID = CStr(CLng(Timer * 1000))
+    tempFile = Environ("TEMP") & "\ares_output_" & uniqueID & ".txt"
+    batFile = Environ("TEMP") & "\ares_cmd_" & uniqueID & ".bat"
     
     ' Create batch file with command
     fileNum = FreeFile

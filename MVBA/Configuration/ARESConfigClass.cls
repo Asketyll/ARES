@@ -439,11 +439,9 @@ Private Function ProcessImportLine(ByVal Line As String, ByVal OverwriteExisting
         Exit Function ' Skip if already modified and not overwriting
     End If
     
-    ' Update configuration
-    If Config.SetVar(ConfigKey, ConfigValue) Then
-        ConfigVar.Value = ConfigValue
-        ProcessImportLine = True
-    End If
+    ' Update configuration (ConfigVar.Value Let persists to MicroStation via Config.SetVar)
+    ConfigVar.Value = ConfigValue
+    ProcessImportLine = True
     
     Exit Function
     
