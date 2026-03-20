@@ -65,9 +65,12 @@ Private Sub HandleInitialIdle()
         ARESConfig.Initialize
     End If
 
+    ' Check for available updates — silently skipped on network failure or user preference
+    UpdateChecker.CheckForUpdate
+
     ' Remove the handler after initialization
     RemoveEnterIdleEventHandler Me
-    
+
     Exit Sub
 
 ErrorHandler:
