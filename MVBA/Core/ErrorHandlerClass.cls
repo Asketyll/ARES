@@ -192,5 +192,9 @@ Private Sub ShowError(ByVal Description As String, ByVal Number As Long, ByVal S
         Message = Description
     End If
     
-    MsgBox Message, vbCritical + vbOKOnly, "ARES Error"
+    If Number > 0 Then
+        MsgBox Message, vbCritical + vbOKOnly, "ARES Error"
+    Else
+        MsgBox Message, vbInformation + vbOKOnly, "ARES"
+    End If
 End Sub
