@@ -255,7 +255,6 @@ Private Function EscapeForPowerShell(ByVal text As String) As String
     result = text
     result = Replace(result, "'", "''")  ' Escape single quotes
     result = Replace(result, """", """""") ' Escape double quotes
-    result = Replace(result, "\", "\\")   ' Escape backslashes
     EscapeForPowerShell = result
 End Function
 
