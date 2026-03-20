@@ -39,6 +39,10 @@ Public ARES_ONLY_COLOR As ARES_MS_VAR_Class 'Dafault Value: True        True or 
 Public ARES_BULK_THRESHOLD As ARES_MS_VAR_Class 'Default Value: 50    Number of calls to trigger bulk mode
 ' Used in ElementChangeHandler for bulk operation detection time window
 Public ARES_BULK_INTERVAL As ARES_MS_VAR_Class 'Default Value: 1000   Time window in milliseconds
+' Used in UpdateChecker module to permanently mute update notifications
+Public ARES_UPDATE_MUTE As ARES_MS_VAR_Class 'Default Value: False         True or False (Boolean)
+' Used in UpdateChecker module to ignore a specific release version
+Public ARES_UPDATE_IGNORE_VERSION As ARES_MS_VAR_Class 'Default Value: (empty)   Version string e.g. "1.2.3"
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -81,6 +85,8 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ONLY_COLOR = CreateConfigVar("ARES_Only_Color_Update", "True")
     Set ARES_BULK_THRESHOLD = CreateConfigVar("ARES_Bulk_Threshold", "50")
     Set ARES_BULK_INTERVAL = CreateConfigVar("ARES_Bulk_Interval", "1000")
+    Set ARES_UPDATE_MUTE = CreateConfigVar("ARES_Update_Mute", "False")
+    Set ARES_UPDATE_IGNORE_VERSION = CreateConfigVar("ARES_Update_Ignore_Version", "")
     CreateConfigVariables = True
     Exit Function
 

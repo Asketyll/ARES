@@ -36,6 +36,7 @@ namespace AresInstaller
         private string currentLanguage = "EN";
         private bool installationCompleted = false;
         private long totalDownloadedBytes = 0;
+        private string _installedVersion = string.Empty;
 
         #region Security Helper Classes
         private class FileIntegrityValidator
@@ -151,6 +152,23 @@ namespace AresInstaller
             }
 
             return sourceVersion.Equals(targetVersion, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void WriteVersionToRegistry(string version)
+        {
+            if (string.IsNullOrEmpty(version)) return;
+            try
+            {
+                using (var key = Registry.CurrentUser.CreateSubKey(@"Software\ARES"))
+                {
+                    key?.SetValue("Version", version, RegistryValueKind.String);
+                }
+                LogMessage($"Registered installed version: {version} → HKCU\\Software\\ARES\\Version");
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"WARNING: Could not write version to registry: {ex.Message}");
+            }
         }
 
         private string FindExistingDllWithBaseName(string dllBaseName)
@@ -331,6 +349,7 @@ namespace AresInstaller
 
                 UpdateStatus("InstallationCompleted");
                 await CleanupTemporaryFiles();
+                WriteVersionToRegistry(_installedVersion);
                 LogInstallationSummary();
                 IncrementProgress();
             }
@@ -535,6 +554,7 @@ namespace AresInstaller
                 }
                 else
                 {
+                    _installedVersion = tagName.TrimStart('v');
                     LogMessage(Translations.Format("LatestVersion", currentLanguage, tagName));
                 }
 
