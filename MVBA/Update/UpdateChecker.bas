@@ -9,6 +9,9 @@ Option Explicit
 Private Const ARES_REGISTRY_KEY As String = "HKCU\Software\ARES\Version"
 Private Const ARES_GITHUB_API_URL As String = "https://api.github.com/repos/Asketyll/ARES/releases/latest"
 
+' Module-level var read by UpdateChecker_GUI to store the ignored version on "Non"
+Public gsUpdateLatestVersion As String
+
 ' Returns the installed version from the Windows Registry.
 ' Falls back to ARES_CONFIG_VERSION if the key is absent, empty, or on any error.
 Public Function GetInstalledVersion() As String
@@ -104,29 +107,12 @@ Public Sub CheckForUpdate()
     ShowUpdateDialog sInstalled, sLatest
 End Sub
 
-' Shows the update notification dialog and processes the user's choice.
-' Uses vbYesNoCancel: Yes=Ignore this version | No=Never remind me | Cancel=Remind later
+' Shows the update notification dialog (UpdateChecker_GUI).
+' Buttons: Update (open browser) | Ignore this version | Ignore all updates
 Private Sub ShowUpdateDialog(ByVal sInstalled As String, ByVal sLatest As String)
     On Error Resume Next
 
-    Dim sMsg As String
-    Dim nResult As Integer
-
-    sMsg = "A new version of ARES is available." & vbCrLf & vbCrLf & _
-           "Installed : " & sInstalled & vbCrLf & _
-           "Available : " & sLatest & vbCrLf & vbCrLf & _
-           "https://github.com/Asketyll/ARES/releases/latest" & vbCrLf & vbCrLf & _
-           "[Yes]    Ignore this version" & vbCrLf & _
-           "[No]     Never remind me" & vbCrLf & _
-           "[Cancel] Remind me later"
-
-    nResult = MsgBox(sMsg, vbYesNoCancel + vbInformation, "ARES - Update Available")
-
-    Select Case nResult
-        Case vbYes    ' Ignore this version only
-            ARESConfig.ARES_UPDATE_IGNORE_VERSION.Value = sLatest
-        Case vbNo     ' Disable all future notifications
-            ARESConfig.ARES_UPDATE_MUTE.Value = "True"
-        Case vbCancel ' Remind me later — no state change
-    End Select
+    gsUpdateLatestVersion = sLatest
+    UpdateChecker_GUI.Show vbModal
+    Unload UpdateChecker_GUI
 End Sub
