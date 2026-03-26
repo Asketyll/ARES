@@ -90,6 +90,8 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_UpdateBtnYes", "Yes"
     mTranslations.Add "EN_UpdateBtnNo", "No"
     mTranslations.Add "EN_UpdateBtnIgnoreAll", "Ignore all"
+    mTranslations.Add "EN_UpdateDownloading", "Downloading update..."
+    mTranslations.Add "EN_UpdateDownloadFailed", "Failed to download the update. Please visit the GitHub releases page."
 
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -159,6 +161,8 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_UpdateBtnYes", "Oui"
     mTranslations.Add "FR_UpdateBtnNo", "Non"
     mTranslations.Add "FR_UpdateBtnIgnoreAll", "Tout ignorer"
+    mTranslations.Add "FR_UpdateDownloading", "Telechargement de la mise a jour..."
+    mTranslations.Add "FR_UpdateDownloadFailed", "Echec du telechargement. Veuillez visiter la page des releases GitHub."
 
     IsInit = True
     Exit Sub

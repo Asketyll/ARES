@@ -15,12 +15,8 @@ Private Sub UserForm_Activate()
 End Sub
 
 Private Sub cmdYes_Click()
-    On Error Resume Next
-    Dim oShell As Object
-    Set oShell = CreateObject("WScript.Shell")
-    oShell.Run "https://github.com/Asketyll/ARES/releases/latest"
-    Set oShell = Nothing
     Me.Hide
+    DownloadAndInstall
 End Sub
 
 Private Sub cmdNo_Click()
