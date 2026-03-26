@@ -85,7 +85,12 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_ConfigSummaryTitle", "ARES Configuration Summary"
     mTranslations.Add "EN_ConfigImportedCount", "Import completed: {0} imported, {1} skipped"
     mTranslations.Add "EN_WikiOpenFailed", "Failed to open ARES wiki"
-    
+    mTranslations.Add "EN_UpdateAvailableTitle", "ARES - Update Available"
+    mTranslations.Add "EN_UpdateAvailableQuestion", "A new version of ARES is available. Do you want to update?"
+    mTranslations.Add "EN_UpdateBtnYes", "Yes"
+    mTranslations.Add "EN_UpdateBtnNo", "No"
+    mTranslations.Add "EN_UpdateBtnIgnoreAll", "Ignore all"
+
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
     mTranslations.Add "FR_VarResetAllSuccess", "Toutes les variables ont été remises à leur valeur par défaut."
@@ -148,8 +153,13 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_ConfigOperationCancelled", "Opération annulée par l'utilisateur"
     mTranslations.Add "FR_ConfigSummaryTitle", "Résumé de la Configuration ARES"
     mTranslations.Add "FR_ConfigImportedCount", "Import terminé: {0} importées, {1} ignorées"
-    mTranslations.Add "FR_WikiOpenFailed", "Échec de l'ouverture du wiki ARES"
-    
+    mTranslations.Add "FR_WikiOpenFailed", "Echec de l'ouverture du wiki ARES"
+    mTranslations.Add "FR_UpdateAvailableTitle", "ARES - Mise a jour disponible"
+    mTranslations.Add "FR_UpdateAvailableQuestion", "Une nouvelle version d'ARES est disponible, souhaitez-vous faire la mise a jour ?"
+    mTranslations.Add "FR_UpdateBtnYes", "Oui"
+    mTranslations.Add "FR_UpdateBtnNo", "Non"
+    mTranslations.Add "FR_UpdateBtnIgnoreAll", "Tout ignorer"
+
     IsInit = True
     Exit Sub
 
