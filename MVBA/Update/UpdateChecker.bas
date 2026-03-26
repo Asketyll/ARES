@@ -8,9 +8,12 @@ Option Explicit
 
 Private Const ARES_REGISTRY_KEY As String = "HKCU\Software\ARES\Version"
 Private Const ARES_GITHUB_API_URL As String = "https://api.github.com/repos/Asketyll/ARES/releases/latest"
+Private Const ARES_GITHUB_DOWNLOAD_URL As String = "https://github.com/Asketyll/ARES/releases/download/v{0}/ARES.mvba"
+Private Const ARES_MVBA_PATH As String = "C:\ARES\ARES.mvba"
 
-' Module-level var read by UpdateChecker_GUI to store the ignored version on "Non"
+' Module-level vars read by UpdateChecker_GUI
 Public gsUpdateLatestVersion As String
+Public gsUpdateDownloadUrl As String
 
 ' Returns the installed version from the Windows Registry.
 ' Falls back to ARES_CONFIG_VERSION if the key is absent, empty, or on any error.
@@ -113,6 +116,43 @@ Private Sub ShowUpdateDialog(ByVal sInstalled As String, ByVal sLatest As String
     On Error Resume Next
 
     gsUpdateLatestVersion = sLatest
+    gsUpdateDownloadUrl = Replace(ARES_GITHUB_DOWNLOAD_URL, "{0}", sLatest)
     UpdateChecker_GUI.Show vbModal
     Unload UpdateChecker_GUI
+End Sub
+
+' Downloads ARES.mvba from the latest release to ARES_MVBA_PATH then quits MicroStation.
+' Called by UpdateChecker_GUI.cmdYes_Click.
+Public Sub DownloadAndInstall()
+    On Error GoTo ErrorHandler
+
+    Dim oHttp As Object
+    Dim oStream As Object
+
+    ShowStatus GetTranslation("UpdateDownloading")
+
+    Set oHttp = CreateObject("MSXML2.XMLHTTP")
+    oHttp.Open "GET", gsUpdateDownloadUrl, False
+    oHttp.setRequestHeader "User-Agent", "ARES-MVBA"
+    oHttp.send
+
+    If oHttp.Status <> 200 Then GoTo ErrorHandler
+
+    Set oStream = CreateObject("ADODB.Stream")
+    oStream.Type = 1 ' Binary
+    oStream.Open
+    oStream.Write oHttp.responseBody
+    oStream.SaveToFile ARES_MVBA_PATH, 2 ' 2 = adSaveCreateOverWrite
+    oStream.Close
+    Set oStream = Nothing
+    Set oHttp = Nothing
+
+    Application.Quit
+    Exit Sub
+
+ErrorHandler:
+    Set oStream = Nothing
+    Set oHttp = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "UpdateChecker.DownloadAndInstall"
+    MsgBox GetTranslation("UpdateDownloadFailed"), vbCritical, "ARES"
 End Sub
