@@ -121,15 +121,24 @@ Private Sub ShowUpdateDialog(ByVal sInstalled As String, ByVal sLatest As String
     Unload UpdateChecker_GUI
 End Sub
 
-' Downloads ARES.mvba from the latest release to ARES_MVBA_PATH then quits MicroStation.
+' Downloads ARES.mvba to %TEMP%, launches an elevated PowerShell script that waits for
+' MicroStation to close then copies the file (UAC prompt expected), then quits.
 ' Called by UpdateChecker_GUI.cmdYes_Click.
 Public Sub DownloadAndInstall()
     On Error GoTo ErrorHandler
 
     Dim oHttp As Object
     Dim oStream As Object
+    Dim oShell As Object
+    Dim sTempMvba As String
+    Dim sTempPs As String
+    Dim iFile As Integer
 
     ShowStatus GetTranslation("UpdateDownloading")
+
+    ' [1] Download ARES.mvba to %TEMP% — avoids both the folder permission and the file lock
+    sTempMvba = Environ("TEMP") & "\ARES_update.mvba"
+    sTempPs = Environ("TEMP") & "\ARES_update.ps1"
 
     Set oHttp = CreateObject("MSXML2.XMLHTTP")
     oHttp.Open "GET", gsUpdateDownloadUrl, False
@@ -142,11 +151,33 @@ Public Sub DownloadAndInstall()
     oStream.Type = 1 ' Binary
     oStream.Open
     oStream.Write oHttp.responseBody
-    oStream.SaveToFile ARES_MVBA_PATH, 2 ' 2 = adSaveCreateOverWrite
+    oStream.SaveToFile sTempMvba, 2 ' adSaveCreateOverWrite
     oStream.Close
     Set oStream = Nothing
     Set oHttp = Nothing
 
+    ' [2] Write a PowerShell script that retries until the lock is released then copies
+    iFile = FreeFile
+    Open sTempPs For Output As #iFile
+    Print #iFile, "do {"
+    Print #iFile, "    Start-Sleep -Seconds 2"
+    Print #iFile, "    try {"
+    Print #iFile, "        Copy-Item -Path '" & sTempMvba & "' -Destination '" & ARES_MVBA_PATH & "' -Force -ErrorAction Stop"
+    Print #iFile, "        $done = $true"
+    Print #iFile, "    } catch { $done = $false }"
+    Print #iFile, "} while (-not $done)"
+    Print #iFile, "Remove-Item -Path '" & sTempMvba & "' -Force -ErrorAction SilentlyContinue"
+    Print #iFile, "Remove-Item -Path '" & sTempPs & "' -Force -ErrorAction SilentlyContinue"
+    Close #iFile
+
+    ' [3] Launch the script elevated (triggers UAC) — hidden window, no wait
+    Set oShell = CreateObject("Shell.Application")
+    oShell.ShellExecute "powershell.exe", _
+        "-ExecutionPolicy Bypass -WindowStyle Hidden -File """ & sTempPs & """", _
+        "", "runas", 0
+    Set oShell = Nothing
+
+    ' [4] Quit MicroStation — script will copy once the lock is released
     Application.Quit
     Exit Sub
 
