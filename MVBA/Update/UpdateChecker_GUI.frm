@@ -21,7 +21,7 @@ End Sub
 
 Private Sub cmdNo_Click()
     On Error Resume Next
-    ARESConfig.ARES_UPDATE_IGNORE_VERSION.Value = gsUpdateLatestVersion
+    ARESConfig.ARES_UPDATE_IGNORE_VERSION.Value = GetUpdateLatestVersion()
     Me.Hide
 End Sub
 
