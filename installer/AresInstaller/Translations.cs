@@ -56,7 +56,8 @@ namespace AresInstaller
             
             // Prerequisites
             { "PrerequisitesCheck", new Dictionary<string, string> { { "EN", "=== Prerequisites Check ===" }, { "FR", "=== Vérification des prérequis ===" } } },
-            { "NotRunningAsAdmin", new Dictionary<string, string> { { "EN", "WARNING: Not running as Administrator - some features may not work" }, { "FR", "ATTENTION : Pas exécuté en tant qu'administrateur - certaines fonctionnalités peuvent ne pas fonctionner" } } },
+            { "NotRunningAsAdmin", new Dictionary<string, string> { { "EN", "Administrator rights are required to install ARES. Please restart the installer as Administrator." }, { "FR", "Les droits administrateur sont requis pour installer ARES. Veuillez relancer l'installateur en tant qu'administrateur." } } },
+            { "RunningAsAdmin", new Dictionary<string, string> { { "EN", "Running as Administrator ✓" }, { "FR", "Exécuté en tant qu'administrateur ✓" } } },
             { "DotNetAvailable", new Dictionary<string, string> { { "EN", ".NET Framework 4.7.2+ available" }, { "FR", ".NET Framework 4.7.2+ disponible" } } },
             { "DotNetRequired", new Dictionary<string, string> { { "EN", ".NET Framework 4.7.2 or higher is required" }, { "FR", ".NET Framework 4.7.2 ou supérieur est requis" } } },
             

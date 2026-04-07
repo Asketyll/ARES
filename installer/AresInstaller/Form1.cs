@@ -37,6 +37,8 @@ namespace AresInstaller
         private bool installationCompleted = false;
         private long totalDownloadedBytes = 0;
         private string _installedVersion = string.Empty;
+        private string _downloadPath = null;
+        private string _extractPath = null;
 
         #region Security Helper Classes
         private class FileIntegrityValidator
@@ -320,6 +322,9 @@ namespace AresInstaller
             const int totalSteps = 7;
             progressBar.Value = 0;
             progressBar.Maximum = totalSteps;
+            totalDownloadedBytes = 0;
+            _downloadPath = null;
+            _extractPath = null;
 
             try
             {
@@ -390,8 +395,9 @@ namespace AresInstaller
 
             if (!IsRunningAsAdministrator())
             {
-                LogMessage(Translations.Get("NotRunningAsAdmin", currentLanguage));
+                throw new SecurityException(Translations.Get("NotRunningAsAdmin", currentLanguage));
             }
+            LogMessage(Translations.Get("RunningAsAdmin", currentLanguage));
 
             if (IsDotNetFrameworkInstalled())
             {
@@ -496,9 +502,9 @@ namespace AresInstaller
                 dirSecurity.AddAccessRule(rule);
                 dirInfo.SetAccessControl(dirSecurity);
             }
-            catch
+            catch (Exception aclEx)
             {
-                // Continue even if ACL setup fails
+                LogMessage($"WARNING: Could not set restricted ACLs on temp folder: {aclEx.Message}");
             }
 
             return tempPath;
@@ -581,27 +587,33 @@ namespace AresInstaller
 
                 LogMessage(Translations.Format("FoundAssets", currentLanguage, assets.Count));
 
-                var downloadPath = GetSecureTempPath(TEMP_DOWNLOAD_FOLDER);
-                Directory.CreateDirectory(downloadPath);
+                _downloadPath = GetSecureTempPath(TEMP_DOWNLOAD_FOLDER);
+                var downloadPath = _downloadPath;
 
-                // Look for checksum file first
+                // SHA256 checksum file is mandatory
                 var checksumAsset = assets.FirstOrDefault(a =>
                     a["name"]?.ToString().EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) == true);
 
-                FileIntegrityValidator validator = null;
-                if (checksumAsset != null)
-                {
-                    var checksumFileName = checksumAsset["name"]?.ToString();
-                    var checksumUrl = checksumAsset["browser_download_url"]?.ToString();
+                if (checksumAsset == null)
+                    throw new SecurityException("No SHA256 checksum file found in release assets. Installation aborted.");
 
-                    if (!string.IsNullOrEmpty(checksumFileName) && !string.IsNullOrEmpty(checksumUrl))
-                    {
-                        await DownloadFile(client, checksumFileName, checksumUrl, downloadPath);
-                        validator = new FileIntegrityValidator();
-                        validator.LoadHashesFromFile(Path.Combine(downloadPath, checksumFileName));
-                        LogMessage("Checksum file loaded for integrity verification");
-                    }
-                }
+                var checksumFileName = checksumAsset["name"]?.ToString();
+                var checksumUrl = checksumAsset["browser_download_url"]?.ToString();
+
+                if (string.IsNullOrEmpty(checksumFileName) || string.IsNullOrEmpty(checksumUrl))
+                    throw new SecurityException("Invalid checksum asset entry. Installation aborted.");
+
+                if (!checksumUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    throw new SecurityException("Checksum file URL is not HTTPS. Installation aborted.");
+
+                await DownloadFile(client, checksumFileName, checksumUrl, downloadPath);
+                var validator = new FileIntegrityValidator();
+                validator.LoadHashesFromFile(Path.Combine(downloadPath, checksumFileName));
+                LogMessage("Checksum file loaded — integrity verification is mandatory.");
+
+                // Extensions that must have a hash entry
+                var hashRequiredExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    { ".dll", ".mvba", ".zip", ".tlb" };
 
                 foreach (var asset in assets)
                 {
@@ -622,18 +634,31 @@ namespace AresInstaller
                         continue;
                     }
 
+                    // Validate download URL is HTTPS
+                    if (!downloadUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new SecurityException($"Non-HTTPS URL for asset {fileName}. Installation aborted.");
+                    }
+
+                    // Require hash entry for binary files before downloading
+                    var ext = Path.GetExtension(fileName).ToLowerInvariant();
+                    if (hashRequiredExtensions.Contains(ext) && !validator.HasHash(fileName))
+                    {
+                        throw new SecurityException($"No hash found for {fileName}. Installation aborted.");
+                    }
+
                     await DownloadFile(client, fileName, downloadUrl, downloadPath);
 
-                    // Verify hash if available
-                    if (validator != null && validator.HasHash(fileName))
+                    // Verify hash for binary files
+                    if (hashRequiredExtensions.Contains(ext))
                     {
                         var filePath = Path.Combine(downloadPath, fileName);
                         if (!validator.VerifyFile(filePath))
                         {
                             File.Delete(filePath);
-                            throw new SecurityException($"Hash verification failed for {fileName}");
+                            throw new SecurityException($"Hash verification failed for {fileName}. Installation aborted.");
                         }
-                        LogMessage($"  ✓ Hash verified for {fileName}");
+                        LogMessage($"  ✓ Hash verified: {fileName}");
                     }
                 }
 
@@ -724,16 +749,12 @@ namespace AresInstaller
 
             try
             {
-                var tempBase = Path.GetTempPath();
-                var downloadFolders = Directory.GetDirectories(tempBase, $"{TEMP_DOWNLOAD_FOLDER}_*");
-
-                if (downloadFolders.Length == 0)
-                {
+                if (string.IsNullOrEmpty(_downloadPath) || !Directory.Exists(_downloadPath))
                     throw new ExtractionException("Download folder not found");
-                }
 
-                var downloadPath = downloadFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
-                var extractPath = GetSecureTempPath(TEMP_EXTRACT_FOLDER);
+                var downloadPath = _downloadPath;
+                _extractPath = GetSecureTempPath(TEMP_EXTRACT_FOLDER);
+                var extractPath = _extractPath;
 
                 Directory.CreateDirectory(extractPath);
 
@@ -845,15 +866,10 @@ namespace AresInstaller
 
             try
             {
-                var tempBase = Path.GetTempPath();
-                var extractFolders = Directory.GetDirectories(tempBase, $"{TEMP_EXTRACT_FOLDER}_*");
-
-                if (extractFolders.Length == 0)
-                {
+                if (string.IsNullOrEmpty(_extractPath) || !Directory.Exists(_extractPath))
                     throw new RegistrationException("Extract folder not found");
-                }
 
-                var extractPath = extractFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
+                var extractPath = _extractPath;
 
                 await CopyDLLsToInstallPath(extractPath);
 
@@ -1106,15 +1122,10 @@ namespace AresInstaller
 
             try
             {
-                var tempBase = Path.GetTempPath();
-                var extractFolders = Directory.GetDirectories(tempBase, $"{TEMP_EXTRACT_FOLDER}_*");
-
-                if (extractFolders.Length == 0)
-                {
+                if (string.IsNullOrEmpty(_extractPath) || !Directory.Exists(_extractPath))
                     throw new InstallationException("Extract folder not found");
-                }
 
-                var extractPath = extractFolders.OrderByDescending(d => Directory.GetCreationTime(d)).First();
+                var extractPath = _extractPath;
 
                 await CopyMVBAFile(extractPath);
                 await Task.Delay(500);
