@@ -554,7 +554,7 @@ namespace AresInstaller
                 }
                 else
                 {
-                    _installedVersion = tagName.TrimStart('v');
+                    _installedVersion = tagName.StartsWith("v.") ? tagName.Substring(2) : tagName.TrimStart('v');
                     LogMessage(Translations.Format("LatestVersion", currentLanguage, tagName));
                 }
 
