@@ -8,7 +8,7 @@ Automatic length calculation and graphical linking tools for MicroStation VBA.
 ## Quick Install
 
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/installer-v1.0.0/AresInstaller.exe" -OutFile "$env:TEMP\AresInstaller.exe"; Start-Process "$env:TEMP\AresInstaller.exe" -Verb RunAs
+Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/installer-v1.1.0/AresInstaller.exe" -OutFile "$env:TEMP\AresInstaller.exe"; Start-Process "$env:TEMP\AresInstaller.exe" -Verb RunAs
 ```
 
 ## Downloads
