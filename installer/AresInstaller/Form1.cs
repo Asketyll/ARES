@@ -84,6 +84,15 @@ namespace AresInstaller
             {
                 return expectedHashes.ContainsKey(fileName);
             }
+
+            // Load hash from GitHub API asset "digest" field (format: "sha256:<hex>")
+            public void LoadHashFromApiDigest(string fileName, string digest)
+            {
+                if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(digest)) return;
+                const string prefix = "sha256:";
+                if (!digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return;
+                expectedHashes[fileName] = digest.Substring(prefix.Length).ToLowerInvariant();
+            }
         }
 
         private class PathValidator
@@ -590,30 +599,26 @@ namespace AresInstaller
                 _downloadPath = GetSecureTempPath(TEMP_DOWNLOAD_FOLDER);
                 var downloadPath = _downloadPath;
 
-                // SHA256 checksum file is mandatory
-                var checksumAsset = assets.FirstOrDefault(a =>
-                    a["name"]?.ToString().EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) == true);
-
-                if (checksumAsset == null)
-                    throw new SecurityException("No SHA256 checksum file found in release assets. Installation aborted.");
-
-                var checksumFileName = checksumAsset["name"]?.ToString();
-                var checksumUrl = checksumAsset["browser_download_url"]?.ToString();
-
-                if (string.IsNullOrEmpty(checksumFileName) || string.IsNullOrEmpty(checksumUrl))
-                    throw new SecurityException("Invalid checksum asset entry. Installation aborted.");
-
-                if (!checksumUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                    throw new SecurityException("Checksum file URL is not HTTPS. Installation aborted.");
-
-                await DownloadFile(client, checksumFileName, checksumUrl, downloadPath);
-                var validator = new FileIntegrityValidator();
-                validator.LoadHashesFromFile(Path.Combine(downloadPath, checksumFileName));
-                LogMessage("Checksum file loaded — integrity verification is mandatory.");
-
-                // Extensions that must have a hash entry
+                // Extensions that require hash verification
                 var hashRequiredExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                     { ".dll", ".mvba", ".zip", ".tlb" };
+
+                // Load hashes from GitHub API "digest" field — no separate .sha256 file needed
+                var validator = new FileIntegrityValidator();
+                foreach (var asset in assets)
+                {
+                    var fileName = asset["name"]?.ToString();
+                    if (string.IsNullOrEmpty(fileName)) continue;
+                    var ext = Path.GetExtension(fileName).ToLowerInvariant();
+                    if (!hashRequiredExtensions.Contains(ext)) continue;
+
+                    var digest = asset["digest"]?.ToString();
+                    if (string.IsNullOrEmpty(digest))
+                        throw new SecurityException($"No digest in GitHub API response for {fileName}. Installation aborted.");
+
+                    validator.LoadHashFromApiDigest(fileName, digest);
+                }
+                LogMessage("Asset digests loaded from GitHub API — integrity verification is mandatory.");
 
                 foreach (var asset in assets)
                 {
@@ -621,10 +626,6 @@ namespace AresInstaller
                     var downloadUrl = asset["browser_download_url"]?.ToString();
 
                     if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(downloadUrl))
-                        continue;
-
-                    // Skip checksum file itself
-                    if (fileName.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     // Validate filename
@@ -636,20 +637,12 @@ namespace AresInstaller
 
                     // Validate download URL is HTTPS
                     if (!downloadUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                    {
                         throw new SecurityException($"Non-HTTPS URL for asset {fileName}. Installation aborted.");
-                    }
-
-                    // Require hash entry for binary files before downloading
-                    var ext = Path.GetExtension(fileName).ToLowerInvariant();
-                    if (hashRequiredExtensions.Contains(ext) && !validator.HasHash(fileName))
-                    {
-                        throw new SecurityException($"No hash found for {fileName}. Installation aborted.");
-                    }
 
                     await DownloadFile(client, fileName, downloadUrl, downloadPath);
 
                     // Verify hash for binary files
+                    var ext = Path.GetExtension(fileName).ToLowerInvariant();
                     if (hashRequiredExtensions.Contains(ext))
                     {
                         var filePath = Path.Combine(downloadPath, fileName);
