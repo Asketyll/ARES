@@ -12,6 +12,7 @@ Private Const ARES_GITHUB_DOWNLOAD_URL As String = "https://github.com/Asketyll/
 Private Const ARES_MVBA_PATH As String = "C:\ARES\ARES.mvba"
 Private msLatestVersion As String
 Private msDownloadUrl As String
+Private msExpectedHash As String  ' SHA256 hex digest from GitHub API asset metadata
 
 ' Read-only accessors for UpdateChecker_GUI
 Public Function GetUpdateLatestVersion() As String
@@ -49,6 +50,8 @@ Public Function GetLatestVersionFromGitHub() As String
     Dim lStart As Long
     Dim lEnd As Long
 
+    msExpectedHash = ""
+
     Set oHttp = CreateObject("MSXML2.XMLHTTP")
     oHttp.Open "GET", ARES_GITHUB_API_URL, False
     oHttp.setRequestHeader "User-Agent", "ARES-MVBA"
@@ -78,11 +81,38 @@ Public Function GetLatestVersionFromGitHub() As String
     ' Strip leading "v." if present (e.g. "v.1.2.3" -> "1.2.3")
     If Left(sTagName, 2) = "v." Then sTagName = Mid(sTagName, 3)
 
+    ' Extract SHA256 digest for ARES.mvba from the assets array.
+    ' GitHub API asset format: { "name": "ARES.mvba", ..., "digest": "sha256:<hex>", ... }
+    ' Strategy: find "ARES.mvba", then find "digest" before the next asset's "name" field.
+    Dim lAssetPos As Long
+    Dim lNextNamePos As Long
+    Dim lDigestPos As Long
+    Dim lHashStart As Long
+    Dim lHashEnd As Long
+
+    lAssetPos = InStr(sResponse, """ARES.mvba""")
+    If lAssetPos > 0 Then
+        lNextNamePos = InStr(lAssetPos + 1, sResponse, """name""")
+        lDigestPos = InStr(lAssetPos, sResponse, """digest""")
+        If lDigestPos > 0 And (lNextNamePos = 0 Or lDigestPos < lNextNamePos) Then
+            lHashStart = InStr(lDigestPos, sResponse, "sha256:")
+            If lHashStart > 0 And (lNextNamePos = 0 Or lHashStart < lNextNamePos) Then
+                lHashEnd = InStr(lHashStart, sResponse, """")
+                If lHashEnd > 0 Then
+                    msExpectedHash = Mid(sResponse, lHashStart + 7, lHashEnd - lHashStart - 7)
+                    ' SHA256 hex is always 64 chars — discard if malformed
+                    If Len(msExpectedHash) <> 64 Then msExpectedHash = ""
+                End If
+            End If
+        End If
+    End If
+
     GetLatestVersionFromGitHub = sTagName
     Exit Function
 
 ErrorHandler:
     Set oHttp = Nothing
+    msExpectedHash = ""
     GetLatestVersionFromGitHub = ""
 End Function
 
@@ -155,6 +185,9 @@ Public Sub CheckForUpdate()
     ' [3b] Reject any version string that is not strictly "digits and dots" — PS injection guard
     If Not IsValidVersion(sLatest) Then Exit Sub
 
+    ' [3c] Require a valid SHA256 digest from the API — abort silently if missing
+    If Len(msExpectedHash) <> 64 Then Exit Sub
+
     ' [4] Already up to date, or latest is older (no downgrade)
     If CompareVersions(sLatest, sInstalled) <= 0 Then Exit Sub
 
@@ -212,22 +245,12 @@ Public Sub DownloadAndInstall()
     Print #iFile, "$maxRetry = 30"
     Print #iFile, "$attempt  = 0"
     Print #iFile, "Invoke-WebRequest -Uri $url -OutFile $src -UseBasicParsing"
-    Print #iFile, "# Verify SHA256 integrity before installing"
-    Print #iFile, "try {"
-    Print #iFile, "    $hashUrl  = ""$url.sha256"""
-    Print #iFile, "    $hashFile = ""$src.sha256"""
-    Print #iFile, "    Invoke-WebRequest -Uri $hashUrl -OutFile $hashFile -UseBasicParsing"
-    Print #iFile, "    $expectedHash = ((Get-Content $hashFile -Raw).Trim() -split '\s+')[0].ToUpper()"
-    Print #iFile, "    $actualHash   = (Get-FileHash -Path $src -Algorithm SHA256).Hash.ToUpper()"
-    Print #iFile, "    if ($expectedHash -ne $actualHash) {"
-    Print #iFile, "        Add-Type -AssemblyName System.Windows.Forms"
-    Print #iFile, "        [System.Windows.Forms.MessageBox]::Show('ARES : hash verification failed. Update aborted.`nARES : v" & Chr(233) & "rification du fichier " & Chr(233) & "chou" & Chr(233) & "e. Mise " & Chr(224) & " jour annul" & Chr(233) & "e.', 'ARES', 0, 48) | Out-Null"
-    Print #iFile, "        Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
-    Print #iFile, "        exit 1"
-    Print #iFile, "    }"
-    Print #iFile, "} catch {"
+    Print #iFile, "# Verify SHA256 integrity — expected hash from GitHub API digest field"
+    Print #iFile, "$expectedHash = '" & msExpectedHash & "'"
+    Print #iFile, "$actualHash   = (Get-FileHash -Path $src -Algorithm SHA256).Hash.ToLower()"
+    Print #iFile, "if ($expectedHash -ne $actualHash) {"
     Print #iFile, "    Add-Type -AssemblyName System.Windows.Forms"
-    Print #iFile, "    [System.Windows.Forms.MessageBox]::Show('ARES : could not verify file integrity. Update aborted.`nARES : impossible de v" & Chr(233) & "rifier l''int" & Chr(233) & "grit" & Chr(233) & " du fichier. Mise " & Chr(224) & " jour annul" & Chr(233) & "e.', 'ARES', 0, 48) | Out-Null"
+    Print #iFile, "    [System.Windows.Forms.MessageBox]::Show('ARES : hash verification failed. Update aborted.`nARES : v" & Chr(233) & "rification du fichier " & Chr(233) & "chou" & Chr(233) & "e. Mise " & Chr(224) & " jour annul" & Chr(233) & "e.', 'ARES', 0, 48) | Out-Null"
     Print #iFile, "    Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
     Print #iFile, "    exit 1"
     Print #iFile, "}"
