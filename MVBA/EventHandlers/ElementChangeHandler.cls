@@ -18,12 +18,8 @@ Private moReRegHandler As ReRegisterIdleHandler ' Member-scoped ref to prevent p
 ' Detects bulk operations by tracking call frequency within a time window
 Private mdEntryTime As Double                   ' Timestamp of first call in current window
 Private mlCallCount As Long                     ' Counter for calls within current window
-Private mlCachedThreshold As Long               ' Cached threshold value (refreshed on window reset)
-Private mlCachedInterval As Long                ' Cached interval value (refreshed on window reset)
-Private Const DEFAULT_BULK_THRESHOLD As Long = 50    ' Fallback if config invalid
-Private Const DEFAULT_BULK_INTERVAL As Long = 1000   ' Fallback if config invalid (ms)
-Private Const MAX_BULK_THRESHOLD As Long = 1000      ' Max allowed threshold
-Private Const MAX_BULK_INTERVAL As Long = 60000      ' Max allowed interval (60 seconds)
+Private mlCachedThreshold As Long               ' Cached threshold — refreshed on window reset
+Private mlCachedInterval As Long                ' Cached interval  — refreshed on window reset
 
 ' ========================================
 ' ICHANGETRACKEVENTS INTERFACE IMPLEMENTATION
@@ -481,9 +477,9 @@ Private Function DetectAndSuspendBulkOperation() As Boolean
     dCurrentTime = Timer
 
     ' Handle midnight rollover - Timer resets to 0 at midnight
-    ' If current time is less than entry time, we crossed midnight - start new window
     If dCurrentTime < mdEntryTime Then
-        RefreshCachedConfig
+        mlCachedThreshold = CLng(ARESConfig.ARES_BULK_THRESHOLD.Value)
+        mlCachedInterval = CLng(ARESConfig.ARES_BULK_INTERVAL.Value)
         mdEntryTime = dCurrentTime
         mlCallCount = 1
         Exit Function
@@ -492,18 +488,17 @@ Private Function DetectAndSuspendBulkOperation() As Boolean
     ' Calculate elapsed time in milliseconds
     dElapsedMs = (dCurrentTime - mdEntryTime) * 1000
 
-    ' Check if we're outside the time window - reset and refresh config
+    ' Outside the time window - reset and refresh cache
     If dElapsedMs > mlCachedInterval Or mlCachedInterval = 0 Then
-        RefreshCachedConfig
+        mlCachedThreshold = CLng(ARESConfig.ARES_BULK_THRESHOLD.Value)
+        mlCachedInterval = CLng(ARESConfig.ARES_BULK_INTERVAL.Value)
         mdEntryTime = dCurrentTime
         mlCallCount = 1
         Exit Function
     End If
 
-    ' Increment call counter
     mlCallCount = mlCallCount + 1
 
-    ' Check if threshold reached
     If mlCallCount >= mlCachedThreshold Then
         SuspendAndScheduleResume
         DetectAndSuspendBulkOperation = True
@@ -514,48 +509,6 @@ Private Function DetectAndSuspendBulkOperation() As Boolean
 ErrorHandler:
     ' On error, don't suspend - let normal processing continue
     DetectAndSuspendBulkOperation = False
-End Function
-
-' Refreshes cached config values - called on window reset for performance
-Private Sub RefreshCachedConfig()
-    mlCachedThreshold = GetBulkThreshold()
-    mlCachedInterval = GetBulkInterval()
-End Sub
-
-' Gets bulk threshold from config with fallback to default
-' Validates range: must be > 0 and <= MAX_BULK_THRESHOLD
-Private Function GetBulkThreshold() As Long
-    On Error GoTo UseDefault
-    Dim lValue As Long
-
-    If ARESConfig.ARES_BULK_THRESHOLD.IsValid() Then
-        lValue = CLng(ARESConfig.ARES_BULK_THRESHOLD.Value)
-        If lValue > 0 And lValue <= MAX_BULK_THRESHOLD Then
-            GetBulkThreshold = lValue
-            Exit Function
-        End If
-    End If
-
-UseDefault:
-    GetBulkThreshold = DEFAULT_BULK_THRESHOLD
-End Function
-
-' Gets bulk interval from config with fallback to default
-' Validates range: must be > 0 and <= MAX_BULK_INTERVAL
-Private Function GetBulkInterval() As Long
-    On Error GoTo UseDefault
-    Dim lValue As Long
-
-    If ARESConfig.ARES_BULK_INTERVAL.IsValid() Then
-        lValue = CLng(ARESConfig.ARES_BULK_INTERVAL.Value)
-        If lValue > 0 And lValue <= MAX_BULK_INTERVAL Then
-            GetBulkInterval = lValue
-            Exit Function
-        End If
-    End If
-
-UseDefault:
-    GetBulkInterval = DEFAULT_BULK_INTERVAL
 End Function
 
 ' Suspends change tracking and schedules re-registration on idle

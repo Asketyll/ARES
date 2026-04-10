@@ -81,10 +81,11 @@ End Sub
 ' Method to update lengths in the new element based on linked elements
 Public Sub UpdateLengths()
     On Error GoTo ErrorHandler
-    
+
     HandleElementSelection
+    ElementInProcesse.Remove pNewElement
     Exit Sub
-    
+
 ErrorHandler:
     ElementInProcesse.Remove pNewElement
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.UpdateLengths"
@@ -127,10 +128,7 @@ Private Sub HandleSingleElement()
         Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
     End If
 
-    ' If the operation was successful, remove the element from the list of elements being processed
-    If Not IsEmpty(Results) Then
-        ElementInProcesse.Remove pNewElement
-    Else
+    If IsEmpty(Results) Then
         ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.HandleSingleElement", "WARNING"
     End If
 End Sub
@@ -170,7 +168,6 @@ Private Sub UpdateSingleNonZeroLength()
             ' Get and update the texts in the element with the calculated length
             Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
             If Not IsEmpty(Results) Then
-                ElementInProcesse.Remove pNewElement
                 Success = True
             Else
                 ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.UpdateSingleNonZeroLength", "WARNING"
@@ -246,20 +243,21 @@ Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterEleme
         Results = StringsInEl.GetSetTextsInEl(MasterElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
     End If
     
-    ' If the operation was successful, remove the elements from the list of elements being processed
-    If Not IsEmpty(Results) Then
-        ElementInProcesse.Remove MasterElement
-        Dim linkedElement As Variant
-        For Each linkedElement In pLinkedElements
-            ElementInProcesse.Remove linkedElement
-        Next linkedElement
-    Else
+    If IsEmpty(Results) Then
         ErrorHandler.HandleError "Failed to update texts in master element with ID: " & DLongToString(MasterElement.ID), 0, "AutoLengths.OnElementSelected", "WARNING"
     End If
+
+    ' Always cleanup regardless of success or failure
+    ElementInProcesse.Remove MasterElement
+    Dim linkedElement As Variant
+    For Each linkedElement In pLinkedElements
+        ElementInProcesse.Remove linkedElement
+    Next linkedElement
 
     Exit Sub
 
 ErrorHandler:
+    ElementInProcesse.Remove MasterElement
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.OnElementSelected"
     ShowStatus GetTranslation("AutoLengthsSelectionError") & Err.Description
 End Sub

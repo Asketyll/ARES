@@ -13,6 +13,18 @@ Sub ForceUpdateLength()
     CommandState.StartLocate New AutoLengths
 End Sub
 
+' === UPDATE COMMANDS ===
+
+' Manually check for an available update — bypasses mute and ignore-version preferences
+Sub CheckForUpdate()
+    On Error GoTo ErrorHandler
+    UpdateChecker.CheckForUpdateManual
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "Update check failed: " & Err.Description
+End Sub
+
 ' === CONFIGURATION MANAGEMENT COMMANDS ===
 
 ' Export current configuration using event-driven UI
