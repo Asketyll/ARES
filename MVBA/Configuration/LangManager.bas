@@ -92,6 +92,8 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_UpdateBtnIgnoreAll", "Ignore all"
     mTranslations.Add "EN_UpdateDownloading", "Downloading update..."
     mTranslations.Add "EN_UpdateDownloadFailed", "Failed to download the update. Please visit the GitHub releases page."
+    mTranslations.Add "EN_UpdateCheckFailed", "ARES: Update check failed. Check your network connection."
+    mTranslations.Add "EN_UpdateAlreadyUpToDate", "ARES is up to date."
 
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -163,6 +165,8 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_UpdateBtnIgnoreAll", "Tout ignorer"
     mTranslations.Add "FR_UpdateDownloading", "Telechargement de la mise a jour..."
     mTranslations.Add "FR_UpdateDownloadFailed", "Echec du telechargement. Veuillez visiter la page des releases GitHub."
+    mTranslations.Add "FR_UpdateCheckFailed", "ARES : Echec de la verification. Verifiez votre connexion reseau."
+    mTranslations.Add "FR_UpdateAlreadyUpToDate", "ARES est a jour."
 
     IsInit = True
     Exit Sub
