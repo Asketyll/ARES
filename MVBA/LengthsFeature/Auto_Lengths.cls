@@ -128,7 +128,7 @@ Private Sub HandleSingleElement()
         Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
     End If
 
-    If IsEmpty(Results) Then
+    If Results(0) = "" Then
         ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.HandleSingleElement", "WARNING"
     End If
 End Sub
@@ -167,7 +167,7 @@ Private Sub UpdateSingleNonZeroLength()
             lengthValue = CStr(pLengths(j))
             ' Get and update the texts in the element with the calculated length
             Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
-            If Not IsEmpty(Results) Then
+            If Results(0) <> "" Then
                 Success = True
             Else
                 ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.UpdateSingleNonZeroLength", "WARNING"
@@ -243,7 +243,7 @@ Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterEleme
         Results = StringsInEl.GetSetTextsInEl(MasterElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
     End If
     
-    If IsEmpty(Results) Then
+    If Results(0) = "" Then
         ErrorHandler.HandleError "Failed to update texts in master element with ID: " & DLongToString(MasterElement.ID), 0, "AutoLengths.OnElementSelected", "WARNING"
     End If
 
