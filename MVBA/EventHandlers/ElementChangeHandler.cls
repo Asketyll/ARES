@@ -147,6 +147,9 @@ Private Sub EnsureIdleHandlerRegistered()
         Set moIdleHandler = New IdleEventHandler
         AddEnterIdleEventHandler moIdleHandler
         mbIdleHandlerRegistered = True
+        ShowStatus "DBG EnsureIdle: NEW handler registered — IH=" & ObjPtr(moIdleHandler)
+    Else
+        ShowStatus "DBG EnsureIdle: already registered — IH=" & ObjPtr(moIdleHandler) & " moIdleHandler Is Nothing=" & (moIdleHandler Is Nothing)
     End If
 
     Exit Sub
@@ -165,6 +168,7 @@ End Sub
 Public Sub ResetIdleHandlerFlag()
     On Error GoTo ErrorHandler
 
+    ShowStatus "DBG ResetIdleHandlerFlag: called — was registered=" & mbIdleHandlerRegistered
     mbIdleHandlerRegistered = False
     Set moIdleHandler = Nothing
 
@@ -236,10 +240,7 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         If (AUTO_LENGTH And UPDATE_LENGTH) Then
             ' Extract all text strings from the element
             txts = StringsInEl.GetSetTextsInEl(oElement)
-            If Not IsArray(txts) Then Exit Sub
-            On Error Resume Next
-            If UBound(txts) < LBound(txts) Then Exit Sub
-            On Error GoTo ErrorHandler
+            If txts(0) = "" Then Exit Sub
 
             ' Load trigger patterns from configuration (e.g., "(Xx_m)" where Xx_ is replaced by length)
             Triggers = Split(ARESConfig.ARES_LENGTH_TRIGGER.Value, ARES_VAR_DELIMITER)
@@ -518,6 +519,8 @@ Private Sub SuspendAndScheduleResume()
     ' Mark as suspended in BootLoader
     MarkChangeTrackingSuspended
 
+    ShowStatus "DBG SuspendAndScheduleResume: triggered — registered=" & mbIdleHandlerRegistered & " mlCallCount=" & mlCallCount
+
     ' Unregister change tracking
     If Not ChangeHandler Is Nothing Then
         RemoveChangeTrackEventsHandler ChangeHandler
@@ -528,6 +531,7 @@ Private Sub SuspendAndScheduleResume()
         RemoveEnterIdleEventHandler moIdleHandler
         Set moIdleHandler = Nothing
         mbIdleHandlerRegistered = False
+        ShowStatus "DBG SuspendAndScheduleResume: existing idle handler removed"
     End If
 
     ' Clear any pending elements (they'll be stale after bulk operation)

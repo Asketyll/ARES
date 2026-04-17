@@ -32,6 +32,7 @@ Option Explicit
 Public Function GetSetTextsInEl(ByRef TextElement As element, Optional txt As String, Optional Triggers As String, Optional Color As Long = -2) As String()
     On Error GoTo ErrorHandler
     Dim Result() As String
+    ReDim Result(0)
 
     ' Only process unlocked elements
     If Not TextElement.IsLocked Then
@@ -201,6 +202,7 @@ Private Function ProcessCellElement(ByRef TextElement As element, Optional txt A
     Dim ELEnum As ElementEnumerator     ' Enumerator for iterating sub-elements
     Dim subEl As element                ' Current sub-element being processed
     Dim Result() As String              ' Result from processing current element
+    ReDim Result(0)                     ' Default: empty result if no text sub-elements found
     Dim Result2() As String             ' Previous text content for comparison
     Dim oldcolor As Long                ' Original color of the cell
     Dim fillcolor As Long               ' Saved fill color for closed elements

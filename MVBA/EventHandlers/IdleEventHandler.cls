@@ -14,10 +14,15 @@ Private mbIsProcessing As Boolean  ' Flag to prevent re-entrance
 ' Event handler for when MicroStation enters idle state
 Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
     On Error GoTo ErrorHandler
-    
+
+    ShowStatus "DBG EnterIdle: fired — mbIsProcessing=" & mbIsProcessing & " LangInit=" & LangManager.IsInit & " HasElements=" & ElementInProcesse.HasElements
+
     ' Protection against re-entrance
-    If mbIsProcessing Then Exit Sub
-    
+    If mbIsProcessing Then
+        ShowStatus "DBG EnterIdle: EXIT re-entrance guard"
+        Exit Sub
+    End If
+
     ' Check if this is the initial idle event (project load)
     If Not LangManager.IsInit Then
         HandleInitialIdle
@@ -146,18 +151,22 @@ End Sub
 ' Centralized cleanup method
 Private Sub CleanupHandler()
     On Error Resume Next
-    
+
+    ShowStatus "DBG CleanupHandler: called — pending=" & ElementInProcesse.HasElements & " ChangeHandler Is Nothing=" & (ChangeHandler Is Nothing)
+
     ' Clear the queue
     ElementInProcesse.Clear
-    
+
     ' Unregister this idle handler
     RemoveEnterIdleEventHandler Me
-    
+
     ' Reset the registration flag in ChangeHandler
     If Not ChangeHandler Is Nothing Then
         ChangeHandler.ResetIdleHandlerFlag
+    Else
+        ShowStatus "DBG CleanupHandler: WARNING ChangeHandler Is Nothing — ResetIdleHandlerFlag SKIPPED"
     End If
-    
+
     ' Reset processing flag
     mbIsProcessing = False
 End Sub
