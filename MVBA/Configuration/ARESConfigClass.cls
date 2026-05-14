@@ -39,10 +39,26 @@ Public ARES_ONLY_COLOR As ARES_MS_VAR_Class 'Dafault Value: True        True or 
 Public ARES_BULK_THRESHOLD As ARES_MS_VAR_Class 'Default Value: 10    Number of calls to trigger bulk mode
 ' Used in ElementChangeHandler for bulk operation detection time window
 Public ARES_BULK_INTERVAL As ARES_MS_VAR_Class 'Default Value: 1000   Time window in milliseconds
+' Used in BootLoader/IdleEventHandler for periodic license re-validation throttle.
+' Unit: seconds. Default: 3600 (1 hour). Valid range: 60..86400 (1 minute to 24 hours).
+' Out-of-range values fall back to default with a logged WARNING.
+Public ARES_LICENSE_RECHECK_INTERVAL As ARES_MS_VAR_Class 'Default Value: 3600   Range 60..86400 seconds
 ' Used in UpdateChecker module to permanently mute update notifications
 Public ARES_UPDATE_MUTE As ARES_MS_VAR_Class 'Default Value: False         True or False (Boolean)
 ' Used in UpdateChecker module to ignore a specific release version
 Public ARES_UPDATE_IGNORE_VERSION As ARES_MS_VAR_Class 'Default Value: (empty)   Version string e.g. "1.2.3"
+' Used in Zoning module for source level names to process
+Public ARES_ZONING_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)       can a array use | (ARES_VAR_DELIMITER)
+' Used in Zoning module for output level name
+Public ARES_ZONING_OUTPUT_LEVEL As ARES_MS_VAR_Class 'Default Value: ARES_Zoning   Level name string
+' Used in Zoning module for output element color
+Public ARES_ZONING_OUTPUT_COLOR As ARES_MS_VAR_Class 'Default Value: 5             MicroStation color index (Long)
+' Used in Zoning module for output element line style
+Public ARES_ZONING_OUTPUT_STYLE As ARES_MS_VAR_Class 'Default Value: 0             MicroStation line style index (Long)
+' Used in Zoning module for output element line weight
+Public ARES_ZONING_OUTPUT_WEIGHT As ARES_MS_VAR_Class 'Default Value: 4            MicroStation line weight index (Long)
+' Used in Zoning module for default buffer distance
+Public ARES_ZONING_DISTANCE As ARES_MS_VAR_Class 'Default Value: 2.0              Buffer distance in master units (Double)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -85,8 +101,15 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ONLY_COLOR = CreateConfigVar("ARES_Only_Color_Update", "True")
     Set ARES_BULK_THRESHOLD = CreateConfigVar("ARES_Bulk_Threshold", "10")
     Set ARES_BULK_INTERVAL = CreateConfigVar("ARES_Bulk_Interval", "1000")
+    Set ARES_LICENSE_RECHECK_INTERVAL = CreateConfigVar("ARES_License_Recheck_Interval", "3600")
     Set ARES_UPDATE_MUTE = CreateConfigVar("ARES_Update_Mute", "False")
     Set ARES_UPDATE_IGNORE_VERSION = CreateConfigVar("ARES_Update_Ignore_Version", "")
+    Set ARES_ZONING_LEVEL = CreateConfigVar("ARES_Zoning_Level", "")
+    Set ARES_ZONING_OUTPUT_LEVEL = CreateConfigVar("ARES_Zoning_Output_Level", "ARES_Zoning")
+    Set ARES_ZONING_OUTPUT_COLOR = CreateConfigVar("ARES_Zoning_Output_Color", "5")
+    Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0")
+    Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4")
+    Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0")
     CreateConfigVariables = True
     Exit Function
 

@@ -38,10 +38,6 @@ Private Sub Hooks_OnDesignFileOpened(ByVal DesignFileName As String)
     On Error GoTo ErrorHandler
     ' Call a sub or function when a DGN file is opened
     InitializeChangeHandler
-    ' Create an instance of the IdleEventHandler
-    Dim oIdleEventHandler As New IdleEventHandler
-    ' Register the idle event handler
-    AddEnterIdleEventHandler oIdleEventHandler
     ElementInProcesse.Reset
     ErrorHandler.UpdateLogFilePath
     Exit Sub

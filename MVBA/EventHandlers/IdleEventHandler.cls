@@ -9,19 +9,15 @@ Option Explicit
 Implements IEnterIdleEvent
 
 ' === PRIVATE MEMBERS ===
-Private mbIsProcessing As Boolean  ' Flag to prevent re-entrance
+Private mbIsProcessing As Boolean    ' Flag to prevent re-entrance during element processing
+Private mbIsRevalidating As Boolean  ' Flag to prevent re-entrance during license re-validation
 
 ' Event handler for when MicroStation enters idle state
 Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
     On Error GoTo ErrorHandler
 
-    ShowStatus "DBG EnterIdle: fired — mbIsProcessing=" & mbIsProcessing & " LangInit=" & LangManager.IsInit & " HasElements=" & ElementInProcesse.HasElements
-
     ' Protection against re-entrance
-    If mbIsProcessing Then
-        ShowStatus "DBG EnterIdle: EXIT re-entrance guard"
-        Exit Sub
-    End If
+    If mbIsProcessing Then Exit Sub
 
     ' Check if this is the initial idle event (project load)
     If Not LangManager.IsInit Then
@@ -29,9 +25,26 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
         Exit Sub
     End If
 
-    ' Ensure ARESConfig is initialized even if LangManager was already init
+    ' Ensure ARESConfig is initialized even if LangManager was already init.
+    ' This MUST run before RecheckLicenseIfDue so the configured re-check interval
+    ' (ARES_License_Recheck_Interval) is read instead of falling back to the default.
     If Not ARESConfig.IsInitialized Then
         ARESConfig.Initialize
+    End If
+
+    ' Periodic license re-validation (Issue #2 mitigation, Story 1-2).
+    ' Throttled by ARES_LICENSE_RECHECK_INTERVAL inside RecheckLicenseIfDue.
+    If Not mbIsRevalidating Then
+        mbIsRevalidating = True
+        BootLoader.RecheckLicenseIfDue
+        mbIsRevalidating = False
+    End If
+
+    ' Short-circuit: if license is now invalid, OnLicenseInvalidated has already
+    ' drained the queue and removed the change-tracking handler. Nothing to process.
+    If Not LicenseManager.IsLicenseValid() Then
+        CleanupHandler
+        Exit Sub
     End If
 
     ' Check if there are pending elements to process
@@ -41,11 +54,12 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
         ' No elements to process - clean up immediately
         CleanupHandler
     End If
-    
+
     Exit Sub
 
 ErrorHandler:
     mbIsProcessing = False
+    mbIsRevalidating = False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "IdleEventHandler.IEnterIdleEvent_EnterIdle"
     ' Ensure cleanup even on error in main entry point
     CleanupHandler
@@ -93,9 +107,10 @@ Private Sub ProcessPendingElements()
     Dim intProcessedCount As Long
     Dim intErrorCount As Long
     
-    ' Set processing flag
+    ' Set processing flag and suppress bulk detection during ARES's own modifications
     mbIsProcessing = True
-    
+    SetIdleProcessingActive True
+
     ' Get all valid elements (already fresh from MicroStation)
     Set colElements = ElementInProcesse.GetAllElements()
     
@@ -152,8 +167,6 @@ End Sub
 Private Sub CleanupHandler()
     On Error Resume Next
 
-    ShowStatus "DBG CleanupHandler: called — pending=" & ElementInProcesse.HasElements & " ChangeHandler Is Nothing=" & (ChangeHandler Is Nothing)
-
     ' Clear the queue
     ElementInProcesse.Clear
 
@@ -163,16 +176,18 @@ Private Sub CleanupHandler()
     ' Reset the registration flag in ChangeHandler
     If Not ChangeHandler Is Nothing Then
         ChangeHandler.ResetIdleHandlerFlag
-    Else
-        ShowStatus "DBG CleanupHandler: WARNING ChangeHandler Is Nothing — ResetIdleHandlerFlag SKIPPED"
     End If
 
-    ' Reset processing flag
+    ' Reset processing and bulk-suppression flags
+    SetIdleProcessingActive False
     mbIsProcessing = False
 End Sub
 
 ' Clean up when class is destroyed
 Private Sub Class_Terminate()
     On Error Resume Next
+    SetIdleProcessingActive False
     mbIsProcessing = False
+    mbIsRevalidating = False
 End Sub
+
