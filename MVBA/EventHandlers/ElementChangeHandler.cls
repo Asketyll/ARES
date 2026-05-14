@@ -51,6 +51,7 @@ End Sub
 '   CantBeUndone  - Whether the change can be undone
 Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVal BeforeChange As element, ByVal Action As MsdChangeTrackAction, CantBeUndone As Boolean)
     On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then Exit Sub
     Dim els() As element
     Dim i As Long
 
@@ -163,6 +164,15 @@ Public Sub ClearReRegHandler()
     Set moReRegHandler = Nothing
 End Sub
 
+' Reset the bulk-detection state. Called by BootLoader.OnLicenseRecovered before re-attaching
+' a stale handler instance whose counters may be from before the invalidation.
+Public Sub ResetBulkDetectionState()
+    mdEntryTime = 0
+    mlCallCount = 0
+    mlCachedThreshold = 0
+    mlCachedInterval = 0
+End Sub
+
 ' Called by IdleEventHandler to reset the registration flag after processing
 ' This allows a new idle handler to be registered for the next batch of changes
 Public Sub ResetIdleHandlerFlag()
@@ -191,6 +201,7 @@ End Sub
 '   2. For geometric elements: Find linked text elements and process them recursively
 Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Integer = 0)
     On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then Exit Sub
 
     Const MAX_DEPTH As Integer = 20
     If Depth > MAX_DEPTH Then Exit Sub
@@ -475,6 +486,11 @@ Private Function DetectAndSuspendBulkOperation() As Boolean
     Dim dElapsedMs As Double
 
     DetectAndSuspendBulkOperation = False
+
+    ' ARES's own element modifications during idle processing would trigger false bulk detection.
+    ' The idle handler sets this flag to suppress suspension during its own processing cycle.
+    If IsIdleProcessingActive() Then Exit Function
+
     dCurrentTime = Timer
 
     ' Handle midnight rollover - Timer resets to 0 at midnight
@@ -641,3 +657,4 @@ Private Function HasElements(ByRef arr() As element) As Boolean
     End If
     On Error GoTo 0
 End Function
+

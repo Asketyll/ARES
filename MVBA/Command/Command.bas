@@ -1,10 +1,11 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, ConfigurationUI
+' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, ConfigurationUI, Zoning
 Option Explicit
 
 Private moAutoLengthsGUI As AutoLengths_GUI_Options
+Private moZoningGUI As Zoning_GUI_Options
 
 ' === AUTO LENGTHS COMMANDS ===
 
@@ -138,6 +139,46 @@ ErrorHandler:
     ShowStatus "Failed to open AutoLengths options: " & Err.Description
 End Sub
 
+' === ZONING COMMANDS ===
+
+' Run zoning using configuration defaults (levels, distance, output properties from ARESConfig)
+Sub RunZoning()
+    On Error GoTo ErrorHandler
+
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    Zoning.Zoning
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "Zoning failed: " & Err.Description
+End Sub
+
+' Open the Zoning options GUI
+Sub EditZoningOptions()
+    On Error GoTo ErrorHandler
+
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moZoningGUI Is Nothing Then
+        Set moZoningGUI = New Zoning_GUI_Options
+    End If
+
+    moZoningGUI.Show vbModeless
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "Failed to open Zoning options: " & Err.Description
+End Sub
+
 ' === TESTING COMMANDS ===
 
 ' Run all unit tests
@@ -220,4 +261,8 @@ End Sub
 ' Called from UserForm_QueryClose when form closes
 Public Sub OnAutoLengthsGUIClosed()
     Set moAutoLengthsGUI = Nothing
+End Sub
+
+Public Sub OnZoningGUIClosed()
+    Set moZoningGUI = Nothing
 End Sub

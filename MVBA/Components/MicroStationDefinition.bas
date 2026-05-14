@@ -1,8 +1,9 @@
 ' Module: MicroStationDefinition
-' Description: This module provides functions to manipulate MsdElementType of MicroStation.
-' It includes functions to convert strings to MsdElementType and validate MsdElementType values.
+' Description: This module provides functions to manipulate MsdElementType and level management for MicroStation.
+' It includes functions to convert strings to MsdElementType, validate MsdElementType values,
+' detect raster element types, and get or create levels in the active design file.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARES_VAR
+' Dependencies: ARESConstants, ErrorHandlerClass
 
 Option Explicit
 
@@ -147,4 +148,26 @@ ErrorHandler:
     ' Return False in case of an error
     IsWithinValidRange = False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.IsWithinValidRange"
+End Function
+
+' Public function to check if an element is a raster type
+Public Function IsRasterElement(ByVal El As element) As Boolean
+    On Error GoTo ErrorHandler
+
+    Select Case El.Type
+        Case msdElementTypeRasterHeader, _
+             msdElementTypeRasterComponent, _
+             msdElementTypeRasterReference, _
+             msdElementTypeRasterReferenceComponent, _
+             msdElementTypeRasterFrame
+            IsRasterElement = True
+        Case Else
+            IsRasterElement = False
+    End Select
+
+    Exit Function
+
+ErrorHandler:
+    IsRasterElement = False
+    ErrorHandler.HandleError Err.Description, Err.Number, "MicroStationDefinition.IsRasterElement", "ERROR"
 End Function
