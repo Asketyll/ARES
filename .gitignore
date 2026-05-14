@@ -2,8 +2,8 @@
 .claude/
 docs/
 CLAUDE.md
-.bat
-.ps1
+*.bat
+*.ps1
 
 # Visual Studio
 .vs/
