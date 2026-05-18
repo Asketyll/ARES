@@ -59,6 +59,10 @@ Public Sub Zoning(Optional Lvls As Variant, _
                   Optional MergeZones As Boolean = True)
 
     On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — Zoning disabled"
+        Exit Sub
+    End If
 
     Dim TargetLevel As Level
     Dim Elements()  As Element

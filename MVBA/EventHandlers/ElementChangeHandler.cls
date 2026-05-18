@@ -188,6 +188,12 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementChangeHandler.ResetIdleHandlerFlag"
 End Sub
 
+' Returns True if the given handler is the currently registered (active) idle handler.
+' Used by IdleEventHandler.CleanupHandler to guard against stale handlers clearing the queue.
+Public Function IsActiveIdleHandler(ByVal oHandler As IdleEventHandler) As Boolean
+    IsActiveIdleHandler = mbIdleHandlerRegistered And (Not moIdleHandler Is Nothing) And (oHandler Is moIdleHandler)
+End Function
+
 ' ========================================
 ' PUBLIC METHODS - Element Processing
 ' ========================================

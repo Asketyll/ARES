@@ -167,18 +167,25 @@ End Sub
 Private Sub CleanupHandler()
     On Error Resume Next
 
-    ' Clear the queue
-    ElementInProcesse.Clear
+    ' Guard: only the active handler may clear the queue and reset the flag.
+    ' A stale handler (fired after being replaced during a bulk-suspend cycle) must not
+    ' wipe the queue or reset the flag that belongs to the new active handler.
+    Dim bIsActive As Boolean
+    bIsActive = Not ChangeHandler Is Nothing
+    If bIsActive Then bIsActive = ChangeHandler.IsActiveIdleHandler(Me)
 
-    ' Unregister this idle handler
-    RemoveEnterIdleEventHandler Me
-
-    ' Reset the registration flag in ChangeHandler
-    If Not ChangeHandler Is Nothing Then
-        ChangeHandler.ResetIdleHandlerFlag
+    If bIsActive Then
+        ElementInProcesse.Clear
     End If
 
-    ' Reset processing and bulk-suppression flags
+    RemoveEnterIdleEventHandler Me
+
+    If bIsActive Then
+        ChangeHandler.ResetIdleHandlerFlag
+    Else
+        ShowStatus "DBG CleanupHandler: stale handler — skipped Clear/Reset (IH=" & ObjPtr(Me) & ")"
+    End If
+
     SetIdleProcessingActive False
     mbIsProcessing = False
 End Sub

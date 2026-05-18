@@ -11,7 +11,16 @@ Private moZoningGUI As Zoning_GUI_Options
 
 ' Sub to call CommandState for manual update length in string
 Sub ForceUpdateLength()
+    On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — ForceUpdateLength disabled"
+        Exit Sub
+    End If
     CommandState.StartLocate New AutoLengths
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Command.ForceUpdateLength"
 End Sub
 
 ' === UPDATE COMMANDS ===
@@ -117,7 +126,11 @@ End Sub
 ' Sub to call GUI Options of AutoLengths
 Sub EditAutoLengthsOptions()
     On Error GoTo ErrorHandler
-    
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — EditAutoLengthsOptions disabled"
+        Exit Sub
+    End If
+
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -144,6 +157,10 @@ End Sub
 ' Run zoning using configuration defaults (levels, distance, output properties from ARESConfig)
 Sub RunZoning()
     On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — RunZoning disabled"
+        Exit Sub
+    End If
 
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
@@ -160,6 +177,10 @@ End Sub
 ' Open the Zoning options GUI
 Sub EditZoningOptions()
     On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — EditZoningOptions disabled"
+        Exit Sub
+    End If
 
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
