@@ -59,6 +59,16 @@ Public ARES_ZONING_OUTPUT_STYLE As ARES_MS_VAR_Class 'Default Value: 0          
 Public ARES_ZONING_OUTPUT_WEIGHT As ARES_MS_VAR_Class 'Default Value: 4            MicroStation line weight index (Long)
 ' Used in Zoning module for default buffer distance
 Public ARES_ZONING_DISTANCE As ARES_MS_VAR_Class 'Default Value: 2.0              Buffer distance in master units (Double)
+' Used in ExportLengthInRegion module — open the workbook in Excel after export when True; False = headless silent export
+Public ARES_ZONE_EXPORT_EXCEL_VISIBLE As ARES_MS_VAR_Class 'Default Value: false          True or False (Boolean)
+' Used in ExportLengthInRegion module — name of the worksheet tab in the output Excel workbook
+Public ARES_ZONE_EXPORT_SHEET_NAME As ARES_MS_VAR_Class 'Default Value: Export                      String
+' Used in ExportLengthInRegion module — True = prompt user with a Save dialog; False = auto-generate timestamped path
+Public ARES_ZONE_EXPORT_USE_DIALOG As ARES_MS_VAR_Class 'Default Value: True                        True or False (Boolean)
+' Used in ExportLengthInRegion module — decimal places applied to exported lengths; 255 is reserved for error (ARES_RND_ERROR_VALUE)
+Public ARES_ZONE_EXPORT_ROUND As ARES_MS_VAR_Class 'Default Value: 2                               Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
+' Used in ExportLengthInRegion module — grouping key for exported rows: Style = line style name, Level = element level name, Color = color index
+Public ARES_ZONE_EXPORT_GROUP_BY As ARES_MS_VAR_Class 'Default Value: Style                        "Style" or "Level" or "Color"
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -110,6 +120,11 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0")
     Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4")
     Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0")
+    Set ARES_ZONE_EXPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_Zone_Export_Excel_Visible", "False")
+    Set ARES_ZONE_EXPORT_SHEET_NAME = CreateConfigVar("ARES_Zone_Export_Sheet_Name", "Export")
+    Set ARES_ZONE_EXPORT_USE_DIALOG = CreateConfigVar("ARES_Zone_Export_Use_Dialog", "True")
+    Set ARES_ZONE_EXPORT_ROUND = CreateConfigVar("ARES_Zone_Export_Round", "2")
+    Set ARES_ZONE_EXPORT_GROUP_BY = CreateConfigVar("ARES_Zone_Export_Group_By", "Style")
     CreateConfigVariables = True
     Exit Function
 

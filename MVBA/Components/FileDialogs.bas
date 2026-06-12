@@ -1,8 +1,9 @@
 ' Module: FileDialogs
-' Description: Consolidated PowerShell-based file dialogs for ARES configuration
-' Replaces: WindowsFileDialog.bas, FileDialogHandler.cls, ConfigurationUI.bas
+' Description: PowerShell-based file dialogs (save/open) for all ARES modules.
+'              Provides ShowSaveDialog and ShowOpenFileDialog with automatic
+'              fallback to the active design file folder when no initialDir is given.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, LangManager, ErrorHandlerClass
+' Dependencies: ARESConstants, ARESConfigClass, LangManager, ErrorHandlerClass
 Option Explicit
 
 ' === PUBLIC INTERFACE FOR CONFIGURATION MANAGEMENT ===
@@ -17,9 +18,10 @@ Public Sub ExportConfigurationUI()
 
     ' Show save dialog
     Dim filePath As String
-    filePath = ShowSaveFileDialog(GetTranslation("ConfigExportTitle"), _
-                                 GetDefaultConfigDirectory(), _
-                                 GenerateDefaultConfigFileName())
+    filePath = ShowSaveDialog(GetTranslation("ConfigExportTitle"), _
+                             "", _
+                             GenerateDefaultConfigFileName(), _
+                             DIALOG_FILTER_CFG, "cfg")
     
     If Len(filePath) > 0 Then
         ' Export configuration
@@ -89,66 +91,52 @@ ErrorHandler:
     ShowStatus GetTranslation("ConfigImportFailed") & ": " & Err.Description
 End Sub
 
-' Show configuration summary
-Public Sub ShowConfigurationSummaryUI()
-    On Error GoTo ErrorHandler
-    
-    If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-
-    Dim summary As String
-    summary = ARESConfig.GetConfigSummary()
-    
-    MsgBox summary, vbOKOnly + vbInformation, GetTranslation("ConfigSummaryTitle")
-    
-    Exit Sub
-    
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ShowConfigurationSummaryUI"
-End Sub
-
 ' === CORE DIALOG FUNCTIONS ===
 
-' Show save file dialog using PowerShell
-Public Function ShowSaveFileDialog(ByVal title As String, _
-                                  ByVal initialDir As String, _
-                                  ByVal defaultFileName As String) As String
+' Show a save file dialog using PowerShell.
+' fileFilter  : pipe-delimited Windows Forms filter string (e.g. DIALOG_FILTER_CFG)
+' defaultExt  : extension without dot (e.g. "cfg", "xlsx")
+' initialDir  : starting folder; when empty, falls back to the active design file's
+'               folder (or Documents if no file is open).
+Public Function ShowSaveDialog(ByVal title As String, _
+                               ByVal initialDir As String, _
+                               ByVal defaultFileName As String, _
+                               ByVal fileFilter As String, _
+                               ByVal defaultExt As String) As String
     On Error GoTo ErrorHandler
-    
-    ShowSaveFileDialog = ""
-    
-    ' Escape special characters for PowerShell
+
+    ShowSaveDialog = ""
+
+    If Len(initialDir) = 0 Then initialDir = GetDefaultConfigDirectory()
+
     Dim safeTitle As String, safeInitialDir As String, safeDefaultFileName As String
     safeTitle = EscapeForPowerShell(title)
     safeInitialDir = EscapeForPowerShell(initialDir)
     safeDefaultFileName = EscapeForPowerShell(defaultFileName)
-    
-    ' Build PowerShell command
+
     Dim psCommand As String
     psCommand = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command """ & _
                 "Add-Type -AssemblyName System.Windows.Forms; " & _
                 "$dialog = New-Object System.Windows.Forms.SaveFileDialog; " & _
                 "$dialog.Title = '" & safeTitle & "'; " & _
-                "$dialog.Filter = 'ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*'; " & _
-                "$dialog.DefaultExt = 'cfg'; " & _
+                "$dialog.Filter = '" & EscapeForPowerShell(fileFilter) & "'; " & _
+                "$dialog.DefaultExt = '" & EscapeForPowerShell(defaultExt) & "'; " & _
                 "$dialog.InitialDirectory = '" & safeInitialDir & "'; " & _
                 "$dialog.FileName = '" & safeDefaultFileName & "'; " & _
                 "if($dialog.ShowDialog() -eq 'OK') { Write-Output $dialog.FileName }"""
-    
-    ' Execute command and get result
+
     Dim result As String
     result = CleanFilePath(GetCommandOutput(psCommand))
-    
-    ' Return file path if dialog was not cancelled
+
     If Len(result) > 0 And InStr(result, "ERROR") = 0 Then
-        ShowSaveFileDialog = result
+        ShowSaveDialog = result
     End If
-    
+
     Exit Function
-    
+
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ShowSaveFileDialog"
-    ShowSaveFileDialog = ""
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ShowSaveDialog"
+    ShowSaveDialog = ""
 End Function
 
 ' Show open file dialog using PowerShell
