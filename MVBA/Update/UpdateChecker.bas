@@ -19,8 +19,9 @@ Public Function GetUpdateLatestVersion() As String
     GetUpdateLatestVersion = msLatestVersion
 End Function
 
-' Returns the installed version from the Windows Registry.
-' Falls back to ARES_CONFIG_VERSION if the key is absent, empty, or on any error.
+' Returns the installed version from the Windows Registry (written by the installer).
+' Returns "" if the key is absent or unreadable — callers must handle this and skip
+' the update check. The registry is the sole source of truth; no compiled fallback.
 Public Function GetInstalledVersion() As String
     On Error Resume Next
 
@@ -31,12 +32,8 @@ Public Function GetInstalledVersion() As String
     sVersion = oShell.RegRead(ARES_REGISTRY_KEY)
     Set oShell = Nothing
 
-    If Err.Number <> 0 Or Len(Trim(sVersion)) = 0 Then
-        Err.Clear
-        GetInstalledVersion = ARES_CONFIG_VERSION
-    Else
-        GetInstalledVersion = sVersion
-    End If
+    If Err.Number <> 0 Then Err.Clear : Exit Function
+    GetInstalledVersion = Trim(sVersion)
 End Function
 
 ' Returns the latest release tag from the GitHub API (without leading "v.").
@@ -174,6 +171,11 @@ Public Sub CheckForUpdateManual()
     Dim sLatest As String
 
     sInstalled = GetInstalledVersion()
+    If Len(sInstalled) = 0 Then
+        ShowStatus GetTranslation("UpdateCheckFailed")
+        Exit Sub
+    End If
+
     sLatest = GetLatestVersionFromGitHub()
 
     If Len(sLatest) = 0 Then
@@ -211,8 +213,9 @@ Public Sub CheckForUpdate()
     ' [1] Check if notifications are permanently muted
     If ARESConfig.ARES_UPDATE_MUTE.Value = "True" Then Exit Sub
 
-    ' [2] Get installed version (registry, fallback to ARES_CONFIG_VERSION constant)
+    ' [2] Get installed version from registry — empty means not installed via installer, skip silently
     sInstalled = GetInstalledVersion()
+    If Len(sInstalled) = 0 Then Exit Sub
 
     ' [3] Get latest version from GitHub — empty string means network unavailable
     sLatest = GetLatestVersionFromGitHub()

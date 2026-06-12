@@ -1,11 +1,12 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, ConfigurationUI, Zoning
+' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, ConfigurationUI, Zoning, ExportLengthInRegion
 Option Explicit
 
-Private moAutoLengthsGUI As AutoLengths_GUI_Options
-Private moZoningGUI As Zoning_GUI_Options
+Private moAutoLengthsGUI  As AutoLengths_GUI_Options
+Private moZoningGUI       As Zoning_GUI_Options
+Private moZoneExportGUI   As ExportLengthInReg_GUI_Options
 
 ' === AUTO LENGTHS COMMANDS ===
 
@@ -68,9 +69,11 @@ End Sub
 ' Show current configuration summary
 Sub ShowARESConfigSummary()
     On Error GoTo ErrorHandler
-    FileDialogs.ShowConfigurationSummaryUI
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+    MsgBox ARESConfig.GetConfigSummary(), vbOKOnly + vbInformation, GetTranslation("ConfigSummaryTitle")
     Exit Sub
-    
+
 ErrorHandler:
     ShowStatus "Configuration summary failed: " & Err.Description
 End Sub
@@ -172,6 +175,31 @@ Sub RunZoning()
 
 ErrorHandler:
     ShowStatus "Zoning failed: " & Err.Description
+End Sub
+
+' Export element lengths per zone to Excel.
+' Filepath defaults to the active design file's folder (timestamped .xlsx).
+' Excel visibility is driven by ARES_Zone_Export_Excel_Visible (default: True).
+Sub ExportLength()
+    On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — RunZoneExport disabled"
+        Exit Sub
+    End If
+
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    Dim bVisible As Boolean
+    bVisible = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE.Value)) = "TRUE")
+
+    ExportLengthInRegion.ExportLengthInRegion ExcelVisible:=bVisible
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "ExportLengthInRegion failed: " & Err.Description
 End Sub
 
 ' Open the Zoning options GUI
@@ -287,3 +315,34 @@ End Sub
 Public Sub OnZoningGUIClosed()
     Set moZoningGUI = Nothing
 End Sub
+
+' Open the ZoneExport options GUI
+Sub EditZoneExportOptions()
+    On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — EditZoneExportOptions disabled"
+        Exit Sub
+    End If
+
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moZoneExportGUI Is Nothing Then
+        Set moZoneExportGUI = New ExportLengthInReg_GUI_Options
+    End If
+
+    moZoneExportGUI.Show vbModeless
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "Failed to open ZoneExport options: " & Err.Description
+End Sub
+
+Public Sub OnZoneExportGUIClosed()
+    Set moZoneExportGUI = Nothing
+End Sub
+

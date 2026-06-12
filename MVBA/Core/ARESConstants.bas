@@ -27,7 +27,8 @@ Public Const ARES_VAR_DELIMITER As String = "|"
 Public Const ARES_NAVD As String = "NaVD"
 
 ' === ROUNDING ERROR CONSTANTS ===
-' Used in Length module for error handling in ARES_ROUNDS and ARES_LENGTH_ROUND
+' Reserved sentinel for all rounding config variables (ARES_ROUNDS, ARES_LENGTH_ROUND, ARES_ZONE_EXPORT_ROUND)
+' Used in Length module and ExportLengthInRegion module
 Public Const ARES_RND_ERROR_VALUE As Byte = 255
 
 ' === CELL CONSTANTS ===
@@ -42,6 +43,11 @@ Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"
 ' Used in CustomPropertyHandler module
 Public Const ARES_NAME_ITEM_TYPE As String = "ARESAutoLengthObject"
 
-' === VERSION CONSTANT ===
-' Update this when releasing a new version
-Public Const ARES_CONFIG_VERSION As String = "1.0.0"
+' === FILE DIALOG FILTER CONSTANTS ===
+' Used in FileDialogs module — pipe-delimited Windows Forms filter strings
+Public Const DIALOG_FILTER_CFG  As String = "ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*"
+Public Const DIALOG_FILTER_XLSX As String = "Excel Workbook (*.xlsx)|*.xlsx|All Files (*.*)|*.*"
+
+' === VERSION CONSTANTS ===
+' Config schema version — written to exported .cfg files and checked on import
+Public Const ARES_CONFIG_VERSION As String = "1.0.1"

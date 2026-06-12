@@ -1786,7 +1786,7 @@ Private Function TestFileDialogErrorHandling() As Boolean
     On Error Resume Next
     
     ' These should handle errors gracefully and return empty strings
-    Result1 = FileDialogs.ShowSaveFileDialog("", "", "")
+    Result1 = FileDialogs.ShowSaveDialog("", "", "", "", "")
     Result2 = FileDialogs.ShowOpenFileDialog("", "")
     
     ' Functions should return empty strings on error, not crash

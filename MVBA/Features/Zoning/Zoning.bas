@@ -1,6 +1,5 @@
 ' Zoning.bas
-' ===========================================================================
-' Generates a "buffer zone" (safety boundary / offset shape) around elements
+' Description: Generates a "buffer zone" (safety boundary / offset shape) around elements
 ' found on specified levels.
 '
 ' SUPPORTED ELEMENT TYPES
@@ -10,32 +9,17 @@
 '   ComplexString / ComplexShape → same fusion strategy, one buffer per sub-element
 '   CellHeader                  → rotated rounded rectangle aligned with the cell's own axis
 '   EllipseElement (circle/ellipse)
-'     • annular zone if Dist < both radii  → GetRegionDifference(outer, inner)
-'     • full zone    if Dist >= any radius → outer EllipseElement written directly
 '
 ' HOW IT WORKS
 '   1. Collect all matching elements from the active model.
-'   2. Dispatch each element to its typed zone builder (BuildXxxZone).
+'   2. Dispatch each element to its typed zone builder.
 '      Each builder returns an orphan closed shape — it is NOT added to the model.
-'   3a. MergeZones = True  (default): accumulate all zones, fuse them into a
-'       single region with GetRegionUnion, then write the result.
-'   3b. MergeZones = False: write each zone to the model immediately.
-'
-' ENTRY POINT
-'   Call Zoning() — all parameters are optional; missing values fall back to
-'   the corresponding ARES_ZONING_* variables in ARESConfig.
-' ===========================================================================
+'   3. Accumulate all zones, fuse them into a single region with GetRegionUnion, then write the result.
+' License: This project is licensed under the AGPL-3.0.
+' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, GetElements, LicenseManager
 
 Option Explicit
 
-Private Const MODULE_NAME As String = "Zoning"
-
-' ============================================================
-'  PUBLIC ENTRY POINT
-' ============================================================
-
-' Zoning
-' ------
 ' Generates offset zones around elements on the specified source levels.
 '
 ' Parameters (all optional — ARESConfig values are used when omitted):
@@ -50,13 +34,17 @@ Private Const MODULE_NAME As String = "Zoning"
 '   MergeZones  : True  (default) → fuse all individual zones together with
 '                                   GetRegionUnion before writing to the model.
 '                 False           → write each element's zone separately.
+'   DebugMode   : True → write each individual zone shape to the model before
+'                 the final merge, making pre-merge buffers visible alongside
+'                 the merged result. Intended for geometry debugging. Default False.
 Public Sub Zoning(Optional Lvls As Variant, _
                   Optional OutputLevel As String = "", _
                   Optional Color As Long = -1, _
                   Optional Style As String = "", _
                   Optional Weight As Long = -1, _
                   Optional Dist As Double = 0, _
-                  Optional MergeZones As Boolean = True)
+                  Optional MergeZones As Boolean = True, _
+                  Optional DebugMode As Boolean = False)
 
     On Error GoTo ErrorHandler
     If Not LicenseManager.IsLicenseValid() Then
@@ -74,7 +62,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' --- Guard: configuration must be initialised before we can read config vars ---
     If Not ARESConfig.IsInitialized Then
-        ErrorHandler.HandleError "ARESConfig not initialized", 0, MODULE_NAME & ".Zoning", "ERROR"
+        ErrorHandler.HandleError "ARESConfig not initialized", 0, "", "Zoning.Zoning"
         Exit Sub
     End If
 
@@ -94,7 +82,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
         Dim LvlsStr As String
         LvlsStr = ARESConfig.ARES_ZONING_LEVEL.Value
         If Len(LvlsStr) = 0 Then
-            ErrorHandler.HandleError "No levels provided and ARES_Zoning_Level config is empty", 0, MODULE_NAME & ".Zoning", "ERROR"
+            ErrorHandler.HandleError "No levels provided and ARES_Zoning_Level config is empty", 0, "", "Zoning.Zoning"
             Exit Sub
         End If
         ResolvedLvls = Split(LvlsStr, ARES_VAR_DELIMITER)
@@ -110,22 +98,22 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' --- Validate the final parameter values ---
     If Dist <= 0 Then
-        ErrorHandler.HandleError "Distance must be greater than zero", 0, MODULE_NAME & ".Zoning", "ERROR"
+        ErrorHandler.HandleError "Distance must be greater than zero", 0, "", "Zoning.Zoning"
         Exit Sub
     End If
     If UBound(ResolvedLvls) < LBound(ResolvedLvls) Then
-        ErrorHandler.HandleError "No levels provided", 0, MODULE_NAME & ".Zoning", "ERROR"
+        ErrorHandler.HandleError "No levels provided", 0, "", "Zoning.Zoning"
         Exit Sub
     End If
     If Not Application.HasActiveModelReference Then
-        ErrorHandler.HandleError "No active model reference", 0, MODULE_NAME & ".Zoning", "ERROR"
+        ErrorHandler.HandleError "No active model reference", 0, "", "Zoning.Zoning"
         Exit Sub
     End If
 
     ' --- Get (or create) the output level ---
     Set TargetLevel = GetElements.GetLevel(OutputLevel)
     If TargetLevel Is Nothing Then
-        ErrorHandler.HandleError "Failed to get or create output level: " & OutputLevel, 0, MODULE_NAME & ".Zoning", "ERROR"
+        ErrorHandler.HandleError "Failed to get or create output level: " & OutputLevel, 0, "", "Zoning.Zoning"
         Exit Sub
     End If
 
@@ -144,11 +132,11 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     If IsArray(Elements) Then
         If UBound(Elements) < LBound(Elements) Then
-            ErrorHandler.HandleError "No elements found on specified levels", 0, MODULE_NAME & ".Zoning", "WARNING"
+            ErrorHandler.HandleError "No elements found on specified levels", 0, "", "Zoning.Zoning"
             Exit Sub
         End If
     Else
-        ErrorHandler.HandleError "Failed to retrieve elements", 0, MODULE_NAME & ".Zoning", "ERROR"
+        ErrorHandler.HandleError "Failed to retrieve elements", 0, "", "Zoning.Zoning"
         Exit Sub
     End If
 
@@ -162,26 +150,46 @@ Public Sub Zoning(Optional Lvls As Variant, _
         Set oEl = Elements(i)
         Select Case oEl.Type
             Case msdElementTypeLine
-                ZoneFromLine oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs
+                ZoneFromLine oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
             Case msdElementTypeLineString
-                ZoneFromLineString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs
+                ZoneFromLineString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
             Case msdElementTypeArc
-                ZoneFromArc oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs
+                ZoneFromArc oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
             Case msdElementTypeComplexString, msdElementTypeComplexShape
-                ZoneFromComplexString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs
+                ZoneFromComplexString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
             Case msdElementTypeEllipse
-                ZoneFromEllipse oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs
+                ZoneFromEllipse oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
             Case msdElementTypeCellHeader
-                ZoneFromCell oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs
+                ZoneFromCell oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
         End Select
     Next i
 
     ' --- Merge all accumulated zones and write to the model (MergeZones = True only) ---
     If MergeZones And nAllBufs > 0 Then
+        ' Debug mode: write a clone of each pre-merge shape to the model so the
+        ' individual zones are visible alongside the final merged result.
+        If DebugMode Then
+            Dim debugEl As Element
+            For k = 0 To nAllBufs - 1
+                Set debugEl = allBufs(k).Clone
+                WriteEl debugEl, TargetLevel, Color, Style, Weight
+            Next k
+        End If
         If nAllBufs = 1 Then
             ' Only one zone accumulated — no merge needed, write directly.
             WriteEl allBufs(0), TargetLevel, Color, Style, Weight
         Else
+            ' Translate buffered zones near the origin before the union.
+            ' GetRegionUnion is unreliable at large DGN coordinates (MicroStation bug).
+            Dim toOrigin   As Point3d
+            Dim fromOrigin As Point3d
+            Dim mergedEl   As Element
+            toOrigin   = Point3dNegate(allBufs(0).Range.High)
+            fromOrigin = Point3dNegate(toOrigin)
+            For k = 0 To nAllBufs - 1
+                allBufs(k).Move toOrigin
+            Next k
+
             ' GetRegionUnion expects:
             '   - region1: a 1-element array containing the first shape
             '   - region2: an array with all remaining shapes
@@ -197,7 +205,9 @@ Public Sub Zoning(Optional Lvls As Variant, _
             Set oMergeEnum = GetRegionUnion(region1M, region2M, Nothing, msdFillModeNotFilled)
             If Not oMergeEnum Is Nothing Then
                 Do While oMergeEnum.MoveNext
-                    WriteEl oMergeEnum.Current, TargetLevel, Color, Style, Weight
+                    Set mergedEl = oMergeEnum.Current
+                    mergedEl.Move fromOrigin
+                    WriteEl mergedEl, TargetLevel, Color, Style, Weight
                 Loop
             End If
         End If
@@ -205,7 +215,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".Zoning", "ERROR"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.Zoning"
 End Sub
 
 ' ============================================================
@@ -232,14 +242,15 @@ Private Sub ZoneFromLine(ByVal oEl As Element, _
                          ByVal Style As String, _
                          ByVal Weight As Long, _
                          ByRef outBufs() As Element, _
-                         ByRef nOut As Long)
+                         ByRef nOut As Long, _
+                         ByVal DebugMode As Boolean)
     On Error GoTo ErrorHandler
     Dim elem As Element
     Set elem = BuildLineZone(oEl, Dist, True)   ' True = round end-caps
     If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".ZoneFromLine", "WARNING"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromLine"
 End Sub
 
 ' ZoneFromLineString
@@ -262,7 +273,8 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
                                ByVal Style As String, _
                                ByVal Weight As Long, _
                                ByRef outBufs() As Element, _
-                               ByRef nOut As Long)
+                               ByRef nOut As Long, _
+                               ByVal DebugMode As Boolean)
     On Error GoTo ErrorHandler
 
     Dim oVL       As VertexList  ' exposes vertex list of any VertexList-compatible element
@@ -292,6 +304,12 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
 
     If nBuf = 0 Then Exit Sub
 
+    If DebugMode Then
+        For j = 0 To nBuf - 1
+            WriteEl subBufs(j).Clone, TargetLevel, Color, Style, Weight
+        Next j
+    End If
+
     ' Step 2: pass through or fuse.
     If nBuf = 1 Then
         ' Single valid segment — no union needed.
@@ -300,6 +318,16 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     End If
 
     ' Step 3: fuse all segment stadiums into one clean region.
+    ' Translate near origin first (MicroStation GetRegionUnion precision workaround).
+    Dim toOrigin   As Point3d
+    Dim fromOrigin As Point3d
+    Dim resEl      As Element
+    toOrigin   = Point3dNegate(subBufs(0).Range.High)
+    fromOrigin = Point3dNegate(toOrigin)
+    For j = 0 To nBuf - 1
+        subBufs(j).Move toOrigin
+    Next j
+
     Dim region1(0 To 0) As Element
     Set region1(0) = subBufs(0)
     Dim region2() As Element
@@ -312,13 +340,15 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
     If Not oEnum Is Nothing Then
         Do While oEnum.MoveNext
-            AddOrWrite oEnum.Current, TargetLevel, Color, Style, Weight, outBufs, nOut
+            Set resEl = oEnum.Current
+            resEl.Move fromOrigin
+            AddOrWrite resEl, TargetLevel, Color, Style, Weight, outBufs, nOut
         Loop
     End If
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".ZoneFromLineString", "WARNING"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromLineString"
 End Sub
 
 ' ZoneFromArc
@@ -332,14 +362,15 @@ Private Sub ZoneFromArc(ByVal oEl As Element, _
                         ByVal Style As String, _
                         ByVal Weight As Long, _
                         ByRef outBufs() As Element, _
-                        ByRef nOut As Long)
+                        ByRef nOut As Long, _
+                        ByVal DebugMode As Boolean)
     On Error GoTo ErrorHandler
     Dim elem As Element
     Set elem = BuildArcZone(oEl, Dist, True)   ' True = round end-caps
     If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".ZoneFromArc", "WARNING"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromArc"
 End Sub
 
 ' ZoneFromComplexString
@@ -361,7 +392,8 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
                                   ByVal Style As String, _
                                   ByVal Weight As Long, _
                                   ByRef outBufs() As Element, _
-                                  ByRef nOut As Long)
+                                  ByRef nOut As Long, _
+                                  ByVal DebugMode As Boolean)
     On Error GoTo ErrorHandler
 
     ' ComplexElement is the common interface for both ComplexStringElement and
@@ -421,12 +453,28 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
 
     If nBuf = 0 Then Exit Sub
 
+    If DebugMode Then
+        For j = 0 To nBuf - 1
+            WriteEl subBufs(j).Clone, TargetLevel, Color, Style, Weight
+        Next j
+    End If
+
     If nBuf = 1 Then
         AddOrWrite subBufs(0), TargetLevel, Color, Style, Weight, outBufs, nOut
         Exit Sub
     End If
 
     ' Fuse all sub-element buffers into one clean region.
+    ' Translate near origin first (MicroStation GetRegionUnion precision workaround).
+    Dim toOrigin   As Point3d
+    Dim fromOrigin As Point3d
+    Dim resEl      As Element
+    toOrigin   = Point3dNegate(subBufs(0).Range.High)
+    fromOrigin = Point3dNegate(toOrigin)
+    For j = 0 To nBuf - 1
+        subBufs(j).Move toOrigin
+    Next j
+
     Dim region1(0 To 0) As Element
     Set region1(0) = subBufs(0)
     Dim region2() As Element
@@ -439,13 +487,15 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
     Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
     If Not oEnum Is Nothing Then
         Do While oEnum.MoveNext
-            AddOrWrite oEnum.Current, TargetLevel, Color, Style, Weight, outBufs, nOut
+            Set resEl = oEnum.Current
+            resEl.Move fromOrigin
+            AddOrWrite resEl, TargetLevel, Color, Style, Weight, outBufs, nOut
         Loop
     End If
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".ZoneFromComplexString", "WARNING"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromComplexString"
 End Sub
 
 ' ZoneFromEllipse
@@ -471,7 +521,8 @@ Private Sub ZoneFromEllipse(ByVal oEl As Element, _
                             ByVal Style As String, _
                             ByVal Weight As Long, _
                             ByRef outBufs() As Element, _
-                            ByRef nOut As Long)
+                            ByRef nOut As Long, _
+                            ByVal DebugMode As Boolean)
     On Error GoTo ErrorHandler
 
     Dim ellEl         As EllipseElement
@@ -514,8 +565,7 @@ Private Sub ZoneFromEllipse(ByVal oEl As Element, _
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".ZoneFromEllipse", "WARNING"
-End Sub
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromEllipse"End Sub
 
 ' ZoneFromCell
 ' Handles CellHeader elements (placed blocks / symbols).
@@ -528,14 +578,15 @@ Private Sub ZoneFromCell(ByVal oEl As Element, _
                          ByVal Style As String, _
                          ByVal Weight As Long, _
                          ByRef outBufs() As Element, _
-                         ByRef nOut As Long)
+                         ByRef nOut As Long, _
+                         ByVal DebugMode As Boolean)
     On Error GoTo ErrorHandler
     Dim elem As Element
     Set elem = BuildCellZone(oEl, Dist)
     If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".ZoneFromCell", "WARNING"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromCell"
 End Sub
 
 ' ============================================================
@@ -586,6 +637,7 @@ End Sub
 '           the shape back into world space with the correct rotation and position.
 ' ---------------------------------------------------------------------------
 Private Function BuildCellZone(ByVal oEl As Element, ByVal Dist As Double) As Element
+    On Error GoTo ErrorHandler
 
     Dim cellEl    As CellElement
     Dim oRange    As Range3d         ' axis-aligned world bbox of the cell
@@ -660,6 +712,11 @@ Private Function BuildCellZone(ByVal oEl As Element, ByVal Dist As Double) As El
     cxShape.Transform fwdT
 
     Set BuildCellZone = cxShape
+    Exit Function
+
+ErrorHandler:
+    Set BuildCellZone = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.BuildCellZone"
 End Function
 
 ' BuildLineZone
@@ -684,6 +741,7 @@ End Function
 Private Function BuildLineZone(ByVal oEl As Element, _
                                ByVal Dist As Double, _
                                ByVal RoundCaps As Boolean) As Element
+    On Error GoTo ErrorHandler
 
     Dim lineEl As LineElement
     Dim ptS    As Point3d   ' segment start point
@@ -728,6 +786,11 @@ Private Function BuildLineZone(ByVal oEl As Element, _
         rectPts(0) = L0 : rectPts(1) = L1 : rectPts(2) = R1 : rectPts(3) = R0 : rectPts(4) = L0
         Set BuildLineZone = CreateShapeElement1(Nothing, rectPts)
     End If
+    Exit Function
+
+ErrorHandler:
+    Set BuildLineZone = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.BuildLineZone"
 End Function
 
 ' BuildArcZone
@@ -761,6 +824,7 @@ End Function
 Private Function BuildArcZone(ByVal oEl As Element, _
                               ByVal Dist As Double, _
                               ByVal RoundCaps As Boolean) As Element
+    On Error GoTo ErrorHandler
 
     Dim arcEl           As ArcElement
     Dim outerArc        As ArcElement    ' source arc scaled outward by Dist
@@ -916,6 +980,11 @@ Private Function BuildArcZone(ByVal oEl As Element, _
     End If
 
     Set BuildArcZone = cxShape
+    Exit Function
+
+ErrorHandler:
+    Set BuildArcZone = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.BuildArcZone"
 End Function
 
 ' ============================================================
@@ -940,6 +1009,7 @@ End Function
 '   Point3dFromXY    → construct the rotated and scaled result
 ' ---------------------------------------------------------------------------
 Private Function Perp2D(ByRef A As Point3d, ByRef B As Point3d, ByVal Dist As Double) As Point3d
+    On Error GoTo ErrorHandler
     Dim dir As Point3d   ' direction vector A→B
     Dim L   As Double    ' segment length
     dir = Point3dSubtract(B, A)
@@ -949,6 +1019,11 @@ Private Function Perp2D(ByRef A As Point3d, ByRef B As Point3d, ByVal Dist As Do
         Perp2D = Point3dFromXY(-dir.Y / L * Dist, dir.X / L * Dist)
     End If
     ' L <= 1E-12: VBA default-initialises all fields to 0 → zero vector returned.
+    Exit Function
+
+ErrorHandler:
+    ' Default-initialised Point3d (zero vector) tells the caller "degenerate input".
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.Perp2D"
 End Function
 
 ' NormalizeAngle
@@ -964,6 +1039,7 @@ End Function
 ' magnitude. This function corrects it by adding/subtracting 2π as needed.
 ' ---------------------------------------------------------------------------
 Private Function NormalizeAngle(ByVal delta As Double, ByVal direction As Double) As Double
+    On Error GoTo ErrorHandler
     If direction > 0 Then
         Do While delta <= 0                       : delta = delta + 2# * Application.PI : Loop
         Do While delta > 2# * Application.PI     : delta = delta - 2# * Application.PI : Loop
@@ -972,6 +1048,11 @@ Private Function NormalizeAngle(ByVal delta As Double, ByVal direction As Double
         Do While delta < -2# * Application.PI    : delta = delta + 2# * Application.PI : Loop
     End If
     NormalizeAngle = delta
+    Exit Function
+
+ErrorHandler:
+    NormalizeAngle = 0
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.NormalizeAngle"
 End Function
 
 ' Atan2
@@ -984,6 +1065,7 @@ End Function
 ' quadrant. Atan2 handles all four quadrants and the degenerate x=0 cases.
 ' ---------------------------------------------------------------------------
 Private Function Atan2(ByVal y As Double, ByVal x As Double) As Double
+    On Error GoTo ErrorHandler
     If x > 0 Then
         Atan2 = Atn(y / x)                  ' Quadrants I and IV
     ElseIf x < 0 And y >= 0 Then
@@ -997,6 +1079,11 @@ Private Function Atan2(ByVal y As Double, ByVal x As Double) As Double
     Else
         Atan2 = 0                            ' Origin (degenerate)
     End If
+    Exit Function
+
+ErrorHandler:
+    Atan2 = 0
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.Atan2"
 End Function
 
 ' ============================================================
@@ -1021,6 +1108,7 @@ Private Sub AddOrWrite(ByVal oEl As Element, _
                        ByVal Weight As Long, _
                        ByRef outBufs() As Element, _
                        ByRef nOut As Long)
+    On Error GoTo ErrorHandler
     If nOut < 0 Then
         WriteEl oEl, TargetLevel, Color, Style, Weight
     Else
@@ -1028,6 +1116,10 @@ Private Sub AddOrWrite(ByVal oEl As Element, _
         Set outBufs(nOut) = oEl
         nOut = nOut + 1
     End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.AddOrWrite"
 End Sub
 
 ' WriteEl
@@ -1043,7 +1135,7 @@ Private Sub WriteEl(ByVal oElement As Element, _
     ActiveModelReference.AddElement oElement
     Exit Sub
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".WriteEl", "WARNING"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.WriteEl"
 End Sub
 
 ' ApplySym
@@ -1061,5 +1153,5 @@ Private Sub ApplySym(ByVal oEl As Element, _
     If Len(Style) > 0 Then oEl.LineStyle  = ActiveDesignFile.LineStyles.Find(Style)
     Exit Sub
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, MODULE_NAME & ".ApplySym", "WARNING"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ApplySym"
 End Sub
