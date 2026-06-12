@@ -4,14 +4,18 @@ This directory contains the complete MVBA (MicroStation Visual Basic for Applica
 
 ## Structure
 
-- **Command/** - User commands interface
-- **Components/** - Functional components (lengths, links, graphics)
-- **Configuration/** - Configuration and settings management
-- **Core/** - System core (constants, boot loader, error handling)
+- **Command/** - User-facing command entry points
+- **Components/** - Shared reusable modules (Length, GetElements, FileDialogs, Link, …)
+- **Configuration/** - Configuration management (ARESConfigClass, LangManager, Config)
+- **Core/** - System core (ARESConstants, BootLoader, error handling)
 - **EventHandlers/** - Event management (DGN open/close, element changes)
-- **LengthsFeature/** - Auto-lengths functionality with GUI
-- **Security/** - Security and validation (encryption, UUID, License)
+- **Features/** - Business features, each in its own sub-folder:
+  - **AutoLengths/** - Automatic length calculation with GUI
+  - **Zoning/** - Buffer zone generation around elements with GUI
+  - **ZoneExport/** - Element length export inside zones to Excel with GUI
+- **Security/** - License validation, AES-256 encryption, UUID, RSA signing
 - **Tests/** - Unit testing suite
+- **Update/** - Automatic update checker
 
 ## Development
 

@@ -30,6 +30,8 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 ## Features
 
 - **Auto Lengths** - Automatic length calculation for linked graphical elements
+- **Zoning** - Buffer zone generation around selected elements with configurable distance, level, style, color and weight
+- **Zone Export** - Computes element lengths (partial or full) inside zone polygons and exports per-group summaries to Excel
 - **License Management** - AES-256 encrypted, RSA-signed network licenses
 - **Multi-language** - French/English interface support
 - **Bulk Operation Detection** - Auto-suspend during merge/reprojection for performance
