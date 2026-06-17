@@ -27,7 +27,21 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
     ' Re-register change tracking via BootLoader
     ResumeChangeTracking
 
-    ShowStatus "ARES: Change tracking resumed after bulk operation"
+    ' Report the REAL outcome (ResumeChangeTracking is idempotent; this confirms the handler is
+    ' actually attached again rather than logging success unconditionally).
+    If IsChangeTrackingAttached() Then
+        If LangManager.IsInit Then
+            ShowStatus GetTranslation("ChangeTrackingResumed")
+        Else
+            ShowStatus "ARES: Change tracking resumed after bulk operation"
+        End If
+    Else
+        If LangManager.IsInit Then
+            ShowStatus GetTranslation("ChangeTrackingResumeWarning")
+        Else
+            ShowStatus "ARES: WARNING - change tracking NOT attached after bulk resume"
+        End If
+    End If
     Exit Sub
 
 ErrorHandler:

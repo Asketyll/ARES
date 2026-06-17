@@ -110,6 +110,8 @@ Sub InitializeTranslations()
     mTranslations.Add "EN_UpdateAlreadyUpToDate", "ARES is up to date."
     mTranslations.Add "EN_LicenseRecheckTitle", "ARES - License Invalid"
     mTranslations.Add "EN_LicenseInvalidatedMidSession", "The ARES license has become invalid during this session." & vbCrLf & "ARES features have been disabled. Please contact your administrator."
+    mTranslations.Add "EN_ChangeTrackingResumed", "ARES: Change tracking resumed after bulk operation"
+    mTranslations.Add "EN_ChangeTrackingResumeWarning", "ARES: WARNING - change tracking NOT attached after bulk resume"
 
     ' Add French translations
     mTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -199,6 +201,8 @@ Sub InitializeTranslations()
     mTranslations.Add "FR_UpdateAlreadyUpToDate", "ARES est a jour."
     mTranslations.Add "FR_LicenseRecheckTitle", "ARES - Licence invalide"
     mTranslations.Add "FR_LicenseInvalidatedMidSession", "La licence ARES est devenue invalide pendant cette session." & vbCrLf & "Les fonctionnalités ARES ont été désactivées. Veuillez contacter votre administrateur."
+    mTranslations.Add "FR_ChangeTrackingResumed", "ARES : Suivi des modifications repris après l'opération en masse"
+    mTranslations.Add "FR_ChangeTrackingResumeWarning", "ARES : ATTENTION - le suivi des modifications n'a PAS été réattaché après l'opération en masse"
 
     IsInit = True
     Exit Sub
