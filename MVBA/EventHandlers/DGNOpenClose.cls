@@ -49,10 +49,11 @@ End Sub
 ' Initialize the change handler and add event handlers
 Private Sub InitializeChangeHandler()
     On Error GoTo ErrorHandler
-    ' Create a new instance of the ElementChangeHandler
-    Set ChangeHandler = New ElementChangeHandler
-    ' Add event handlers for tracking changes
-    AddChangeTrackEventsHandler ChangeHandler
+    ' Cleanly detach any previous handler, drop leftover bulk-suspend state, and attach a fresh
+    ' handler in one consistent step. This is the single source of truth for "a new file is open":
+    ' it cannot leave change tracking detached-but-flagged-resumed (the deadlock that killed auto
+    ' length updates after a DGN conversion that closed the file mid-bulk-suspend).
+    ReinitChangeTrackingForNewFile
     ' Show a status message indicating that the event handlers have been initialized
     If LangManager.IsInit Then
         ShowStatus GetTranslation("DGNOpenCloseEventsInitialized")

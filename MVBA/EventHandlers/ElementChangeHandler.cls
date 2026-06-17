@@ -10,7 +10,7 @@ Option Explicit
 Implements IChangeTrackEvents
 
 ' === PRIVATE MEMBERS ===
-Private moIdleHandler As IdleEventHandler       ' Reference to the idle event handler for deferred processing
+Private moIdleHandler As IdleEventHandler       ' Single persistent idle handler instance - created once, reused; only add/removed from the idle list
 Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle handler registrations
 Private moReRegHandler As ReRegisterIdleHandler ' Member-scoped ref to prevent premature VBA GC after bulk suspend
 
@@ -137,21 +137,22 @@ End Sub
 ' PRIVATE METHODS - Idle Handler Management
 ' ========================================
 
-' Ensures that an IdleEventHandler is registered for deferred processing
-' Uses a flag to prevent multiple registrations within the same batch of changes
-' The idle handler will process all queued elements when MicroStation becomes idle
+' Ensures the single persistent IdleEventHandler is registered in MicroStation's idle list.
+' The instance is created once (lazily) and reused for the lifetime of this ChangeHandler:
+' we only add/remove it from the idle list, never destroy and recreate it per batch. This
+' avoids ObjPtr address reuse and the stale-handler desync that occurs when a fresh instance
+' is created while a previous one is still live and registered.
 Private Sub EnsureIdleHandlerRegistered()
     On Error GoTo ErrorHandler
 
-    ' Only register if not already registered (prevents duplicate handlers)
-    If Not mbIdleHandlerRegistered Then
-        Set moIdleHandler = New IdleEventHandler
-        AddEnterIdleEventHandler moIdleHandler
-        mbIdleHandlerRegistered = True
-        ShowStatus "DBG EnsureIdle: NEW handler registered — IH=" & ObjPtr(moIdleHandler)
-    Else
-        ShowStatus "DBG EnsureIdle: already registered — IH=" & ObjPtr(moIdleHandler) & " moIdleHandler Is Nothing=" & (moIdleHandler Is Nothing)
-    End If
+    ' Already in the idle list - nothing to do.
+    If mbIdleHandlerRegistered Then Exit Sub
+
+    ' Create the instance only the first time; reuse it on every subsequent batch.
+    If moIdleHandler Is Nothing Then Set moIdleHandler = New IdleEventHandler
+
+    AddEnterIdleEventHandler moIdleHandler
+    mbIdleHandlerRegistered = True
 
     Exit Sub
 
@@ -173,14 +174,13 @@ Public Sub ResetBulkDetectionState()
     mlCachedInterval = 0
 End Sub
 
-' Called by IdleEventHandler to reset the registration flag after processing
-' This allows a new idle handler to be registered for the next batch of changes
+' Called by IdleEventHandler (CleanupHandler) after it removes itself from the idle list.
+' Clears the "registered" flag so the next batch re-adds the handler. The instance in
+' moIdleHandler is kept alive and reused (single persistent handler) - not set to Nothing.
 Public Sub ResetIdleHandlerFlag()
     On Error GoTo ErrorHandler
 
-    ShowStatus "DBG ResetIdleHandlerFlag: called — was registered=" & mbIdleHandlerRegistered
     mbIdleHandlerRegistered = False
-    Set moIdleHandler = Nothing
 
     Exit Sub
 
@@ -188,8 +188,11 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementChangeHandler.ResetIdleHandlerFlag"
 End Sub
 
-' Returns True if the given handler is the currently registered (active) idle handler.
-' Used by IdleEventHandler.CleanupHandler to guard against stale handlers clearing the queue.
+' Returns True if oHandler is the active processing idle handler (the single persistent
+' instance in moIdleHandler). Used by IdleEventHandler.CleanupHandler so that a non-active
+' instance - the one-shot initial handler created at boot, or an orphan left over after
+' ChangeHandler was replaced on file open / license recovery - cannot clear the queue or
+' reset the registration flag that belong to the live processing handler.
 Public Function IsActiveIdleHandler(ByVal oHandler As IdleEventHandler) As Boolean
     IsActiveIdleHandler = mbIdleHandlerRegistered And (Not moIdleHandler Is Nothing) And (oHandler Is moIdleHandler)
 End Function
@@ -497,6 +500,27 @@ Private Function DetectAndSuspendBulkOperation() As Boolean
     ' The idle handler sets this flag to suppress suspension during its own processing cycle.
     If IsIdleProcessingActive() Then Exit Function
 
+    ' Already suspended for a bulk in progress. RemoveChangeTrackEventsHandler is not synchronous
+    ' during a tight bulk loop (e.g. a DGN conversion), so in-flight ElementChanged events keep
+    ' arriving after suspension. Treat them as "skip" without re-running SuspendAndScheduleResume:
+    ' re-running would re-Remove the change handler (unbalanced) and overwrite moReRegHandler,
+    ' orphaning the already-scheduled ReRegisterIdleHandler (GC'd while still in the idle list) and
+    ' losing the resume -> change tracking stays dead after the bulk.
+    If IsChangeTrackingSuspended() Then
+        ' Normal case: a resume is genuinely pending for THIS handler -> skip the in-flight event.
+        If Not moReRegHandler Is Nothing Then
+            DetectAndSuspendBulkOperation = True
+            Exit Function
+        End If
+        ' Self-heal: the suspended flag is set but no resume is pending on this handler. This means
+        ' the suspension was orphaned - typically the ChangeHandler instance was replaced on file
+        ' open (DGNOpenClose.InitializeChangeHandler) or license recovery, which GC'd the previous
+        ' instance together with its scheduled ReRegisterIdleHandler. We are nevertheless receiving
+        ' a change event, so a live handler IS registered: clear the stale flag and fall through so
+        ' processing is not skipped forever.
+        ResetSuspensionState
+    End If
+
     dCurrentTime = Timer
 
     ' Handle midnight rollover - Timer resets to 0 at midnight
@@ -538,22 +562,23 @@ End Function
 Private Sub SuspendAndScheduleResume()
     On Error GoTo ErrorHandler
 
+    ' Defense in depth: a resume is already pending (a ReRegisterIdleHandler is scheduled and
+    ' still referenced). Re-running here would overwrite moReRegHandler and orphan the pending
+    ' handler. The DetectAndSuspendBulkOperation guard normally prevents reaching this point.
+    If Not moReRegHandler Is Nothing Then Exit Sub
+
     ' Mark as suspended in BootLoader
     MarkChangeTrackingSuspended
 
-    ShowStatus "DBG SuspendAndScheduleResume: triggered — registered=" & mbIdleHandlerRegistered & " mlCallCount=" & mlCallCount
+    ' Unregister change tracking (idempotent; keeps BootLoader's attachment state in sync so the
+    ' scheduled ReRegisterIdleHandler -> ResumeChangeTracking will correctly re-attach afterwards).
+    DetachChangeTracking
 
-    ' Unregister change tracking
-    If Not ChangeHandler Is Nothing Then
-        RemoveChangeTrackEventsHandler ChangeHandler
-    End If
-
-    ' Clean up existing idle handler if present (prevents coexisting handlers with undefined order)
+    ' Remove the idle handler from MicroStation's idle list (prevents coexisting handlers
+    ' with undefined firing order). Keep the instance alive for reuse (single persistent handler).
     If mbIdleHandlerRegistered And Not moIdleHandler Is Nothing Then
         RemoveEnterIdleEventHandler moIdleHandler
-        Set moIdleHandler = Nothing
         mbIdleHandlerRegistered = False
-        ShowStatus "DBG SuspendAndScheduleResume: existing idle handler removed"
     End If
 
     ' Clear any pending elements (they'll be stale after bulk operation)

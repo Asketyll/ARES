@@ -167,23 +167,20 @@ End Sub
 Private Sub CleanupHandler()
     On Error Resume Next
 
-    ' Guard: only the active handler may clear the queue and reset the flag.
-    ' A stale handler (fired after being replaced during a bulk-suspend cycle) must not
-    ' wipe the queue or reset the flag that belongs to the new active handler.
+    ' Only the active processing instance may drain the queue and reset the registration
+    ' flag. With a single persistent idle handler this check is reliable: the steady-state
+    ' processing handler always matches ChangeHandler.moIdleHandler, while a non-active
+    ' instance (the one-shot initial handler created at boot, or an orphan left after
+    ' ChangeHandler was replaced) must remove only itself without disturbing the queue/flag.
     Dim bIsActive As Boolean
     bIsActive = Not ChangeHandler Is Nothing
     If bIsActive Then bIsActive = ChangeHandler.IsActiveIdleHandler(Me)
 
-    If bIsActive Then
-        ElementInProcesse.Clear
-    End If
-
     RemoveEnterIdleEventHandler Me
 
     If bIsActive Then
+        ElementInProcesse.Clear
         ChangeHandler.ResetIdleHandlerFlag
-    Else
-        ShowStatus "DBG CleanupHandler: stale handler — skipped Clear/Reset (IH=" & ObjPtr(Me) & ")"
     End If
 
     SetIdleProcessingActive False

@@ -33,6 +33,7 @@ Private moOpenClose As DGNOpenClose
 Private mbLicenseChecked As Boolean
 Private mbLicenseValid As Boolean
 Private mbChangeTrackingSuspended As Boolean
+Private mbChangeTrackingAttached As Boolean      ' Real attachment state of the change-track handler in MicroStation's list (decoupled from the bulk "suspended" flag)
 Private mbIdleProcessingActive As Boolean
 Private mbDGNHandlersInitialized As Boolean      ' True once InitializeDGNHandlers has run
 
@@ -233,6 +234,7 @@ Public Sub OnProjectUnload()
 
     ' --- Step 1: reset all scalar flags first (cheap, cannot raise; keeps ErrorHandler available) ---
     mbChangeTrackingSuspended = False
+    mbChangeTrackingAttached = False
     mbIdleProcessingActive = False
     mbDGNHandlersInitialized = False
     mbLicenseChecked = False
@@ -260,6 +262,61 @@ End Sub
 ' CHANGE TRACKING SUSPENSION - For bulk operations
 ' ========================================
 
+' Idempotently attach the change-tracking handler to MicroStation's change-track list.
+' Creates ChangeHandler if it does not exist yet. Safe to call repeatedly: the actual
+' AddChangeTrackEventsHandler call only happens when not already attached, so it can never
+' double-register (which is what made a late/stale ReRegisterIdleHandler dangerous before).
+Public Sub AttachChangeTracking()
+    On Error GoTo ErrorHandler
+
+    If ChangeHandler Is Nothing Then Set ChangeHandler = New ElementChangeHandler
+
+    If Not mbChangeTrackingAttached Then
+        AddChangeTrackEventsHandler ChangeHandler
+        mbChangeTrackingAttached = True
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.AttachChangeTracking"
+End Sub
+
+' Idempotently detach the change-tracking handler from MicroStation's change-track list.
+Public Sub DetachChangeTracking()
+    On Error GoTo ErrorHandler
+
+    If mbChangeTrackingAttached And Not ChangeHandler Is Nothing Then
+        RemoveChangeTrackEventsHandler ChangeHandler
+        mbChangeTrackingAttached = False
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.DetachChangeTracking"
+End Sub
+
+' Real attachment state - reflects actual Add/Remove calls, NOT the bulk "suspended" flag.
+Public Function IsChangeTrackingAttached() As Boolean
+    IsChangeTrackingAttached = mbChangeTrackingAttached
+End Function
+
+' A new design file is now open: cleanly detach any previous handler, drop the bulk-suspend
+' state, then attach a fresh handler. Single entry point for DGNOpenClose so the attachment
+' bookkeeping stays consistent regardless of whatever bulk state was left over from the
+' previous file (e.g. a suspend that was in progress when the conversion closed the file).
+Public Sub ReinitChangeTrackingForNewFile()
+    On Error GoTo ErrorHandler
+
+    DetachChangeTracking                 ' remove the previous instance from MS's list (no-op if already detached)
+    mbChangeTrackingSuspended = False
+    Set ChangeHandler = New ElementChangeHandler
+    AttachChangeTracking
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.ReinitChangeTrackingForNewFile"
+End Sub
+
 ' Suspend change tracking to improve performance during bulk operations
 ' Usage: Run keyin "vba run [ARES]BootLoader.SuspendChangeTracking"
 ' Then perform merge/reprojection, then call ResumeChangeTracking
@@ -272,7 +329,7 @@ Public Sub SuspendChangeTracking()
     End If
 
     If Not ChangeHandler Is Nothing Then
-        RemoveChangeTrackEventsHandler ChangeHandler
+        DetachChangeTracking
         mbChangeTrackingSuspended = True
         ShowStatus "ARES: Change tracking SUSPENDED - perform bulk operation then resume"
     Else
@@ -287,22 +344,16 @@ End Sub
 ' Resume change tracking after bulk operations
 ' Usage: Run keyin "vba run [ARES]BootLoader.ResumeChangeTracking"
 ' Also called automatically by ReRegisterIdleHandler after auto-suspend
+'
+' Decision to re-attach is driven by the REAL attachment state (mbChangeTrackingAttached), not by
+' the bulk "suspended" flag. A file close (ResetSuspensionState) can clear the suspended flag while
+' the handler is still detached by a bulk suspend; gating the re-attach on the suspended flag was
+' silently skipping the AddChangeTrackEventsHandler -> change tracking stayed dead after the bulk.
 Public Sub ResumeChangeTracking()
     On Error GoTo ErrorHandler
 
-    ' Guard: if not suspended (e.g. InitializeChangeHandler already ran after a file close/open), skip
-    ' This prevents double AddChangeTrackEventsHandler when a stale ReRegisterIdleHandler fires late
-    If Not mbChangeTrackingSuspended Then Exit Sub
-
-    If Not ChangeHandler Is Nothing Then
-        AddChangeTrackEventsHandler ChangeHandler
-        mbChangeTrackingSuspended = False
-    Else
-        ' ChangeHandler doesn't exist, create a new one
-        Set ChangeHandler = New ElementChangeHandler
-        AddChangeTrackEventsHandler ChangeHandler
-        mbChangeTrackingSuspended = False
-    End If
+    AttachChangeTracking
+    mbChangeTrackingSuspended = False
     Exit Sub
 
 ErrorHandler:
@@ -480,7 +531,7 @@ Private Sub OnLicenseInvalidated()
 
     ' Remove change-tracking handler (only if not already suspended for bulk operations).
     If Not ChangeHandler Is Nothing And Not mbChangeTrackingSuspended Then
-        RemoveChangeTrackEventsHandler ChangeHandler
+        DetachChangeTracking
         mbLicenseChangeTrackingPaused = True
     End If
 
@@ -534,15 +585,13 @@ Private Sub OnLicenseRecovered()
             End If
         End If
 
-        If ChangeHandler Is Nothing Then
-            Set ChangeHandler = New ElementChangeHandler
-        Else
+        If Not ChangeHandler Is Nothing Then
             ' Stale instance kept alive across invalidation may carry corrupted bulk-detection
             ' counters (mlCallCount, mdEntryTime). Reset before re-attaching.
             ChangeHandler.ResetBulkDetectionState
         End If
-
-        AddChangeTrackEventsHandler ChangeHandler
+        ' AttachChangeTracking creates ChangeHandler if needed and attaches idempotently.
+        AttachChangeTracking
         mbLicenseChangeTrackingPaused = False
     End If
 
