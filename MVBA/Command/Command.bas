@@ -177,6 +177,38 @@ ErrorHandler:
     ShowStatus "Zoning failed: " & Err.Description
 End Sub
 
+' Run a second, tighter zoning pass: buffer distance from ARES_Zoning2_Distance
+' (default 0.2 m), flat (square) caps, per-element sub-zones fused but zones from
+' different elements NOT merged.
+Sub RunZoning2()
+    On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — RunZoning2 disabled"
+        Exit Sub
+    End If
+
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    ' Resolve the tight buffer distance from its config var. Abort cleanly on an
+    ' invalid (<= 0 / empty / non-numeric) value instead of letting the engine
+    ' silently fall back to ARES_ZONING_DISTANCE (2.0 m) via its Dist<=0 contract.
+    Dim dDist As Double
+    dDist = Val(ARESConfig.ARES_ZONING2_DISTANCE.Value)
+    If dDist <= 0 Then
+        ShowStatus "ARES: ARES_Zoning2_Distance invalid or empty — RunZoning2 aborted"
+        Exit Sub
+    End If
+
+    Zoning.Zoning Dist:=dDist, MergeZones:=False, RoundCaps:=False
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "RunZoning2 failed: " & Err.Description
+End Sub
+
 ' Export element lengths per zone to Excel.
 ' Filepath defaults to the active design file's folder (timestamped .xlsx).
 ' Excel visibility is driven by ARES_Zone_Export_Excel_Visible (default: True).
@@ -226,6 +258,33 @@ Sub EditZoningOptions()
 
 ErrorHandler:
     ShowStatus "Failed to open Zoning options: " & Err.Description
+End Sub
+
+' === REGION SPLIT COMMANDS ===
+
+' Split a closed region (Shape / ComplexShape) into two regions with a single datapoint
+' on its boundary. The cut runs perpendicular to the local boundary segment at the clicked
+' point, across the interior to the opposite boundary. Both halves inherit the original's
+' level + symbology; the original is deleted (default) or kept (ARES_RegionSplit_Keep_Original).
+Sub SplitRegion()
+    On Error GoTo ErrorHandler
+    If Not LicenseManager.IsLicenseValid() Then
+        ShowStatus "ARES: License not valid — SplitRegion disabled"
+        Exit Sub
+    End If
+
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    CommandState.StartPrimitive New RegionSplitLocate
+    Exit Sub
+
+ErrorHandler:
+    ShowStatus "SplitRegion failed: " & Err.Description
 End Sub
 
 ' === TESTING COMMANDS ===
