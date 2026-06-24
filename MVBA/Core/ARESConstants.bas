@@ -51,3 +51,28 @@ Public Const DIALOG_FILTER_XLSX As String = "Excel Workbook (*.xlsx)|*.xlsx|All 
 ' === VERSION CONSTANTS ===
 ' Config schema version — written to exported .cfg files and checked on import
 Public Const ARES_CONFIG_VERSION As String = "1.0.1"
+
+' === REGION SPLIT GEOMETRY CONSTANTS ===
+' Used in RegionSplit module. Structural multipliers (dimensionless), NOT tolerance literals —
+' the tolerances themselves are config vars (ARES_RegionSplit_Collinear_Tol / _Stroke_Tol).
+' Knife half-width = collinear tolerance * this factor (sub-visible yet robust for GetRegionDifference).
+Public Const ARES_KNIFE_HALFWIDTH_FACTOR As Double = 10#
+' Knife half-width / over-extension floor as a fraction of the region bbox diagonal, so the slot
+' stays above GetRegionDifference's extent-scaled cleanup tolerance at every scale (large regions
+' otherwise collapse to a single region — "fewer than two regions (1)").
+Public Const ARES_KNIFE_HALFWIDTH_REL_FACTOR As Double = 0.000005
+' Knife over-extension past each chord end, as a fraction of the chord length (fully severs the region).
+Public Const ARES_KNIFE_OVEREXTEND_FACTOR As Double = 0.01
+' Minimum knife over-extension as a multiple of the stroke tolerance, so the knife clears the real
+' curved boundary on an arc side (the stroked chord sits up to one stroke tolerance inside it).
+Public Const ARES_KNIFE_ARC_OVEREXTEND_FACTOR As Double = 4#
+' Lower / upper bound on the number of chords used to stroke an arc side into a polyline.
+Public Const ARES_ARC_MIN_CHORDS As Long = 4
+Public Const ARES_ARC_MAX_CHORDS As Long = 720
+
+' === ZONING GEOMETRY CONSTANTS ===
+' Used in Zoning module. A buffer piece endpoint within (buffer distance * this factor) of the
+' chain's global Start/End point is treated as a free end (flat cap); any other endpoint is an
+' interior junction (rounded cap). Coincident endpoints carry identical stored coordinates, so the
+' real match distance is ~0; the factor only absorbs floating-point noise.
+Public Const ARES_CAP_MATCH_FRAC As Double = 0.001

@@ -16,7 +16,7 @@
 '      Each builder returns an orphan closed shape — it is NOT added to the model.
 '   3. Accumulate all zones, fuse them into a single region with GetRegionUnion, then write the result.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, GetElements, LicenseManager
+' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, Geometry, GetElements, LicenseManager
 
 Option Explicit
 
@@ -37,6 +37,10 @@ Option Explicit
 '   DebugMode   : True → write each individual zone shape to the model before
 '                 the final merge, making pre-merge buffers visible alongside
 '                 the merged result. Intended for geometry debugging. Default False.
+'   RoundCaps   : True  (default) → open buffers (line / arc / linestring /
+'                                   complexstring) get semicircular end-caps.
+'                 False           → open buffers get flat (square / radial) caps.
+'                 Closed elements (cell, ellipse) have no open cap and ignore this.
 Public Sub Zoning(Optional Lvls As Variant, _
                   Optional OutputLevel As String = "", _
                   Optional Color As Long = -1, _
@@ -44,7 +48,8 @@ Public Sub Zoning(Optional Lvls As Variant, _
                   Optional Weight As Long = -1, _
                   Optional Dist As Double = 0, _
                   Optional MergeZones As Boolean = True, _
-                  Optional DebugMode As Boolean = False)
+                  Optional DebugMode As Boolean = False, _
+                  Optional RoundCaps As Boolean = True)
 
     On Error GoTo ErrorHandler
     If Not LicenseManager.IsLicenseValid() Then
@@ -150,13 +155,13 @@ Public Sub Zoning(Optional Lvls As Variant, _
         Set oEl = Elements(i)
         Select Case oEl.Type
             Case msdElementTypeLine
-                ZoneFromLine oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
+                ZoneFromLine oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
             Case msdElementTypeLineString
-                ZoneFromLineString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
+                ZoneFromLineString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
             Case msdElementTypeArc
-                ZoneFromArc oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
+                ZoneFromArc oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
             Case msdElementTypeComplexString, msdElementTypeComplexShape
-                ZoneFromComplexString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
+                ZoneFromComplexString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
             Case msdElementTypeEllipse
                 ZoneFromEllipse oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
             Case msdElementTypeCellHeader
@@ -166,51 +171,16 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' --- Merge all accumulated zones and write to the model (MergeZones = True only) ---
     If MergeZones And nAllBufs > 0 Then
-        ' Debug mode: write a clone of each pre-merge shape to the model so the
-        ' individual zones are visible alongside the final merged result.
-        If DebugMode Then
-            Dim debugEl As Element
-            For k = 0 To nAllBufs - 1
-                Set debugEl = allBufs(k).Clone
-                WriteEl debugEl, TargetLevel, Color, Style, Weight
-            Next k
-        End If
-        If nAllBufs = 1 Then
-            ' Only one zone accumulated — no merge needed, write directly.
-            WriteEl allBufs(0), TargetLevel, Color, Style, Weight
-        Else
-            ' Translate buffered zones near the origin before the union.
-            ' GetRegionUnion is unreliable at large DGN coordinates (MicroStation bug).
-            Dim toOrigin   As Point3d
-            Dim fromOrigin As Point3d
-            Dim mergedEl   As Element
-            toOrigin   = Point3dNegate(allBufs(0).Range.High)
-            fromOrigin = Point3dNegate(toOrigin)
-            For k = 0 To nAllBufs - 1
-                allBufs(k).Move toOrigin
-            Next k
+        ' Debug mode: write a clone of each pre-merge shape so the individual zones
+        ' are visible alongside the final merged result.
+        If DebugMode Then WriteDebugClones allBufs, nAllBufs, TargetLevel, Color, Style, Weight
 
-            ' GetRegionUnion expects:
-            '   - region1: a 1-element array containing the first shape
-            '   - region2: an array with all remaining shapes
-            ' It returns an ElementEnumerator over the resulting merged outline(s).
-            Dim region1M(0 To 0) As Element
-            Set region1M(0) = allBufs(0)
-            Dim region2M() As Element
-            ReDim region2M(0 To nAllBufs - 2)
-            For k = 1 To nAllBufs - 1
-                Set region2M(k - 1) = allBufs(k)
-            Next k
-            Dim oMergeEnum As ElementEnumerator
-            Set oMergeEnum = GetRegionUnion(region1M, region2M, Nothing, msdFillModeNotFilled)
-            If Not oMergeEnum Is Nothing Then
-                Do While oMergeEnum.MoveNext
-                    Set mergedEl = oMergeEnum.Current
-                    mergedEl.Move fromOrigin
-                    WriteEl mergedEl, TargetLevel, Color, Style, Weight
-                Loop
-            End If
-        End If
+        Dim mergedAll() As Element
+        Dim nMergedAll  As Long
+        FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll
+        For k = 0 To nMergedAll - 1
+            WriteEl mergedAll(k), TargetLevel, Color, Style, Weight
+        Next k
     End If
     Exit Sub
 
@@ -243,10 +213,12 @@ Private Sub ZoneFromLine(ByVal oEl As Element, _
                          ByVal Weight As Long, _
                          ByRef outBufs() As Element, _
                          ByRef nOut As Long, _
-                         ByVal DebugMode As Boolean)
+                         ByVal DebugMode As Boolean, _
+                         ByVal RoundCaps As Boolean)
     On Error GoTo ErrorHandler
     Dim elem As Element
-    Set elem = BuildLineZone(oEl, Dist, True)   ' True = round end-caps
+    ' Single segment: both ends are free ends of the chain → caps follow the global RoundCaps flag.
+    Set elem = BuildLineZone(oEl, Dist, RoundCaps, RoundCaps)
     If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
@@ -274,7 +246,8 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
                                ByVal Weight As Long, _
                                ByRef outBufs() As Element, _
                                ByRef nOut As Long, _
-                               ByVal DebugMode As Boolean)
+                               ByVal DebugMode As Boolean, _
+                               ByVal RoundCaps As Boolean)
     On Error GoTo ErrorHandler
 
     Dim oVL       As VertexList  ' exposes vertex list of any VertexList-compatible element
@@ -284,17 +257,31 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     Dim subBufs() As Element     ' stadiums for each individual segment
     Dim nBuf      As Long        ' number of valid stadiums built so far
     Dim buf       As Element
+    Dim gStart    As Point3d     ' polyline global start (free end candidate)
+    Dim gEnd      As Point3d     ' polyline global end   (free end candidate)
+    Dim allRound  As Boolean     ' True → every cap rounded (global RoundCaps, or closed polyline)
+    Dim tol       As Double
 
     Set oVL = oEl
     v = oVL.GetVertices
     n = UBound(v) - LBound(v) + 1
     If n < 2 Then Exit Sub   ' nothing to buffer with fewer than 2 vertices
 
-    ' Step 1: build one stadium per segment.
+    ' Caps are flat only at the polyline's two global ends (v(0), v(n-1)); every interior vertex
+    ' gets a rounded round-join so flat-cap buffers are not cropped at sharp angles. A closed
+    ' polyline (v(0) == v(n-1)) has no free end → every cap rounded.
+    tol      = Dist * ARES_CAP_MATCH_FRAC
+    gStart   = v(0)
+    gEnd     = v(n - 1)
+    allRound = RoundCaps Or Point3dEqualTolerance(gStart, gEnd, tol)
+
+    ' Step 1: build one stadium per segment, choosing each cap by free-end test.
     nBuf = 0
     For j = 0 To n - 2
         ' CreateLineElement2(Nothing, ...) creates a temporary line not added to the model.
-        Set buf = BuildLineZone(CreateLineElement2(Nothing, v(j), v(j + 1)), Dist, True)
+        Set buf = BuildLineZone(CreateLineElement2(Nothing, v(j), v(j + 1)), Dist, _
+                                CapRoundAt(v(j),     gStart, gEnd, allRound, tol), _
+                                CapRoundAt(v(j + 1), gStart, gEnd, allRound, tol))
         If Not buf Is Nothing Then
             ReDim Preserve subBufs(0 To nBuf)
             Set subBufs(nBuf) = buf
@@ -304,47 +291,15 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
 
     If nBuf = 0 Then Exit Sub
 
-    If DebugMode Then
-        For j = 0 To nBuf - 1
-            WriteEl subBufs(j).Clone, TargetLevel, Color, Style, Weight
-        Next j
-    End If
+    If DebugMode Then WriteDebugClones subBufs, nBuf, TargetLevel, Color, Style, Weight
 
-    ' Step 2: pass through or fuse.
-    If nBuf = 1 Then
-        ' Single valid segment — no union needed.
-        AddOrWrite subBufs(0), TargetLevel, Color, Style, Weight, outBufs, nOut
-        Exit Sub
-    End If
-
-    ' Step 3: fuse all segment stadiums into one clean region.
-    ' Translate near origin first (MicroStation GetRegionUnion precision workaround).
-    Dim toOrigin   As Point3d
-    Dim fromOrigin As Point3d
-    Dim resEl      As Element
-    toOrigin   = Point3dNegate(subBufs(0).Range.High)
-    fromOrigin = Point3dNegate(toOrigin)
-    For j = 0 To nBuf - 1
-        subBufs(j).Move toOrigin
+    ' Step 2: fuse the per-segment stadiums into clean region(s) and emit.
+    Dim merged() As Element
+    Dim nMerged  As Long
+    FuseRegions subBufs, nBuf, merged, nMerged
+    For j = 0 To nMerged - 1
+        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
-
-    Dim region1(0 To 0) As Element
-    Set region1(0) = subBufs(0)
-    Dim region2() As Element
-    ReDim region2(0 To nBuf - 2)
-    For j = 1 To nBuf - 1
-        Set region2(j - 1) = subBufs(j)
-    Next j
-
-    Dim oEnum As ElementEnumerator
-    Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
-    If Not oEnum Is Nothing Then
-        Do While oEnum.MoveNext
-            Set resEl = oEnum.Current
-            resEl.Move fromOrigin
-            AddOrWrite resEl, TargetLevel, Color, Style, Weight, outBufs, nOut
-        Loop
-    End If
     Exit Sub
 
 ErrorHandler:
@@ -363,10 +318,12 @@ Private Sub ZoneFromArc(ByVal oEl As Element, _
                         ByVal Weight As Long, _
                         ByRef outBufs() As Element, _
                         ByRef nOut As Long, _
-                        ByVal DebugMode As Boolean)
+                        ByVal DebugMode As Boolean, _
+                        ByVal RoundCaps As Boolean)
     On Error GoTo ErrorHandler
     Dim elem As Element
-    Set elem = BuildArcZone(oEl, Dist, True)   ' True = round end-caps
+    ' Single arc: both ends are free ends of the chain → caps follow the global RoundCaps flag.
+    Set elem = BuildArcZone(oEl, Dist, RoundCaps, RoundCaps)
     If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
@@ -393,7 +350,8 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
                                   ByVal Weight As Long, _
                                   ByRef outBufs() As Element, _
                                   ByRef nOut As Long, _
-                                  ByVal DebugMode As Boolean)
+                                  ByVal DebugMode As Boolean, _
+                                  ByVal RoundCaps As Boolean)
     On Error GoTo ErrorHandler
 
     ' ComplexElement is the common interface for both ComplexStringElement and
@@ -410,10 +368,26 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
     Dim ns        As Long
     Dim js        As Long
     Dim j         As Long
+    Dim gStart    As Point3d    ' chain global start (free end candidate; unused when closed)
+    Dim gEnd      As Point3d    ' chain global end   (free end candidate; unused when closed)
+    Dim allRound  As Boolean    ' True → every cap rounded (global RoundCaps, or closed shape)
+    Dim tol       As Double
 
     Set cxEl    = oEl
     Set subEnum = cxEl.GetSubElements()
     nBuf = 0
+    tol  = Dist * ARES_CAP_MATCH_FRAC
+
+    ' Free-end detection. A ComplexShape is always closed → no free end, every cap rounded.
+    ' A ComplexString is an open chain whose global Start/End points are its two free ends.
+    ' (A degenerate ComplexString with Start == End is treated as closed → every cap rounded.)
+    If oEl.Type = msdElementTypeComplexShape Then
+        allRound = True
+    Else
+        gStart   = oEl.AsChainableElement.StartPoint
+        gEnd     = oEl.AsChainableElement.EndPoint
+        allRound = RoundCaps Or Point3dEqualTolerance(gStart, gEnd, tol)
+    End If
 
     Do While subEnum.MoveNext
         Set comp = subEnum.Current
@@ -421,16 +395,22 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
 
         Select Case comp.Type
             Case msdElementTypeLine
-                Set buf = BuildLineZone(comp, Dist, True)
+                Set buf = BuildLineZone(comp, Dist, _
+                            CapRoundAt(comp.AsChainableElement.StartPoint, gStart, gEnd, allRound, tol), _
+                            CapRoundAt(comp.AsChainableElement.EndPoint,   gStart, gEnd, allRound, tol))
 
             Case msdElementTypeLineString
                 ' Expand into per-segment stadiums to handle self-crossing polylines
-                ' (same strategy as ZoneFromLineString).
+                ' (same strategy as ZoneFromLineString). Interior LineString vertices never match
+                ' the chain ends, so they are always rounded; only a vertex coincident with the
+                ' chain's global Start/End (a free end) gets a flat cap.
                 Set oVLs = comp
                 vs = oVLs.GetVertices
                 ns = UBound(vs) - LBound(vs) + 1
                 For js = 0 To ns - 2
-                    Set buf = BuildLineZone(CreateLineElement2(Nothing, vs(js), vs(js + 1)), Dist, True)
+                    Set buf = BuildLineZone(CreateLineElement2(Nothing, vs(js), vs(js + 1)), Dist, _
+                                CapRoundAt(vs(js),     gStart, gEnd, allRound, tol), _
+                                CapRoundAt(vs(js + 1), gStart, gEnd, allRound, tol))
                     If Not buf Is Nothing Then
                         ReDim Preserve subBufs(0 To nBuf)
                         Set subBufs(nBuf) = buf
@@ -440,7 +420,9 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
                 Set buf = Nothing   ' already added above → skip the generic add below
 
             Case msdElementTypeArc
-                Set buf = BuildArcZone(comp, Dist, True)
+                Set buf = BuildArcZone(comp, Dist, _
+                            CapRoundAt(comp.AsChainableElement.StartPoint, gStart, gEnd, allRound, tol), _
+                            CapRoundAt(comp.AsChainableElement.EndPoint,   gStart, gEnd, allRound, tol))
         End Select
 
         ' Generic add for Line and Arc cases (buf is Nothing for LineString).
@@ -453,45 +435,15 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
 
     If nBuf = 0 Then Exit Sub
 
-    If DebugMode Then
-        For j = 0 To nBuf - 1
-            WriteEl subBufs(j).Clone, TargetLevel, Color, Style, Weight
-        Next j
-    End If
+    If DebugMode Then WriteDebugClones subBufs, nBuf, TargetLevel, Color, Style, Weight
 
-    If nBuf = 1 Then
-        AddOrWrite subBufs(0), TargetLevel, Color, Style, Weight, outBufs, nOut
-        Exit Sub
-    End If
-
-    ' Fuse all sub-element buffers into one clean region.
-    ' Translate near origin first (MicroStation GetRegionUnion precision workaround).
-    Dim toOrigin   As Point3d
-    Dim fromOrigin As Point3d
-    Dim resEl      As Element
-    toOrigin   = Point3dNegate(subBufs(0).Range.High)
-    fromOrigin = Point3dNegate(toOrigin)
-    For j = 0 To nBuf - 1
-        subBufs(j).Move toOrigin
+    ' Fuse all sub-element buffers into clean region(s) and emit.
+    Dim merged() As Element
+    Dim nMerged  As Long
+    FuseRegions subBufs, nBuf, merged, nMerged
+    For j = 0 To nMerged - 1
+        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
-
-    Dim region1(0 To 0) As Element
-    Set region1(0) = subBufs(0)
-    Dim region2() As Element
-    ReDim region2(0 To nBuf - 2)
-    For j = 1 To nBuf - 1
-        Set region2(j - 1) = subBufs(j)
-    Next j
-
-    Dim oEnum As ElementEnumerator
-    Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
-    If Not oEnum Is Nothing Then
-        Do While oEnum.MoveNext
-            Set resEl = oEnum.Current
-            resEl.Move fromOrigin
-            AddOrWrite resEl, TargetLevel, Color, Style, Weight, outBufs, nOut
-        Loop
-    End If
     Exit Sub
 
 ErrorHandler:
@@ -565,7 +517,8 @@ Private Sub ZoneFromEllipse(ByVal oEl As Element, _
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromEllipse"End Sub
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromEllipse"
+End Sub
 
 ' ZoneFromCell
 ' Handles CellHeader elements (placed blocks / symbols).
@@ -740,7 +693,8 @@ End Function
 ' ---------------------------------------------------------------------------
 Private Function BuildLineZone(ByVal oEl As Element, _
                                ByVal Dist As Double, _
-                               ByVal RoundCaps As Boolean) As Element
+                               ByVal roundStart As Boolean, _
+                               ByVal roundEnd As Boolean) As Element
     On Error GoTo ErrorHandler
 
     Dim lineEl As LineElement
@@ -755,7 +709,7 @@ Private Function BuildLineZone(ByVal oEl As Element, _
     Set lineEl = oEl
     ptS  = lineEl.StartPoint
     ptE  = lineEl.EndPoint
-    perp = Perp2D(ptS, ptE, Dist)
+    perp = Geometry.Perp2D(ptS, ptE, Dist)
 
     ' Guard: if the segment has zero length, Perp2D returns a zero vector.
     ' Point3dMagnitudeSquared returns |perp|^2; a valid perp has |perp|^2 = Dist^2 >> 1E-24.
@@ -765,32 +719,61 @@ Private Function BuildLineZone(ByVal oEl As Element, _
     L0 = Point3dAdd(ptS, perp)      : L1 = Point3dAdd(ptE, perp)       ' left side
     R1 = Point3dSubtract(ptE, perp) : R0 = Point3dSubtract(ptS, perp)  ' right side
 
-    If RoundCaps Then
-        ' The end-cap semicircle at ptE:
-        '   - Starts facing the same direction as perp (= angle from ptE toward L1).
-        '   - Sweeps -PI (clockwise half circle) to face the opposite side (toward R1).
-        ' The start-cap semicircle at ptS:
-        '   - Starts facing opposite to perp (= angle from ptS toward R0).
-        '   - Sweeps -PI (clockwise half circle) to face toward L0.
-        Dim perpAngle As Double
-        perpAngle = Atan2(perp.Y, perp.X)
-        Dim comps(0 To 3) As ChainableElement
-        Set comps(0) = CreateLineElement2(Nothing, L0, L1)                                                         ' left side
-        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist, Dist, Matrix3dIdentity, perpAngle,                 -Application.PI) ' end cap
-        Set comps(2) = CreateLineElement2(Nothing, R1, R0)                                                         ' right side
-        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist, Dist, Matrix3dIdentity, Atan2(-perp.Y, -perp.X), -Application.PI) ' start cap
-        Set BuildLineZone = CreateComplexShapeElement1(comps, msdFillModeNotFilled)
-    Else
-        ' Flat caps: close the 4 corners as a simple polygon.
+    ' Fast path: both caps flat → a simple 4-corner rectangle (unchanged legacy behaviour).
+    If Not roundStart And Not roundEnd Then
         Dim rectPts(0 To 4) As Point3d
         rectPts(0) = L0 : rectPts(1) = L1 : rectPts(2) = R1 : rectPts(3) = R0 : rectPts(4) = L0
         Set BuildLineZone = CreateShapeElement1(Nothing, rectPts)
+        Exit Function
     End If
+
+    ' Per-end caps → a ComplexShape running L0→L1→[end cap]→R1→R0→[start cap]→L0.
+    '   end cap   (at ptE): semicircle L1→R1 (round) OR straight chord L1→R1 (flat)
+    '   start cap (at ptS): semicircle R0→L0 (round) OR straight chord R0→L0 (flat)
+    ' A round end-cap starts facing perp (toward L1) and sweeps -PI to R1; a round start-cap
+    ' starts facing -perp (toward R0) and sweeps -PI to L0.
+    Dim comps(0 To 3) As ChainableElement
+    Set comps(0) = CreateLineElement2(Nothing, L0, L1)                                                  ' left side
+    If roundEnd Then
+        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist, Dist, Matrix3dIdentity, Point3dPolarAngle(perp), -Application.PI)
+    Else
+        Set comps(1) = CreateLineElement2(Nothing, L1, R1)                                              ' flat end cap (chord)
+    End If
+    Set comps(2) = CreateLineElement2(Nothing, R1, R0)                                                  ' right side
+    If roundStart Then
+        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist, Dist, Matrix3dIdentity, Point3dPolarAngle(Point3dNegate(perp)), -Application.PI)
+    Else
+        Set comps(3) = CreateLineElement2(Nothing, R0, L0)                                              ' flat start cap (chord)
+    End If
+    Set BuildLineZone = CreateComplexShapeElement1(comps, msdFillModeNotFilled)
     Exit Function
 
 ErrorHandler:
     Set BuildLineZone = Nothing
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.BuildLineZone"
+End Function
+
+' CapRoundAt
+' ---------------------------------------------------------------------------
+' Decides whether the buffer cap at a piece endpoint must be ROUNDED (smooth round-join) or
+' FLAT. A cap is flat only at a FREE END of an open chain -- a point coincident with the chain's
+' global Start or End. Every other endpoint is an interior junction and is rounded so flat-cap
+' buffers are not cropped at sharp intermediate angles. When globalRoundOrClosed is True (the
+' user asked for round caps everywhere, or the element is a closed shape with no free end) every
+' cap is rounded and gStart/gEnd are ignored.
+' ---------------------------------------------------------------------------
+Private Function CapRoundAt(ByRef pt As Point3d, _
+                            ByRef gStart As Point3d, _
+                            ByRef gEnd As Point3d, _
+                            ByVal globalRoundOrClosed As Boolean, _
+                            ByVal tol As Double) As Boolean
+    If globalRoundOrClosed Then
+        CapRoundAt = True
+    ElseIf Point3dEqualTolerance(pt, gStart, tol) Or Point3dEqualTolerance(pt, gEnd, tol) Then
+        CapRoundAt = False    ' free chain end → flat cap
+    Else
+        CapRoundAt = True     ' interior junction → rounded cap
+    End If
 End Function
 
 ' BuildArcZone
@@ -818,19 +801,22 @@ End Function
 '   arc is omitted and the two caps are trimmed to their intersection point.
 '   Shape = outerArc | trimmedCapEnd | trimmedCapStart
 '
-' RoundCaps = True  → caps are semicircular arcs (smooth curved corners)
-' RoundCaps = False → caps are straight radial lines (sharp corners)
+' Cap selection is per-end:
+'   roundEnd   = True  → semicircular cap at the arc END   point; False → straight radial cap
+'   roundStart = True  → semicircular cap at the arc START point; False → straight radial cap
+' Case C (caps overlapping, arc near 360°) only applies when BOTH caps are round.
 ' ---------------------------------------------------------------------------
 Private Function BuildArcZone(ByVal oEl As Element, _
                               ByVal Dist As Double, _
-                              ByVal RoundCaps As Boolean) As Element
+                              ByVal roundStart As Boolean, _
+                              ByVal roundEnd As Boolean) As Element
     On Error GoTo ErrorHandler
 
     Dim arcEl           As ArcElement
     Dim outerArc        As ArcElement    ' source arc scaled outward by Dist
     Dim innerArc        As ArcElement    ' source arc scaled inward  by Dist (reversed)
-    Dim capEnd          As ArcElement    ' full semicircle cap at arc end point
-    Dim capStart        As ArcElement    ' full semicircle cap at arc start point
+    Dim capEnd          As ArcElement    ' full semicircle cap at arc end point   (only if roundEnd)
+    Dim capStart        As ArcElement    ' full semicircle cap at arc start point (only if roundStart)
     Dim trimmedCapEnd   As ArcElement    ' cap trimmed to intersection (Case C)
     Dim trimmedCapStart As ArcElement
     Dim oCenter         As Point3d
@@ -855,6 +841,11 @@ Private Function BuildArcZone(ByVal oEl As Element, _
     Dim angCSS          As Double        ' capStart start angle (at intersection)
     Dim angCSE          As Double        ' capStart end   angle
     Dim cxShape         As ComplexShapeElement
+    Dim comps4(0 To 3)  As ChainableElement
+    Dim parts()         As ChainableElement   ' pie case: variable-length ordered boundary
+    Dim np              As Long
+    Dim ptEndHub        As Point3d            ' pie case: end-side point at/near the center
+    Dim ptStartHub      As Point3d            ' pie case: start-side point at/near the center
 
     Set arcEl    = oEl
     oCenter      = arcEl.CenterPoint
@@ -875,25 +866,25 @@ Private Function BuildArcZone(ByVal oEl As Element, _
     ptArcStart   = arcEl.StartPoint
     ptArcEnd     = arcEl.EndPoint
 
-    If RoundCaps Then
-        ' capSweep = ±PI: a semicircle sweeping in the same rotational direction
-        ' as the original arc (positive for CCW, negative for CW).
-        capSweep = Sgn(sweepAngle) * Application.PI
+    ' capSweep = ±PI: a semicircle sweeping in the same rotational direction
+    ' as the original arc (positive for CCW, negative for CW).
+    capSweep = Sgn(sweepAngle) * Application.PI
 
-        ' capEnd is centered at the arc's end point.
-        ' Its start angle faces outward (toward ptOuterEnd), so it begins at the
-        ' outer arc edge and sweeps half a circle toward the inner arc edge.
+    ' Build only the round caps that are actually requested.
+    ' capEnd   begins facing outward (toward ptOuterEnd) and sweeps a half circle toward the inner edge.
+    ' capStart begins facing inward  (toward oCenter)    and sweeps a half circle back to the outer edge.
+    If roundEnd Then
         Set capEnd = CreateArcElement2(Nothing, ptArcEnd, Dist, Dist, Matrix3dIdentity, _
-                                        Atan2(ptOuterEnd.Y - ptArcEnd.Y, ptOuterEnd.X - ptArcEnd.X), capSweep)
-
-        ' capStart is centered at the arc's start point.
-        ' Its start angle faces inward (toward oCenter) so it sweeps from the inner
-        ' arc edge back to the outer arc edge.
+                                        Point3dPolarAngle(Point3dSubtract(ptOuterEnd, ptArcEnd)), capSweep)
+    End If
+    If roundStart Then
         Set capStart = CreateArcElement2(Nothing, ptArcStart, Dist, Dist, Matrix3dIdentity, _
-                                          Atan2(oCenter.Y - ptArcStart.Y, oCenter.X - ptArcStart.X), capSweep)
+                                          Point3dPolarAngle(Point3dSubtract(oCenter, ptArcStart)), capSweep)
+    End If
 
-        ' --- Case C: detect whether the two cap circles overlap (arc near 360°) ---
-        ' GetIntersectionPoints returns an empty array (raises error on UBound) if no intersection.
+    ' --- Case C: both caps round and overlapping (arc near 360°) ---
+    ' GetIntersectionPoints returns an empty array (raises error on UBound) if no intersection.
+    If roundStart And roundEnd Then
         isectPts = capEnd.GetIntersectionPoints(capStart, Matrix3dIdentity)
         nIsect = -1 : On Error Resume Next : nIsect = UBound(isectPts) : On Error GoTo 0
 
@@ -911,15 +902,15 @@ Private Function BuildArcZone(ByVal oEl As Element, _
 
             ' Compute the angle to the intersection point from each cap center,
             ' then normalise the sweep to the correct direction (same as capSweep sign).
-            angCES = Atan2(ptOuterEnd.Y - ptArcEnd.Y,     ptOuterEnd.X - ptArcEnd.X)
-            angCEE = Atan2(ptIsect.Y    - ptArcEnd.Y,     ptIsect.X    - ptArcEnd.X)
-            angCSS = Atan2(ptIsect.Y    - ptArcStart.Y,   ptIsect.X    - ptArcStart.X)
-            angCSE = Atan2(ptOuterStart.Y - ptArcStart.Y, ptOuterStart.X - ptArcStart.X)
+            angCES = Point3dPolarAngle(Point3dSubtract(ptOuterEnd,   ptArcEnd))
+            angCEE = Point3dPolarAngle(Point3dSubtract(ptIsect,      ptArcEnd))
+            angCSS = Point3dPolarAngle(Point3dSubtract(ptIsect,      ptArcStart))
+            angCSE = Point3dPolarAngle(Point3dSubtract(ptOuterStart, ptArcStart))
 
             Set trimmedCapEnd   = CreateArcElement2(Nothing, ptArcEnd,   Dist, Dist, Matrix3dIdentity, _
-                                                     angCES, NormalizeAngle(angCEE - angCES, capSweep))
+                                                     angCES, Geometry.NormalizeAngle(angCEE - angCES, capSweep))
             Set trimmedCapStart = CreateArcElement2(Nothing, ptArcStart, Dist, Dist, Matrix3dIdentity, _
-                                                     angCSS, NormalizeAngle(angCSE - angCSS, capSweep))
+                                                     angCSS, Geometry.NormalizeAngle(angCSE - angCSS, capSweep))
 
             Dim compsO(0 To 2) As ChainableElement
             Set compsO(0) = outerArc
@@ -933,6 +924,9 @@ Private Function BuildArcZone(ByVal oEl As Element, _
     ' --- Case A or B: no cap overlap ---
     If rInner > 0 Then
         ' Case A — Annular sector: inner radius is positive, zone is a ring slice.
+        ' Boundary: outerArc → [end cap] → innerArc → [start cap].
+        ' A round cap reuses capEnd/capStart; a flat cap is the radial line that the cap replaces
+        ' (capEnd spans ptOuterEnd→ptInnerStart, capStart spans ptInnerEnd→ptOuterStart).
         Set innerArc = arcEl.Clone
         innerArc.ScaleUniform oCenter, rInner / arcEl.PrimaryRadius
         ' Reverse the inner arc so the boundary runs as a continuous closed loop:
@@ -942,41 +936,47 @@ Private Function BuildArcZone(ByVal oEl As Element, _
         ptInnerStart = innerArc.StartPoint
         ptInnerEnd   = innerArc.EndPoint
 
-        If RoundCaps Then
-            Dim comps4R(0 To 3) As ChainableElement
-            Set comps4R(0) = outerArc
-            Set comps4R(1) = capEnd
-            Set comps4R(2) = innerArc
-            Set comps4R(3) = capStart
-            Set cxShape = CreateComplexShapeElement1(comps4R, msdFillModeNotFilled)
+        Set comps4(0) = outerArc
+        If roundEnd Then
+            Set comps4(1) = capEnd
         Else
-            ' Flat caps: straight radial lines bridge outer ↔ inner arcs.
-            Dim comps4(0 To 3) As ChainableElement
-            Set comps4(0) = outerArc
-            Set comps4(1) = CreateLineElement2(Nothing, ptOuterEnd,  ptInnerStart)
-            Set comps4(2) = innerArc
-            Set comps4(3) = CreateLineElement2(Nothing, ptInnerEnd,  ptOuterStart)
-            Set cxShape = CreateComplexShapeElement1(comps4, msdFillModeNotFilled)
+            Set comps4(1) = CreateLineElement2(Nothing, ptOuterEnd, ptInnerStart)
         End If
+        Set comps4(2) = innerArc
+        If roundStart Then
+            Set comps4(3) = capStart
+        Else
+            Set comps4(3) = CreateLineElement2(Nothing, ptInnerEnd, ptOuterStart)
+        End If
+        Set cxShape = CreateComplexShapeElement1(comps4, msdFillModeNotFilled)
     Else
-        ' Case B — Pie sector: Dist >= arc radius, inner arc collapses near the center.
-        If RoundCaps Then
-            ' capEnd.EndPoint and capStart.StartPoint land close to the center.
-            ' A short line bridges the gap between them.
-            Dim comps4P(0 To 3) As ChainableElement
-            Set comps4P(0) = outerArc
-            Set comps4P(1) = capEnd
-            Set comps4P(2) = CreateLineElement2(Nothing, capEnd.EndPoint, capStart.StartPoint)
-            Set comps4P(3) = capStart
-            Set cxShape = CreateComplexShapeElement1(comps4P, msdFillModeNotFilled)
+        ' Case B — Pie sector: Dist >= arc radius, inner arc collapses toward the center.
+        ' Each side reaches the center either via its round cap (landing near, not at, the center)
+        ' or via a straight radial line (landing exactly at the center). A short bridge line joins
+        ' the two hub points, and is skipped when they coincide (both flat → both at oCenter).
+        If roundEnd Then ptEndHub = capEnd.EndPoint Else ptEndHub = oCenter
+        If roundStart Then ptStartHub = capStart.StartPoint Else ptStartHub = oCenter
+
+        np = 0
+        ReDim parts(0 To 3)
+        Set parts(np) = outerArc : np = np + 1
+        If roundEnd Then
+            Set parts(np) = capEnd
         Else
-            ' Flat pie: two radial lines meet at the arc center.
-            Dim comps3(0 To 2) As ChainableElement
-            Set comps3(0) = outerArc
-            Set comps3(1) = CreateLineElement2(Nothing, ptOuterEnd,  oCenter)
-            Set comps3(2) = CreateLineElement2(Nothing, oCenter,     ptOuterStart)
-            Set cxShape = CreateComplexShapeElement1(comps3, msdFillModeNotFilled)
+            Set parts(np) = CreateLineElement2(Nothing, ptOuterEnd, oCenter)
         End If
+        np = np + 1
+        If Not Point3dEqualTolerance(ptEndHub, ptStartHub, Dist * 0.000000001) Then
+            Set parts(np) = CreateLineElement2(Nothing, ptEndHub, ptStartHub) : np = np + 1
+        End If
+        If roundStart Then
+            Set parts(np) = capStart
+        Else
+            Set parts(np) = CreateLineElement2(Nothing, oCenter, ptOuterStart)
+        End If
+        np = np + 1
+        ReDim Preserve parts(0 To np - 1)
+        Set cxShape = CreateComplexShapeElement1(parts, msdFillModeNotFilled)
     End If
 
     Set BuildArcZone = cxShape
@@ -988,107 +988,95 @@ ErrorHandler:
 End Function
 
 ' ============================================================
-'  GEOMETRY HELPERS
-' ============================================================
-
-' Perp2D
-' ---------------------------------------------------------------------------
-' Returns the left-hand perpendicular vector for segment A→B, scaled to Dist.
-' "Left" = 90° counter-clockwise from the direction of travel.
-'
-'   A ──────────────────► B
-'            ↑
-'         result (this function, length = Dist)
-'
-' Returns a zero Point3d if A and B are coincident (zero-length segment).
-' Callers should check Point3dMagnitudeSquared(result) < 1E-24 to detect this.
-'
-' Uses native MVBA functions:
-'   Point3dSubtract  → direction vector A→B
-'   Point3dMagnitude → segment length
-'   Point3dFromXY    → construct the rotated and scaled result
-' ---------------------------------------------------------------------------
-Private Function Perp2D(ByRef A As Point3d, ByRef B As Point3d, ByVal Dist As Double) As Point3d
-    On Error GoTo ErrorHandler
-    Dim dir As Point3d   ' direction vector A→B
-    Dim L   As Double    ' segment length
-    dir = Point3dSubtract(B, A)
-    L   = Point3dMagnitude(dir)
-    If L > 1E-12 Then
-        ' Rotate 90° CCW: (dx, dy) → (-dy, dx), then scale to the requested distance.
-        Perp2D = Point3dFromXY(-dir.Y / L * Dist, dir.X / L * Dist)
-    End If
-    ' L <= 1E-12: VBA default-initialises all fields to 0 → zero vector returned.
-    Exit Function
-
-ErrorHandler:
-    ' Default-initialised Point3d (zero vector) tells the caller "degenerate input".
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.Perp2D"
-End Function
-
-' NormalizeAngle
-' ---------------------------------------------------------------------------
-' Adjusts a sweep angle (delta) to lie in the correct half-open interval
-' for CreateArcElement2 based on the intended sweep direction.
-'
-'   direction > 0  → result in (0,  2π]   (counter-clockwise sweep)
-'   direction < 0  → result in [-2π, 0)   (clockwise sweep)
-'
-' WHY: When computing the angular difference between two points that cross the
-' ±π boundary, raw subtraction can produce a value with the wrong sign or
-' magnitude. This function corrects it by adding/subtracting 2π as needed.
-' ---------------------------------------------------------------------------
-Private Function NormalizeAngle(ByVal delta As Double, ByVal direction As Double) As Double
-    On Error GoTo ErrorHandler
-    If direction > 0 Then
-        Do While delta <= 0                       : delta = delta + 2# * Application.PI : Loop
-        Do While delta > 2# * Application.PI     : delta = delta - 2# * Application.PI : Loop
-    Else
-        Do While delta >= 0                       : delta = delta - 2# * Application.PI : Loop
-        Do While delta < -2# * Application.PI    : delta = delta + 2# * Application.PI : Loop
-    End If
-    NormalizeAngle = delta
-    Exit Function
-
-ErrorHandler:
-    NormalizeAngle = 0
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.NormalizeAngle"
-End Function
-
-' Atan2
-' ---------------------------------------------------------------------------
-' Two-argument arctangent: returns the angle (radians) of the vector (x, y)
-' measured counter-clockwise from the positive X axis. Range: (-π, π].
-'
-' WHY NOT USE VBA'S BUILT-IN Atn()?
-' VBA's Atn() only accepts a single ratio y/x and cannot determine the correct
-' quadrant. Atan2 handles all four quadrants and the degenerate x=0 cases.
-' ---------------------------------------------------------------------------
-Private Function Atan2(ByVal y As Double, ByVal x As Double) As Double
-    On Error GoTo ErrorHandler
-    If x > 0 Then
-        Atan2 = Atn(y / x)                  ' Quadrants I and IV
-    ElseIf x < 0 And y >= 0 Then
-        Atan2 = Atn(y / x) + Application.PI ' Quadrant II
-    ElseIf x < 0 And y < 0 Then
-        Atan2 = Atn(y / x) - Application.PI ' Quadrant III
-    ElseIf x = 0 And y > 0 Then
-        Atan2 = Application.PI / 2           ' Positive Y axis
-    ElseIf x = 0 And y < 0 Then
-        Atan2 = -Application.PI / 2          ' Negative Y axis
-    Else
-        Atan2 = 0                            ' Origin (degenerate)
-    End If
-    Exit Function
-
-ErrorHandler:
-    Atan2 = 0
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.Atan2"
-End Function
-
-' ============================================================
 '  OUTPUT HELPERS
 ' ============================================================
+
+' FuseRegions
+' ---------------------------------------------------------------------------
+' Fuses a set of region elements into clean merged outline(s) and returns them in outEls()/
+' nOutEls (0-based, nOutEls = count). Shared by every dispatcher that accumulates per-piece
+' buffers (lines, stadiums, arc sectors) and needs a single union.
+'
+' GetRegionUnion is unreliable at large DGN coordinates (a MicroStation precision bug), so every
+' buffer is first translated near the origin, unioned, then each result is translated back.
+'   - nBuf <= 0 → no output.
+'   - nBuf  = 1 → the single buffer is returned as-is (no union needed).
+' NOTE: the input buffers are moved in place (near origin) as part of the workaround; callers
+' must not reuse bufs() afterwards.
+' ---------------------------------------------------------------------------
+Private Sub FuseRegions(ByRef bufs() As Element, _
+                        ByVal nBuf As Long, _
+                        ByRef outEls() As Element, _
+                        ByRef nOutEls As Long)
+    On Error GoTo ErrorHandler
+    nOutEls = 0
+    If nBuf <= 0 Then Exit Sub
+
+    If nBuf = 1 Then
+        ReDim outEls(0 To 0)
+        Set outEls(0) = bufs(0)
+        nOutEls = 1
+        Exit Sub
+    End If
+
+    ' Translate near origin (precision workaround), keeping the inverse offset to restore later.
+    Dim toOrigin   As Point3d
+    Dim fromOrigin As Point3d
+    Dim k          As Long
+    toOrigin   = Point3dNegate(bufs(0).Range.High)
+    fromOrigin = Point3dNegate(toOrigin)
+    For k = 0 To nBuf - 1
+        bufs(k).Move toOrigin
+    Next k
+
+    ' GetRegionUnion expects region1 = a 1-element array (first shape) and region2 = the rest.
+    Dim region1(0 To 0) As Element
+    Set region1(0) = bufs(0)
+    Dim region2() As Element
+    ReDim region2(0 To nBuf - 2)
+    For k = 1 To nBuf - 1
+        Set region2(k - 1) = bufs(k)
+    Next k
+
+    Dim oEnum As ElementEnumerator
+    Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
+    If oEnum Is Nothing Then Exit Sub
+
+    Dim resEl As Element
+    Do While oEnum.MoveNext
+        Set resEl = oEnum.Current
+        resEl.Move fromOrigin                 ' restore to the original location
+        ReDim Preserve outEls(0 To nOutEls)
+        Set outEls(nOutEls) = resEl
+        nOutEls = nOutEls + 1
+    Loop
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
+End Sub
+
+' WriteDebugClones
+' ---------------------------------------------------------------------------
+' Writes a clone of each pre-merge buffer to the model so the individual zones are visible
+' alongside the final merged result (DebugMode only).
+' ---------------------------------------------------------------------------
+Private Sub WriteDebugClones(ByRef bufs() As Element, _
+                             ByVal nBuf As Long, _
+                             ByVal TargetLevel As Level, _
+                             ByVal Color As Long, _
+                             ByVal Style As String, _
+                             ByVal Weight As Long)
+    On Error GoTo ErrorHandler
+    Dim k As Long
+    For k = 0 To nBuf - 1
+        WriteEl bufs(k).Clone, TargetLevel, Color, Style, Weight
+    Next k
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.WriteDebugClones"
+End Sub
 
 ' AddOrWrite
 ' ---------------------------------------------------------------------------

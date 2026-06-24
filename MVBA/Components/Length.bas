@@ -555,24 +555,6 @@ Private Sub SortByDistanceFrom(ByRef pts() As Point3d, ByVal nPts As Long, _
     Next i
 End Sub
 
-' Atan2Zx
-' Two-argument arctangent in (-π, π].
-Private Function Atan2Zx(ByVal y As Double, ByVal x As Double) As Double
-    If x > 0 Then
-        Atan2Zx = Atn(y / x)
-    ElseIf x < 0 And y >= 0 Then
-        Atan2Zx = Atn(y / x) + Application.PI
-    ElseIf x < 0 And y < 0 Then
-        Atan2Zx = Atn(y / x) - Application.PI
-    ElseIf x = 0 And y > 0 Then
-        Atan2Zx = Application.PI / 2#
-    ElseIf x = 0 And y < 0 Then
-        Atan2Zx = -Application.PI / 2#
-    Else
-        Atan2Zx = 0#
-    End If
-End Function
-
 ' ArcAngleParam
 ' Returns the angular offset of pt from the arc's start angle, in [0, |sweepAngle|].
 ' Used to sort boundary crossings and compute partial arc-length fractions.
@@ -581,7 +563,7 @@ Private Function ArcAngleParam(ByRef pt As Point3d, ByVal oArc As ArcElement) As
     Dim offset As Double
     Dim twoPi  As Double
     twoPi  = 2# * Application.PI
-    angle  = Atan2Zx(pt.Y - oArc.CenterPoint.Y, pt.X - oArc.CenterPoint.X)
+    angle  = Point3dPolarAngle(Point3dSubtract(pt, oArc.CenterPoint))
     offset = angle - oArc.StartAngle
     If oArc.SweepAngle >= 0 Then
         Do While offset < 0:       offset = offset + twoPi: Loop

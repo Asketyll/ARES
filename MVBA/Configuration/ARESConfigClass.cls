@@ -59,6 +59,8 @@ Public ARES_ZONING_OUTPUT_STYLE As ARES_MS_VAR_Class 'Default Value: 0          
 Public ARES_ZONING_OUTPUT_WEIGHT As ARES_MS_VAR_Class 'Default Value: 4            MicroStation line weight index (Long)
 ' Used in Zoning module for default buffer distance
 Public ARES_ZONING_DISTANCE As ARES_MS_VAR_Class 'Default Value: 2.0              Buffer distance in master units (Double)
+' Used in RunZoning2 command for default buffer distance
+Public ARES_ZONING2_DISTANCE As ARES_MS_VAR_Class 'Default Value: 0.2             Buffer distance in master units (Double)
 ' Used in ExportLengthInRegion module — open the workbook in Excel after export when True; False = headless silent export
 Public ARES_ZONE_EXPORT_EXCEL_VISIBLE As ARES_MS_VAR_Class 'Default Value: false          True or False (Boolean)
 ' Used in ExportLengthInRegion module — name of the worksheet tab in the output Excel workbook
@@ -69,6 +71,12 @@ Public ARES_ZONE_EXPORT_USE_DIALOG As ARES_MS_VAR_Class 'Default Value: True    
 Public ARES_ZONE_EXPORT_ROUND As ARES_MS_VAR_Class 'Default Value: 2                               Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
 ' Used in ExportLengthInRegion module — grouping key for exported rows: Style = line style name, Level = element level name, Color = color index
 Public ARES_ZONE_EXPORT_GROUP_BY As ARES_MS_VAR_Class 'Default Value: Style                        "Style" or "Level" or "Color"
+' Used in RegionSplit module — geometric epsilon: degenerate-segment / zero-parameter / coincident-point threshold; also drives the cut-knife half-width
+Public ARES_REGIONSPLIT_COLLINEAR_TOL As ARES_MS_VAR_Class 'Default Value: 0.000001               Geometric epsilon in master units (Double)
+' Used in RegionSplit module — False = original region is deleted after the two halves are written; True = original is kept alongside the two halves
+Public ARES_REGIONSPLIT_KEEP_ORIGINAL As ARES_MS_VAR_Class 'Default Value: False                  True or False (Boolean)
+' Used in RegionSplit module — max chordal deviation (master units) when densifying an arc boundary side into a polyline; smaller => more chords => closer-to-radial perpendicular and tighter entry foot
+Public ARES_REGIONSPLIT_STROKE_TOL As ARES_MS_VAR_Class 'Default Value: 0.01                       Stroke chordal tolerance in master units (Double, > 0)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -120,11 +128,15 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0")
     Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4")
     Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0")
+    Set ARES_ZONING2_DISTANCE = CreateConfigVar("ARES_Zoning2_Distance", "0.2")
     Set ARES_ZONE_EXPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_Zone_Export_Excel_Visible", "False")
     Set ARES_ZONE_EXPORT_SHEET_NAME = CreateConfigVar("ARES_Zone_Export_Sheet_Name", "Export")
     Set ARES_ZONE_EXPORT_USE_DIALOG = CreateConfigVar("ARES_Zone_Export_Use_Dialog", "True")
     Set ARES_ZONE_EXPORT_ROUND = CreateConfigVar("ARES_Zone_Export_Round", "2")
     Set ARES_ZONE_EXPORT_GROUP_BY = CreateConfigVar("ARES_Zone_Export_Group_By", "Style")
+    Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
+    Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
+    Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")
     CreateConfigVariables = True
     Exit Function
 
@@ -290,7 +302,7 @@ Public Property Get IsInitialized() As Boolean
 End Property
 
 ' Export configuration to file
-Public Function ExportConfig(Optional ByVal FilePath As String = "") As Boolean
+Public Function ExportConfig(Optional ByVal Filepath As String = "") As Boolean
     On Error GoTo ErrorHandler
     
     ExportConfig = False
@@ -301,8 +313,8 @@ Public Function ExportConfig(Optional ByVal FilePath As String = "") As Boolean
     End If
     
     ' Generate default file path if not provided
-    If Len(FilePath) = 0 Then
-        FilePath = GetDefaultExportPath()
+    If Len(Filepath) = 0 Then
+        Filepath = GetDefaultExportPath()
     End If
     
     Dim FileNum As Integer
@@ -322,7 +334,7 @@ Public Function ExportConfig(Optional ByVal FilePath As String = "") As Boolean
     
     ' Write to file
     FileNum = FreeFile
-    Open FilePath For Output As #FileNum
+    Open Filepath For Output As #FileNum
     Print #FileNum, ExportData
     Close #FileNum
     
@@ -336,7 +348,7 @@ ErrorHandler:
 End Function
 
 ' Import configuration from file
-Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteExisting As Boolean = True) As Boolean
+Public Function ImportConfig(ByVal Filepath As String, Optional ByVal OverwriteExisting As Boolean = True) As Boolean
     On Error GoTo ErrorHandler
     
     ImportConfig = False
@@ -346,8 +358,8 @@ Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteE
         Exit Function
     End If
     
-    If Len(Dir(FilePath)) = 0 Then
-        ErrorHandler.HandleError "Import file not found: " & FilePath, 0, "ARESConfigClass.ImportConfig"
+    If Len(dir(Filepath)) = 0 Then
+        ErrorHandler.HandleError "Import file not found: " & Filepath, 0, "ARESConfigClass.ImportConfig"
         Exit Function
     End If
     
@@ -358,7 +370,7 @@ Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteE
     
     ' Read and process file
     FileNum = FreeFile
-    Open FilePath For Input As #FileNum
+    Open Filepath For Input As #FileNum
     
     Do While Not EOF(FileNum)
         Line Input #FileNum, Line
@@ -385,7 +397,7 @@ Public Function ImportConfig(ByVal FilePath As String, Optional ByVal OverwriteE
     Close #FileNum
 
     If SkippedCount > 0 Then
-        ErrorHandler.HandleError SkippedCount & " line(s) skipped during import of: " & FilePath, 0, "ARESConfigClass.ImportConfig", "WARNING"
+        ErrorHandler.HandleError SkippedCount & " line(s) skipped during import of: " & Filepath, 0, "ARESConfigClass.ImportConfig", "WARNING"
     End If
 
     ImportConfig = True
