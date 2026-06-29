@@ -4,6 +4,7 @@ Automatic length calculation and graphical linking tools for MicroStation VBA.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-yellow.svg)](LICENSE)
 [![GitHub release](https://img.shields.io/github/release/Asketyll/ARES.svg)](https://github.com/Asketyll/ARES/releases/latest)
+[![Wiki](https://img.shields.io/badge/docs-wiki-blue.svg)](https://github.com/Asketyll/ARES/wiki)
 
 ## Quick Install
 
@@ -15,8 +16,8 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 
 | Component | Release | Description |
 |-----------|---------|-------------|
-| [Installer](https://github.com/Asketyll/ARES/releases/tag/installer-v1.1.0) | `installer-v1.1.0` | Windows installer with automatic setup |
-| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | `v1.2.0` | MicroStation VBA source code |
+| [Installer](https://github.com/Asketyll/ARES/releases) | [![Installer release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=installer-%2A&display_name=tag&label=)](https://github.com/Asketyll/ARES/releases) | Windows installer with automatic setup |
+| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | [![MVBA release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=v%2A&display_name=tag&label=)](https://github.com/Asketyll/ARES/releases/latest) | MicroStation VBA source code |
 
 ## Components
 
@@ -29,11 +30,18 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 
 ## Features
 
-- **Auto Lengths** - Automatic length calculation for linked graphical elements
-- **Zoning** - Buffer zone generation around selected elements with configurable distance, level, style, color and weight. Two key-in commands: `RunZoning` (distance from `ARES_Zoning_Distance`, default 2.0 m; rounded caps; all zones merged) and `RunZoning2` (distance from `ARES_Zoning2_Distance`, default 0.2 m; flat caps; per-element fusion kept but zones from different elements left unmerged)
-- **Zone Export** - Computes element lengths (partial or full) inside zone polygons and exports per-group summaries to Excel
+User features — full key-in reference and configuration variables live in the **[Wiki](https://github.com/Asketyll/ARES/wiki)** ([Accueil FR](https://github.com/Asketyll/ARES/wiki/Accueil)):
+
+| Feature | Description | Docs |
+|---------|-------------|------|
+| Auto Lengths | Automatic length calculation for linked graphical elements (+ color sync) | [EN](https://github.com/Asketyll/ARES/wiki/Auto-Lengths) · [FR](https://github.com/Asketyll/ARES/wiki/Longueurs-Auto) |
+| Zoning | Buffer zone generation around elements (configurable distance, level, style, color, weight) | [EN](https://github.com/Asketyll/ARES/wiki/Zoning) · [FR](https://github.com/Asketyll/ARES/wiki/Zonage) |
+| Zone Export | Element lengths (partial or full) inside zone polygons, exported per group to Excel | [EN](https://github.com/Asketyll/ARES/wiki/Zone-Export) · [FR](https://github.com/Asketyll/ARES/wiki/Export-de-Zone) |
+| Region Split | Split a closed region into two with a single datapoint on its boundary | [EN](https://github.com/Asketyll/ARES/wiki/Region-Split) · [FR](https://github.com/Asketyll/ARES/wiki/Decoupe-de-Region) |
+
+System:
 - **License Management** - AES-256 encrypted, RSA-signed network licenses
-- **Multi-language** - French/English interface support
+- **Multi-language** - French/English interface ([EN](https://github.com/Asketyll/ARES/wiki/System-and-Config) · [FR](https://github.com/Asketyll/ARES/wiki/Systeme-et-Config))
 - **Bulk Operation Detection** - Auto-suspend during merge/reprojection for performance
 
 ## Requirements
