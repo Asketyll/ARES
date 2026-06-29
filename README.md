@@ -2,9 +2,7 @@
 
 Automatic length calculation and graphical linking tools for MicroStation VBA.
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-yellow.svg)](LICENSE)
-[![GitHub release](https://img.shields.io/github/release/Asketyll/ARES.svg)](https://github.com/Asketyll/ARES/releases/latest)
-[![Wiki](https://img.shields.io/badge/docs-wiki-blue.svg)](https://github.com/Asketyll/ARES/wiki)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-yellow.svg)](LICENSE) &nbsp;&nbsp; [![GitHub release](https://img.shields.io/github/release/Asketyll/ARES.svg)](https://github.com/Asketyll/ARES/releases/latest) &nbsp;&nbsp; [![Wiki](https://img.shields.io/badge/docs-wiki-brightgreen.svg)](https://github.com/Asketyll/ARES/wiki)
 
 ## Quick Install
 
@@ -15,14 +13,14 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 ## Downloads
 
 | Component | Release | Description |
-|-----------|---------|-------------|
-| [Installer](https://github.com/Asketyll/ARES/releases) | [![Installer release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=installer-%2A&display_name=tag&label=)](https://github.com/Asketyll/ARES/releases) | Windows installer with automatic setup |
-| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | [![MVBA release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=v%2A&display_name=tag&label=)](https://github.com/Asketyll/ARES/releases/latest) | MicroStation VBA source code |
+|:---------:|:-------:|:------------|
+| [Installer](https://github.com/Asketyll/ARES/releases) | ![Installer release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=installer-%2A&display_name=tag&label=) | Windows installer with automatic setup |
+| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | ![MVBA release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=v%2A&display_name=tag&label=) | MicroStation VBA source code |
 
 ## Components
 
 | Directory | Description | Documentation |
-|-----------|-------------|---------------|
+|:---------:|:------------|:-------------:|
 | [`MVBA/`](MVBA/) | MicroStation VBA project - core add-in functionality | [README](MVBA/README.md) |
 | [`installer/`](installer/) | C# Windows Forms installer application | [README](installer/README.md) |
 | [`license-validator/`](license-validator/) | COM-visible DLL for license validation | [README](license-validator/README.md) |
@@ -33,7 +31,7 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 User features — full key-in reference and configuration variables live in the **[Wiki](https://github.com/Asketyll/ARES/wiki)** ([Accueil FR](https://github.com/Asketyll/ARES/wiki/Accueil)):
 
 | Feature | Description | Docs |
-|---------|-------------|------|
+|:-------:|:------------|:----:|
 | Auto Lengths | Automatic length calculation for linked graphical elements (+ color sync) | [EN](https://github.com/Asketyll/ARES/wiki/Auto-Lengths) · [FR](https://github.com/Asketyll/ARES/wiki/Longueurs-Auto) |
 | Zoning | Buffer zone generation around elements (configurable distance, level, style, color, weight) | [EN](https://github.com/Asketyll/ARES/wiki/Zoning) · [FR](https://github.com/Asketyll/ARES/wiki/Zonage) |
 | Zone Export | Element lengths (partial or full) inside zone polygons, exported per group to Excel | [EN](https://github.com/Asketyll/ARES/wiki/Zone-Export) · [FR](https://github.com/Asketyll/ARES/wiki/Export-de-Zone) |
