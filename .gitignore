@@ -5,6 +5,10 @@ CLAUDE.md
 *.bat
 *.ps1
 
+# BMAD (multi-agent artifacts - keep locally, not in repository)
+_bmad/
+_bmad-output/
+
 # Visual Studio
 .vs/
 *.user
