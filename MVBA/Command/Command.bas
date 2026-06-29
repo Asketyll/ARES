@@ -349,9 +349,14 @@ Sub OpenARESWiki()
     
     Dim WikiURL As String
     Dim Result As Long
-    
-    WikiURL = "https://github.com/Asketyll/ARES/wiki"
-    
+
+    ' Open the wiki landing page matching the user's ARES language
+    If UCase(Left(LangManager.UserLanguage, 2)) = "FR" Then
+        WikiURL = "https://github.com/Asketyll/ARES/wiki/Accueil"
+    Else
+        WikiURL = "https://github.com/Asketyll/ARES/wiki"
+    End If
+
     ' Use Shell to open URL in default browser
     Result = Shell("rundll32.exe url.dll,FileProtocolHandler " & WikiURL, vbNormalFocus)
     

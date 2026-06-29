@@ -276,6 +276,16 @@ ErrorHandler:
     GetTranslation = "[Translation error for: " & sKey & "]"
 End Function
 
+' Return the resolved user language (e.g. "English", "Français")
+' Falls back to English if the translation system has not resolved a language yet
+Public Function UserLanguage() As String
+    If Len(msUserLanguage) > 0 Then
+        UserLanguage = msUserLanguage
+    Else
+        UserLanguage = "English"
+    End If
+End Function
+
 ' Determine user's preferred language from various sources
 ' Priority: MicroStation config > ARES config > user prompt > default (English)
 Private Function GetUserLanguage() As String
