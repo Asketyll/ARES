@@ -28,18 +28,18 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 
 ## Features
 
-User features — full key-in reference and configuration variables live in the **[Wiki](https://github.com/Asketyll/ARES/wiki)** ([Accueil FR](https://github.com/Asketyll/ARES/wiki/Accueil)):
+User features — full key-in reference and configuration variables live in the **[Wiki](https://github.com/Asketyll/ARES/wiki)** ([Version FR](https://github.com/Asketyll/ARES/wiki/Accueil)):
 
 | Feature | Description | Docs |
 |:-------:|:------------|:----:|
-| Auto Lengths | Automatic length calculation for linked graphical elements (+ color sync) | [EN](https://github.com/Asketyll/ARES/wiki/Auto-Lengths) · [FR](https://github.com/Asketyll/ARES/wiki/Longueurs-Auto) |
-| Zoning | Buffer zone generation around elements (configurable distance, level, style, color, weight) | [EN](https://github.com/Asketyll/ARES/wiki/Zoning) · [FR](https://github.com/Asketyll/ARES/wiki/Zonage) |
-| Zone Export | Element lengths (partial or full) inside zone polygons, exported per group to Excel | [EN](https://github.com/Asketyll/ARES/wiki/Zone-Export) · [FR](https://github.com/Asketyll/ARES/wiki/Export-de-Zone) |
-| Region Split | Split a closed region into two with a single datapoint on its boundary | [EN](https://github.com/Asketyll/ARES/wiki/Region-Split) · [FR](https://github.com/Asketyll/ARES/wiki/Decoupe-de-Region) |
+| Auto Lengths | Automatic length calculation for linked graphical elements (+ color sync) | [EN](https://github.com/Asketyll/ARES/wiki/Auto-Lengths)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Longueurs-Auto) |
+| Zoning | Buffer zone generation around elements (configurable distance, level, style, color, weight) | [EN](https://github.com/Asketyll/ARES/wiki/Zoning)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Zonage) |
+| Zone Export | Element lengths (partial or full) inside zone polygons, exported per group to Excel | [EN](https://github.com/Asketyll/ARES/wiki/Zone-Export)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Export-de-Zone) |
+| Region Split | Split a closed region into two with a single datapoint on its boundary | [EN](https://github.com/Asketyll/ARES/wiki/Region-Split)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Decoupe-de-Region) |
 
 System:
 - **License Management** - AES-256 encrypted, RSA-signed network licenses
-- **Multi-language** - French/English interface ([EN](https://github.com/Asketyll/ARES/wiki/System-and-Config) · [FR](https://github.com/Asketyll/ARES/wiki/Systeme-et-Config))
+- **Multi-language** - French/English interface ([EN](https://github.com/Asketyll/ARES/wiki/System-and-Config)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Systeme-et-Config))
 - **Bulk Operation Detection** - Auto-suspend during merge/reprojection for performance
 
 ## Requirements
