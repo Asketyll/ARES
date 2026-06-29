@@ -345,193 +345,121 @@ ErrorHandler:
     ARES_VARTest = False
 End Function
 
-' Test 5: Custom Property Handler (Corrected Version)
+' Test 5: ARES custom properties (Commune free text + Coupe Type value list)
 Private Function CustomPropertyHandlerTest() As Boolean
     On Error GoTo ErrorHandler
-    
+
     Dim TestsPassed As Integer
     Dim TotalTests As Integer
-    Dim TestLibrary As ItemTypeLibrary
-    Dim TestItem As ItemType
-    Dim ItemPropHandler As ItemTypePropertyHandler
-    
-    ' Vérifier qu'on a un élément de test disponible
+    Dim ITL As ItemTypeLibrary
+    Dim oItem As ItemType
+    Dim coupeValues() As String
+    Dim coupeValue As String
+
+    ' A graphical test element is required to attach items
     If TestElement Is Nothing Then
         CustomPropertyHandlerTest = False
         Exit Function
     End If
-    
-    ' Test 5.1: Create/Get ItemTypeLibrary
+
+    ' Start from a clean element (a previous run may have left items attached)
+    CustomPropertyHandler.RemoveItemFromElement TestElement, ARESConstants.ARES_ITEM_COMMUNE
+    CustomPropertyHandler.RemoveItemFromElement TestElement, ARESConstants.ARES_ITEM_COUPE_TYPE
+
+    ' Test 5.1: Create / ensure the ARES item types
     TotalTests = TotalTests + 1
-    Set TestLibrary = CustomPropertyHandler.GetItemTypeLibrary("TestLibrary", "TestItem")
-    If Not TestLibrary Is Nothing Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.2: Verify ItemType exists in library
+    If CustomPropertyHandler.EnsureARESItemTypes() Then TestsPassed = TestsPassed + 1
+
+    ' Test 5.2: The ARES library now exists
     TotalTests = TotalTests + 1
-    If Not TestLibrary Is Nothing Then
-        Set TestItem = TestLibrary.GetItemTypeByName("TestItem")
-        If Not TestItem Is Nothing Then
-            TestsPassed = TestsPassed + 1
+    Set ITL = CustomPropertyHandler.FindItemTypeLibrary(ARESConstants.ARES_NAME_LIBRARY_TYPE)
+    If Not ITL Is Nothing Then TestsPassed = TestsPassed + 1
+
+    ' Test 5.3: "Commune" item type and its property exist
+    TotalTests = TotalTests + 1
+    If Not ITL Is Nothing Then
+        Set oItem = ITL.GetItemTypeByName(ARESConstants.ARES_ITEM_COMMUNE)
+        If Not oItem Is Nothing Then
+            If Not oItem.GetPropertyByName(ARESConstants.ARES_PROP_COMMUNE) Is Nothing Then TestsPassed = TestsPassed + 1
         End If
-    Else
-        ' Skip this test if library creation failed
-        TestsPassed = TestsPassed + 1
     End If
-    
-    ' Test 5.3: Attach ItemType to TestElement
+
+    ' Test 5.4: "Coupe Type" item type and its property exist
     TotalTests = TotalTests + 1
-    If CustomPropertyHandler.AttachItemToElement(TestElement, "TestLibrary", "TestItem") Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.4: Verify ItemType is attached
-    TotalTests = TotalTests + 1
-    If TestElement.Items.HasItems("TestLibrary", "TestItem") Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.5: Get ItemTypePropertyHandler using new function
-    TotalTests = TotalTests + 1
-    Set ItemPropHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "TestLibrary", "TestItem")
-    If Not ItemPropHandler Is Nothing Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.6: Get ItemType from element using new function
-    TotalTests = TotalTests + 1
-    Dim RetrievedItemType As ItemType
-    Set RetrievedItemType = CustomPropertyHandler.GetItemTypeFromElement(TestElement, "TestLibrary", "TestItem")
-    If Not RetrievedItemType Is Nothing And RetrievedItemType.ItemTypeName = "TestItem" Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.7: Get ItemTypeLibrary from element using new function
-    TotalTests = TotalTests + 1
-    Dim RetrievedLibrary As ItemTypeLibrary
-    Set RetrievedLibrary = CustomPropertyHandler.GetItemTypeLibraryFromElement(TestElement, "TestLibrary")
-    If Not RetrievedLibrary Is Nothing Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.8: Read property values using new helper function
-    TotalTests = TotalTests + 1
-    Dim BoolValue As Variant
-    Dim StringValue As Variant
-    Dim DateValue As Variant
-    
-    BoolValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "EditedByTestLibrary", "TestLibrary", "TestItem")
-    StringValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "UpdatedString", "TestLibrary", "TestItem")
-    DateValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "DateOfEdit", "TestLibrary", "TestItem")
-    
-    ' If values were retrieved (not Null), properties are readable
-    If Not IsNull(BoolValue) Or Not IsNull(StringValue) Or Not IsNull(DateValue) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.9: Modify property values using new helper function
-    TotalTests = TotalTests + 1
-    Dim SetResult1 As Boolean, SetResult2 As Boolean, SetResult3 As Boolean
-    
-    SetResult1 = CustomPropertyHandler.SetPropertyValueToElement(TestElement, "EditedByTestLibrary", True, "TestLibrary", "TestItem")
-    SetResult2 = CustomPropertyHandler.SetPropertyValueToElement(TestElement, "UpdatedString", "Modified in unit test", "TestLibrary", "TestItem")
-    SetResult3 = CustomPropertyHandler.SetPropertyValueToElement(TestElement, "DateOfEdit", Now, "TestLibrary", "TestItem")
-    
-    If SetResult1 And SetResult2 And SetResult3 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.10: Verify modified values can be read back using helper function
-    TotalTests = TotalTests + 1
-    Dim ReadBoolValue As Variant
-    Dim ReadStringValue As Variant
-    
-    ReadBoolValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "EditedByTestLibrary", "TestLibrary", "TestItem")
-    ReadStringValue = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, "UpdatedString", "TestLibrary", "TestItem")
-    
-    If CBool(ReadBoolValue) = True And CStr(ReadStringValue) = "Modified in unit test" Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.11: Test direct property handler methods
-    TotalTests = TotalTests + 1
-    If Not ItemPropHandler Is Nothing Then
-        Dim DirectBoolValue As Boolean
-        Dim DirectStringValue As String
-        
-        On Error Resume Next
-        DirectBoolValue = ItemPropHandler.GetPropertyValue("EditedByTestLibrary")
-        DirectStringValue = ItemPropHandler.GetPropertyValue("UpdatedString")
-        
-        If Err.Number = 0 And DirectBoolValue = True And DirectStringValue = "Modified in unit test" Then
-            TestsPassed = TestsPassed + 1
+    If Not ITL Is Nothing Then
+        Set oItem = ITL.GetItemTypeByName(ARESConstants.ARES_ITEM_COUPE_TYPE)
+        If Not oItem Is Nothing Then
+            If Not oItem.GetPropertyByName(ARESConstants.ARES_PROP_COUPE_TYPE) Is Nothing Then TestsPassed = TestsPassed + 1
         End If
-        On Error GoTo ErrorHandler
+    End If
+
+    ' Test 5.5: The Coupe Type value list comes from configuration (not hard-coded)
+    TotalTests = TotalTests + 1
+    coupeValues = CustomPropertyHandler.GetCoupeTypeValues()
+    coupeValue = ""
+    On Error Resume Next
+    If UBound(coupeValues) >= LBound(coupeValues) Then coupeValue = Trim(coupeValues(LBound(coupeValues)))
+    On Error GoTo ErrorHandler
+    If Len(coupeValue) > 0 Then
+        TestsPassed = TestsPassed + 1
     Else
-        TestsPassed = TestsPassed + 1 ' Skip if ItemPropHandler is not available
+        coupeValue = "TR1C" ' fallback so the round-trip tests below can still run
     End If
-    
-    ' Test 5.12: Double attach protection (should not fail if already attached)
+
+    ' Test 5.6: Attach the "Commune" property to the element
     TotalTests = TotalTests + 1
-    If CustomPropertyHandler.AttachItemToElement(TestElement, "TestLibrary", "TestItem") Then
-        ' Should still return True even if already attached
+    If CustomPropertyHandler.AttachItemToElement(TestElement, ARESConstants.ARES_ITEM_COMMUNE) Then
+        If TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, ARESConstants.ARES_ITEM_COMMUNE) Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 5.7: Round-trip the Commune free text
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.SetPropertyValueToElement(TestElement, ARESConstants.ARES_PROP_COMMUNE, "Test Commune", ARESConstants.ARES_ITEM_COMMUNE) Then
+        If CStr(CustomPropertyHandler.GetPropertyValueFromElement(TestElement, ARESConstants.ARES_PROP_COMMUNE, ARESConstants.ARES_ITEM_COMMUNE)) = "Test Commune" Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 5.8: Attach the "Coupe Type" property to the SAME element (distinct item type)
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.AttachItemToElement(TestElement, ARESConstants.ARES_ITEM_COUPE_TYPE) Then
+        If TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, ARESConstants.ARES_ITEM_COUPE_TYPE) Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 5.9: Round-trip a Coupe Type value taken from the configured list
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.SetPropertyValueToElement(TestElement, ARESConstants.ARES_PROP_COUPE_TYPE, coupeValue, ARESConstants.ARES_ITEM_COUPE_TYPE) Then
+        If CStr(CustomPropertyHandler.GetPropertyValueFromElement(TestElement, ARESConstants.ARES_PROP_COUPE_TYPE, ARESConstants.ARES_ITEM_COUPE_TYPE)) = coupeValue Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 5.10: Both properties coexist on the element
+    TotalTests = TotalTests + 1
+    If TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, ARESConstants.ARES_ITEM_COMMUNE) _
+       And TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, ARESConstants.ARES_ITEM_COUPE_TYPE) Then
         TestsPassed = TestsPassed + 1
     End If
-    
-    ' Test 5.13: Test with default library/item names (optional parameters)
+
+    ' Test 5.11: Detaching Commune leaves Coupe Type untouched (properties are independent)
     TotalTests = TotalTests + 1
-    Dim DefaultHandler As ItemTypePropertyHandler
-    Set DefaultHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "TestLibrary")
-    If Not DefaultHandler Is Nothing Then
+    CustomPropertyHandler.RemoveItemFromElement TestElement, ARESConstants.ARES_ITEM_COMMUNE
+    If (Not TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, ARESConstants.ARES_ITEM_COMMUNE)) _
+       And TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, ARESConstants.ARES_ITEM_COUPE_TYPE) Then
         TestsPassed = TestsPassed + 1
     End If
-    
-    ' Test 5.14: Remove ItemType from element
+
+    ' Test 5.12: Detaching an already-detached item type is graceful (False, no crash)
     TotalTests = TotalTests + 1
-    If CustomPropertyHandler.RemoveItemToElement(TestElement, "TestLibrary", "TestItem") Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.15: Verify ItemType is detached
+    If Not CustomPropertyHandler.RemoveItemFromElement(TestElement, ARESConstants.ARES_ITEM_COMMUNE) Then TestsPassed = TestsPassed + 1
+
+    ' Test 5.13: Cleanup - detach Coupe Type too (the ARES library itself is kept)
     TotalTests = TotalTests + 1
-    If Not TestElement.Items.HasItems("TestLibrary", "TestItem") Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.16: Verify helper functions return Nothing after detachment
+    CustomPropertyHandler.RemoveItemFromElement TestElement, ARESConstants.ARES_ITEM_COUPE_TYPE
+    If Not TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, ARESConstants.ARES_ITEM_COUPE_TYPE) Then TestsPassed = TestsPassed + 1
+
+    ' Test 5.14: Unknown library/item resolves to Nothing (no crash)
     TotalTests = TotalTests + 1
-    Set ItemPropHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "TestLibrary", "TestItem")
-    If ItemPropHandler Is Nothing Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.17: Try to remove already removed ItemType (should handle gracefully)
-    TotalTests = TotalTests + 1
-    Dim RemoveResult As Boolean
-    RemoveResult = CustomPropertyHandler.RemoveItemToElement(TestElement, "TestLibrary", "TestItem")
-    ' Should return False since item is not attached, but shouldn't crash
-    ' (Uses the corrected DetachItem method internally)
-    If Not RemoveResult Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.18: Test with non-existent library/item names
-    TotalTests = TotalTests + 1
-    Dim NonExistentHandler As ItemTypePropertyHandler
-    Set NonExistentHandler = CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "NonExistentLibrary", "NonExistentItem")
-    If NonExistentHandler Is Nothing Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 5.19: Delete ItemTypeLibrary (cleanup)
-    TotalTests = TotalTests + 1
-    If CustomPropertyHandler.DeleteItemTypeLibrary("TestLibrary") Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Allow some failures for library operations (they can be environment-dependent)
-    CustomPropertyHandlerTest = (TestsPassed >= TotalTests - 2)
+    If CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "NonExistentItem", "NonExistentLibrary") Is Nothing Then TestsPassed = TestsPassed + 1
+
+    ' Library operations can be environment-dependent; allow a small margin
+    CustomPropertyHandlerTest = (TestsPassed >= TotalTests - 1)
     Exit Function
     
 ErrorHandler:

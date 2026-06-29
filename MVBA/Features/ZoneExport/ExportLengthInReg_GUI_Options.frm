@@ -4,7 +4,7 @@
 ' Dependencies: LangManager, ARESConfigClass, ErrorHandlerClass
 Option Explicit
 
-Private mLocked As Boolean
+Private mbLocked As Boolean
 
 ' ============================================================
 ' ZONE LEVEL — Edit button + hidden TextBox
@@ -12,7 +12,7 @@ Private mLocked As Boolean
 
 Private Sub Edit_Level_Region_Command_Click()
     On Error GoTo ErrorHandler
-    If Not mLocked Then
+    If Not mbLocked Then
         Locked
         TextBox_RegionLevel.Value = ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value
         TextBox_RegionLevel.Visible = True
@@ -35,7 +35,7 @@ Private Sub TextBox_RegionLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     TextBox_RegionLevel.Visible = False
     Edit_Level_Region_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Region_CommandCaption")
     Edit_Level_Region_Command.Visible = True
-    If mLocked Then Locked
+    If mbLocked Then Locked
     Exit Sub
 
 ErrorHandler:
@@ -50,7 +50,7 @@ Private Sub TextBox_RegionLevel_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, By
         If KeyCode = 27 Then
             TextBox_RegionLevel.Visible = False
             Edit_Level_Region_Command.Visible = True
-            If mLocked Then Locked
+            If mbLocked Then Locked
         End If
     End If
     Exit Sub
@@ -68,7 +68,7 @@ Private Sub ComboBox_Export_Type_Change()
     Dim sVal As String
     sVal = ComboBox_Export_Type.Value
     If sVal <> "Style" And sVal <> "Level" And sVal <> "Color" Then Exit Sub
-    If mLocked Then Exit Sub
+    If mbLocked Then Exit Sub
     If ARESConfig.ARES_ZONE_EXPORT_GROUP_BY.Value <> sVal Then
         Locked
         ARESConfig.ARES_ZONE_EXPORT_GROUP_BY.Value = sVal
@@ -86,7 +86,7 @@ End Sub
 
 Private Sub Round_SpinButton_Change()
     On Error GoTo ErrorHandler
-    If mLocked Then Exit Sub
+    If mbLocked Then Exit Sub
     If CStr(Round_SpinButton.Value) <> ARESConfig.ARES_ZONE_EXPORT_ROUND.Value Then
         Locked
         Round_Number_Label.Caption = Round_SpinButton.Value
@@ -107,7 +107,7 @@ Private Sub Use_Dialog_CheckBox_Change()
     On Error GoTo ErrorHandler
     Dim sVal As String
     sVal = IIf(Use_Dialog_CheckBox.Value, "True", "False")
-    If mLocked Then Exit Sub
+    If mbLocked Then Exit Sub
     If ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG.Value <> sVal Then
         Locked
         ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG.Value = sVal
@@ -162,7 +162,7 @@ End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     On Error GoTo ErrorHandler
-    If mLocked Then
+    If mbLocked Then
         Cancel = True
         If TextBox_RegionLevel.Visible Then Me.TextBox_RegionLevel.SetFocus
     End If
@@ -182,12 +182,12 @@ End Sub
 
 Private Function Locked() As Boolean
     On Error GoTo ErrorHandler
-    mLocked = Not mLocked
+    mbLocked = Not mbLocked
     Dim ctrl As Control
     For Each ctrl In Me.Controls
-        CheckControlForLock ctrl, mLocked
+        CheckControlForLock ctrl, mbLocked
     Next ctrl
-    Locked = mLocked
+    Locked = mbLocked
     Exit Function
 
 ErrorHandler:

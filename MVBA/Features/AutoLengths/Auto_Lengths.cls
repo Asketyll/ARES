@@ -11,21 +11,21 @@ Option Explicit
 Implements ILocateCommandEvents
 
 ' Variable to store the new element
-Private pNewElement As element
+Private moNewElement As element
 ' Array to store the linked elements
-Private pLinkedElements() As element
+Private moLinkedElements() As element
 ' Array to store the lengths of the linked elements
-Private pLengths() As Double
+Private mdLengths() As Double
 
 ' Method to initialize the class with the new element
 Public Sub Initialize(ByVal NewElement As element)
     On Error GoTo ErrorHandler
 
-    Set pNewElement = NewElement
-    pLinkedElements = GetLinkedElements()
+    Set moNewElement = NewElement
+    moLinkedElements = GetLinkedElements()
 
-    If Not UBound(pLinkedElements) = -1 Then
-        ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
+    If Not UBound(moLinkedElements) = -1 Then
+        ReDim mdLengths(LBound(moLinkedElements) To UBound(moLinkedElements))
         CalculateLengths
     End If
     Exit Sub
@@ -46,7 +46,7 @@ Private Function GetLinkedElements() As element()
     ElType(5) = 14 ' Complex Shape
 
     ' Use the GetLink method from the Link class with the specified element types
-    GetLinkedElements = Link.GetLink(pNewElement, False, ElType)
+    GetLinkedElements = Link.GetLink(moNewElement, False, ElType)
 End Function
 
 ' Method to calculate lengths for all linked elements
@@ -56,18 +56,18 @@ Private Sub CalculateLengths()
     Dim i As Long
     Dim linkedElement As element
 
-    ' Check if the array pLinkedElements is initialized and not empty
-    'If Not IsArrayInitialized(pLinkedElements) Then Exit Sub
+    ' Check if the array moLinkedElements is initialized and not empty
+    'If Not IsArrayInitialized(moLinkedElements) Then Exit Sub
 
-    ReDim pLengths(LBound(pLinkedElements) To UBound(pLinkedElements))
+    ReDim mdLengths(LBound(moLinkedElements) To UBound(moLinkedElements))
 
-    For i = LBound(pLinkedElements) To UBound(pLinkedElements)
-        Set linkedElement = pLinkedElements(i)
+    For i = LBound(moLinkedElements) To UBound(moLinkedElements)
+        Set linkedElement = moLinkedElements(i)
         If Not linkedElement Is Nothing Then
-            pLengths(i) = Length.GetLength(linkedElement, ARESConfig.ARES_LENGTH_ROUND.Value)
+            mdLengths(i) = Length.GetLength(linkedElement, ARESConfig.ARES_LENGTH_ROUND.Value)
         Else
-            pLengths(i) = 0
-            ErrorHandler.HandleError "Linked element at index " & i & " is Nothing", 0, "AutoLengths.CalculateLengths", "WARNING"
+            mdLengths(i) = 0
+            ErrorHandler.HandleError "Linked element at index " & i & " is Nothing", 0, "", "AutoLengths.CalculateLengths"
         End If
     Next i
 
@@ -83,18 +83,18 @@ Public Sub UpdateLengths()
     On Error GoTo ErrorHandler
 
     HandleElementSelection
-    ElementInProcesse.Remove pNewElement
+    ElementInProcesse.Remove moNewElement
     Exit Sub
 
 ErrorHandler:
-    ElementInProcesse.Remove pNewElement
+    ElementInProcesse.Remove moNewElement
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.UpdateLengths"
     ShowStatus GetTranslation("AutoLengthsUpdateError") & Err.Description
 End Sub
 
 ' Method to handle the selection logic for elements
 Private Sub HandleElementSelection()
-    If Not UBound(pLinkedElements) = -1 Then
+    If Not UBound(moLinkedElements) = -1 Then
         If HasSingleLinkedElement() Then
             HandleSingleElement
         Else
@@ -105,7 +105,7 @@ End Sub
 
 ' Method to check if there is only one linked element
 Private Function HasSingleLinkedElement() As Boolean
-    HasSingleLinkedElement = (UBound(pLinkedElements) - LBound(pLinkedElements) = 0)
+    HasSingleLinkedElement = (UBound(moLinkedElements) - LBound(moLinkedElements) = 0)
 End Function
 
 ' Method to handle the case of a single linked element
@@ -116,20 +116,20 @@ Private Sub HandleSingleElement()
     Dim srcElement As element
 
     ' Get the length of the first (and only) linked element
-    lengthValue = CStr(pLengths(UBound(pLinkedElements)))
+    lengthValue = CStr(mdLengths(UBound(moLinkedElements)))
 
     If ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value Then
         ' Get the source color from the linked element
-        Set srcElement = pLinkedElements(UBound(pLinkedElements))
+        Set srcElement = moLinkedElements(UBound(moLinkedElements))
         Color = GetSourceColor(srcElement)
-        Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value, Color)
+        Results = StringsInEl.GetSetTextsInEl(moNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value, Color)
     Else
         ' Get and update the texts in the element with the calculated length
-        Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
+        Results = StringsInEl.GetSetTextsInEl(moNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
     End If
 
     If Results(0) = "" Then
-        ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.HandleSingleElement", "WARNING"
+        ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(moNewElement.ID), 0, "", "AutoLengths.HandleSingleElement"
     End If
 End Sub
 
@@ -146,8 +146,8 @@ End Sub
 Private Function CountNonZeroLengths() As Long
     Dim Count As Long, j As Long
     Count = 0
-    For j = LBound(pLengths) To UBound(pLengths)
-        If pLengths(j) <> 0 Then
+    For j = LBound(mdLengths) To UBound(mdLengths)
+        If mdLengths(j) <> 0 Then
             Count = Count + 1
         End If
     Next j
@@ -162,22 +162,22 @@ Private Sub UpdateSingleNonZeroLength()
 
     Success = False
 
-    For j = LBound(pLengths) To UBound(pLengths)
-        If pLengths(j) <> 0 Then
-            lengthValue = CStr(pLengths(j))
+    For j = LBound(mdLengths) To UBound(mdLengths)
+        If mdLengths(j) <> 0 Then
+            lengthValue = CStr(mdLengths(j))
             ' Get and update the texts in the element with the calculated length
-            Results = StringsInEl.GetSetTextsInEl(pNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
+            Results = StringsInEl.GetSetTextsInEl(moNewElement, lengthValue, ARESConfig.ARES_LENGTH_TRIGGER.Value)
             If Results(0) <> "" Then
                 Success = True
             Else
-                ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.UpdateSingleNonZeroLength", "WARNING"
+                ErrorHandler.HandleError "Failed to update texts in element with ID: " & DLongToString(moNewElement.ID), 0, "", "AutoLengths.UpdateSingleNonZeroLength"
             End If
             Exit For
         End If
     Next j
 
     If Not Success Then
-        ErrorHandler.HandleError "No non-zero length found to update in element with ID: " & DLongToString(pNewElement.ID), 0, "AutoLengths.UpdateSingleNonZeroLength", "AutoLengths"
+        ErrorHandler.HandleError "No non-zero length found to update in element with ID: " & DLongToString(moNewElement.ID), 0, "", "AutoLengths.UpdateSingleNonZeroLength"
     End If
 End Sub
 
@@ -193,9 +193,9 @@ Private Sub ShowElementSelectionForm()
     lengthCount = 0
 
     ' Add only elements with non-zero lengths to the list
-    For i = LBound(pLinkedElements) To UBound(pLinkedElements)
-        If pLengths(i) <> 0 Then
-            lengthValue = CStr(pLengths(i))
+    For i = LBound(moLinkedElements) To UBound(moLinkedElements)
+        If mdLengths(i) <> 0 Then
+            lengthValue = CStr(mdLengths(i))
             frm.ListBox1.AddItem lengthValue
             frm.ListBox1.List(frm.ListBox1.ListCount - 1, 1) = i
             lengthCount = lengthCount + 1
@@ -210,8 +210,8 @@ Private Sub ShowElementSelectionForm()
 
     ' Configure and show the form
     Set frm.AutoLengthsInstance = Me
-    frm.SetLinkedElements pLinkedElements
-    Set frm.SetMasterElement = ActiveModelReference.GetElementById(pNewElement.ID)
+    frm.SetLinkedElements moLinkedElements
+    Set frm.SetMasterElement = ActiveModelReference.GetElementById(moNewElement.ID)
     frm.Show vbModeless
 
     Exit Sub
@@ -244,13 +244,13 @@ Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterEleme
     End If
     
     If Results(0) = "" Then
-        ErrorHandler.HandleError "Failed to update texts in master element with ID: " & DLongToString(MasterElement.ID), 0, "AutoLengths.OnElementSelected", "WARNING"
+        ErrorHandler.HandleError "Failed to update texts in master element with ID: " & DLongToString(MasterElement.ID), 0, "", "AutoLengths.OnElementSelected"
     End If
 
     ' Always cleanup regardless of success or failure
     ElementInProcesse.Remove MasterElement
     Dim linkedElement As Variant
-    For Each linkedElement In pLinkedElements
+    For Each linkedElement In moLinkedElements
         ElementInProcesse.Remove linkedElement
     Next linkedElement
 
@@ -324,9 +324,9 @@ End Sub
 ' Explicit cleanup to avoid errors during implicit destruction
 Private Sub Class_Terminate()
     On Error Resume Next
-    Set pNewElement = Nothing
-    Erase pLinkedElements
-    Erase pLengths
+    Set moNewElement = Nothing
+    Erase moLinkedElements
+    Erase mdLengths
 End Sub
 
 ' Helper function to get the source color from an element

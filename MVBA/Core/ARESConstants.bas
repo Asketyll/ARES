@@ -35,13 +35,16 @@ Public Const ARES_RND_ERROR_VALUE As Byte = 255
 ' Used in CellRedraw module for error handling
 Public Const ARES_CELL_INDEX_ERROR_VALUE As Integer = -1
 
-' === CUSTOMPROPERTY LIB NAME CONSTANTS ===
-' Used in CustomPropertyHandler module
-Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"
-
-' === CUSTOMPROPERTY ITEM NAME CONSTANTS ===
-' Used in CustomPropertyHandler module
-Public Const ARES_NAME_ITEM_TYPE As String = "ARESAutoLengthObject"
+' === CUSTOM PROPERTY (ITEM TYPE) NAMING CONSTANTS ===
+' Used in CustomPropertyHandler module.
+' ARES stores ONE ItemType per custom property inside a single "ARES" ItemTypeLibrary, so each
+' property can be attached independently to different elements. Each ItemType carries exactly one
+' property, hence ItemType name == property name (that is what the MicroStation Properties dialog shows).
+Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"          ' ItemTypeLibrary name (namespace)
+Public Const ARES_ITEM_COMMUNE As String = "Commune"            ' ItemType carrying the editable text property
+Public Const ARES_PROP_COMMUNE As String = "Commune"            ' free-text property (user typed)
+Public Const ARES_ITEM_COUPE_TYPE As String = "Coupe Type"      ' ItemType carrying the value-list property
+Public Const ARES_PROP_COUPE_TYPE As String = "Coupe Type"      ' value picked from ARES_Coupe_Type_List
 
 ' === FILE DIALOG FILTER CONSTANTS ===
 ' Used in FileDialogs module — pipe-delimited Windows Forms filter strings

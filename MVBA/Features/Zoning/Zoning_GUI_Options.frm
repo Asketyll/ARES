@@ -6,7 +6,7 @@ Option Explicit
 
 Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 
-Private mLocked As Boolean
+Private mbLocked As Boolean
 
 ' ============================================================
 ' SOURCE LEVELS — Edit button + hidden TextBox
@@ -14,7 +14,7 @@ Private mLocked As Boolean
 
 Private Sub Edit_Levels_Command_Click()
     On Error GoTo ErrorHandler
-    If Not mLocked Then
+    If Not mbLocked Then
         Locked
         TextBox_Levels.Value = ARESConfig.ARES_ZONING_LEVEL.Value
         TextBox_Levels.Visible = True
@@ -34,7 +34,7 @@ Private Sub TextBox_Levels_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     End If
     TextBox_Levels.Visible = False
     Edit_Levels_Command.Visible = True
-    If mLocked Then Locked
+    If mbLocked Then Locked
     Exit Sub
 
 ErrorHandler:
@@ -49,7 +49,7 @@ Private Sub TextBox_Levels_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal S
         If KeyCode = 27 Then
             TextBox_Levels.Visible = False
             Edit_Levels_Command.Visible = True
-            If mLocked Then Locked
+            If mbLocked Then Locked
         End If
     End If
     Exit Sub
@@ -88,7 +88,7 @@ End Sub
 
 Private Sub Edit_OutputLevel_Command_Click()
     On Error GoTo ErrorHandler
-    If Not mLocked Then
+    If Not mbLocked Then
         Locked
         TextBox_OutputLevel.Value = ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value
         TextBox_OutputLevel.Visible = True
@@ -109,7 +109,7 @@ Private Sub TextBox_OutputLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     Edit_OutputLevel_Command.Caption = GetTranslation("ZoningGUIOptionsEditOutputLevel_CommandCaption", ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value)
     TextBox_OutputLevel.Visible = False
     Edit_OutputLevel_Command.Visible = True
-    If mLocked Then Locked
+    If mbLocked Then Locked
     Exit Sub
 
 ErrorHandler:
@@ -124,7 +124,7 @@ Private Sub TextBox_OutputLevel_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, By
         If KeyCode = 27 Then
             TextBox_OutputLevel.Visible = False
             Edit_OutputLevel_Command.Visible = True
-            If mLocked Then Locked
+            If mbLocked Then Locked
         End If
     End If
     Exit Sub
@@ -139,7 +139,7 @@ End Sub
 
 Private Sub Edit_Color_Command_Click()
     On Error GoTo ErrorHandler
-    If mLocked Then Exit Sub
+    If mbLocked Then Exit Sub
 
     Dim newIdx As Long
     newIdx = ColorDialog.PickMsColorIndex(CLng(ARESConfig.ARES_ZONING_OUTPUT_COLOR.Value))
@@ -174,7 +174,7 @@ End Sub
 
 Private Sub Weight_SpinButton_Change()
     On Error GoTo ErrorHandler
-    If mLocked Then
+    If mbLocked Then
     ElseIf Weight_SpinButton.Value <> CLng(ARESConfig.ARES_ZONING_OUTPUT_WEIGHT.Value) Then
         Locked
         Weight_Number_Label.Caption = Weight_SpinButton.Value
@@ -231,14 +231,14 @@ End Sub
 
 Private Function Locked() As Boolean
     On Error GoTo ErrorHandler
-    mLocked = Not mLocked
+    mbLocked = Not mbLocked
 
     Dim ctrl As Control
     For Each ctrl In Me.Controls
-        CheckControlForLock ctrl, mLocked
+        CheckControlForLock ctrl, mbLocked
     Next ctrl
 
-    Locked = mLocked
+    Locked = mbLocked
     Exit Function
 
 ErrorHandler:
@@ -267,7 +267,7 @@ End Sub
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     On Error GoTo ErrorHandler
 
-    If mLocked Then
+    If mbLocked Then
         Cancel = True
         Select Case True
             Case TextBox_Levels.Visible

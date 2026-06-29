@@ -34,14 +34,14 @@ Public Function Add(ByVal oElement As element) As Boolean
     If Not mbInitialized Then Exit Function
     If oElement Is Nothing Then Exit Function
     
-    Dim strElementId As String
-    strElementId = DLongToString(oElement.ID)
+    Dim sElementId As String
+    sElementId = DLongToString(oElement.ID)
     
     ' Check if element ID already exists
-    If ContainsId(strElementId) Then Exit Function
+    If ContainsId(sElementId) Then Exit Function
     
     ' Add element ID to collection
-    moElementIds.Add strElementId, strElementId
+    moElementIds.Add sElementId, sElementId
     Add = True
     
     Exit Function
@@ -60,10 +60,10 @@ Public Function Remove(ByVal oElement As element) As Boolean
     If Not mbInitialized Then Exit Function
     If oElement Is Nothing Then Exit Function
     
-    Dim strElementId As String
-    strElementId = DLongToString(oElement.ID)
+    Dim sElementId As String
+    sElementId = DLongToString(oElement.ID)
     
-    Remove = RemoveById(strElementId)
+    Remove = RemoveById(sElementId)
     
     Exit Function
     
@@ -73,16 +73,16 @@ ErrorHandler:
 End Function
 
 ' Remove element by ID string
-Private Function RemoveById(ByVal strElementId As String) As Boolean
+Private Function RemoveById(ByVal sElementId As String) As Boolean
     On Error GoTo ErrorHandler
     
     RemoveById = False
     
     If Not mbInitialized Then Exit Function
-    If Len(strElementId) = 0 Then Exit Function
+    If Len(sElementId) = 0 Then Exit Function
     
-    If ContainsId(strElementId) Then
-        moElementIds.Remove strElementId
+    If ContainsId(sElementId) Then
+        moElementIds.Remove sElementId
         RemoveById = True
     End If
     
@@ -102,10 +102,10 @@ Public Function Contains(ByVal oElement As element) As Boolean
     If Not mbInitialized Then Exit Function
     If oElement Is Nothing Then Exit Function
     
-    Dim strElementId As String
-    strElementId = DLongToString(oElement.ID)
+    Dim sElementId As String
+    sElementId = DLongToString(oElement.ID)
     
-    Contains = ContainsId(strElementId)
+    Contains = ContainsId(sElementId)
     
     Exit Function
     
@@ -115,11 +115,11 @@ ErrorHandler:
 End Function
 
 ' Check if element ID is in collection
-Private Function ContainsId(ByVal strElementId As String) As Boolean
+Private Function ContainsId(ByVal sElementId As String) As Boolean
     On Error Resume Next
 
-    Dim strTest As String
-    strTest = moElementIds(strElementId)
+    Dim sTest As String
+    sTest = moElementIds(sElementId)
     ContainsId = (Err.Number = 0)
     Err.Clear  ' Important: clear error to prevent leaking to caller
 End Function
@@ -176,7 +176,7 @@ Public Function GetAllElements() As Collection
     On Error GoTo ErrorHandler
     
     Dim colElements As Collection
-    Dim strElementId As Variant
+    Dim sElementId As Variant
     Dim oElement As element
     
     Set colElements = New Collection
@@ -193,12 +193,12 @@ Public Function GetAllElements() As Collection
     End If
     
     ' Iterate through all stored IDs and retrieve fresh elements
-    For Each strElementId In moElementIds
+    For Each sElementId In moElementIds
         On Error Resume Next
         
         ' Retrieve fresh element from MicroStation
         Set oElement = Nothing
-        Set oElement = ActiveModelReference.GetElementById(DLongFromString(CStr(strElementId)))
+        Set oElement = ActiveModelReference.GetElementById(DLongFromString(CStr(sElementId)))
         
         ' Only add if element was successfully retrieved
         If Err.Number = 0 And Not oElement Is Nothing Then
@@ -206,7 +206,7 @@ Public Function GetAllElements() As Collection
         End If
         
         On Error GoTo ErrorHandler
-    Next strElementId
+    Next sElementId
     
     Set GetAllElements = colElements
     Exit Function

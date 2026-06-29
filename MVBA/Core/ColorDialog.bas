@@ -45,7 +45,7 @@ Private Const CC_RGBINIT  As Long = &H1
 Private Const CC_FULLOPEN As Long = &H2
 
 ' Persists custom colors across dialog calls within the same session.
-Private mCustColors(0 To 15) As Long
+Private mlCustColors(0 To 15) As Long
 
 ' ============================================================
 ' PUBLIC API
@@ -161,7 +161,7 @@ Private Function SelectColorDialog(ByVal initialRgb As Long) As Long
     cc.lStructSize  = LenB(cc)
     cc.hwndOwner    = 0
     cc.rgbResult    = initialRgb
-    cc.lpCustColors = VarPtr(mCustColors(0))
+    cc.lpCustColors = VarPtr(mlCustColors(0))
     cc.Flags        = CC_RGBINIT Or CC_FULLOPEN
 
     If ChooseColor(cc) <> 0 Then

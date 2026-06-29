@@ -5,14 +5,14 @@
 ' Dependencies: ElementChangeHandler, LangManager, IdleEventHandler, ElementInProcesseClass, ErrorHandlerClass
 Option Explicit
 
-' Declare the application hooks with events
-Dim WithEvents hooks As Application
+' Declare the application moHooks with events
+Dim WithEvents moHooks As Application
 
 ' Initialize the class
 Private Sub Class_Initialize()
     On Error GoTo ErrorHandler
-    ' Set the application hooks to the current application instance
-    Set hooks = Application
+    ' Set the application moHooks to the current application instance
+    Set moHooks = Application
     Exit Sub
 
 ErrorHandler:
@@ -20,7 +20,7 @@ ErrorHandler:
 End Sub
 
 ' Event handler for when a design file is closed
-Private Sub Hooks_OnDesignFileClosed(ByVal DesignFileName As String)
+Private Sub moHooks_OnDesignFileClosed(ByVal DesignFileName As String)
     On Error GoTo ErrorHandler
     ' Call a sub or function when a DGN file is closed
     ARESConfig.Initialize
@@ -30,11 +30,11 @@ Private Sub Hooks_OnDesignFileClosed(ByVal DesignFileName As String)
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "DGNOpenClose.hooks_OnDesignFileClosed"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "DGNOpenClose.moHooks_OnDesignFileClosed"
 End Sub
 
 ' Event handler for when a design file is opened
-Private Sub Hooks_OnDesignFileOpened(ByVal DesignFileName As String)
+Private Sub moHooks_OnDesignFileOpened(ByVal DesignFileName As String)
     On Error GoTo ErrorHandler
     ' Call a sub or function when a DGN file is opened
     InitializeChangeHandler
@@ -43,7 +43,7 @@ Private Sub Hooks_OnDesignFileOpened(ByVal DesignFileName As String)
     Exit Sub
     
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "DGNOpenClose.hooks_OnDesignFileOpened"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "DGNOpenClose.moHooks_OnDesignFileOpened"
 End Sub
 
 ' Initialize the change handler and add event handlers

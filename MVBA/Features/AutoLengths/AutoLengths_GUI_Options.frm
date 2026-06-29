@@ -5,15 +5,15 @@
 Option Explicit
 
 Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
-Private mLocked As Boolean
-Private MsgBoxOpen As Boolean
+Private mbLocked As Boolean
+Private mbMsgBoxOpen As Boolean
 
 Private Sub Cell_CheckBox_Change()
     On Error GoTo ErrorHandler
     Dim CVal As String
     
     CVal = IIf(Cell_CheckBox.Value, "True", "False")
-    If mLocked Then
+    If mbLocked Then
     
     ElseIf ARESConfig.ARES_UPDATE_ATLASCELLLABEL.Value <> CVal Then
         Locked
@@ -31,7 +31,7 @@ Private Sub Color_CheckBox_Change()
     Dim CVal As String
     
     CVal = IIf(Color_CheckBox.Value, "True", "False")
-    If mLocked Then
+    If mbLocked Then
     
     ElseIf ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value <> CVal Then
         Locked
@@ -50,7 +50,7 @@ Private Sub Only_Color_CheckBox_Change()
     Dim CVal As String
     
     CVal = IIf(Only_Color_CheckBox.Value, "True", "False")
-    If mLocked Then
+    If mbLocked Then
     
     ElseIf ARESConfig.ARES_ONLY_COLOR.Value <> CVal Then
         Locked
@@ -66,7 +66,7 @@ End Sub
 
 Private Sub Edit_Cells_List_Command_Click()
     On Error GoTo ErrorHandler
-    If Not mLocked Then
+    If Not mbLocked Then
         Locked
         TextBox_Cells_List.Value = ARESConfig.ARES_CELL_LIKE_LABEL.Value
         TextBox_Cells_List.Visible = True
@@ -81,7 +81,7 @@ End Sub
 
 Private Sub Edit_Trigger_Command_Click()
     On Error GoTo ErrorHandler
-    If Not mLocked Then
+    If Not mbLocked Then
         Locked
         TextBox_Trigger.Value = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
         TextBox_Trigger.Visible = True
@@ -96,7 +96,7 @@ End Sub
 
 Private Sub Edit_Triggers_List_Command_Click()
     On Error GoTo ErrorHandler
-    If Not mLocked Then
+    If Not mbLocked Then
         Locked
         TextBox_Triggers_List.Value = ARESConfig.ARES_LENGTH_TRIGGER.Value
         TextBox_Triggers_List.Visible = True
@@ -114,7 +114,7 @@ Private Sub Main_CheckBox_Change()
     Dim CVal As String
     
     CVal = IIf(Main_CheckBox.Value, "True", "False")
-    If mLocked Then
+    If mbLocked Then
     
     ElseIf ARESConfig.ARES_AUTO_LENGTHS.Value <> CVal Then
         Locked
@@ -129,7 +129,7 @@ End Sub
 
 Private Sub Round_SpinButton_Change()
     On Error GoTo ErrorHandler
-    If mLocked Then
+    If mbLocked Then
         
     ElseIf Round_SpinButton.Value <> ARESConfig.ARES_LENGTH_ROUND.Value Then
         Locked
@@ -152,9 +152,9 @@ Private Sub TextBox_Triggers_List_Exit(ByVal Cancel As MSForms.ReturnBoolean)
         txts = Split(TextBox_Triggers_List.Value, ARESConstants.ARES_VAR_DELIMITER)
         For i = LBound(txts) To UBound(txts)
             If Not txts(i) Like "*" & ARESConfig.ARES_LENGTH_TRIGGER_ID.Value & "*" Then
-                MsgBoxOpen = True
+                mbMsgBoxOpen = True
                 MsgBox GetTranslation("AutoLengthsGUIOptionsEdit_Triggers_List_Error") & ARESConfig.ARES_LENGTH_TRIGGER_ID.Value, vbOKOnly
-                MsgBoxOpen = False
+                mbMsgBoxOpen = False
                 Exit Sub
             End If
         Next i
@@ -163,7 +163,7 @@ Private Sub TextBox_Triggers_List_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     
     TextBox_Triggers_List.Visible = False
     Edit_Triggers_List_Command.Visible = True
-    If mLocked Then Locked
+    If mbLocked Then Locked
     Exit Sub
     
 ErrorHandler:
@@ -176,7 +176,7 @@ Private Sub TextBox_Cells_List_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     End If
     TextBox_Cells_List.Visible = False
     Edit_Cells_List_Command.Visible = True
-    If mLocked Then Locked
+    If mbLocked Then Locked
     Exit Sub
     
 ErrorHandler:
@@ -191,7 +191,7 @@ Private Sub TextBox_Trigger_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     End If
     TextBox_Trigger.Visible = False
     Edit_Trigger_Command.Visible = True
-    If mLocked Then Locked
+    If mbLocked Then Locked
     Exit Sub
     
 ErrorHandler:
@@ -201,7 +201,7 @@ End Sub
 Private Sub TextBox_Triggers_List_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
-    If Not MsgBoxOpen Then
+    If Not mbMsgBoxOpen Then
         If Shift = 0 Then
             If KeyCode = 13 Then
                 TextBox_Triggers_List_Exit returnB
@@ -209,7 +209,7 @@ Private Sub TextBox_Triggers_List_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, 
             If KeyCode = 27 Then
                 TextBox_Triggers_List.Visible = False
                 Edit_Triggers_List_Command.Visible = True
-                If mLocked Then Locked
+                If mbLocked Then Locked
             End If
         End If
     End If
@@ -229,7 +229,7 @@ Private Sub TextBox_Trigger_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal 
         If KeyCode = 27 Then
             TextBox_Trigger.Visible = False
             Edit_Trigger_Command.Visible = True
-            If mLocked Then Locked
+            If mbLocked Then Locked
         End If
     End If
     Exit Sub
@@ -248,7 +248,7 @@ Private Sub TextBox_Cells_List_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByV
         If KeyCode = 27 Then
             TextBox_Cells_List.Visible = False
             Edit_Cells_List_Command.Visible = True
-            If mLocked Then Locked
+            If mbLocked Then Locked
         End If
     End If
     Exit Sub
@@ -300,14 +300,14 @@ ErrorHandler:
 End Sub
 Private Function Locked() As Boolean
     On Error GoTo ErrorHandler
-    mLocked = Not mLocked
+    mbLocked = Not mbLocked
     
     Dim ctrl As Control
     For Each ctrl In Me.Controls
-        CheckControlForLock ctrl, mLocked
+        CheckControlForLock ctrl, mbLocked
     Next ctrl
     
-    Locked = mLocked
+    Locked = mbLocked
     Exit Function
     
 ErrorHandler:
@@ -336,7 +336,7 @@ End Sub
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     On Error GoTo ErrorHandler
     
-    If mLocked Then
+    If mbLocked Then
         Cancel = True
         Select Case True
             Case TextBox_Triggers_List.Visible

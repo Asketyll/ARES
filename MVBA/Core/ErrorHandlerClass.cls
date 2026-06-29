@@ -8,12 +8,12 @@ Option Explicit
 Private Const MAX_LOG_FILE_SIZE As Long = 1048576    ' 1 MB
 
 ' === PRIVATE MEMBERS ===
-Private mLogFilePath As String
+Private msLogFilePath As String
 
 ' === CLASS INITIALIZATION ===
 Private Sub Class_Initialize()
     On Error Resume Next
-    mLogFilePath = GetLogFilePath()
+    msLogFilePath = GetLogFilePath()
 End Sub
 
 ' === PUBLIC METHODS ===
@@ -38,7 +38,7 @@ Public Function HandleError(ByVal Description As String, _
     
     ' Write to log file
     FileNum = FreeFile
-    Open mLogFilePath For Append As #FileNum
+    Open msLogFilePath For Append As #FileNum
     Print #FileNum, ErrorMessage
     Close #FileNum
     
@@ -56,7 +56,7 @@ End Function
 
 Public Sub UpdateLogFilePath()
     On Error Resume Next
-    mLogFilePath = GetLogFilePath()
+    msLogFilePath = GetLogFilePath()
 End Sub
 
 ' Clear log file
@@ -65,13 +65,13 @@ Public Sub ClearLogFile()
     
     Dim FileNum As Integer
     FileNum = FreeFile
-    Open mLogFilePath For Output As #FileNum
+    Open msLogFilePath For Output As #FileNum
     Close #FileNum
 End Sub
 
 ' Get current log file path (for testing)
 Public Property Get LogFilePath() As String
-    LogFilePath = mLogFilePath
+    LogFilePath = msLogFilePath
 End Property
 
 ' Get last log entry (for testing)
@@ -82,13 +82,13 @@ Public Function GetLastLogEntry() As String
     Dim Line As String
     Dim LastLine As String
     
-    If Len(Dir(mLogFilePath)) = 0 Then
+    If Len(Dir(msLogFilePath)) = 0 Then
         GetLastLogEntry = ""
         Exit Function
     End If
     
     FileNum = FreeFile
-    Open mLogFilePath For Input As #FileNum
+    Open msLogFilePath For Input As #FileNum
     Do While Not EOF(FileNum)
         Line Input #FileNum, Line
         If Len(Line) > 0 Then LastLine = Line
@@ -140,17 +140,17 @@ Private Sub RotateIfNeeded()
     Dim FileNum As Integer
     Dim FileSize As Long
     
-    If Len(Dir(mLogFilePath)) = 0 Then Exit Sub
+    If Len(Dir(msLogFilePath)) = 0 Then Exit Sub
     
     FileNum = FreeFile
-    Open mLogFilePath For Binary Access Read As #FileNum
+    Open msLogFilePath For Binary Access Read As #FileNum
     FileSize = LOF(FileNum)
     Close #FileNum
     
     If FileSize > MAX_LOG_FILE_SIZE Then
         Dim BackupPath As String
-        BackupPath = Replace(mLogFilePath, ".log", "-" & Format(Now, "yyyymmdd_hhnnss") & ".old")
-        Name mLogFilePath As BackupPath
+        BackupPath = Replace(msLogFilePath, ".log", "-" & Format(Now, "yyyymmdd_hhnnss") & ".old")
+        Name msLogFilePath As BackupPath
     End If
 End Sub
 
@@ -160,7 +160,7 @@ Private Function GetLogFilePath() As String
     
     Dim Path As String
     If ActiveDesignFile Is Nothing Then
-    If Err.Number = -2147221504 Then Err.Clear
+        If Err.Number = -2147221504 Then Err.Clear
         If Not Application.VBE.ActiveVBProject Is Nothing Then
             Path = Application.VBE.ActiveVBProject.FileName
             If Len(Path) > 0 Then
@@ -168,7 +168,7 @@ Private Function GetLogFilePath() As String
             End If
         End If
     Else
-    Path = ActiveDesignFile.FullName & " - ARESLogFile.log"
+        Path = ActiveDesignFile.FullName & " - ARESLogFile.log"
     End If
     
     If Len(Path) = 0 Then

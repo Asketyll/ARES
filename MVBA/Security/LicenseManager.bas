@@ -7,7 +7,7 @@ Option Explicit
 ' === PRIVATE MEMBERS ===
 Private moLicenseValidator As Object
 Private mbLicenseValid As Boolean
-Private mstrLastError As String
+Private msLastError As String
 
 ' === PUBLIC PROPERTIES ===
 Public Property Get IsLicenseValid() As Boolean
@@ -15,7 +15,7 @@ Public Property Get IsLicenseValid() As Boolean
 End Property
 
 Public Property Get LastError() As String
-    LastError = mstrLastError
+    LastError = msLastError
 End Property
 
 ' Initialize and validate license
@@ -25,7 +25,7 @@ Public Function ValidateLicense() As Boolean
     
     ValidateLicense = False
     mbLicenseValid = False
-    mstrLastError = ""
+    msLastError = ""
     
     ' Create COM instance of license validator
     If Not CreateValidatorInstance() Then
@@ -39,18 +39,18 @@ Public Function ValidateLicense() As Boolean
         
     Else
         ' Get error details
-        mstrLastError = moLicenseValidator.GetLastError()
+        msLastError = moLicenseValidator.GetLastError()
         
         ' Log failure
         If Not ErrorHandler Is Nothing Then
-            ErrorHandler.HandleError "License validation failed: " & mstrLastError, 0, "LicenseManager.ValidateLicense", "ERROR"
+            ErrorHandler.HandleError "License validation failed: " & msLastError, 0, "", "LicenseManager.ValidateLicense"
         End If
     End If
     
     Exit Function
     
 ErrorHandler:
-    mstrLastError = "License validation error: " & Err.Description
+    msLastError = "License validation error: " & Err.Description
     mbLicenseValid = False
     ValidateLicense = False
     
@@ -134,30 +134,30 @@ End Function
 Public Sub ShowLicenseDialog()
     On Error GoTo ErrorHandler
     
-    Dim strMessage As String
-    Dim strTitle As String
+    Dim sMessage As String
+    Dim sTitle As String
     
-    strTitle = "ARES License Information"
+    sTitle = "ARES License Information"
     
     If mbLicenseValid Then
-        strMessage = "? License Valid" & vbCrLf & vbCrLf
-        strMessage = strMessage & GetLicenseInfo() & vbCrLf & vbCrLf
-        strMessage = strMessage & "Current User: " & GetCurrentUser()
+        sMessage = "? License Valid" & vbCrLf & vbCrLf
+        sMessage = sMessage & GetLicenseInfo() & vbCrLf & vbCrLf
+        sMessage = sMessage & "Current User: " & GetCurrentUser()
         
-        MsgBox strMessage, vbInformation + vbOKOnly, strTitle
+        MsgBox sMessage, vbInformation + vbOKOnly, sTitle
     Else
-        strMessage = "? License Invalid" & vbCrLf & vbCrLf
-        strMessage = strMessage & "Error: " & mstrLastError & vbCrLf & vbCrLf
-        strMessage = strMessage & "Current User: " & GetCurrentUser() & vbCrLf & vbCrLf
-        strMessage = strMessage & "Please contact your administrator to obtain a valid license."
+        sMessage = "? License Invalid" & vbCrLf & vbCrLf
+        sMessage = sMessage & "Error: " & msLastError & vbCrLf & vbCrLf
+        sMessage = sMessage & "Current User: " & GetCurrentUser() & vbCrLf & vbCrLf
+        sMessage = sMessage & "Please contact your administrator to obtain a valid license."
         
-        MsgBox strMessage, vbCritical + vbOKOnly, strTitle
+        MsgBox sMessage, vbCritical + vbOKOnly, sTitle
     End If
     
     Exit Sub
     
 ErrorHandler:
-    MsgBox "Error displaying license information: " & Err.Description, vbCritical, strTitle
+    MsgBox "Error displaying license information: " & Err.Description, vbCritical, sTitle
     
     If Not ErrorHandler Is Nothing Then
         ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LicenseManager.ShowLicenseDialog"
@@ -182,7 +182,7 @@ Private Function CreateValidatorInstance() As Boolean
     Set moLicenseValidator = CreateObject("ARES.LicenseValidator")
     
     If moLicenseValidator Is Nothing Then
-        mstrLastError = "Failed to create license validator COM object. Ensure AresLicenseValidator.dll is registered."
+        msLastError = "Failed to create license validator COM object. Ensure AresLicenseValidator.dll is registered."
         Exit Function
     End If
     
@@ -190,7 +190,7 @@ Private Function CreateValidatorInstance() As Boolean
     Exit Function
     
 ErrorHandler:
-    mstrLastError = "Error creating license validator: " & Err.Description & _
+    msLastError = "Error creating license validator: " & Err.Description & _
                     vbCrLf & "Ensure AresLicenseValidator.dll is properly registered with regasm."
     CreateValidatorInstance = False
     
@@ -198,5 +198,3 @@ ErrorHandler:
         ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LicenseManager.CreateValidatorInstance"
     End If
 End Function
-
-

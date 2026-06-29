@@ -250,7 +250,7 @@ Public Function GetLevel(ByVal LevelName As String, Optional CanCreateLevel As B
     Set GetLevel = Nothing
     
     If Not Application.HasActiveModelReference Then
-        ErrorHandler.HandleError "No active model reference", 0, "GetElements.GetLevel", "ERROR"
+        ErrorHandler.HandleError "No active model reference", 0, "", "GetElements.GetLevel"
         Exit Function
     End If
 

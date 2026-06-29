@@ -41,11 +41,11 @@ ErrorHandler:
 End Function
 
 ' Public function to check if a value is a valid MsdElementType
-Public Function IsValidElementType(ByVal intValue As Integer) As Boolean
+Public Function IsValidElementType(ByVal nValue As Integer) As Boolean
     On Error GoTo ErrorHandler
 
     ' Check if the value is within the range of MsdElementType enum
-    If IsWithinValidRange(intValue) Then
+    If IsWithinValidRange(nValue) Then
         IsValidElementType = True
         Exit Function
     End If
@@ -125,22 +125,22 @@ ErrorHandler:
 End Function
 
 ' Private function to check if the value is within the valid range of MsdElementType
-Private Function IsWithinValidRange(ByVal intValue As Integer) As Boolean
+Private Function IsWithinValidRange(ByVal nValue As Integer) As Boolean
     On Error GoTo ErrorHandler
 
     ' Check if the value is within the valid range of MsdElementType enum
-    IsWithinValidRange = (intValue >= msdElementTypeCellLibraryHeader And intValue <= msdElementTypeSolid) _
-        Or (intValue >= msdElementTypeBsplinePole And intValue <= msdElementTypeBsplineWeight) _
-        Or (intValue >= msdElementTypeDimension And intValue <= msdElementTypeDgnStoreHeader) _
-        Or intValue = msdElementType44 _
-        Or intValue = msdElementTypeMicroStation _
-        Or (intValue >= msdElementTypeRasterHeader And intValue <= msdElementTypeRasterComponent) _
-        Or (intValue >= msdElementTypeRasterReference And intValue <= msdElementTypeRasterReference) _
-        Or (intValue >= msdElementTypeRasterFrame And intValue <= msdElementTypeMatrixDoubleData) _
-        Or intValue = msdElementTypeMeshHeader _
-        Or intValue = msdElementTypeReferenceOverride _
-        Or intValue = msdElementTypeNamedGroupHeader _
-        Or intValue = msdElementTypeNamedGroupComponent
+    IsWithinValidRange = (nValue >= msdElementTypeCellLibraryHeader And nValue <= msdElementTypeSolid) _
+        Or (nValue >= msdElementTypeBsplinePole And nValue <= msdElementTypeBsplineWeight) _
+        Or (nValue >= msdElementTypeDimension And nValue <= msdElementTypeDgnStoreHeader) _
+        Or nValue = msdElementType44 _
+        Or nValue = msdElementTypeMicroStation _
+        Or (nValue >= msdElementTypeRasterHeader And nValue <= msdElementTypeRasterComponent) _
+        Or (nValue >= msdElementTypeRasterReference And nValue <= msdElementTypeRasterReference) _
+        Or (nValue >= msdElementTypeRasterFrame And nValue <= msdElementTypeMatrixDoubleData) _
+        Or nValue = msdElementTypeMeshHeader _
+        Or nValue = msdElementTypeReferenceOverride _
+        Or nValue = msdElementTypeNamedGroupHeader _
+        Or nValue = msdElementTypeNamedGroupComponent
 
     Exit Function
 
@@ -169,5 +169,5 @@ Public Function IsRasterElement(ByVal El As element) As Boolean
 
 ErrorHandler:
     IsRasterElement = False
-    ErrorHandler.HandleError Err.Description, Err.Number, "MicroStationDefinition.IsRasterElement", "ERROR"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "MicroStationDefinition.IsRasterElement"
 End Function

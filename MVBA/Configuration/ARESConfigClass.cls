@@ -4,8 +4,8 @@
 ' Dependencies: Config, ARES_MS_VAR_Class, ErrorHandlerClass
 Option Explicit
 
-Private pConfigVariables As Collection
-Private pInitialized As Boolean
+Private moConfigVariables As Collection
+Private mbInitialized As Boolean
 
 '######################################################################################################################
 '                             CAN BE MODIFIED IN MS ENVIRONMENT VARIABLES DO NOT MODIFY HERE
@@ -77,19 +77,22 @@ Public ARES_REGIONSPLIT_COLLINEAR_TOL As ARES_MS_VAR_Class 'Default Value: 0.000
 Public ARES_REGIONSPLIT_KEEP_ORIGINAL As ARES_MS_VAR_Class 'Default Value: False                  True or False (Boolean)
 ' Used in RegionSplit module — max chordal deviation (master units) when densifying an arc boundary side into a polyline; smaller => more chords => closer-to-radial perpendicular and tighter entry foot
 Public ARES_REGIONSPLIT_STROKE_TOL As ARES_MS_VAR_Class 'Default Value: 0.01                       Stroke chordal tolerance in master units (Double, > 0)
+' Used in CustomPropertyHandler module — allowed values for the "Coupe Type" custom property (dropdown choices).
+' NOT hard-coded in code: edit this variable to change the list. Array delimited by | (ARES_VAR_DELIMITER).
+Public ARES_COUPE_TYPE_LIST As ARES_MS_VAR_Class 'Default Value: TR1C|TR1A|TR1D    can be an array use | (ARES_VAR_DELIMITER)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
     On Error GoTo ErrorHandler
 
     Initialize = False
-    Set pConfigVariables = New Collection
-    pInitialized = False
+    Set moConfigVariables = New Collection
+    mbInitialized = False
 
     ' Create all configuration variables
     If Not CreateConfigVariables() Then Exit Function
 
-    pInitialized = True
+    mbInitialized = True
     Initialize = True
     Exit Function
 
@@ -137,6 +140,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
     Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
     Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")
+    Set ARES_COUPE_TYPE_LIST = CreateConfigVar("ARES_Coupe_Type_List", "TR1C|TR1A|TR1D")
     CreateConfigVariables = True
     Exit Function
 
@@ -164,14 +168,14 @@ Private Function CreateConfigVar(ByVal Key As String, ByVal DefaultValue As Stri
     End If
 
     ConfigVar.Value = currentValue
-    pConfigVariables.Add ConfigVar, Key
+    moConfigVariables.Add ConfigVar, Key
     Set CreateConfigVar = ConfigVar
 End Function
 
 ' Get a configuration variable by key
 Public Function GetConfigVar(ByVal Key As String) As ARES_MS_VAR_Class
     On Error Resume Next
-    Set GetConfigVar = pConfigVariables(Key)
+    Set GetConfigVar = moConfigVariables(Key)
     If Err.Number <> 0 Then
         Set GetConfigVar = Nothing
     End If
@@ -183,7 +187,7 @@ Public Function ResetConfigVar(ByVal Key As String) As Boolean
     On Error GoTo ErrorHandler
 
     Dim ConfigVar As ARES_MS_VAR_Class
-    Set ConfigVar = pConfigVariables(Key)
+    Set ConfigVar = moConfigVariables(Key)
 
     ' Reset in MicroStation
     If Not Config.SetVar(Key, ConfigVar.DefaultValue) Then
@@ -207,7 +211,7 @@ Public Function RemoveConfigVar(ByVal Key As String, Optional showConfirmation A
     On Error GoTo ErrorHandler
 
     Dim ConfigVar As ARES_MS_VAR_Class
-    Set ConfigVar = pConfigVariables(Key)
+    Set ConfigVar = moConfigVariables(Key)
 
     ' Ask for confirmation
     If showConfirmation Then
@@ -224,7 +228,7 @@ Public Function RemoveConfigVar(ByVal Key As String, Optional showConfirmation A
     End If
 
     ' Remove from collection
-    pConfigVariables.Remove Key
+    moConfigVariables.Remove Key
     RemoveConfigVar = True
 
     Exit Function
@@ -242,7 +246,7 @@ Public Function ResetAllConfigVars() As Boolean
     Dim Success As Boolean
 
     Success = True
-    For Each var In pConfigVariables
+    For Each var In moConfigVariables
         If Not ResetConfigVar(var.Key) Then
             Success = False
         End If
@@ -273,10 +277,10 @@ Public Function RemoveAllConfigVars() As Boolean
     Dim keysToRemove() As String
     Dim keyCount As Long
     Dim k As Long
-    keyCount = pConfigVariables.Count
+    keyCount = moConfigVariables.Count
     ReDim keysToRemove(1 To keyCount)
     k = 1
-    For Each var In pConfigVariables
+    For Each var In moConfigVariables
         keysToRemove(k) = var.Key
         k = k + 1
     Next var
@@ -298,7 +302,7 @@ End Function
 
 ' Check if the configuration has been initialized
 Public Property Get IsInitialized() As Boolean
-    IsInitialized = pInitialized
+    IsInitialized = mbInitialized
 End Property
 
 ' Export configuration to file
@@ -307,8 +311,8 @@ Public Function ExportConfig(Optional ByVal Filepath As String = "") As Boolean
     
     ExportConfig = False
     
-    If Not pInitialized Then
-        ErrorHandler.HandleError "Configuration not initialized", 0, "ARESConfigClass.ExportConfig"
+    If Not mbInitialized Then
+        ErrorHandler.HandleError "Configuration not initialized", 0, "", "ARESConfigClass.ExportConfig"
         Exit Function
     End If
     
@@ -328,7 +332,7 @@ Public Function ExportConfig(Optional ByVal Filepath As String = "") As Boolean
     ExportData = ExportData & vbCrLf
     
     ' Export each configuration variable
-    For Each ConfigVar In pConfigVariables
+    For Each ConfigVar In moConfigVariables
         ExportData = ExportData & FormatConfigForExport(ConfigVar) & vbCrLf
     Next ConfigVar
     
@@ -353,13 +357,13 @@ Public Function ImportConfig(ByVal Filepath As String, Optional ByVal OverwriteE
     
     ImportConfig = False
     
-    If Not pInitialized Then
-        ErrorHandler.HandleError "Configuration not initialized", 0, "ARESConfigClass.ImportConfig"
+    If Not mbInitialized Then
+        ErrorHandler.HandleError "Configuration not initialized", 0, "", "ARESConfigClass.ImportConfig"
         Exit Function
     End If
     
     If Len(dir(Filepath)) = 0 Then
-        ErrorHandler.HandleError "Import file not found: " & Filepath, 0, "ARESConfigClass.ImportConfig"
+        ErrorHandler.HandleError "Import file not found: " & Filepath, 0, "", "ARESConfigClass.ImportConfig"
         Exit Function
     End If
     
@@ -380,7 +384,7 @@ Public Function ImportConfig(ByVal Filepath As String, Optional ByVal OverwriteE
             Dim fileVersion As String
             fileVersion = Trim(Mid(Trim(Line), 11))
             If fileVersion <> ARES_CONFIG_VERSION Then
-                ErrorHandler.HandleError "Config version mismatch: file=" & fileVersion & ", expected=" & ARES_CONFIG_VERSION, 0, "ARESConfigClass.ImportConfig", "WARNING"
+                ErrorHandler.HandleError "Config version mismatch: file=" & fileVersion & ", expected=" & ARES_CONFIG_VERSION, 0, "", "ARESConfigClass.ImportConfig"
             End If
         End If
 
@@ -397,7 +401,7 @@ Public Function ImportConfig(ByVal Filepath As String, Optional ByVal OverwriteE
     Close #FileNum
 
     If SkippedCount > 0 Then
-        ErrorHandler.HandleError SkippedCount & " line(s) skipped during import of: " & Filepath, 0, "ARESConfigClass.ImportConfig", "WARNING"
+        ErrorHandler.HandleError SkippedCount & " line(s) skipped during import of: " & Filepath, 0, "", "ARESConfigClass.ImportConfig"
     End If
 
     ImportConfig = True
@@ -418,7 +422,7 @@ Public Function GetConfigSummary() As String
     
     Summary = "=== ARES Configuration Summary ===" & vbCrLf & vbCrLf
     
-    For Each ConfigVar In pConfigVariables
+    For Each ConfigVar In moConfigVariables
         Summary = Summary & ConfigVar.Key & " = " & ConfigVar.Value
         If Not ConfigVar.IsDefault() Then
             Summary = Summary & " (Modified from: " & ConfigVar.DefaultValue & ")"
@@ -486,7 +490,7 @@ Private Function ProcessImportLine(ByVal Line As String, ByVal OverwriteExisting
     ' Check if key exists in our configuration
     Set ConfigVar = GetConfigVar(ConfigKey)
     If ConfigVar Is Nothing Then
-        ErrorHandler.HandleError "Unknown configuration key: " & ConfigKey, 0, "ARESConfigClass.ProcessImportLine"
+        ErrorHandler.HandleError "Unknown configuration key: " & ConfigKey, 0, "", "ARESConfigClass.ProcessImportLine"
         Exit Function
     End If
     

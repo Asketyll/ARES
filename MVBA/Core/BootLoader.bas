@@ -74,16 +74,16 @@ Public Sub OnProjectLoad()
 
 ErrorHandler:
     ' Notify user about failure with detailed error information
-    Dim strErrorMsg As String
-    strErrorMsg = "Critical error during ARES initialization: " & Err.Description & vbCrLf & _
+    Dim sErrorMsg As String
+    sErrorMsg = "Critical error during ARES initialization: " & Err.Description & vbCrLf & _
                   "Error Number: " & Err.Number & vbCrLf & _
                   "Source: " & Err.Source
     
     If LangManager.IsInit Then
-        strErrorMsg = GetTranslation("BootFail") & vbCrLf & strErrorMsg
+        sErrorMsg = GetTranslation("BootFail") & vbCrLf & sErrorMsg
     End If
     
-    MsgBox strErrorMsg, vbCritical + vbOKOnly, "ARES Initialization Failed"
+    MsgBox sErrorMsg, vbCritical + vbOKOnly, "ARES Initialization Failed"
 End Sub
 
 ' Initialize the global error handler
@@ -122,7 +122,7 @@ Private Function ValidateLicenseOnLoad() As Boolean
     If mbLicenseValid Then
         ValidateLicenseOnLoad = True
     Else
-        ErrorHandler.HandleError "License validation failed: " & LicenseManager.LastError, 0, "BootLoader.ValidateLicenseOnLoad", "ERROR"
+        ErrorHandler.HandleError "License validation failed: " & LicenseManager.LastError, 0, "", "BootLoader.ValidateLicenseOnLoad"
     End If
     
     Exit Function
@@ -138,21 +138,21 @@ End Function
 Private Sub ShowLicenseFailureMessage()
     On Error Resume Next
     
-    Dim strMessage As String
-    Dim strTitle As String
+    Dim sMessage As String
+    Dim sTitle As String
     
-    strTitle = "ARES - License Validation Failed"
-    strMessage = "ARES cannot start because license validation failed." & vbCrLf & vbCrLf
-    strMessage = strMessage & "Error: " & LicenseManager.LastError & vbCrLf & vbCrLf
-    strMessage = strMessage & "Current User: " & LicenseManager.GetCurrentUser() & vbCrLf & vbCrLf
-    strMessage = strMessage & "Possible causes:" & vbCrLf
-    strMessage = strMessage & "• License file not found on network" & vbCrLf
-    strMessage = strMessage & "• User not authorized in license" & vbCrLf
-    strMessage = strMessage & "• Domain mismatch" & vbCrLf
-    strMessage = strMessage & "• Invalid license signature" & vbCrLf & vbCrLf
-    strMessage = strMessage & "Please contact your system administrator."
+    sTitle = "ARES - License Validation Failed"
+    sMessage = "ARES cannot start because license validation failed." & vbCrLf & vbCrLf
+    sMessage = sMessage & "Error: " & LicenseManager.LastError & vbCrLf & vbCrLf
+    sMessage = sMessage & "Current User: " & LicenseManager.GetCurrentUser() & vbCrLf & vbCrLf
+    sMessage = sMessage & "Possible causes:" & vbCrLf
+    sMessage = sMessage & "• License file not found on network" & vbCrLf
+    sMessage = sMessage & "• User not authorized in license" & vbCrLf
+    sMessage = sMessage & "• Domain mismatch" & vbCrLf
+    sMessage = sMessage & "• Invalid license signature" & vbCrLf & vbCrLf
+    sMessage = sMessage & "Please contact your system administrator."
     
-    MsgBox strMessage, vbCritical + vbOKOnly, strTitle
+    MsgBox sMessage, vbCritical + vbOKOnly, sTitle
     ShowStatus "ARES disabled - License validation failed"
 End Sub
 
@@ -394,34 +394,34 @@ End Sub
 Public Function GetLicenseRecheckIntervalSeconds() As Long
     On Error GoTo ErrorHandler
 
-    Dim lValue As Long
-    Dim strRaw As String
+    Dim nValue As Long
+    Dim sRaw As String
 
     GetLicenseRecheckIntervalSeconds = LICENSE_RECHECK_INTERVAL_DEFAULT
 
     If Not ARESConfig.IsInitialized Then Exit Function
     If ARESConfig.ARES_LICENSE_RECHECK_INTERVAL Is Nothing Then Exit Function
 
-    strRaw = ARESConfig.ARES_LICENSE_RECHECK_INTERVAL.Value
+    sRaw = ARESConfig.ARES_LICENSE_RECHECK_INTERVAL.Value
 
     On Error Resume Next
-    lValue = CLng(strRaw)
+    nValue = CLng(sRaw)
     If Err.Number <> 0 Then
         Err.Clear
         On Error GoTo ErrorHandler
-        ErrorHandler.HandleError "Invalid ARES_License_Recheck_Interval value '" & strRaw & "', falling back to default " & LICENSE_RECHECK_INTERVAL_DEFAULT, _
-                                 0, "BootLoader.GetLicenseRecheckIntervalSeconds", "WARNING"
+        ErrorHandler.HandleError "Invalid ARES_License_Recheck_Interval value '" & sRaw & "', falling back to default " & LICENSE_RECHECK_INTERVAL_DEFAULT, _
+                                 0, "", "BootLoader.GetLicenseRecheckIntervalSeconds"
         Exit Function
     End If
     On Error GoTo ErrorHandler
 
-    If lValue < LICENSE_RECHECK_INTERVAL_MIN Or lValue > LICENSE_RECHECK_INTERVAL_MAX Then
-        ErrorHandler.HandleError "ARES_License_Recheck_Interval=" & lValue & " out of range [" & LICENSE_RECHECK_INTERVAL_MIN & ".." & LICENSE_RECHECK_INTERVAL_MAX & "], falling back to default " & LICENSE_RECHECK_INTERVAL_DEFAULT, _
-                                 0, "BootLoader.GetLicenseRecheckIntervalSeconds", "WARNING"
+    If nValue < LICENSE_RECHECK_INTERVAL_MIN Or nValue > LICENSE_RECHECK_INTERVAL_MAX Then
+        ErrorHandler.HandleError "ARES_License_Recheck_Interval=" & nValue & " out of range [" & LICENSE_RECHECK_INTERVAL_MIN & ".." & LICENSE_RECHECK_INTERVAL_MAX & "], falling back to default " & LICENSE_RECHECK_INTERVAL_DEFAULT, _
+                                 0, "", "BootLoader.GetLicenseRecheckIntervalSeconds"
         Exit Function
     End If
 
-    GetLicenseRecheckIntervalSeconds = lValue
+    GetLicenseRecheckIntervalSeconds = nValue
     Exit Function
 
 ErrorHandler:
@@ -456,22 +456,22 @@ Public Function RecheckLicenseIfDue() As Boolean
     End If
 
 #If VBA7 Then
-    Dim llNow As LongLong
-    Dim llDelta As LongLong
-    llNow = GetTickCount64
-    llDelta = llNow - mllLastLicenseCheckTicks  ' Unsigned 64-bit; wraparound is not a practical concern.
-    If llDelta >= CLngLng(mlCachedIntervalMs) Then
+    Dim tickNow As LongLong
+    Dim tickDelta As LongLong
+    tickNow = GetTickCount64
+    tickDelta = tickNow - mllLastLicenseCheckTicks  ' Unsigned 64-bit; wraparound is not a practical concern.
+    If tickDelta >= CLngLng(mlCachedIntervalMs) Then
         PerformLicenseRecheck
         RecheckLicenseIfDue = True
     End If
 #Else
-    Dim lNow As Long
-    Dim lDelta As Long
-    lNow = GetTickCount
-    lDelta = lNow - mlLastLicenseCheckTicks
+    Dim tickNow As Long
+    Dim tickDelta As Long
+    tickNow = GetTickCount
+    tickDelta = tickNow - mlLastLicenseCheckTicks
     ' Signed 32-bit Long wraps at ~24.85 days; treat negative delta as due to force a single
     ' re-check then refresh the baseline. Documented limitation on legacy VBA6 hosts.
-    If lDelta < 0 Or lDelta >= mlCachedIntervalMs Then
+    If tickDelta < 0 Or tickDelta >= mlCachedIntervalMs Then
         PerformLicenseRecheck
         RecheckLicenseIfDue = True
     End If
@@ -537,18 +537,18 @@ Private Sub OnLicenseInvalidated()
 
     ' Show MsgBox once per transition.
     If Not mbLicenseInvalidatedNotified Then
-        Dim strBody As String
-        Dim strTitle As String
+        Dim sBody As String
+        Dim sTitle As String
         If LangManager.IsInit Then
-            strBody = GetTranslation("LicenseInvalidatedMidSession")
-            strTitle = GetTranslation("LicenseRecheckTitle")
+            sBody = GetTranslation("LicenseInvalidatedMidSession")
+            sTitle = GetTranslation("LicenseRecheckTitle")
         Else
-            strBody = "ARES license has become invalid during this session." & vbCrLf & _
+            sBody = "ARES license has become invalid during this session." & vbCrLf & _
                       "Features have been disabled until the license is restored." & vbCrLf & vbCrLf & _
                       "Reason: " & LicenseManager.LastError
-            strTitle = "ARES - License Invalid"
+            sTitle = "ARES - License Invalid"
         End If
-        MsgBox strBody, vbCritical + vbOKOnly, strTitle
+        MsgBox sBody, vbCritical + vbOKOnly, sTitle
         mbLicenseInvalidatedNotified = True
     End If
 
@@ -580,7 +580,7 @@ Private Sub OnLicenseRecovered()
         If Not mbDGNHandlersInitialized Then
             If Not InitializeDGNHandlers() Then
                 ErrorHandler.HandleError "Failed to initialize DGN handlers on license recovery", _
-                                         0, "BootLoader.OnLicenseRecovered", "ERROR"
+                                         0, "", "BootLoader.OnLicenseRecovered"
                 Exit Sub
             End If
         End If

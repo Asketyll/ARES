@@ -5,25 +5,25 @@
 Option Explicit
 
 ' Array to store the linked elements
-Private pLinkedElements() As element
+Private moLinkedElements() As element
 ' Variable to store the master element
-Private pMasterElement As element
+Private moMasterElement As element
 ' Instance of the AutoLengths class to handle auto-length operations
-Private pAutoLengths As AutoLengths
+Private moAutoLengths As AutoLengths
 
 ' Method to set the linked elements from an external array
 Public Sub SetLinkedElements(elements() As element)
-    pLinkedElements = elements
+    moLinkedElements = elements
 End Sub
 
 ' Property to set the master element
 Public Property Set SetMasterElement(ByVal El As element)
-    Set pMasterElement = El
+    Set moMasterElement = El
 End Property
 
 ' Property to set the instance of AutoLengths
 Public Property Set AutoLengthsInstance(ByVal AutoLengths As AutoLengths)
-    Set pAutoLengths = AutoLengths
+    Set moAutoLengths = AutoLengths
 End Property
 
 ' Event handler for clicking an item in the ListBox
@@ -37,10 +37,10 @@ Private Sub ListBox1_Click()
         ' Get the index of the selected element
         selectedIndex = ListBox1.List(ListBox1.ListIndex, 1)
         ' Check if the selected element is valid
-        If Not pLinkedElements(selectedIndex) Is Nothing Then
+        If Not moLinkedElements(selectedIndex) Is Nothing Then
             ' Zoom and highlight the selected element
-            MSGraphicalInteraction.ZoomEl pLinkedElements(selectedIndex)
-            MSGraphicalInteraction.HighlightEl pLinkedElements(selectedIndex)
+            MSGraphicalInteraction.ZoomEl moLinkedElements(selectedIndex)
+            MSGraphicalInteraction.HighlightEl moLinkedElements(selectedIndex)
         Else
             ' Show an error message if the selected element is invalid
             MsgBox GetTranslation("AutoLengthsGUIInvalidSelectedElement"), vbExclamation
@@ -68,7 +68,7 @@ Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
         ' Clear the transient element collection
         Set TEC = Nothing   'Is public, Used in MSGraphicalInteraction for TransientElement
         ' Call the method to handle the selected element
-        OnElementSelected pLinkedElements(selectedIndex)
+        OnElementSelected moLinkedElements(selectedIndex)
     End If
 
     Exit Sub
@@ -105,7 +105,7 @@ End Sub
 Private Sub OnElementSelected(ByVal selectedElement As element)
     On Error GoTo ErrorHandler
     ' Call the method in the existing AutoLengths instance to continue the execution
-    pAutoLengths.OnElementSelected selectedElement, pMasterElement
+    moAutoLengths.OnElementSelected selectedElement, moMasterElement
     Exit Sub
 
 ErrorHandler:

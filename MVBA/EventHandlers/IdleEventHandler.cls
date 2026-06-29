@@ -104,8 +104,8 @@ Private Sub ProcessPendingElements()
     
     Dim colElements As Collection
     Dim oElement As element
-    Dim intProcessedCount As Long
-    Dim intErrorCount As Long
+    Dim nProcessedCount As Long
+    Dim nErrorCount As Long
     
     ' Set processing flag and suppress bulk detection during ARES's own modifications
     mbIsProcessing = True
@@ -121,8 +121,8 @@ Private Sub ProcessPendingElements()
     End If
     
     ' Process each element
-    intProcessedCount = 0
-    intErrorCount = 0
+    nProcessedCount = 0
+    nErrorCount = 0
     
     For Each oElement In colElements
         On Error Resume Next
@@ -131,13 +131,13 @@ Private Sub ProcessPendingElements()
         ChangeHandler.ProcessElement oElement
 
         If Err.Number = 0 Then
-            intProcessedCount = intProcessedCount + 1
+            nProcessedCount = nProcessedCount + 1
         Else
-            intErrorCount = intErrorCount + 1
+            nErrorCount = nErrorCount + 1
             ErrorHandler.HandleError "Failed to process element ID: " & DLongToString(oElement.ID) & " - " & Err.Description, _
                                    Err.Number, _
-                                   "IdleEventHandler.ProcessPendingElements", _
-                                   "WARNING"
+                                   Err.Source, _
+                                   "IdleEventHandler.ProcessPendingElements"
             Err.Clear
         End If
     Next oElement
@@ -145,11 +145,11 @@ Private Sub ProcessPendingElements()
     On Error GoTo ErrorHandler
     
     ' Log processing statistics if there were issues
-    If intErrorCount > 0 Then
-        ErrorHandler.HandleError "Idle processing completed: " & intProcessedCount & " succeeded, " & intErrorCount & " failed", _
+    If nErrorCount > 0 Then
+        ErrorHandler.HandleError "Idle processing completed: " & nProcessedCount & " succeeded, " & nErrorCount & " failed", _
                                0, _
-                               "IdleEventHandler.ProcessPendingElements", _
-                               "INFO"
+                               "", _
+                               "IdleEventHandler.ProcessPendingElements"
     End If
 
     ' Always cleanup after processing

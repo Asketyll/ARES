@@ -44,8 +44,8 @@ Public Function GetLatestVersionFromGitHub() As String
     Dim oHttp As Object
     Dim sResponse As String
     Dim sTagName As String
-    Dim lStart As Long
-    Dim lEnd As Long
+    Dim nStart As Long
+    Dim nEnd As Long
 
     msExpectedHash = ""
 
@@ -60,20 +60,20 @@ Public Function GetLatestVersionFromGitHub() As String
     Set oHttp = Nothing
 
     ' Extract tag_name value from JSON response
-    lStart = InStr(sResponse, """tag_name""")
-    If lStart = 0 Then GoTo ErrorHandler
+    nStart = InStr(sResponse, """tag_name""")
+    If nStart = 0 Then GoTo ErrorHandler
 
-    lStart = InStr(lStart, sResponse, ":")
-    If lStart = 0 Then GoTo ErrorHandler
+    nStart = InStr(nStart, sResponse, ":")
+    If nStart = 0 Then GoTo ErrorHandler
 
-    lStart = InStr(lStart, sResponse, """")
-    If lStart = 0 Then GoTo ErrorHandler
-    lStart = lStart + 1
+    nStart = InStr(nStart, sResponse, """")
+    If nStart = 0 Then GoTo ErrorHandler
+    nStart = nStart + 1
 
-    lEnd = InStr(lStart, sResponse, """")
-    If lEnd = 0 Then GoTo ErrorHandler
+    nEnd = InStr(nStart, sResponse, """")
+    If nEnd = 0 Then GoTo ErrorHandler
 
-    sTagName = Mid(sResponse, lStart, lEnd - lStart)
+    sTagName = Mid(sResponse, nStart, nEnd - nStart)
 
     ' Strip leading "v." if present (e.g. "v.1.2.3" -> "1.2.3")
     If Left(sTagName, 2) = "v." Then sTagName = Mid(sTagName, 3)
@@ -81,22 +81,22 @@ Public Function GetLatestVersionFromGitHub() As String
     ' Extract SHA256 digest for ARES.mvba from the assets array.
     ' GitHub API asset format: { "name": "ARES.mvba", ..., "digest": "sha256:<hex>", ... }
     ' Strategy: find "ARES.mvba", then find "digest" before the next asset's "name" field.
-    Dim lAssetPos As Long
-    Dim lNextNamePos As Long
-    Dim lDigestPos As Long
-    Dim lHashStart As Long
-    Dim lHashEnd As Long
+    Dim nAssetPos As Long
+    Dim nNextNamePos As Long
+    Dim nDigestPos As Long
+    Dim nHashStart As Long
+    Dim nHashEnd As Long
 
-    lAssetPos = InStr(sResponse, """ARES.mvba""")
-    If lAssetPos > 0 Then
-        lNextNamePos = InStr(lAssetPos + 1, sResponse, """name""")
-        lDigestPos = InStr(lAssetPos, sResponse, """digest""")
-        If lDigestPos > 0 And (lNextNamePos = 0 Or lDigestPos < lNextNamePos) Then
-            lHashStart = InStr(lDigestPos, sResponse, "sha256:")
-            If lHashStart > 0 And (lNextNamePos = 0 Or lHashStart < lNextNamePos) Then
-                lHashEnd = InStr(lHashStart, sResponse, """")
-                If lHashEnd > 0 Then
-                    msExpectedHash = Mid(sResponse, lHashStart + 7, lHashEnd - lHashStart - 7)
+    nAssetPos = InStr(sResponse, """ARES.mvba""")
+    If nAssetPos > 0 Then
+        nNextNamePos = InStr(nAssetPos + 1, sResponse, """name""")
+        nDigestPos = InStr(nAssetPos, sResponse, """digest""")
+        If nDigestPos > 0 And (nNextNamePos = 0 Or nDigestPos < nNextNamePos) Then
+            nHashStart = InStr(nDigestPos, sResponse, "sha256:")
+            If nHashStart > 0 And (nNextNamePos = 0 Or nHashStart < nNextNamePos) Then
+                nHashEnd = InStr(nHashStart, sResponse, """")
+                If nHashEnd > 0 Then
+                    msExpectedHash = Mid(sResponse, nHashStart + 7, nHashEnd - nHashStart - 7)
                     ' SHA256 hex is always 64 chars — discard if malformed
                     If Len(msExpectedHash) <> 64 Then msExpectedHash = ""
                 End If

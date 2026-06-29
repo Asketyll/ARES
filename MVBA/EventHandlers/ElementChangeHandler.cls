@@ -449,12 +449,12 @@ End Function
 '   True if the element is valid and can be processed
 Private Function IsElementValid(ByVal oElement As element) As Boolean
     On Error GoTo InvalidElement
-    Dim lTest As Long
+    Dim nTest As Long
 
     IsElementValid = False
 
     ' Try to access a property - will fail if element is invalid/deleted
-    lTest = oElement.Type
+    nTest = oElement.Type
 
     ' Check if element is graphical (required for ARES processing)
     If Not oElement.IsGraphical Then Exit Function

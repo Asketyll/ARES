@@ -138,14 +138,14 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
 
     ' --- T7: aggregate lengths ---
     Dim oGroups       As Object   ' Scripting.Dictionary
-    Dim lElementCount As Long
+    Dim nElementCount As Long
     Set oGroups = CreateObject("Scripting.Dictionary")
-    AggregateLengths oee, zones, ZoneLevel, oGroups, lElementCount, sGroupBy
+    AggregateLengths oee, zones, ZoneLevel, oGroups, nElementCount, sGroupBy
 
     ' --- T8: export to Excel (always create the workbook, even when empty — AC-8) ---
     WriteToExcel oGroups, Filepath, ExcelVisible, sGroupBy
 
-    ShowStatus "ARES: ExportLengthInRegion complete - " & CStr(lElementCount) & " elements, " & CStr(oGroups.Count) & " groups (" & sGroupBy & ")"
+    ShowStatus "ARES: ExportLengthInRegion complete - " & CStr(nElementCount) & " elements, " & CStr(oGroups.Count) & " groups (" & sGroupBy & ")"
     Exit Sub
 
 ErrorHandler:
@@ -254,7 +254,7 @@ Private Sub AggregateLengths(ByVal oee As ElementEnumerator, _
                               ByRef oZones() As Element, _
                               ByVal sZoneLevelName As String, _
                               ByRef oOutGroups As Object, _
-                              ByRef lOutElementCount As Long, _
+                              ByRef nOutElementCount As Long, _
                               ByVal sGroupBy As String)
     On Error GoTo ErrorHandler
 
@@ -262,7 +262,7 @@ Private Sub AggregateLengths(ByVal oee As ElementEnumerator, _
     Dim sKey As String
     Dim dLen As Double
 
-    lOutElementCount = 0
+    nOutElementCount = 0
     If oee Is Nothing Then Exit Sub
 
     Do While oee.MoveNext
@@ -280,7 +280,7 @@ Private Sub AggregateLengths(ByVal oee As ElementEnumerator, _
                 Else
                     oOutGroups.Add sKey, dLen
                 End If
-                lOutElementCount = lOutElementCount + 1
+                nOutElementCount = nOutElementCount + 1
             End If
         End If
     Loop

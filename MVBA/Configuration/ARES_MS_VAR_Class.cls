@@ -9,13 +9,13 @@ Public Key As String                ' Configuration variable key
 Public DefaultValue As String       ' Default value for reset operations
 
 ' === PRIVATE MEMBERS ===
-Private mstrValue As String         ' Current value of the configuration variable
+Private msValue As String         ' Current value of the configuration variable
 Private mbIsModified As Boolean     ' Flag to track if value has been modified
 
 ' Property to get the current value of the configuration variable
 Public Property Get Value() As String
     On Error GoTo ErrorHandler
-    Value = mstrValue
+    Value = msValue
     Exit Property
     
 ErrorHandler:
@@ -24,21 +24,21 @@ ErrorHandler:
 End Property
 
 ' Property to set the value of the configuration variable
-Public Property Let Value(ByVal strNewValue As String)
+Public Property Let Value(ByVal sNewValue As String)
     On Error GoTo ErrorHandler
     
-    Dim strOldValue As String
-    strOldValue = mstrValue
+    Dim sOldValue As String
+    sOldValue = msValue
     
     ' Update the value
-    mstrValue = strNewValue
+    msValue = sNewValue
     
     ' Track modification state
-    mbIsModified = (mstrValue <> DefaultValue)
+    mbIsModified = (msValue <> DefaultValue)
 
     ' Persist to MicroStation configuration only if value actually changed
-    If Len(Key) > 0 And strNewValue <> strOldValue Then
-        Config.SetVar Key, strNewValue
+    If Len(Key) > 0 And sNewValue <> sOldValue Then
+        Config.SetVar Key, sNewValue
     End If
 	
     Exit Property
@@ -51,7 +51,7 @@ End Property
 Public Sub ResetToDefault()
     On Error GoTo ErrorHandler
     
-    mstrValue = DefaultValue
+    msValue = DefaultValue
     mbIsModified = False
     
     Exit Sub
@@ -64,7 +64,7 @@ End Sub
 Public Function IsDefault() As Boolean
     On Error GoTo ErrorHandler
     
-    IsDefault = (mstrValue = DefaultValue)
+    IsDefault = (msValue = DefaultValue)
     Exit Function
     
 ErrorHandler:
@@ -88,7 +88,7 @@ End Function
 Public Function IsValid() As Boolean
     On Error GoTo ErrorHandler
     
-    IsValid = (Len(Trim(mstrValue)) > 0)
+    IsValid = (Len(Trim(msValue)) > 0)
     Exit Function
     
 ErrorHandler:
@@ -100,7 +100,7 @@ End Function
 Public Function ToString() As String
     On Error GoTo ErrorHandler
     
-    ToString = "Key: " & Key & ", Value: " & mstrValue & ", Default: " & DefaultValue & ", Modified: " & CStr(mbIsModified)
+    ToString = "Key: " & Key & ", Value: " & msValue & ", Default: " & DefaultValue & ", Modified: " & CStr(mbIsModified)
     Exit Function
     
 ErrorHandler:
@@ -113,6 +113,6 @@ Private Sub Class_Terminate()
     On Error Resume Next
     Key = ""
     DefaultValue = ""
-    mstrValue = ""
+    msValue = ""
     mbIsModified = False
 End Sub
