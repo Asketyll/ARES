@@ -242,7 +242,6 @@ A review MUST flag these as **BLOCKER** (not nit):
   - `GetSetTextsInEl` GET on a single `TextElement` returns a **per-character** array.
   - Region boolean ops are unstable far from the origin (see the near-origin workaround).
   - Win32 handles must be `LongPtr` under VBA7.
-  - `IsNull()` / `= Null` on a `String` is always `False` (dead code).
 
 ## Development
 
@@ -253,8 +252,6 @@ A review MUST flag these as **BLOCKER** (not nit):
 3. Import all `.bas`, `.cls`, and `.frm` files, preserving the folder structure.
 4. Compile as `ARES.mvba`.
 5. Create an ARES license (see [`../tools/`](../tools/README.md)).
-
-> After editing a module that uses `WithEvents` or `Implements` (the event handlers), **re-import all changed modules and fully restart MicroStation** — re-importing into a live session can leave stale COM type info (Error 13 "Type Mismatch").
 
 ### Dependencies
 
