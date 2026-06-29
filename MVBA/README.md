@@ -227,7 +227,7 @@ A review MUST flag these as **BLOCKER** (not nit):
 
 - Module without `Option Explicit`.
 - `Public` Function/Sub without `On Error GoTo ErrorHandler` + the standard `HandleError` (unless a documented exception above).
-- Any MVBA type/object/method/property used without verifying its signature in the MVBA docs (the specific page, not just the index).
+- Any MVBA type/object/method/property used without verifying its signature in the [MVBA docs](https://github.com/Asketyll/mvba-docs-in-md-for-ai) (the specific page, not just the index).
 - `Element.ID` (DLong) used without DLong helpers; an element modified without `.Rewrite`.
 - A new geometry feature that deletes/overwrites before both replacement elements are validated and added (anti-destructive invariant).
 - A new feature key-in not gated by `LicenseManager.IsLicenseValid()` at entry (license-gate rule).
