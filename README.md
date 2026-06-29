@@ -19,12 +19,12 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 
 ## Components
 
-| Directory | Description | Documentation |
-|:---------:|:------------|:-------------:|
-| [`MVBA/`](MVBA/) | MicroStation VBA project - core add-in functionality | [README](MVBA/README.md) |
-| [`installer/`](installer/) | C# Windows Forms installer application | [README](installer/README.md) |
-| [`license-validator/`](license-validator/) | COM-visible DLL for license validation | [README](license-validator/README.md) |
-| [`tools/`](tools/) | PowerShell scripts for license generation | [README](tools/README.md) |
+| Directory | Tech | Role | Docs |
+|:--------:|:----:|:-----|:----:|
+| [`MVBA/`](MVBA/) | VBA 7.1 | The MicroStation add-in (core functionality) | [README](MVBA/README.md) |
+| [`installer/`](installer/) | C# WinForms | Windows installer; writes `HKCU\Software\ARES\Version` | [README](installer/README.md) |
+| [`license-validator/`](license-validator/) | C# COM DLL | Network license validation (`ARES.LicenseValidator`), called from `LicenseManager.bas` | [README](license-validator/README.md) |
+| [`tools/`](tools/) | PowerShell | License generation scripts | [README](tools/README.md) |
 
 ## Features
 

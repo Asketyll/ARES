@@ -2,13 +2,14 @@
 
 This directory contains the complete MVBA (MicroStation Visual Basic for Applications) source code of ARES. This README is the **developer/technical reference** — architecture, lifecycle, the element-processing flow, coding conventions, and review rules.
 
+For the repository as a whole (installer, license validator, tooling), see the [main README](../README.md).
+
 > **User-facing** key-ins and configuration variables are documented in the wiki:
 > https://github.com/Asketyll/ARES/wiki
 > This README does not duplicate the wiki's per-key-in / per-variable tables.
 
 ## Contents
 
-- [Components](#components)
 - [Architecture constraints (VBA 7.1)](#architecture-constraints-vba-71)
 - [Project structure](#project-structure)
 - [Boot & lifecycle](#boot--lifecycle)
@@ -21,17 +22,6 @@ This directory contains the complete MVBA (MicroStation Visual Basic for Applica
 - [Code review — mandatory blockers](#code-review--mandatory-blockers)
 - [MVBA documentation & pitfalls](#mvba-documentation--pitfalls)
 - [Development](#development)
-
-## Components
-
-ARES is a MicroStation productivity add-in. Four components live in the repository:
-
-| Component | Tech | Role |
-|-----------|------|------|
-| **MVBA core** (`MVBA/`) | VBA 7.1 | the MicroStation add-in — **this directory** |
-| Installer (`../installer/`) | C# WinForms | Windows installer; writes `HKCU\Software\ARES\Version` |
-| License validator (`../license-validator/`) | C# COM DLL `ARES.LicenseValidator` | network license check, called from `LicenseManager.bas` |
-| Tooling (`../tools/`) | PowerShell | license generation scripts |
 
 ## Architecture constraints (VBA 7.1)
 
