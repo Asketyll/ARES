@@ -2,21 +2,25 @@
 
 This directory contains the complete MVBA (MicroStation Visual Basic for Applications) source code.
 
+> User-facing key-ins and configuration variables are documented in the wiki:
+> https://github.com/Asketyll/ARES/wiki
+> This README is a developer/technical reference and does not duplicate the wiki's per-key-in / per-variable tables.
+
 ## Structure
 
-- **Command/** - User-facing command entry points
-- **Components/** - Shared reusable modules (Length, GetElements, FileDialogs, Link, …)
-- **Configuration/** - Configuration management (ARESConfigClass, LangManager, Config)
-- **Core/** - System core (ARESConstants, BootLoader, error handling)
-- **EventHandlers/** - Event management (DGN open/close, element changes)
+- **Command/** - User-facing key-in entry points (`Command.bas`)
+- **Components/** - Shared reusable modules: `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs`
+- **Configuration/** - Configuration management: `ARESConfigClass`, `ARES_MS_VAR_Class`, `Config`, `LangManager`
+- **Core/** - System core: `BootLoader`, `ARESConstants`, `ElementInProcesseClass`, `ErrorHandlerClass`, `ColorDialog`
+- **EventHandlers/** - Event management: `DGNOpenClose`, `ElementChangeHandler`, `IdleEventHandler`, `ReRegisterIdleHandler`
 - **Features/** - Business features, each in its own sub-folder:
-  - **AutoLengths/** - Automatic length calculation with GUI
-  - **Zoning/** - Buffer zone generation around elements with GUI. Key-ins: `RunZoning` (`ARES_Zoning_Distance`, default 2.0 m; rounded caps; merged) and `RunZoning2` (`ARES_Zoning2_Distance`, default 0.2 m; flat caps; per-element fusion only — no cross-element merge)
-  - **ZoneExport/** - Element length export inside zones to Excel with GUI
-  - **RegionSplit/** - Split a closed region (Shape / ComplexShape) into two regions with a single datapoint on its boundary. Key-in: `SplitRegion`. The cut runs perpendicular to the local boundary at the clicked point, across to the opposite boundary; both halves inherit the original's level + symbology. **`ComplexShape` boundaries with arcs are supported** — clicking an arc side cuts radially (perpendicular to the arc tangent, i.e. along the radius), while clicking a straight side cuts perpendicular to that segment. Config vars: `ARES_RegionSplit_Collinear_Tol` (default `0.000001`, geometric epsilon; also drives the cut-knife half-width), `ARES_RegionSplit_Stroke_Tol` (default `0.01`, max chordal deviation in master units when densifying an arc boundary side into a polyline — smaller ⇒ more chords ⇒ a closer-to-radial cut and a tighter entry foot; must be `> 0`), `ARES_RegionSplit_Keep_Original` (default `False`; `True` keeps the original alongside the two halves)
-- **Security/** - License validation, AES-256 encryption, UUID, RSA signing
-- **Tests/** - Unit testing suite
-- **Update/** - Automatic update checker
+  - **AutoLengths/** - Automatic length calculation with GUI (`Auto_Lengths.cls` + forms)
+  - **Zoning/** - Buffer-zone generation around elements, with GUI (`Zoning.bas` + form)
+  - **ZoneExport/** - Element length export inside zones to Excel, with GUI (`ExportLengthInRegion.bas` + form)
+  - **RegionSplit/** - Single-datapoint cut of a closed region into two regions (`RegionSplit.bas` engine + `RegionSplitLocate.cls` driver)
+- **Security/** - License validation, AES-256 encryption, machine UUID, in-VBA environment/anti-piracy validation
+- **Tests/** - Unit testing harness (deprecated / unmaintained)
+- **Update/** - Automatic update checker (`UpdateChecker.bas` + form)
 
 ## Development
 
@@ -31,7 +35,7 @@ This directory contains the complete MVBA (MicroStation Visual Basic for Applica
 ### Dependencies
 
 - Tested on MicroStation Connect Edition, OpenCities Map PowerView by Bentley Systems and Atlas/Eras by Sogelink
-- MVBA 7.1 environment
+- VBA 7.1 environment
 
 ## License
 

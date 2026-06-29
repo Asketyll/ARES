@@ -30,7 +30,7 @@ This creates:
 
 **CRITICAL:** Update your C# DLL with the public key:
 ```csharp
-// In LicenseValidatorService.cs
+// In Services/LicenseValidator.cs (class LicenseValidatorService)
 private const string PUBLIC_KEY = @"<RSAKeyValue>
     <Modulus>YOUR_GENERATED_PUBLIC_KEY_HERE</Modulus>
     <Exponent>AQAB</Exponent>
@@ -66,14 +66,16 @@ Open `Generate-ARESLicense.ps1` and replace `$RSA_PRIVATE_KEY` with the content 
 | Domain | No* | Current domain | Windows domain name |
 | AuthorizedUsers | No* | - | Array of users (format: DOMAIN\username) |
 | MaxUsers | No | User count | Maximum concurrent users |
-| OutputPath | No* | - | Network path for license file |
-| PrivateKeyPath | No | - | Path to RSA private key XML file |
+| OutputPath | No* | `\\<DOMAIN>-SRV\Shared` | Network path for license file |
+| PrivateKeyPath | No | - | Path to RSA private key XML file (overrides the embedded `$RSA_PRIVATE_KEY`) |
 
-*If not provided via command line, the script will prompt interactively.
+*All parameters are technically optional (`Mandatory=$false`). If not provided via command line, the script prompts for them interactively. The "Default" column shows the interactive default where one exists.
 
 ## License File Structure
 
-The script generates: `\\OutputPath\ARES_Licenses\ares_license.json`
+The script generates: `<OutputPath>\ARES_Licenses\ares_license.json`
+
+The fields are written in this exact order (the `signature` is computed over all fields up to and including `max_users`, then appended; `version` precedes it in the file):
 ```json
 {
   "company": "Acme Corporation",
@@ -88,21 +90,21 @@ The script generates: `\\OutputPath\ARES_Licenses\ares_license.json`
     "ACME\\bob.wilson"
   ],
   "max_users": 3,
-  "signature": "Base64EncodedRSASignature==",
-  "version": "1.0"
+  "version": "1.0",
+  "signature": "Base64EncodedRSASignature=="
 }
 ```
 
-## License Validation Process<br>
+## License Validation Process
 
-The DLL validates licenses by checking:
+The DLL (`AresLicenseValidator`) validates licenses by checking, in order:
 
-- **File Location** - Searches network drives (Z: to K:) and common UNC paths
-- **JSON Format** - Must be valid JSON with all required fields
-- **RSA Signature** - Verifies data integrity using public key
-- **Windows Domain** - Must match current user's domain
-- **Authorized Users** - Current user must be in the list
-- **Environment Hash** - SHA256(company|domain|ARES_LICENSE_v1)
+- **File Location** - Searches mapped network drives (Z: down to K:), then common UNC paths
+- **JSON Format** - Must be valid JSON deserializable into the license model
+- **RSA Signature** - Verifies the signed fields (company through max_users) using the public key (RSA + SHA256)
+- **Windows Domain** - Must match the current user's domain (case-insensitive)
+- **Authorized Users** - Current `DOMAIN\username` must be in the list (case-insensitive)
+- **Environment Hash** - First 16 chars of Base64(SHA256("company|domain|ARES_LICENSE_v1")); compared case-sensitively
 
 ## Network Deployment
 ```
@@ -165,7 +167,7 @@ Choose 'Y' at prompt and update script and DLL with generated keys.
 
 ### License validation fails in MicroStation
 
-- Verify username format: `DOMAIN\username` (case-sensitive)
+- Verify username format: `DOMAIN\username` (comparison is case-insensitive)
 - Check network path accessibility from client machine
 - Confirm Windows domain matches license domain
 - Ensure user is in `authorized_users` array
