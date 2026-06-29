@@ -14,8 +14,8 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 
 | Component | Release | Description |
 |:---------:|:-------:|:------------|
-| [Installer](https://github.com/Asketyll/ARES/releases) | ![Installer release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=installer-%2A&display_name=tag&label=) | Windows installer with automatic setup |
-| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | ![MVBA release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=v%2A&display_name=tag&label=) | MicroStation VBA source code |
+| [Installer](https://github.com/Asketyll/ARES/releases) | ![Installer release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=installer-%2A&display_name=tag&label=&color=555) | Windows installer with automatic setup |
+| [MVBA](https://github.com/Asketyll/ARES/releases/latest) | ![MVBA release](https://img.shields.io/github/v/release/Asketyll/ARES?filter=v%2A&display_name=tag&label=&color=555) | MicroStation VBA source code |
 
 ## Components
 
