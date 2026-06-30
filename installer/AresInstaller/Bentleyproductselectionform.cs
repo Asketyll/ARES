@@ -14,6 +14,12 @@ namespace AresInstaller
         private static readonly string[] VALID_PRODUCTS = { "MapPowerView", "Microstation" };
         private const string ARES_MVBA_PATH = "c:/ares/ares.mvba";
         private const string AUTOLOAD_LINE = "MS_VBAAUTOLOADPROJECTS > " + ARES_MVBA_PATH;
+        private const string ARES_DGNLIB_PATH = "c:/ares/rsc/*.dgnlib";
+        private const string DGNLIB_LINE = "MS_DGNLIBLIST > " + ARES_DGNLIB_PATH;
+
+        // Config lines ARES ensures in each Personal.ucf: auto-load the add-in, and let MicroStation
+        // find the shared DGN library (custom-property item types / value lists) in Rsc at boot.
+        private static readonly string[] CONFIG_LINES = { AUTOLOAD_LINE, DGNLIB_LINE };
 
         private ComboBox productComboBox;
         private Label titleLabel;
@@ -234,7 +240,7 @@ namespace AresInstaller
                 // Hide the form
                 this.Hide();
 
-                // Configure ARES autoload
+                // Configure ARES autoload + dgnlib search path
                 await ConfigureAresAutoload();
 
                 // Show success message
@@ -353,32 +359,26 @@ namespace AresInstaller
         {
             try
             {
-                // Read all lines
-                string[] lines = File.ReadAllLines(ucfFilePath, Encoding.UTF8);
+                List<string> lines = new List<string>(File.ReadAllLines(ucfFilePath, Encoding.UTF8));
 
-                // Check if autoload line already exists
-                bool lineExists = false;
-                foreach (string line in lines)
+                // Ensure each required config line is present (auto-load project + dgnlib list).
+                bool modified = false;
+                foreach (string required in CONFIG_LINES)
                 {
-                    if (line.Trim().Equals(AUTOLOAD_LINE, StringComparison.OrdinalIgnoreCase))
+                    bool exists = lines.Any(l => l.Trim().Equals(required, StringComparison.OrdinalIgnoreCase));
+                    if (!exists)
                     {
-                        lineExists = true;
-                        break;
+                        lines.Add(required);
+                        modified = true;
                     }
                 }
 
-                if (!lineExists)
+                if (modified)
                 {
-                    // Add the autoload line
-                    List<string> newLines = new List<string>(lines);
-                    newLines.Add(AUTOLOAD_LINE);
-
-                    // Write back to file
-                    File.WriteAllLines(ucfFilePath, newLines, Encoding.UTF8);
-                    return true; // File was modified
+                    File.WriteAllLines(ucfFilePath, lines, Encoding.UTF8);
                 }
 
-                return false; // File was not modified (line already exists)
+                return modified; // True if the file was modified
             }
             catch (Exception ex)
             {

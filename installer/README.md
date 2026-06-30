@@ -10,7 +10,7 @@ Windows installer application for the ARES MicroStation Add-in. It downloads the
 - Automatic download of the latest release from the GitHub releases API
 - Mandatory SHA-256 integrity verification of downloaded assets (from the GitHub API digest)
 - Records the installed version in the registry (`HKCU\Software\ARES\Version`); existing resources are overwritten
-- Bentley product selection after install (detects installed Bentley products from the registry)
+- Bentley product selection after install (detects installed Bentley products from the registry); configures the chosen product's `Personal.ucf` to auto-load `ARES.mvba` (`MS_VBAAUTOLOADPROJECTS`) and load the resource dgnlib (`MS_DGNLIBLIST` → `C:\ARES\Rsc`)
 - Progress bar and on-screen log
 
 ## Building
