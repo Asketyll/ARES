@@ -53,7 +53,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | | `RegionSplit/RegionSplit.bas` + `RegionSplitLocate.cls` | knife-cut a region in two (`SplitRegion`) |
 | **Command/** | `Command.bas` | the key-in surface; each key-in inits config/lang, delegates |
 | **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs` | shared helpers (see [Shared components](#shared-components-key-apis)) |
-| **Update/** | `UpdateChecker.bas` | GitHub-releases self-update via elevated PowerShell + SHA-256 verify |
+| **Update/** | `UpdateChecker.bas` | GitHub-releases self-update of every release asset (`.mvba` → C:\ARES, others → C:\ARES\Rsc) via elevated PowerShell + per-asset SHA-256 verify |
 | **Tests/** | `UnitTesting.bas` | custom test harness, no native MVBA framework (**deprecated / unmaintained**) |
 
 ## Boot & lifecycle
