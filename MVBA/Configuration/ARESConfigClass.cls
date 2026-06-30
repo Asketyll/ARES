@@ -39,10 +39,6 @@ Public ARES_ONLY_COLOR As ARES_MS_VAR_Class 'Dafault Value: True        True or 
 Public ARES_BULK_THRESHOLD As ARES_MS_VAR_Class 'Default Value: 10    Number of calls to trigger bulk mode
 ' Used in ElementChangeHandler for bulk operation detection time window
 Public ARES_BULK_INTERVAL As ARES_MS_VAR_Class 'Default Value: 1000   Time window in milliseconds
-' Used in BootLoader/IdleEventHandler for periodic license re-validation throttle.
-' Unit: seconds. Default: 3600 (1 hour). Valid range: 60..86400 (1 minute to 24 hours).
-' Out-of-range values fall back to default with a logged WARNING.
-Public ARES_LICENSE_RECHECK_INTERVAL As ARES_MS_VAR_Class 'Default Value: 3600   Range 60..86400 seconds
 ' Used in UpdateChecker module to permanently mute update notifications
 Public ARES_UPDATE_MUTE As ARES_MS_VAR_Class 'Default Value: False         True or False (Boolean)
 ' Used in UpdateChecker module to ignore a specific release version
@@ -122,7 +118,6 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ONLY_COLOR = CreateConfigVar("ARES_Only_Color_Update", "True")
     Set ARES_BULK_THRESHOLD = CreateConfigVar("ARES_Bulk_Threshold", "10")
     Set ARES_BULK_INTERVAL = CreateConfigVar("ARES_Bulk_Interval", "1000")
-    Set ARES_LICENSE_RECHECK_INTERVAL = CreateConfigVar("ARES_License_Recheck_Interval", "3600")
     Set ARES_UPDATE_MUTE = CreateConfigVar("ARES_Update_Mute", "False")
     Set ARES_UPDATE_IGNORE_VERSION = CreateConfigVar("ARES_Update_Ignore_Version", "")
     Set ARES_ZONING_LEVEL = CreateConfigVar("ARES_Zoning_Level", "")

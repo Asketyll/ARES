@@ -13,10 +13,6 @@ Private moZoneExportGUI   As ExportLengthInReg_GUI_Options
 ' Sub to call CommandState for manual update length in string
 Sub ForceUpdateLength()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — ForceUpdateLength disabled"
-        Exit Sub
-    End If
     CommandState.StartLocate New AutoLengths
     Exit Sub
 
@@ -129,11 +125,6 @@ End Sub
 ' Sub to call GUI Options of AutoLengths
 Sub EditAutoLengthsOptions()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — EditAutoLengthsOptions disabled"
-        Exit Sub
-    End If
-
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -160,11 +151,6 @@ End Sub
 ' Run zoning using configuration defaults (levels, distance, output properties from ARESConfig)
 Sub RunZoning()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — RunZoning disabled"
-        Exit Sub
-    End If
-
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -182,11 +168,6 @@ End Sub
 ' different elements NOT merged.
 Sub RunZoning2()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — RunZoning2 disabled"
-        Exit Sub
-    End If
-
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -214,11 +195,6 @@ End Sub
 ' Excel visibility is driven by ARES_Zone_Export_Excel_Visible (default: True).
 Sub ExportLength()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — RunZoneExport disabled"
-        Exit Sub
-    End If
-
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -237,11 +213,6 @@ End Sub
 ' Open the Zoning options GUI
 Sub EditZoningOptions()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — EditZoningOptions disabled"
-        Exit Sub
-    End If
-
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -268,11 +239,6 @@ End Sub
 ' level + symbology; the original is deleted (default) or kept (ARES_RegionSplit_Keep_Original).
 Sub SplitRegion()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — SplitRegion disabled"
-        Exit Sub
-    End If
-
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -383,11 +349,6 @@ End Sub
 ' Open the ZoneExport options GUI
 Sub EditZoneExportOptions()
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — EditZoneExportOptions disabled"
-        Exit Sub
-    End If
-
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize

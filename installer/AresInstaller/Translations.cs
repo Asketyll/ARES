@@ -44,7 +44,7 @@ namespace AresInstaller
             { "Downloading", new Dictionary<string, string> { { "EN", "Downloading ARES components from GitHub..." }, { "FR", "Téléchargement des composants ARES depuis GitHub..." } } },
             { "Extracting", new Dictionary<string, string> { { "EN", "Extracting downloaded files..." }, { "FR", "Extraction des fichiers téléchargés..." } } },
             { "InstallingProject", new Dictionary<string, string> { { "EN", "Installing ARES project..." }, { "FR", "Installation du projet ARES..." } } },
-            { "RegisteringCOM", new Dictionary<string, string> { { "EN", "Registering COM components..." }, { "FR", "Enregistrement des composants COM..." } } },
+            { "CopyingResources", new Dictionary<string, string> { { "EN", "Copying resources..." }, { "FR", "Copie des ressources..." } } },
             { "InstallationCompleted", new Dictionary<string, string> { { "EN", "ARES installation completed successfully!" }, { "FR", "Installation d'ARES terminée avec succès !" } } },
             
             // Messages
@@ -88,26 +88,9 @@ namespace AresInstaller
             { "Copied", new Dictionary<string, string> { { "EN", "Copied: {0}" }, { "FR", "Copié : {0}" } } },
             { "FailedExtract", new Dictionary<string, string> { { "EN", "Failed to extract files: {0}" }, { "FR", "Échec de l'extraction des fichiers : {0}" } } },
             
-            // DLL Registration
-            { "RegisteringComponents", new Dictionary<string, string> { { "EN", "=== Registering COM Components ===" }, { "FR", "=== Enregistrement des composants COM ===" } } },
-            { "SearchingValidator", new Dictionary<string, string> { { "EN", "Searching for AresLicenseValidator DLL..." }, { "FR", "Recherche de AresLicenseValidator DLL..." } } },
-            { "ValidatorNotFound", new Dictionary<string, string> { { "EN", "AresLicenseValidator.dll not found after copying to Rsc folder" }, { "FR", "AresLicenseValidator.dll introuvable après copie dans le dossier Rsc" } } },
-            { "ValidatorNotFoundAtPath", new Dictionary<string, string> { { "EN", "AresLicenseValidator.dll not found at path: {0}" }, { "FR", "AresLicenseValidator.dll introuvable au chemin : {0}" } } },
-            { "FoundDLL", new Dictionary<string, string> { { "EN", "Found DLL: {0}" }, { "FR", "DLL trouvée : {0}" } } },
-            { "COMRegistrationComplete", new Dictionary<string, string> { { "EN", "COM registration completed" }, { "FR", "Enregistrement COM terminé" } } },
-            { "ProcessingDLL", new Dictionary<string, string> { { "EN", "Processing: {0}" }, { "FR", "Traitement : {0}" } } },
-            { "SameVersionInstalled", new Dictionary<string, string> { { "EN", "  Same version already installed - Skipping" }, { "FR", "  Même version déjà installée - Ignoré" } } },
-            { "BackedUpOldVersion", new Dictionary<string, string> { { "EN", "  Backed up old version to: {0}" }, { "FR", "  Ancienne version sauvegardée dans : {0}" } } },
-            { "BackedUpOldTLB", new Dictionary<string, string> { { "EN", "  Backed up old TLB to: {0}" }, { "FR", "  Ancien TLB sauvegardé dans : {0}" } } },
-            { "CopiedDLL", new Dictionary<string, string> { { "EN", "  ✓ Copied: {0} ({1} bytes)" }, { "FR", "  ✓ Copié : {0} ({1} octets)" } } },
-            { "FailedCopyDLL", new Dictionary<string, string> { { "EN", "Failed to copy DLL to: {0}" }, { "FR", "Échec de la copie de la DLL vers : {0}" } } },
-            { "CopiedTLB", new Dictionary<string, string> { { "EN", "  ✓ Copied TLB: {0}" }, { "FR", "  ✓ TLB copié : {0}" } } },
-            { "RegisteringDLL", new Dictionary<string, string> { { "EN", "Registering: {0}" }, { "FR", "Enregistrement : {0}" } } },
-            { "RegAsmNotFound", new Dictionary<string, string> { { "EN", "RegAsm.exe not found. Please install .NET Framework Developer Pack." }, { "FR", "RegAsm.exe introuvable. Veuillez installer le pack développeur .NET Framework." } } },
-            { "DLLRegisteredSuccess", new Dictionary<string, string> { { "EN", "DLL registered successfully" }, { "FR", "DLL enregistrée avec succès" } } },
-            { "RegAsmFailed", new Dictionary<string, string> { { "EN", "RegAsm failed (Exit code: {0}): {1}" }, { "FR", "Échec de RegAsm (Code de sortie : {0}) : {1}" } } },
-            { "FailedRegisterDLLs", new Dictionary<string, string> { { "EN", "Failed to register DLLs: {0}" }, { "FR", "Échec de l'enregistrement des DLL : {0}" } } },
-            { "FailedExecuteRegAsm", new Dictionary<string, string> { { "EN", "Failed to execute RegAsm: {0}" }, { "FR", "Échec de l'exécution de RegAsm : {0}" } } },
+            // Resource files (Rsc)
+            { "CopyResourcesHeader", new Dictionary<string, string> { { "EN", "=== Copying Resources ===" }, { "FR", "=== Copie des ressources ===" } } },
+            { "FailedCopyResources", new Dictionary<string, string> { { "EN", "Failed to copy resources: {0}" }, { "FR", "Échec de la copie des ressources : {0}" } } },
             
             // Project Installation
             { "InstallingARES", new Dictionary<string, string> { { "EN", "=== Installing ARES Project ===" }, { "FR", "=== Installation du projet ARES ===" } } },
@@ -123,8 +106,7 @@ namespace AresInstaller
             // Installation Summary
             { "InstallationSummary", new Dictionary<string, string> { { "EN", "=== Installation Summary ===" }, { "FR", "=== Résumé de l'installation ===" } } },
             { "MainProject", new Dictionary<string, string> { { "EN", "Main project: {0}" }, { "FR", "Projet principal : {0}" } } },
-            { "DLLComponents", new Dictionary<string, string> { { "EN", "DLL components: {0}" }, { "FR", "Composants DLL : {0}" } } },
-            { "COMRegistered", new Dictionary<string, string> { { "EN", "COM components registered" }, { "FR", "Composants COM enregistrés" } } },
+            { "RscFolder", new Dictionary<string, string> { { "EN", "Resources: {0}" }, { "FR", "Ressources : {0}" } } },
             { "NextSteps", new Dictionary<string, string> { { "EN", "Next steps:" }, { "FR", "Prochaines étapes :" } } },
             { "Step1", new Dictionary<string, string> { { "EN", "1. Open MicroStation" }, { "FR", "1. Ouvrir MicroStation" } } },
             { "Step2", new Dictionary<string, string> { { "EN", "2. Load ARES.mvba from the MicroStation VBA Manager" }, { "FR", "2. Charger ARES.mvba depuis le gestionnaire VBA de MicroStation" } } },

@@ -2,7 +2,7 @@
 
 This directory contains the complete MVBA (MicroStation Visual Basic for Applications) source code of ARES. This README is the **developer/technical reference** — architecture, lifecycle, the element-processing flow, coding conventions, and review rules.
 
-For the repository as a whole (installer, license validator, tooling), see the [main README](../README.md).
+For the repository as a whole (installer), see the [main README](../README.md).
 
 > **User-facing** key-ins and configuration variables are documented in the wiki:
 > https://github.com/Asketyll/ARES/wiki
@@ -33,7 +33,7 @@ For the repository as a whole (installer, license validator, tooling), see the [
 
 | Layer | Modules | Role |
 |-------|---------|------|
-| **Core/** | `BootLoader.bas` | entry point; owns global state, init order, change-tracking lifecycle, license re-check |
+| **Core/** | `BootLoader.bas` | entry point; owns global state, init order, change-tracking lifecycle |
 | | `ARESConstants.bas` | central home for shared compile-time `Public Const` (sentinels, delimiters, geometry factors). **Not** the config vars |
 | | `ElementInProcesseClass.cls` | uniqueness queue of element IDs pending processing (global `ElementInProcesse`) |
 | | `ErrorHandlerClass.cls` | central logger (global `ErrorHandler`); per-DGN log file with rotation |
@@ -42,19 +42,16 @@ For the repository as a whole (installer, license validator, tooling), see the [
 | | `ARES_MS_VAR_Class.cls` | one config var; assigning `.Value` **write-throughs to MicroStation** |
 | | `Config.bas` | thin get/set wrapper over `ActiveWorkspace` config vars; undefined → `ARES_NAVD` |
 | | `LangManager.bas` | EN/FR i18n dictionary; `GetTranslation(key, params…)`; `UserLanguage()` |
-| **Security/** | `LicenseManager.bas` | wraps the `ARES.LicenseValidator` COM DLL; `IsLicenseValid()` is the gate |
-| | `UserAndEnvironmentValidator.bas` | in-VBA environment/identity validation (live `Application` + process check) |
-| | `modCspAES256.bas` | AES-256 (Rijndael) + SHA-256 + Base64/Hex helpers |
-| | `UUID.bas` | machine UUID from MAC + time (not strict RFC-4122) |
+| **Security/** | `UUID.bas` | machine UUID from MAC + time (not strict RFC-4122); used only by its unit test |
 | **EventHandlers/** | `ElementChangeHandler.cls` | `IChangeTrackEvents` — capture add/modify/delete + bulk detection (global `ChangeHandler`) |
-| | `IdleEventHandler.cls` | `IEnterIdleEvent` — deferred batch processing + periodic license re-check |
+| | `IdleEventHandler.cls` | `IEnterIdleEvent` — deferred batch processing |
 | | `DGNOpenClose.cls` | `Application` events — re-init change tracking on file open/close |
 | | `ReRegisterIdleHandler.cls` | one-shot idle handler that re-attaches change tracking after a bulk suspend |
 | **Features/** | `AutoLengths/Auto_Lengths.cls` | write linked-geometry length into a text trigger (+ optional color sync) |
 | | `Zoning/Zoning.bas` | buffer zones around elements (`RunZoning` / `RunZoning2`) |
 | | `ZoneExport/ExportLengthInRegion.bas` | sum element length inside zones → Excel (`ExportLength`) |
 | | `RegionSplit/RegionSplit.bas` + `RegionSplitLocate.cls` | knife-cut a region in two (`SplitRegion`) |
-| **Command/** | `Command.bas` | the key-in surface; each key-in gates license (where applicable), inits config/lang, delegates |
+| **Command/** | `Command.bas` | the key-in surface; each key-in inits config/lang, delegates |
 | **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs` | shared helpers (see [Shared components](#shared-components-key-apis)) |
 | **Update/** | `UpdateChecker.bas` | GitHub-releases self-update via elevated PowerShell + SHA-256 verify |
 | **Tests/** | `UnitTesting.bas` | custom test harness, no native MVBA framework (**deprecated / unmaintained**) |
@@ -64,9 +61,8 @@ For the repository as a whole (installer, license validator, tooling), see the [
 Entry point: **`BootLoader.OnProjectLoad`**
 
 1. `InitializeErrorHandler()` first (everything else logs through it).
-2. `ValidateLicenseOnLoad()` → `LicenseManager.ValidateLicense()`. Establishes the `GetTickCount64` baseline for periodic re-check **regardless of outcome**. On failure: show a message, register the idle handler anyway (so re-validation can recover the session); DGN handlers are not wired yet.
-3. `InitializeDGNHandlers()` → `New DGNOpenClose` (wires `Application` open/close events).
-4. `InitializeInitialIdleHandler()` → an `IdleEventHandler` that sets the caption, initializes translations + config, checks for updates, then removes itself.
+2. `InitializeDGNHandlers()` → `New DGNOpenClose` (wires `Application` open/close events).
+3. `InitializeInitialIdleHandler()` → an `IdleEventHandler` that sets the caption, initializes translations + config, checks for updates, then removes itself.
 
 **Global objects** (declared in `BootLoader.bas`): `ChangeHandler` (ElementChangeHandler), `ErrorHandler` (ErrorHandlerClass), `ElementInProcesse` (ElementInProcesseClass), `ARESConfig` (ARESConfigClass).
 
@@ -79,7 +75,6 @@ Two phases. Capture is **synchronous** in the MicroStation event thread; process
 **Phase 1 — Capture** (`ElementChangeHandler.IChangeTrackEvents_ElementChanged`)
 
 ```
-If Not LicenseManager.IsLicenseValid() Then Exit Sub        ' license guard, FIRST
 If DetectAndSuspendBulkOperation() Then Exit Sub
 If Not ARESConfig.IsInitialized Then Exit Sub
 If Not IsAnyFeatureEnabled() Then Exit Sub
@@ -94,12 +89,10 @@ Select Case Action
 mbIsProcessing re-entrance guard
 First idle ever -> HandleInitialIdle (caption, translations, config, UpdateChecker) then self-remove
 Ensure ARESConfig.Initialize
-BootLoader.RecheckLicenseIfDue              ' periodic license re-validation (throttled)
-If license now invalid -> queue already drained -> CleanupHandler, exit
 If ElementInProcesse.HasElements -> ProcessPendingElements   else CleanupHandler
 ```
 
-**`ChangeHandler.ProcessElement(oElement, Depth=0)`** — license guard, then `MAX_DEPTH = 20` recursion cap:
+**`ChangeHandler.ProcessElement(oElement, Depth=0)`** — `MAX_DEPTH = 20` recursion cap:
 
 - **Branch 1 — text/cell**: if `AUTO_LENGTH And UPDATE_LENGTH`, scan triggers (`ARES_LENGTH_TRIGGER` split by `ARES_VAR_DELIMITER`); RECALCULATE (strip stale numeric between trigger parts) then SEARCH; if found → `AutoLengths.Initialize` + `UpdateLengths`. Else if `ONLY_COLOR` → sync color from linked geometry (FillMode = 2 special case).
 - **Branch 2 — geometric**: `Link.GetLink` → for each linked text element: `ElementInProcesse.Add`, then recursive `ProcessElement(linkedEl, Depth + 1)`.
@@ -134,21 +127,13 @@ Developer-relevant / automatic vars (not all are surfaced by a key-in):
 | Key | Default | Used by |
 |-----|---------|---------|
 | `ARES_Bulk_Threshold` / `ARES_Bulk_Interval` | 10 / 1000 ms | bulk-operation detection |
-| `ARES_License_Recheck_Interval` | 3600 s (60–86400) | periodic license re-validation |
 | `ARES_Round` | 2 | default rounding for length computations |
 
 The full user-facing list is in the wiki: [Configuration Variables](https://github.com/Asketyll/ARES/wiki/Configuration-Variables).
 
 ## Security & licensing
 
-Two independent gates protect the add-in:
-
-1. **Network license** — `Security/LicenseManager.bas` wraps the COM component `ARES.LicenseValidator` (`AresLicenseValidator.dll`, regasm-registered; see [`../license-validator/`](../license-validator/README.md)). `IsLicenseValid()` is the cached gate called at the entry of every feature key-in.
-2. **Environment / identity check** — `Security/UserAndEnvironmentValidator.bas` validates the running MicroStation `Application` identity and process in-VBA. Supporting helpers: `modCspAES256.bas` (AES-256 / SHA-256 / Base64) and `UUID.bas` (machine UUID).
-
-**Periodic re-validation**: the idle handler calls `BootLoader.RecheckLicenseIfDue`, throttled by `ARES_License_Recheck_Interval` (via `GetTickCount64`). A mid-session transition routes to `OnLicenseInvalidated` (drain queue, detach handler, one-shot message) or `OnLicenseRecovered` (re-wire handlers, reset bulk state).
-
-> **License gate rule**: every feature key-in must check `LicenseManager.IsLicenseValid()` at entry.
+None. ARES has **no licensing or copy protection** (removed) — all features run unconditionally; there is no license file, secret, or COM DLL. The `.mvba` is freely copyable. This was a deliberate decision: client-side protection in an open-source, GitHub-distributed MVBA only deterred a zero-effort copy and was not worth its complexity.
 
 ## Shared components (key APIs)
 
@@ -192,7 +177,7 @@ Every module declares `Option Explicit`.
 - Singleton classes use the `…Class` suffix (`ARESConfigClass`); event-handler classes have no suffix (`ElementChangeHandler`).
 - `ARES_` + UPPER_SNAKE for constants and config-var handles; the config handle (`ARES_ROUNDS`) and the MS key string (`ARES_Round`) intentionally differ.
 
-**Accepted exceptions** (do NOT "fix" these): `modCspAES256.bas` (adapted third-party AES — keeps its `StrText`/`StrKey`/… naming); Win32 struct fields in `ColorDialog` (`lStructSize`, `lCustData` — native API layout); a few internal members whose generic names collide as substrings with function/type names (`CellRedreaw.Delta`, `UnitTesting.TestResults`/`TestCount`/`TestElement`).
+**Accepted exceptions** (do NOT "fix" these): Win32 struct fields in `ColorDialog` (`lStructSize`, `lCustData` — native API layout); a few internal members whose generic names collide as substrings with function/type names (`CellRedreaw.Delta`, `UnitTesting.TestResults`/`TestCount`/`TestElement`).
 
 ### Error handling
 
@@ -210,7 +195,7 @@ End Function
 
 - **`HandleError(Description, Number, Source, Optional ModuleName)`** — the 4th arg is the call-site location (`"Module.Proc"`), printed as `[ModuleName]` in the log. `Number = 0` → informational formatting (no `Error N`); `Number > 0` → `Error N (Source)` + a critical MsgBox **in VBA design mode only**. There is **no severity system**.
 - **Informational / non-error logs**: call `HandleError "<message>", 0, "", "Module.Proc"` (Number 0, empty Source, location in the ModuleName slot). Do NOT pass a severity word — there is no severity channel.
-- **Documented exceptions** (don't "fix"): `ErrorHandlerClass` can't call itself; Security modules (`modCspAES256`, `UserAndEnvironmentValidator`, `UUID`) fail-closed/silent; `Command.bas` mostly uses `ShowStatus "<x> failed"`; trivial/pure-math helpers and `Class_Terminate` use `On Error Resume Next`.
+- **Documented exceptions** (don't "fix"): `ErrorHandlerClass` can't call itself; the `UUID` module is fail-closed/silent; `Command.bas` mostly uses `ShowStatus "<x> failed"`; trivial/pure-math helpers and `Class_Terminate` use `On Error Resume Next`.
 
 ### Recurring patterns
 
@@ -230,7 +215,6 @@ A review MUST flag these as **BLOCKER** (not nit):
 - Any MVBA type/object/method/property used without verifying its signature in the [MVBA docs](https://github.com/Asketyll/mvba-docs-in-md-for-ai) (the specific page, not just the index).
 - `Element.ID` (DLong) used without DLong helpers; an element modified without `.Rewrite`.
 - A new geometry feature that deletes/overwrites before both replacement elements are validated and added (anti-destructive invariant).
-- A new feature key-in not gated by `LicenseManager.IsLicenseValid()` at entry (license-gate rule).
 
 ## MVBA documentation & pitfalls
 
@@ -251,13 +235,11 @@ A review MUST flag these as **BLOCKER** (not nit):
 2. File → Import File.
 3. Import all `.bas`, `.cls`, and `.frm` files, preserving the folder structure.
 4. Compile as `ARES.mvba`.
-5. Create an ARES license (see [`../tools/`](../tools/README.md)).
 
 ### Dependencies
 
 - Tested on MicroStation CONNECT Edition, OpenCities Map PowerView (Bentley Systems) and Atlas/Eras (Sogelink).
 - VBA 7.1 environment.
-- The `ARES.LicenseValidator` COM DLL must be registered (handled by the installer).
 
 ## License
 

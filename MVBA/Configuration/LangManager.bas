@@ -113,8 +113,6 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_UpdateDownloadFailed", "Failed to download the update. Please visit the GitHub releases page."
     moTranslations.Add "EN_UpdateCheckFailed", "ARES: Update check failed. Check your network connection."
     moTranslations.Add "EN_UpdateAlreadyUpToDate", "ARES is up to date."
-    moTranslations.Add "EN_LicenseRecheckTitle", "ARES - License Invalid"
-    moTranslations.Add "EN_LicenseInvalidatedMidSession", "The ARES license has become invalid during this session." & vbCrLf & "ARES features have been disabled. Please contact your administrator."
     moTranslations.Add "EN_ChangeTrackingResumed", "ARES: Change tracking resumed after bulk operation"
     moTranslations.Add "EN_ChangeTrackingResumeWarning", "ARES: WARNING - change tracking NOT attached after bulk resume"
 
@@ -209,8 +207,6 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_UpdateDownloadFailed", "Echec du telechargement. Veuillez visiter la page des releases GitHub."
     moTranslations.Add "FR_UpdateCheckFailed", "ARES : Echec de la verification. Verifiez votre connexion reseau."
     moTranslations.Add "FR_UpdateAlreadyUpToDate", "ARES est a jour."
-    moTranslations.Add "FR_LicenseRecheckTitle", "ARES - Licence invalide"
-    moTranslations.Add "FR_LicenseInvalidatedMidSession", "La licence ARES est devenue invalide pendant cette session." & vbCrLf & "Les fonctionnalités ARES ont été désactivées. Veuillez contacter votre administrateur."
     moTranslations.Add "FR_ChangeTrackingResumed", "ARES : Suivi des modifications repris après l'opération en masse"
     moTranslations.Add "FR_ChangeTrackingResumeWarning", "ARES : ATTENTION - le suivi des modifications n'a PAS été réattaché après l'opération en masse"
 

@@ -26,7 +26,7 @@
 ' ENTRY POINT  Call ExportLengthInRegion([ZoneLevel], [Filepath], [ExcelVisible])
 '   Filepath empty → ARES_Zone_Export_Use_Dialog: True = Save-As dialog, False = auto path.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, FileDialogs, GetElements, LicenseManager
+' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, FileDialogs, GetElements
 
 Option Explicit
 
@@ -56,12 +56,6 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
                                 Optional ByVal ExcelVisible As Boolean = True)
 
     On Error GoTo ErrorHandler
-
-    ' --- AC-1: License guard at entry point ---
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid - ExportLengthInRegion disabled"
-        Exit Sub
-    End If
 
     ' --- AC-4: Config must be initialised ---
     If Not ARESConfig.IsInitialized Then

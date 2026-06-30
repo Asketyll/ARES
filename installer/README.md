@@ -1,6 +1,6 @@
 # ARES Installer
 
-Windows installer application for the ARES MicroStation Add-in. It downloads the latest ARES release from GitHub, verifies it, installs the MVBA project to `C:\ARES\` (DLLs to `C:\ARES\Rsc\`), and registers the license-validator COM component.
+Windows installer application for the ARES MicroStation Add-in. It downloads the latest ARES release from GitHub, verifies it, installs `ARES.mvba` to `C:\ARES\`, and copies the release resources (e.g. the custom-property `.dgnlib`) to `C:\ARES\Rsc\`. ARES has no licensing and no COM component to register.
 
 ## Features
 
@@ -9,8 +9,7 @@ Windows installer application for the ARES MicroStation Add-in. It downloads the
 - Prerequisite checks (.NET Framework 4.7.2+)
 - Automatic download of the latest release from the GitHub releases API
 - Mandatory SHA-256 integrity verification of downloaded assets (from the GitHub API digest)
-- COM registration of `AresLicenseValidator.dll` via regasm (`/tlb /codebase`)
-- Versioned install: backs up previous DLLs and records the version in the registry (`HKCU\Software\ARES\Version`)
+- Records the installed version in the registry (`HKCU\Software\ARES\Version`); existing resources are overwritten
 - Bentley product selection after install (detects installed Bentley products from the registry)
 - Progress bar and on-screen log
 

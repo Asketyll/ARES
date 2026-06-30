@@ -22,13 +22,13 @@ namespace AresInstaller
         #region Constants
         private const string GITHUB_RELEASES_URL = "https://api.github.com/repos/Asketyll/ARES/releases/latest";
         private const string INSTALL_PATH = @"C:\ARES\";
-        private const string DLL_PATH = @"C:\ARES\Rsc\";
+        private const string RSC_PATH = @"C:\ARES\Rsc\";
         private const string TEMP_DOWNLOAD_FOLDER = "ARES_Download";
         private const string TEMP_EXTRACT_FOLDER = "ARES_Extract";
         private const int DOTNET_FRAMEWORK_MIN_RELEASE = 461808;
         private const long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB per file
         private const long MAX_TOTAL_DOWNLOAD_SIZE = 500 * 1024 * 1024; // 500 MB total
-        private static readonly string[] ALLOWED_EXTENSIONS = { ".dll", ".mvba", ".zip", ".tlb", ".sha256", ".md" };
+        private static readonly string[] ALLOWED_EXTENSIONS = { ".mvba", ".dgnlib", ".zip", ".sha256", ".md" };
         private const int MAX_RETRY_ATTEMPTS = 3;
         private const int BASE_RETRY_DELAY_MS = 1000;
         #endregion
@@ -127,44 +127,6 @@ namespace AresInstaller
         #endregion
 
         #region Version Management
-        private string ExtractVersionFromFilename(string filename)
-        {
-            try
-            {
-                var nameWithoutExt = Path.GetFileNameWithoutExtension(filename);
-                var parts = nameWithoutExt.Split('-');
-
-                if (parts.Length >= 2)
-                {
-                    return parts[parts.Length - 1];
-                }
-            }
-            catch
-            {
-                // Ignore parsing errors
-            }
-
-            return string.Empty;
-        }
-
-        private bool IsSameVersion(string sourceFile, string targetFile)
-        {
-            if (!File.Exists(targetFile))
-            {
-                return false;
-            }
-
-            var sourceVersion = ExtractVersionFromFilename(sourceFile);
-            var targetVersion = ExtractVersionFromFilename(targetFile);
-
-            if (string.IsNullOrEmpty(sourceVersion) || string.IsNullOrEmpty(targetVersion))
-            {
-                return false;
-            }
-
-            return sourceVersion.Equals(targetVersion, StringComparison.OrdinalIgnoreCase);
-        }
-
         private void WriteVersionToRegistry(string version)
         {
             if (string.IsNullOrEmpty(version)) return;
@@ -182,25 +144,6 @@ namespace AresInstaller
             }
         }
 
-        private string FindExistingDllWithBaseName(string dllBaseName)
-        {
-            try
-            {
-                var searchPattern = $"{dllBaseName}-*.dll";
-                var existingFiles = Directory.GetFiles(DLL_PATH, searchPattern);
-
-                if (existingFiles.Length > 0)
-                {
-                    return existingFiles[0];
-                }
-            }
-            catch
-            {
-                // Ignore errors
-            }
-
-            return null;
-        }
         #endregion
 
         #region UI Controls
@@ -357,8 +300,8 @@ namespace AresInstaller
                 await CopyMVBAProject();
                 IncrementProgress();
 
-                UpdateStatus("RegisteringCOM");
-                await RegisterDLLs();
+                UpdateStatus("CopyingResources");
+                CopyResources();
                 IncrementProgress();
 
                 UpdateStatus("InstallationCompleted");
@@ -385,8 +328,7 @@ namespace AresInstaller
         {
             LogMessage(Translations.Get("InstallationSummary", currentLanguage));
             LogMessage(Translations.Format("MainProject", currentLanguage, INSTALL_PATH));
-            LogMessage(Translations.Format("DLLComponents", currentLanguage, DLL_PATH));
-            LogMessage(Translations.Get("COMRegistered", currentLanguage));
+            LogMessage(Translations.Format("RscFolder", currentLanguage, RSC_PATH));
             LogMessage("");
             LogMessage(Translations.Get("NextSteps", currentLanguage));
             LogMessage(Translations.Get("Step1", currentLanguage));
@@ -470,7 +412,7 @@ namespace AresInstaller
                 var directoriesToCreate = new[]
                 {
                     INSTALL_PATH,
-                    DLL_PATH,
+                    RSC_PATH,
                     Path.Combine(INSTALL_PATH, "Backup"),
                 };
 
@@ -601,7 +543,7 @@ namespace AresInstaller
 
                 // Extensions that require hash verification
                 var hashRequiredExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                    { ".dll", ".mvba", ".zip", ".tlb" };
+                    { ".mvba", ".dgnlib", ".zip" };
 
                 // Load hashes from GitHub API "digest" field — no separate .sha256 file needed
                 var validator = new FileIntegrityValidator();
@@ -852,259 +794,44 @@ namespace AresInstaller
         }
         #endregion
 
-        #region DLL Registration
-        private async Task RegisterDLLs()
+        #region Resource Files (Rsc)
+        // Copy every release file except ARES.mvba (installed to C:\ARES by CopyMVBAProject) into the
+        // Rsc folder (C:\ARES\Rsc) - e.g. the .dgnlib that defines the custom-property item types and
+        // value lists. Existing files are overwritten.
+        private void CopyResources()
         {
-            LogMessage(Translations.Get("RegisteringComponents", currentLanguage));
+            LogMessage(Translations.Get("CopyResourcesHeader", currentLanguage));
 
             try
             {
                 if (string.IsNullOrEmpty(_extractPath) || !Directory.Exists(_extractPath))
-                    throw new RegistrationException("Extract folder not found");
+                    throw new InstallationException("Extract folder not found");
 
-                var extractPath = _extractPath;
-
-                await CopyDLLsToInstallPath(extractPath);
-
-                LogMessage(Translations.Get("SearchingValidator", currentLanguage));
-                var validatorDll = FindAresLicenseValidatorDll();
-
-                if (string.IsNullOrEmpty(validatorDll))
+                foreach (var sourceFile in Directory.GetFiles(_extractPath))
                 {
-                    throw new FileNotFoundException(Translations.Get("ValidatorNotFound", currentLanguage));
-                }
+                    var fileName = Path.GetFileName(sourceFile);
 
-                if (!File.Exists(validatorDll))
-                {
-                    throw new FileNotFoundException(Translations.Format("ValidatorNotFoundAtPath", currentLanguage, validatorDll));
-                }
+                    if (!PathValidator.IsValidFileName(fileName))
+                    {
+                        LogMessage($"SECURITY: Skipped invalid filename: {fileName}");
+                        continue;
+                    }
 
-                LogMessage(Translations.Format("FoundDLL", currentLanguage, validatorDll));
-                await RegisterSingleDLL(validatorDll);
-                LogMessage(Translations.Get("COMRegistrationComplete", currentLanguage));
+                    // ARES.mvba goes to C:\ARES (CopyMVBAProject); everything else is a resource.
+                    if (fileName.Equals("ARES.mvba", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var target = Path.Combine(RSC_PATH, fileName);
+                    File.Copy(sourceFile, target, true);
+                    LogMessage(Translations.Format("Copied", currentLanguage, fileName));
+                }
             }
             catch (Exception ex)
             {
-                throw new RegistrationException(Translations.Format("FailedRegisterDLLs", currentLanguage, ex.Message), ex);
+                throw new InstallationException(Translations.Format("FailedCopyResources", currentLanguage, ex.Message), ex);
             }
 
             LogMessage("");
-        }
-
-        private string FindAresLicenseValidatorDll()
-        {
-            try
-            {
-                if (!Directory.Exists(DLL_PATH))
-                {
-                    return null;
-                }
-
-                var searchPatterns = new[]
-                {
-                    "AresLicenseValidator.dll",
-                    "AresLicenseValidator-*.dll"
-                };
-
-                foreach (var pattern in searchPatterns)
-                {
-                    var files = Directory.GetFiles(DLL_PATH, pattern);
-
-                    if (files.Length > 0)
-                    {
-                        return files[0];
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogMessage($"ERROR in FindAresLicenseValidatorDll: {ex.Message}");
-            }
-
-            return null;
-        }
-
-        private async Task CopyDLLsToInstallPath(string sourcePath)
-        {
-            var dllFiles = Directory.GetFiles(sourcePath, "*.dll");
-
-            foreach (var sourceDll in dllFiles)
-            {
-                var fileName = Path.GetFileName(sourceDll);
-
-                if (!PathValidator.IsValidFileName(fileName))
-                {
-                    LogMessage($"SECURITY: Skipped invalid DLL filename: {fileName}");
-                    continue;
-                }
-
-                await CopySingleDLL(sourcePath, fileName);
-            }
-        }
-
-        private async Task CopySingleDLL(string sourcePath, string dllFileName)
-        {
-            var sourceDll = Path.Combine(sourcePath, dllFileName);
-
-            LogMessage(Translations.Format("ProcessingDLL", currentLanguage, dllFileName));
-
-            if (!File.Exists(sourceDll))
-            {
-                return;
-            }
-
-            var fileNameWithoutExt = Path.GetFileNameWithoutExtension(dllFileName);
-            var dllBaseName = fileNameWithoutExt;
-
-            var lastDashIndex = fileNameWithoutExt.LastIndexOf('-');
-            if (lastDashIndex > 0)
-            {
-                dllBaseName = fileNameWithoutExt.Substring(0, lastDashIndex);
-            }
-
-            var existingDll = FindExistingDllWithBaseName(dllBaseName);
-
-            if (!string.IsNullOrEmpty(existingDll))
-            {
-                if (lastDashIndex > 0 && IsSameVersion(sourceDll, existingDll))
-                {
-                    LogMessage(Translations.Get("SameVersionInstalled", currentLanguage));
-                    return;
-                }
-
-                var backupPath = Path.Combine(INSTALL_PATH, "Backup",
-                    $"{Path.GetFileName(existingDll)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
-
-                File.Move(existingDll, backupPath);
-                LogMessage(Translations.Format("BackedUpOldVersion", currentLanguage, Path.GetFileName(backupPath)));
-
-                var existingTlb = Path.ChangeExtension(existingDll, ".tlb");
-                if (File.Exists(existingTlb))
-                {
-                    var tlbBackupPath = Path.Combine(INSTALL_PATH, "Backup",
-                        $"{Path.GetFileName(existingTlb)}.backup_{DateTime.Now:yyyyMMdd_HHmmss}");
-                    File.Move(existingTlb, tlbBackupPath);
-                    LogMessage(Translations.Format("BackedUpOldTLB", currentLanguage, Path.GetFileName(tlbBackupPath)));
-                }
-            }
-
-            var targetDll = Path.Combine(DLL_PATH, dllFileName);
-            File.Copy(sourceDll, targetDll, true);
-
-            if (File.Exists(targetDll))
-            {
-                LogMessage(Translations.Format("CopiedDLL", currentLanguage, dllFileName, new FileInfo(targetDll).Length));
-            }
-            else
-            {
-                throw new IOException(Translations.Format("FailedCopyDLL", currentLanguage, targetDll));
-            }
-
-            var sourceTlb = Path.ChangeExtension(sourceDll, ".tlb");
-            if (File.Exists(sourceTlb))
-            {
-                var targetTlb = Path.Combine(DLL_PATH, Path.GetFileName(sourceTlb));
-                File.Copy(sourceTlb, targetTlb, true);
-
-                if (File.Exists(targetTlb))
-                {
-                    LogMessage(Translations.Format("CopiedTLB", currentLanguage, Path.GetFileName(sourceTlb)));
-                }
-            }
-
-            await Task.Delay(100);
-        }
-
-        private async Task RegisterSingleDLL(string dllPath)
-        {
-            LogMessage(Translations.Format("RegisteringDLL", currentLanguage, Path.GetFileName(dllPath)));
-
-            // SECURITY: Validate DLL path is within expected directory
-            string fullDllPath = Path.GetFullPath(dllPath);
-            string fullDllDirectory = Path.GetFullPath(DLL_PATH);
-
-            if (!fullDllDirectory.EndsWith(Path.DirectorySeparatorChar.ToString()))
-            {
-                fullDllDirectory += Path.DirectorySeparatorChar;
-            }
-
-            if (!fullDllPath.StartsWith(fullDllDirectory, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new SecurityException("DLL path outside expected directory");
-            }
-
-            if (!File.Exists(dllPath))
-            {
-                throw new FileNotFoundException($"DLL not found: {dllPath}");
-            }
-
-            var regasmPath = FindRegAsmPath();
-            if (string.IsNullOrEmpty(regasmPath))
-            {
-                throw new FileNotFoundException(Translations.Get("RegAsmNotFound", currentLanguage));
-            }
-
-            await ExecuteRegAsm(regasmPath, dllPath);
-        }
-
-        private async Task ExecuteRegAsm(string regasmPath, string dllPath)
-        {
-            using (var process = new Process())
-            {
-                ConfigureRegAsmProcess(process, regasmPath, dllPath);
-
-                try
-                {
-                    process.Start();
-
-                    var output = await process.StandardOutput.ReadToEndAsync();
-                    var error = await process.StandardError.ReadToEndAsync();
-
-                    process.WaitForExit();
-
-                    HandleRegAsmResult(process.ExitCode, output, error);
-                }
-                catch (Exception ex)
-                {
-                    throw new RegistrationException(Translations.Format("FailedExecuteRegAsm", currentLanguage, ex.Message), ex);
-                }
-            }
-        }
-
-        private static void ConfigureRegAsmProcess(Process process, string regasmPath, string dllPath)
-        {
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = regasmPath,
-                Arguments = $"\"{dllPath}\" /tlb /codebase",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-        }
-
-        private void HandleRegAsmResult(int exitCode, string output, string error)
-        {
-            if (exitCode == 0)
-            {
-                LogMessage(Translations.Get("DLLRegisteredSuccess", currentLanguage));
-            }
-            else
-            {
-                throw new RegistrationException(Translations.Format("RegAsmFailed", currentLanguage, exitCode, error));
-            }
-        }
-
-        private string FindRegAsmPath()
-        {
-            var possiblePaths = new[]
-            {
-                @"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\regasm.exe",
-                @"C:\Windows\Microsoft.NET\Framework\v4.0.30319\regasm.exe"
-            };
-
-            return possiblePaths.FirstOrDefault(File.Exists);
         }
         #endregion
 
@@ -1274,12 +1001,6 @@ namespace AresInstaller
     {
         public ExtractionException(string message) : base(message) { }
         public ExtractionException(string message, Exception innerException) : base(message, innerException) { }
-    }
-
-    public class RegistrationException : Exception
-    {
-        public RegistrationException(string message) : base(message) { }
-        public RegistrationException(string message, Exception innerException) : base(message, innerException) { }
     }
 
     public class InstallationException : Exception

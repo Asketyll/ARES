@@ -16,7 +16,7 @@
 '      Each builder returns an orphan closed shape — it is NOT added to the model.
 '   3. Accumulate all zones, fuse them into a single region with GetRegionUnion, then write the result.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, Geometry, GetElements, LicenseManager
+' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, Geometry, GetElements
 
 Option Explicit
 
@@ -52,10 +52,6 @@ Public Sub Zoning(Optional Lvls As Variant, _
                   Optional RoundCaps As Boolean = True)
 
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then
-        ShowStatus "ARES: License not valid — Zoning disabled"
-        Exit Sub
-    End If
 
     Dim TargetLevel As Level
     Dim Elements()  As Element

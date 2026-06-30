@@ -51,7 +51,6 @@ End Sub
 '   CantBeUndone  - Whether the change can be undone
 Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVal BeforeChange As element, ByVal Action As MsdChangeTrackAction, CantBeUndone As Boolean)
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then Exit Sub
     Dim els() As element
     Dim i As Long
 
@@ -165,15 +164,6 @@ Public Sub ClearReRegHandler()
     Set moReRegHandler = Nothing
 End Sub
 
-' Reset the bulk-detection state. Called by BootLoader.OnLicenseRecovered before re-attaching
-' a stale handler instance whose counters may be from before the invalidation.
-Public Sub ResetBulkDetectionState()
-    mdEntryTime = 0
-    mlCallCount = 0
-    mlCachedThreshold = 0
-    mlCachedInterval = 0
-End Sub
-
 ' Called by IdleEventHandler (CleanupHandler) after it removes itself from the idle list.
 ' Clears the "registered" flag so the next batch re-adds the handler. The instance in
 ' moIdleHandler is kept alive and reused (single persistent handler) - not set to Nothing.
@@ -210,7 +200,6 @@ End Function
 '   2. For geometric elements: Find linked text elements and process them recursively
 Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Integer = 0)
     On Error GoTo ErrorHandler
-    If Not LicenseManager.IsLicenseValid() Then Exit Sub
 
     Const MAX_DEPTH As Integer = 20
     If Depth > MAX_DEPTH Then Exit Sub

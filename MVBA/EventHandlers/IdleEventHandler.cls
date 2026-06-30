@@ -10,7 +10,6 @@ Implements IEnterIdleEvent
 
 ' === PRIVATE MEMBERS ===
 Private mbIsProcessing As Boolean    ' Flag to prevent re-entrance during element processing
-Private mbIsRevalidating As Boolean  ' Flag to prevent re-entrance during license re-validation
 
 ' Event handler for when MicroStation enters idle state
 Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
@@ -25,26 +24,9 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
         Exit Sub
     End If
 
-    ' Ensure ARESConfig is initialized even if LangManager was already init.
-    ' This MUST run before RecheckLicenseIfDue so the configured re-check interval
-    ' (ARES_License_Recheck_Interval) is read instead of falling back to the default.
+    ' Ensure ARESConfig is initialized before processing.
     If Not ARESConfig.IsInitialized Then
         ARESConfig.Initialize
-    End If
-
-    ' Periodic license re-validation (Issue #2 mitigation, Story 1-2).
-    ' Throttled by ARES_LICENSE_RECHECK_INTERVAL inside RecheckLicenseIfDue.
-    If Not mbIsRevalidating Then
-        mbIsRevalidating = True
-        BootLoader.RecheckLicenseIfDue
-        mbIsRevalidating = False
-    End If
-
-    ' Short-circuit: if license is now invalid, OnLicenseInvalidated has already
-    ' drained the queue and removed the change-tracking handler. Nothing to process.
-    If Not LicenseManager.IsLicenseValid() Then
-        CleanupHandler
-        Exit Sub
     End If
 
     ' Check if there are pending elements to process
@@ -59,7 +41,6 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
 
 ErrorHandler:
     mbIsProcessing = False
-    mbIsRevalidating = False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "IdleEventHandler.IEnterIdleEvent_EnterIdle"
     ' Ensure cleanup even on error in main entry point
     CleanupHandler
@@ -192,6 +173,5 @@ Private Sub Class_Terminate()
     On Error Resume Next
     SetIdleProcessingActive False
     mbIsProcessing = False
-    mbIsRevalidating = False
 End Sub
 

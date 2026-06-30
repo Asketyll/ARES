@@ -23,8 +23,6 @@ Invoke-WebRequest -Uri "https://github.com/Asketyll/ARES/releases/download/insta
 |:--------:|:----:|:-----|:----:|
 | [`MVBA/`](MVBA/) | VBA 7.1 | The MicroStation add-in (core functionality) | [README](MVBA/README.md) |
 | [`installer/`](installer/) | C# WinForms | Windows installer; writes `HKCU\Software\ARES\Version` | [README](installer/README.md) |
-| [`license-validator/`](license-validator/) | C# COM DLL | Network license validation (`ARES.LicenseValidator`), called from `LicenseManager.bas` | [README](license-validator/README.md) |
-| [`tools/`](tools/) | PowerShell | License generation scripts | [README](tools/README.md) |
 
 ## Features
 
@@ -38,7 +36,6 @@ User features — full key-in reference and configuration variables live in the 
 | Region Split | Split a closed region into two with a single datapoint on its boundary | [EN](https://github.com/Asketyll/ARES/wiki/Region-Split)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Decoupe-de-Region) |
 
 System:
-- **License Management** - AES-256 encrypted, RSA-signed network licenses
 - **Multi-language** - French/English interface ([EN](https://github.com/Asketyll/ARES/wiki/System-and-Config)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Systeme-et-Config))
 - **Bulk Operation Detection** - Auto-suspend during merge/reprojection for performance
 
@@ -61,7 +58,6 @@ System:
 See component READMEs for build instructions:
 - [MVBA Development](MVBA/README.md#development)
 - [Installer Build](installer/README.md#building)
-- [License Validator Build](license-validator/README.md#building)
 
 ## Contributing
 
