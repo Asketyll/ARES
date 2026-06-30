@@ -142,7 +142,7 @@ None. ARES has **no licensing or copy protection** (removed) — all features ru
 - **Link.bas** — `GetLink(El, ReturnMe, FilterByTypes, MaxCount)`: elements in the same graphic group (skips `ARES_DEFAULT_GRAPHIC_GROUP_ID`).
 - **StringsInEl.bas** — `GetSetTextsInEl(el, txt, Triggers, Color)`: get/set text in Text/TextNode/Cell. GET on a single `TextElement` returns a **per-character** array (trap). TextNode writes per sub-element (the `TextLine` write property is buggy).
 - **GetElements.bas** — `ByEE(Levels, Range, CellName, GraphicGroup, ElTypes, Colors, LineStyles, LineWeights)`: composable `ElementScanCriteria` factory; `GetLevel(name, canCreate)`.
-- **CustomPropertyHandler.bas** — ItemType/EC custom properties in one "ARES" library: "Commune" (free text) + "Coupe Type" (value from `ARES_Coupe_Type_List`). MVBA cannot author native dropdowns → the list is config-driven + a UserForm ComboBox.
+- **CustomPropertyHandler.bas** — attaches / reads / writes ARES Item Types on elements. The definitions + value lists live in a **DGNLib** (deployed via `MS_DGNLIBLIST`), authored in the Item Types dialog — NOT created from VBA; the library is resolved with `FindForDesignFile(..., includeDgnLibs:=True)`. The managed property names are **user-editable** via the `ARES_Custom_Property_List` config var (default `Commune\|Coupe_Type`; each name is both the ItemType and the property) — `GetCustomPropertyNames()`.
 - **MicroStationDefinition.bas** — `StringToMsdElementType`, `IsValidElementType`, `IsRasterElement`.
 - **MSGraphicalInteraction.bas** — `ZoomEl`, `HighlightEl` (transient).
 - **CellRedreaw.bas** — rebuilds ATLAS leader-label cell geometry after a text edit (cells in `ARES_Cell_Is_Label_Name`).

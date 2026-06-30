@@ -73,9 +73,10 @@ Public ARES_REGIONSPLIT_COLLINEAR_TOL As ARES_MS_VAR_Class 'Default Value: 0.000
 Public ARES_REGIONSPLIT_KEEP_ORIGINAL As ARES_MS_VAR_Class 'Default Value: False                  True or False (Boolean)
 ' Used in RegionSplit module — max chordal deviation (master units) when densifying an arc boundary side into a polyline; smaller => more chords => closer-to-radial perpendicular and tighter entry foot
 Public ARES_REGIONSPLIT_STROKE_TOL As ARES_MS_VAR_Class 'Default Value: 0.01                       Stroke chordal tolerance in master units (Double, > 0)
-' Used in CustomPropertyHandler module — allowed values for the "Coupe Type" custom property (dropdown choices).
-' NOT hard-coded in code: edit this variable to change the list. Array delimited by | (ARES_VAR_DELIMITER).
-Public ARES_COUPE_TYPE_LIST As ARES_MS_VAR_Class 'Default Value: TR1C|TR1A|TR1D    can be an array use | (ARES_VAR_DELIMITER)
+' Used in CustomPropertyHandler module — | -delimited list of ARES custom-property names managed by ARES.
+' Each name is both the ItemType name and the property name in the "ARES" DGNLib (one property per type).
+' Add your own after authoring the matching ItemType + value list in the DGNLib.
+Public ARES_CUSTOM_PROPERTY_LIST As ARES_MS_VAR_Class 'Default Value: Commune|Coupe_Type    list delimited by | (ARES_VAR_DELIMITER)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -135,7 +136,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
     Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
     Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")
-    Set ARES_COUPE_TYPE_LIST = CreateConfigVar("ARES_Coupe_Type_List", "TR1C|TR1A|TR1D")
+    Set ARES_CUSTOM_PROPERTY_LIST = CreateConfigVar("ARES_Custom_Property_List", "Commune|Coupe_Type")
     CreateConfigVariables = True
     Exit Function
 

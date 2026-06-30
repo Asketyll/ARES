@@ -1,200 +1,83 @@
 ' Module: CustomPropertyHandler
-' Description: Creates and manipulates ARES custom properties (MicroStation Item Types / EC properties)
-'              with silent error handling.
+' Description: Attaches, reads and writes ARES custom properties (MicroStation Item Types) on
+'              elements, with silent error handling.
 '
-'              ARES exposes ONE ItemType per custom property, all inside a single "ARES"
-'              ItemTypeLibrary, so each property can be attached independently to different elements:
-'                - "Commune"    : free editable text          (ItemPropertyTypeString)
-'                - "Coupe Type" : value taken from a list      (ItemPropertyTypeString)
+'              The item-type DEFINITIONS and their value lists live in a DGNLib (the "ARES"
+'              ItemTypeLibrary), authored once through the Item Types dialog and deployed via
+'              MS_DGNLIBLIST - they are NOT created from VBA (the MVBA Item Type API cannot author
+'              a native value list / picklist). This module only ATTACHES the types to elements and
+'              reads/writes their values (the value stored on the element is a plain string).
+'              The library is resolved with FindForDesignFile(..., includeDgnLibs:=True), so the
+'              definitions are found whether they live in the active file or in a referenced DGNLib.
 '
-'              ---------------------------------------------------------------------------------------
-'              DROPDOWN FEASIBILITY (Coupe Type)
-'              ---------------------------------------------------------------------------------------
-'              The MicroStation VBA Item Type API (ItemTypeLibrary / ItemType / ItemTypeProperty)
-'              exposes NO member to define a value list / picklist / enumeration. A property can only
-'              be Boolean/DateTime/Double/Integer/Point/String (see ItemTypePropertyType enum),
-'              optionally with a default value or a calculated expression. There is therefore no way to
-'              author a NATIVE dropdown (a value-list-bound property shown in the Properties dialog)
-'              from VBA - that requires a .dgnlib authored through the Item Types dialog / ECSchema.
-'
-'              ARES handles this at application level instead:
-'                * "Coupe Type" is stored as a plain String property.
-'                * The list of allowed values is NOT hard-coded; it lives in the ARES_Coupe_Type_List
-'                  configuration variable (see ARESConfigClass). GetCoupeTypeValues() returns it.
-'                * The dropdown itself will be presented later by an ARES UserForm (ComboBox) at
-'                  apply-time; the value finally written on the element is the chosen string.
-'              The first configured value is used here to seed the property default value.
-'
+'              The managed property names are user-editable via the ARES_Custom_Property_List config
+'              var (default "Commune|Coupe_Type") - each name is BOTH the ItemType name and the
+'              property name. A user adds a custom property by authoring it in the DGNLib (ItemType +
+'              value list) and adding its name to that list; no code change needed.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), ErrorHandlerClass (global ErrorHandler)
 
 Option Explicit
 
+' Default managed property names when ARES_Custom_Property_List is unset (name = ItemType = property).
+Private Const DEFAULT_CUSTOM_PROPERTIES As String = "Commune|Coupe_Type"
+
 '######################################################################################################################
-'                                        CREATION (the deliverable)
+'                              CONFIGURED PROPERTY NAMES (user-editable list)
 '######################################################################################################################
 
-' Create / ensure the ARES item types and their properties in the active design file.
-' Idempotent: missing item types are added, existing ones are left untouched, and the library is
-' written to the DGN only when something actually changed.
-Public Function EnsureARESItemTypes() As Boolean
+' The ARES custom-property names ARES manages, from the ARES_Custom_Property_List config var
+' (| -delimited). Each entry is both the ItemType name and the property name. A user can add their
+' own after authoring the matching ItemType + value list in the "ARES" DGNLib. 0-based array; use
+' the standard safe bounds-check before reading it.
+Public Function GetCustomPropertyNames() As String()
     On Error GoTo ErrorHandler
 
-    EnsureARESItemTypes = False
-
-    Dim ItemLibs As ItemTypeLibraries
-    Dim ITL As ItemTypeLibrary
-    Dim bChanged As Boolean
-
-    Set ItemLibs = New ItemTypeLibraries
-    Set ITL = ItemLibs.FindByName(ARESConstants.ARES_NAME_LIBRARY_TYPE)
-
-    ' Create the library if it does not exist yet
-    If ITL Is Nothing Then
-        Set ITL = ItemLibs.CreateLib(ARESConstants.ARES_NAME_LIBRARY_TYPE, False)
-        If ITL Is Nothing Then Exit Function
-        bChanged = True
-    End If
-
-    ' One ItemType per property so they remain distinct and attachable to different elements.
-    If EnsureStringItemType(ITL, ARESConstants.ARES_ITEM_COMMUNE, ARESConstants.ARES_PROP_COMMUNE, "") Then
-        bChanged = True
-    End If
-    If EnsureStringItemType(ITL, ARESConstants.ARES_ITEM_COUPE_TYPE, ARESConstants.ARES_PROP_COUPE_TYPE, GetFirstCoupeTypeValue()) Then
-        bChanged = True
-    End If
-
-    ' Persist to the DGN only when something was actually added
-    If bChanged Then ITL.Write
-
-    EnsureARESItemTypes = True
+    GetCustomPropertyNames = Split(GetCustomPropertyListRaw(), ARESConstants.ARES_VAR_DELIMITER)
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.EnsureARESItemTypes"
-    EnsureARESItemTypes = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetCustomPropertyNames"
+    GetCustomPropertyNames = Split(DEFAULT_CUSTOM_PROPERTIES, ARESConstants.ARES_VAR_DELIMITER)
 End Function
 
-' Ensure an ItemType holding a single string property exists in the given library.
-' Returns True when it had to create the ItemType (caller must Write the library afterwards),
-' False when the ItemType was already present (nothing to persist).
-Private Function EnsureStringItemType(ByVal ITL As ItemTypeLibrary, ByVal ItemName As String, ByVal PropertyName As String, ByVal DefaultValue As String) As Boolean
+' Raw | -delimited list from configuration; falls back to the default when config is unavailable or
+' the variable is empty. Lazily initialises ARESConfig like the other modules.
+Private Function GetCustomPropertyListRaw() As String
     On Error GoTo ErrorHandler
 
-    EnsureStringItemType = False
-
-    Dim oItem As ItemType
-    Dim oProp As ItemTypeProperty
-
-    ' Already there? leave it untouched (idempotent)
-    Set oItem = ITL.GetItemTypeByName(ItemName)
-    If Not oItem Is Nothing Then Exit Function
-
-    Set oItem = ITL.AddItemType(ItemName)
-    If oItem Is Nothing Then Exit Function
-
-    Set oProp = oItem.AddProperty(PropertyName, ItemPropertyTypeString)
-    If Not oProp Is Nothing Then
-        ' Seed the default value when one is provided (e.g. first Coupe Type choice)
-        If Len(DefaultValue) > 0 Then oProp.SetDefaultValue DefaultValue
-    End If
-
-    EnsureStringItemType = True
-    Exit Function
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.EnsureStringItemType"
-    EnsureStringItemType = False
-End Function
-
-'######################################################################################################################
-'                                   COUPE TYPE VALUE LIST (from configuration)
-'######################################################################################################################
-
-' Allowed values for the "Coupe Type" property, read from the ARES_Coupe_Type_List configuration
-' variable so the list is configurable and never hard-coded here. Intended for the apply-time
-' dropdown UI. Returns a 0-based array; use the standard safe bounds-check before reading it.
-Public Function GetCoupeTypeValues() As String()
-    On Error GoTo ErrorHandler
-
-    GetCoupeTypeValues = Split(GetCoupeTypeListRaw(), ARESConstants.ARES_VAR_DELIMITER)
-    Exit Function
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetCoupeTypeValues"
-    Dim emptyArr() As String
-    GetCoupeTypeValues = emptyArr
-End Function
-
-' Raw pipe-delimited list string from configuration. Lazily initialises ARESConfig like the other
-' modules (Command, FileDialogs, LangManager) so the value list is available even on a standalone call.
-Private Function GetCoupeTypeListRaw() As String
-    On Error GoTo ErrorHandler
-
-    GetCoupeTypeListRaw = ""
+    GetCustomPropertyListRaw = DEFAULT_CUSTOM_PROPERTIES
 
     If ARESConfig Is Nothing Then Exit Function
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_COUPE_TYPE_LIST Is Nothing Then Exit Function
+    If ARESConfig.ARES_CUSTOM_PROPERTY_LIST Is Nothing Then Exit Function
 
-    GetCoupeTypeListRaw = ARESConfig.ARES_COUPE_TYPE_LIST.Value
+    Dim s As String
+    s = ARESConfig.ARES_CUSTOM_PROPERTY_LIST.Value
+    If Len(Trim(s)) > 0 Then GetCustomPropertyListRaw = s
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetCoupeTypeListRaw"
-    GetCoupeTypeListRaw = ""
-End Function
-
-' First configured Coupe Type value, used to seed the property default value; "" when none configured.
-Private Function GetFirstCoupeTypeValue() As String
-    On Error GoTo ErrorHandler
-
-    GetFirstCoupeTypeValue = ""
-
-    Dim vals() As String
-    vals = Split(GetCoupeTypeListRaw(), ARESConstants.ARES_VAR_DELIMITER)
-    If UBound(vals) >= LBound(vals) Then GetFirstCoupeTypeValue = Trim(vals(LBound(vals)))
-    Exit Function
-
-ErrorHandler:
-    GetFirstCoupeTypeValue = ""
+    GetCustomPropertyListRaw = DEFAULT_CUSTOM_PROPERTIES
 End Function
 
 '######################################################################################################################
 '                              GENERIC LIBRARY HELPERS (reusable, schema-agnostic)
 '######################################################################################################################
 
-' Find an ItemTypeLibrary by name (no creation). Returns Nothing if absent.
+' Resolve the ARES ItemTypeLibrary, searching the active design file AND any referenced DGNLibs
+' (the definitions normally live in a DGNLib declared in MS_DGNLIBLIST). Returns Nothing if absent.
 Public Function FindItemTypeLibrary(Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As ItemTypeLibrary
     On Error GoTo ErrorHandler
 
     Dim ItemLibs As ItemTypeLibraries
     Set ItemLibs = New ItemTypeLibraries
-    Set FindItemTypeLibrary = ItemLibs.FindByName(LibraryName)
+    Set FindItemTypeLibrary = ItemLibs.FindForDesignFile(LibraryName, ActiveDesignFile, True)
     Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.FindItemTypeLibrary"
     Set FindItemTypeLibrary = Nothing
-End Function
-
-' Delete an ItemTypeLibrary by name. Returns True when a library was found and deleted.
-Public Function DeleteItemTypeLibrary(Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
-    On Error GoTo ErrorHandler
-
-    DeleteItemTypeLibrary = False
-
-    Dim ITL As ItemTypeLibrary
-    Set ITL = FindItemTypeLibrary(LibraryName)
-    If Not ITL Is Nothing Then
-        ITL.DeleteLib
-        DeleteItemTypeLibrary = True
-    End If
-    Exit Function
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.DeleteItemTypeLibrary"
-    DeleteItemTypeLibrary = False
 End Function
 
 '######################################################################################################################
