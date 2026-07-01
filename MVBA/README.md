@@ -51,6 +51,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | | `Zoning/Zoning.bas` | buffer zones around elements (`RunZoning` / `RunZoning2`) |
 | | `ZoneExport/ExportLengthInRegion.bas` | sum element length inside zones → Excel (`ExportLength`) |
 | | `RegionSplit/RegionSplit.bas` + `RegionSplitLocate.cls` | knife-cut a region in two (`SplitRegion`) |
+| | `PropertyTagging/PropertyTagging.bas` | auto-attach custom properties on add/modify per rules (`ARES_Property_Rules`) |
 | **Command/** | `Command.bas` | the key-in surface; each key-in inits config/lang, delegates |
 | **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs` | shared helpers (see [Shared components](#shared-components-key-apis)) |
 | **Update/** | `UpdateChecker.bas` | GitHub-releases self-update of every release asset (`.mvba` → C:\ARES, others → C:\ARES\Rsc) via elevated PowerShell + per-asset SHA-256 verify |
@@ -113,6 +114,7 @@ Key-in names and configuration variables are in the [wiki](https://github.com/As
 - **Zoning** (`Zoning.bas`; `RunZoning` = merged / round caps, `RunZoning2` = unmerged / flat caps): offset buffer per element type (Line → stadium, Arc → annular/pie sector, Ellipse → donut, Cell → rotated rounded rect), optional `GetRegionUnion` fuse. Round-vs-flat caps via `CapRoundAt` (flat only at true free ends).
 - **Zone Export** (`ExportLengthInRegion.bas`; `ExportLength`): for each element, `Length.GetPartialLengthInsideZones` (length inside zone polygons), aggregated by Style/Level/Color, written to a new `.xlsx`. The Excel COM lifecycle is carefully managed (never quits the user's own session).
 - **Region Split** (`RegionSplit.bas` engine + `RegionSplitLocate.cls` single-click driver; `SplitRegion`): cut a Shape/ComplexShape in two from one datapoint, perpendicular (or radial on arcs) across the interior via a thin "knife" rectangle + `GetRegionDifference`. **Anti-destructive invariant**: build, add and validate BOTH halves before deleting the original (`ARES_RegionSplit_Keep_Original` keeps it).
+- **Property Tagging** (`PropertyTagging.bas`; automatic, no key-in; master switch `ARES_Auto_Properties`): on element add/modify, auto-attaches custom properties per `ARES_Property_Rules` (`level[:type]=prop|prop ; …`). Matches by level name (+ optional element type); properties from `ARES_Custom_Property_List`, attached via `CustomPropertyHandler.AttachItemToElement` (attach-only, idempotent). Rules are parsed + cached (`RefreshRules` reloads). It also queues **ungrouped** matching elements, extending capture beyond the graphic-group AutoLengths workflow; attaches at `Depth = 0` only.
 
 ## Configuration system
 
@@ -128,6 +130,7 @@ Developer-relevant / automatic vars (not all are surfaced by a key-in):
 |-----|---------|---------|
 | `ARES_Bulk_Threshold` / `ARES_Bulk_Interval` | 10 / 1000 ms | bulk-operation detection |
 | `ARES_Round` | 2 | default rounding for length computations |
+| `ARES_Auto_Properties` / `ARES_Property_Rules` | True / (empty) | PropertyTagging switch + rules `level[:type]=prop\|prop ; …` |
 
 The full user-facing list is in the wiki: [Configuration Variables](https://github.com/Asketyll/ARES/wiki/Configuration-Variables).
 

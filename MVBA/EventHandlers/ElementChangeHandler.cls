@@ -4,7 +4,7 @@
 '              Includes automatic detection of bulk operations using frequency-based detection.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl,
-'               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler
+'               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -232,6 +232,15 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     UPDATE_LENGTH = ARESConfig.ARES_UPDATE_LENGTHS.Value
     TriggerFinded = False
     ONLY_COLOR = ARESConfig.ARES_ONLY_COLOR.Value
+
+    ' Auto-attach configured custom properties (PropertyTagging) to the changed element itself.
+    ' Runs BEFORE the graphic-group filter so it also reaches ungrouped elements, and only at the
+    ' top level (Depth 0) so linked descendants are not tagged. Attach is idempotent.
+    If Depth = 0 Then
+        If CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value) Then
+            PropertyTagging.ApplyPropertyRules oElement
+        End If
+    End If
 
     ' Validate element - skip if it has the default graphic group (not part of ARES workflow)
     If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then
@@ -601,17 +610,20 @@ End Sub
 Private Function IsAnyFeatureEnabled() As Boolean
     Dim autoLengthEnabled As Boolean
     Dim onlyColorEnabled As Boolean
+    Dim autoPropertiesEnabled As Boolean
 
     ' Config values are stored as Strings, convert to Boolean with CBool
     ' Auto lengths requires both flags to be True
     autoLengthEnabled = CBool(ARESConfig.ARES_AUTO_LENGTHS.Value) And CBool(ARESConfig.ARES_UPDATE_LENGTHS.Value)
     onlyColorEnabled = CBool(ARESConfig.ARES_ONLY_COLOR.Value)
+    autoPropertiesEnabled = CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value)
 
-    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled
+    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled Or autoPropertiesEnabled
 End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)
-' Filters by: graphical and graphic group only (fast path)
+' Filters by: graphical + graphic group (AutoLengths fast path), OR a matching PropertyTagging rule
+' for ungrouped elements (so level-based auto-attach reaches elements not in a graphic group).
 ' Note: Link validation is deferred to ProcessElement for performance
 ' Parameters:
 '   oElement - The element to evaluate
@@ -623,10 +635,16 @@ Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
     ' Must be graphical
     If Not oElement.IsGraphical Then Exit Function
 
-    ' Ignore elements with default graphic group (not part of ARES workflow)
-    If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
+    ' Grouped elements drive the AutoLengths workflow (linked via graphic groups)
+    If oElement.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID Then
+        ShouldQueueElement = True
+        Exit Function
+    End If
 
-    ShouldQueueElement = True
+    ' Ungrouped element: queue it only if PropertyTagging is on and a rule matches it
+    If CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value) Then
+        ShouldQueueElement = PropertyTagging.ElementMatchesAnyRule(oElement)
+    End If
 End Function
 
 ' Determines if linked elements should be queued when an element is deleted

@@ -77,6 +77,10 @@ Public ARES_REGIONSPLIT_STROKE_TOL As ARES_MS_VAR_Class 'Default Value: 0.01    
 ' Each name is both the ItemType name and the property name in the "ARES" DGNLib (one property per type).
 ' Add your own after authoring the matching ItemType + value list in the DGNLib.
 Public ARES_CUSTOM_PROPERTY_LIST As ARES_MS_VAR_Class 'Default Value: Commune|Coupe_Type    list delimited by | (ARES_VAR_DELIMITER)
+' Used in PropertyTagging module — master switch for auto-attaching custom properties on element add/modify.
+Public ARES_AUTO_PROPERTIES As ARES_MS_VAR_Class 'Default Value: True                       True or False (Boolean)
+' Used in PropertyTagging module — rules "level[:type]=prop|prop ; …" mapping elements to properties to attach.
+Public ARES_PROPERTY_RULES As ARES_MS_VAR_Class 'Default Value: (empty)                     e.g. WALLS=Commune|Coupe_Type ; DOORS:Cell=Commune
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -137,6 +141,8 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
     Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")
     Set ARES_CUSTOM_PROPERTY_LIST = CreateConfigVar("ARES_Custom_Property_List", "Commune|Coupe_Type")
+    Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
+    Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
     CreateConfigVariables = True
     Exit Function
 
