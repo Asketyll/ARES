@@ -53,7 +53,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | | `RegionSplit/RegionSplit.bas` + `RegionSplitLocate.cls` | knife-cut a region in two (`SplitRegion`) |
 | | `PropertyTagging/PropertyTagging.bas` (+ `PropertyTagging_GUI_Options`) | auto-attach custom properties on add/modify per rules (`ARES_Property_Rules`); options via `EditPropertyTaggingOptions` |
 | **Command/** | `Command.bas` | the key-in surface; each key-in inits config/lang, delegates |
-| **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs` | shared helpers (see [Shared components](#shared-components-key-apis)) |
+| **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs`, `FormUXHelper` | shared helpers (see [Shared components](#shared-components-key-apis)) |
 | **Update/** | `UpdateChecker.bas` | GitHub-releases self-update of every release asset (`.mvba` → C:\ARES, others → C:\ARES\Rsc) via elevated PowerShell + per-asset SHA-256 verify |
 | **Tests/** | `UnitTesting.bas` | custom test harness, no native MVBA framework (**deprecated / unmaintained**) |
 
@@ -150,6 +150,7 @@ None. ARES has **no licensing or copy protection** (removed) — all features ru
 - **MSGraphicalInteraction.bas** — `ZoomEl`, `HighlightEl` (transient).
 - **CellRedreaw.bas** — rebuilds ATLAS leader-label cell geometry after a text edit (cells in `ARES_Cell_Is_Label_Name`).
 - **FileDialogs.bas** — Save/Open dialogs by shelling PowerShell WinForms via a temp `.bat`; config import/export UI.
+- **FormUXHelper.bas** — shared UX baseline for the option UserForms. `SetControlsLocked` (explicit control lock, replaces each form's copy-pasted toggle); `InlineEditKey` + `CommitInlineEdit` + `RevertInlineEdit` (Enter commits / **Esc truly cancels** an inline edit — revert-then-commit so the live write-through sees no change); `NudgeActiveEdit` (non-blocking "finish or Esc" status cue, **no `Sleep`/`MsgBox`**); `SetTip` (localized `ControlTipText`); `PersistDefault` (restore-to-default via `.Value = .DefaultValue`, which persists — not `ResetToDefault`, which does not). The six `*_GUI_Options` forms + the length picker converge onto it instead of duplicating lock/keyboard/feedback code.
 
 ## Coding conventions
 

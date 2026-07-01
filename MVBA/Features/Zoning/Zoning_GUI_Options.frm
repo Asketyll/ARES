@@ -1,21 +1,34 @@
+VERSION 5.00
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Zoning_GUI_Options 
+   Caption         =   "Edit zoning options:"
+   ClientHeight    =   3285
+   ClientLeft      =   120
+   ClientTop       =   465
+   ClientWidth     =   3015
+   OleObjectBlob   =   "Zoning_GUI_Options.frx":0000
+   StartUpPosition =   1  'CenterOwner
+End
+Attribute VB_Name = "Zoning_GUI_Options"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
 ' UserForm: Zoning_GUI_Options
 ' Description: UserForm for editing Zoning module options.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, ColorDialog
 Option Explicit
 
-Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
-
 Private mbLocked As Boolean
 
 ' ============================================================
-' SOURCE LEVELS — Edit button + hidden TextBox
+' SOURCE LEVELS - Edit button + hidden TextBox
 ' ============================================================
 
 Private Sub Edit_Levels_Command_Click()
     On Error GoTo ErrorHandler
     If Not mbLocked Then
-        Locked
+        SetLocked True
         TextBox_Levels.Value = ARESConfig.ARES_ZONING_LEVEL.Value
         TextBox_Levels.Visible = True
         Edit_Levels_Command.Visible = False
@@ -24,34 +37,31 @@ Private Sub Edit_Levels_Command_Click()
     Exit Sub
 
 ErrorHandler:
+    SetLocked False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.Edit_Levels_Command_Click"
 End Sub
 
 Private Sub TextBox_Levels_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
-    If TextBox_Levels.Value <> ARESConfig.ARES_ZONING_LEVEL.Value Then
-        ARESConfig.ARES_ZONING_LEVEL.Value = TextBox_Levels.Value
-    End If
-    TextBox_Levels.Visible = False
-    Edit_Levels_Command.Visible = True
-    If mbLocked Then Locked
+    FormUXHelper.CommitInlineEdit TextBox_Levels, Edit_Levels_Command, ARESConfig.ARES_ZONING_LEVEL
+    SetLocked False
     Exit Sub
 
 ErrorHandler:
+    SetLocked False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.TextBox_Levels_Exit"
 End Sub
 
 Private Sub TextBox_Levels_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
-    If Shift = 0 Then
-        If KeyCode = 13 Then TextBox_Levels_Exit returnB
-        If KeyCode = 27 Then
-            TextBox_Levels.Visible = False
-            Edit_Levels_Command.Visible = True
-            If mbLocked Then Locked
-        End If
-    End If
+    Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
+        Case FormUXKeyCommit
+            TextBox_Levels_Exit returnB
+        Case FormUXKeyCancel
+            FormUXHelper.RevertInlineEdit TextBox_Levels, ARESConfig.ARES_ZONING_LEVEL
+            TextBox_Levels_Exit returnB
+    End Select
     Exit Sub
 
 ErrorHandler:
@@ -59,22 +69,22 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
-' BUFFER DISTANCE — always-visible TextBox
+' BUFFER DISTANCE - always-visible TextBox
 ' ============================================================
 
 Private Sub TextBox_Distance_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
-    Dim normalized As String
-    normalized = Replace(TextBox_Distance.Value, ",", ".")
-    If Val(normalized) <= 0 Then
+    Dim sNorm As String
+    sNorm = Replace(TextBox_Distance.Value, ",", ".")
+    If Val(sNorm) <= 0 Then
         Cancel = True
-        MsgBox GetTranslation("ZoningGUIOptionsDistanceError"), vbOKOnly
+        LangManager.ShowStatusT "ZoningGUIOptionsDistanceError"
         TextBox_Distance.Value = ARESConfig.ARES_ZONING_DISTANCE.Value
         Exit Sub
     End If
-    If normalized <> ARESConfig.ARES_ZONING_DISTANCE.Value Then
-        ARESConfig.ARES_ZONING_DISTANCE.Value = normalized
-        TextBox_Distance.Value = normalized
+    If sNorm <> ARESConfig.ARES_ZONING_DISTANCE.Value Then
+        ARESConfig.ARES_ZONING_DISTANCE.Value = sNorm
+        TextBox_Distance.Value = sNorm
     End If
     Exit Sub
 
@@ -83,13 +93,13 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
-' OUTPUT LEVEL — Edit button + hidden TextBox
+' OUTPUT LEVEL - Edit button + hidden TextBox
 ' ============================================================
 
 Private Sub Edit_OutputLevel_Command_Click()
     On Error GoTo ErrorHandler
     If Not mbLocked Then
-        Locked
+        SetLocked True
         TextBox_OutputLevel.Value = ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value
         TextBox_OutputLevel.Visible = True
         Edit_OutputLevel_Command.Visible = False
@@ -98,35 +108,32 @@ Private Sub Edit_OutputLevel_Command_Click()
     Exit Sub
 
 ErrorHandler:
+    SetLocked False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.Edit_OutputLevel_Command_Click"
 End Sub
 
 Private Sub TextBox_OutputLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
-    If TextBox_OutputLevel.Value <> ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value Then
-        ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value = TextBox_OutputLevel.Value
-    End If
+    FormUXHelper.CommitInlineEdit TextBox_OutputLevel, Edit_OutputLevel_Command, ARESConfig.ARES_ZONING_OUTPUT_LEVEL
     Edit_OutputLevel_Command.Caption = GetTranslation("ZoningGUIOptionsEditOutputLevel_CommandCaption", ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value)
-    TextBox_OutputLevel.Visible = False
-    Edit_OutputLevel_Command.Visible = True
-    If mbLocked Then Locked
+    SetLocked False
     Exit Sub
 
 ErrorHandler:
+    SetLocked False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.TextBox_OutputLevel_Exit"
 End Sub
 
 Private Sub TextBox_OutputLevel_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
-    If Shift = 0 Then
-        If KeyCode = 13 Then TextBox_OutputLevel_Exit returnB
-        If KeyCode = 27 Then
-            TextBox_OutputLevel.Visible = False
-            Edit_OutputLevel_Command.Visible = True
-            If mbLocked Then Locked
-        End If
-    End If
+    Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
+        Case FormUXKeyCommit
+            TextBox_OutputLevel_Exit returnB
+        Case FormUXKeyCancel
+            FormUXHelper.RevertInlineEdit TextBox_OutputLevel, ARESConfig.ARES_ZONING_OUTPUT_LEVEL
+            TextBox_OutputLevel_Exit returnB
+    End Select
     Exit Sub
 
 ErrorHandler:
@@ -134,7 +141,7 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
-' OUTPUT COLOR — CommandButton with BackColor preview
+' OUTPUT COLOR - CommandButton with BackColor preview
 ' ============================================================
 
 Private Sub Edit_Color_Command_Click()
@@ -154,7 +161,7 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
-' OUTPUT STYLE — always-visible TextBox (supports custom style names)
+' OUTPUT STYLE - always-visible TextBox (supports custom style names)
 ' ============================================================
 
 Private Sub TextBox_Style_Exit(ByVal Cancel As MSForms.ReturnBoolean)
@@ -169,21 +176,21 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
-' OUTPUT WEIGHT — SpinButton (0-31)
+' OUTPUT WEIGHT - SpinButton (0-31)
 ' ============================================================
 
 Private Sub Weight_SpinButton_Change()
     On Error GoTo ErrorHandler
-    If mbLocked Then
-    ElseIf Weight_SpinButton.Value <> CLng(ARESConfig.ARES_ZONING_OUTPUT_WEIGHT.Value) Then
-        Locked
+    If Not mbLocked And Weight_SpinButton.Value <> CLng(ARESConfig.ARES_ZONING_OUTPUT_WEIGHT.Value) Then
+        SetLocked True
         Weight_Number_Label.Caption = Weight_SpinButton.Value
         ARESConfig.ARES_ZONING_OUTPUT_WEIGHT.Value = CStr(Weight_SpinButton.Value)
-        Locked
+        SetLocked False
     End If
     Exit Sub
 
 ErrorHandler:
+    SetLocked False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.Weight_SpinButton_Change"
 End Sub
 
@@ -194,14 +201,37 @@ End Sub
 Private Sub UserForm_Initialize()
     On Error GoTo ErrorHandler
 
-    Me.Caption                       = GetTranslation("ZoningGUIOptionsCaption")
-    Edit_Levels_Command.Caption      = GetTranslation("ZoningGUIOptionsEditLevels_CommandCaption")
-    Distance_Label.Caption           = GetTranslation("ZoningGUIOptionsDistance_LabelCaption")
-    Edit_OutputLevel_Command.Caption  = GetTranslation("ZoningGUIOptionsEditOutputLevel_CommandCaption", ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value)
+    Me.Caption = GetTranslation("ZoningGUIOptionsCaption")
+    Edit_Levels_Command.Caption = GetTranslation("ZoningGUIOptionsEditLevels_CommandCaption")
+    Distance_Label.Caption = GetTranslation("ZoningGUIOptionsDistance_LabelCaption")
+    Edit_OutputLevel_Command.Caption = GetTranslation("ZoningGUIOptionsEditOutputLevel_CommandCaption", ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value)
     Edit_OutputLevel_Command.WordWrap = True
-    Edit_Color_Command.Caption       = GetTranslation("ZoningGUIOptionsEditColor_CommandCaption")
-    Style_Label.Caption              = GetTranslation("ZoningGUIOptionsOutputStyle_LabelCaption")
-    Weight_Label.Caption             = GetTranslation("ZoningGUIOptionsWeight_LabelCaption")
+    Edit_Color_Command.Caption = GetTranslation("ZoningGUIOptionsEditColor_CommandCaption")
+    Style_Label.Caption = GetTranslation("ZoningGUIOptionsOutputStyle_LabelCaption")
+    Weight_Label.Caption = GetTranslation("ZoningGUIOptionsWeight_LabelCaption")
+
+    ' Tooltips (AC-6)
+    FormUXHelper.SetTip Edit_Levels_Command, "ZoningGUIOptionsEditLevels_CommandTip"
+    FormUXHelper.SetTip Distance_Label, "ZoningGUIOptionsDistance_LabelTip"
+    FormUXHelper.SetTip TextBox_Distance, "ZoningGUIOptionsDistance_LabelTip"
+    FormUXHelper.SetTip Edit_OutputLevel_Command, "ZoningGUIOptionsEditOutputLevel_CommandTip"
+    FormUXHelper.SetTip Edit_Color_Command, "ZoningGUIOptionsEditColor_CommandTip"
+    FormUXHelper.SetTip TextBox_Color, "ZoningGUIOptionsColor_SwatchTip"
+    FormUXHelper.SetTip Style_Label, "ZoningGUIOptionsOutputStyle_LabelTip"
+    FormUXHelper.SetTip TextBox_Style, "ZoningGUIOptionsOutputStyle_LabelTip"
+    FormUXHelper.SetTip Weight_Label, "ZoningGUIOptionsWeight_LabelTip"
+    FormUXHelper.SetTip Weight_SpinButton, "ZoningGUIOptionsWeight_LabelTip"
+
+    ' Keyboard order + mnemonics (AC-7) - existing controls only
+    Edit_Levels_Command.TabIndex = 0
+    TextBox_Distance.TabIndex = 1
+    Edit_OutputLevel_Command.TabIndex = 2
+    Edit_Color_Command.TabIndex = 3
+    TextBox_Style.TabIndex = 4
+    Weight_SpinButton.TabIndex = 5
+    Edit_Levels_Command.Accelerator = "L"
+    Edit_OutputLevel_Command.Accelerator = "O"
+    Edit_Color_Command.Accelerator = "C"
 
     Dim storedDist As String
     storedDist = Replace(ARESConfig.ARES_ZONING_DISTANCE.Value, ",", ".")
@@ -219,9 +249,9 @@ Private Sub UserForm_Initialize()
     Weight_SpinButton.Min = 0:  Weight_SpinButton.Max = 31
 
     Weight_Number_Label.Caption = ARESConfig.ARES_ZONING_OUTPUT_WEIGHT.Value
-    Weight_SpinButton.Value     = CLng(ARESConfig.ARES_ZONING_OUTPUT_WEIGHT.Value)
+    Weight_SpinButton.Value = CLng(ARESConfig.ARES_ZONING_OUTPUT_WEIGHT.Value)
 
-    TextBox_Levels.Visible      = False
+    TextBox_Levels.Visible = False
     TextBox_OutputLevel.Visible = False
     Exit Sub
 
@@ -229,39 +259,16 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.UserForm_Initialize"
 End Sub
 
-Private Function Locked() As Boolean
+' Explicit-state lock (AC-2/AC-8): replaces the toggle Locked()/CheckControlForLock pair.
+' Any error path must call SetLocked False so controls are never left disabled.
+Private Sub SetLocked(ByVal bState As Boolean)
     On Error GoTo ErrorHandler
-    mbLocked = Not mbLocked
-
-    Dim ctrl As Control
-    For Each ctrl In Me.Controls
-        CheckControlForLock ctrl, mbLocked
-    Next ctrl
-
-    Locked = mbLocked
-    Exit Function
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.Locked"
-    Locked = False
-End Function
-
-Private Sub CheckControlForLock(ctrl As Control, lockState As Boolean)
-    On Error GoTo ErrorHandler
-    If TypeName(ctrl) = "CommandButton" Or TypeName(ctrl) = "SpinButton" Then
-        ctrl.Enabled = Not lockState
-    Else
-        If TypeName(ctrl) = "Frame" Or TypeName(ctrl) = "MultiPage" Or TypeName(ctrl) = "Page" Then
-            Dim subCtrl As Control
-            For Each subCtrl In ctrl.Controls
-                CheckControlForLock subCtrl, lockState
-            Next subCtrl
-        End If
-    End If
+    mbLocked = bState
+    FormUXHelper.SetControlsLocked Me, bState
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.CheckControlForLock"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.SetLocked"
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
@@ -271,11 +278,9 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
         Cancel = True
         Select Case True
             Case TextBox_Levels.Visible
-                Me.TextBox_Levels.SetFocus
-                SeeActiveTextBox TextBox_Levels
+                FormUXHelper.NudgeActiveEdit TextBox_Levels
             Case TextBox_OutputLevel.Visible
-                Me.TextBox_OutputLevel.SetFocus
-                SeeActiveTextBox TextBox_OutputLevel
+                FormUXHelper.NudgeActiveEdit TextBox_OutputLevel
         End Select
     Else
         command.OnZoningGUIClosed
@@ -286,19 +291,3 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.UserForm_QueryClose"
 End Sub
 
-Private Sub SeeActiveTextBox(ctrl As TextBox)
-    On Error GoTo ErrorHandler
-    Dim i As Byte
-    For i = 0 To 3
-        ctrl.SpecialEffect = fmSpecialEffectBump
-        DoEvents
-        Sleep 75
-        ctrl.SpecialEffect = fmSpecialEffectSunken
-        DoEvents
-        Sleep 75
-    Next i
-    Exit Sub
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning_GUI_Options.SeeActiveTextBox"
-End Sub
