@@ -4,10 +4,11 @@
 ' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, ConfigurationUI, Zoning, ExportLengthInRegion
 Option Explicit
 
-Private moAutoLengthsGUI  As AutoLengths_GUI_Options
-Private moZoningGUI       As Zoning_GUI_Options
-Private moOutlineGUI      As Outline_GUI_Options
-Private moZoneExportGUI   As ExportLengthInReg_GUI_Options
+Private moAutoLengthsGUI     As AutoLengths_GUI_Options
+Private moZoningGUI          As Zoning_GUI_Options
+Private moOutlineGUI         As Outline_GUI_Options
+Private moZoneExportGUI      As ExportLengthInReg_GUI_Options
+Private moPropertyTaggingGUI As PropertyTagging_GUI_Options
 
 ' Report a trapped fault from a key-in entry point (messaging rules): log the technical detail
 ' to the .log (English, via HandleError), then show the user a translated, GENERIC failure line.
@@ -461,3 +462,29 @@ Public Sub OnZoneExportGUIClosed()
     Set moZoneExportGUI = Nothing
 End Sub
 
+' Open the Property Tagging (custom-property) options GUI
+Sub EditPropertyTaggingOptions()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moPropertyTaggingGUI Is Nothing Then
+        Set moPropertyTaggingGUI = New PropertyTagging_GUI_Options
+    End If
+
+    moPropertyTaggingGUI.Show vbModeless
+    ReportIfLogged "EditPropertyTaggingOptions"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "EditPropertyTaggingOptions", Err.Description, Err.Number, Err.Source
+End Sub
+
+Public Sub OnPropertyTaggingGUIClosed()
+    Set moPropertyTaggingGUI = Nothing
+End Sub

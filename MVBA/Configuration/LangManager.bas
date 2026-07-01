@@ -124,6 +124,11 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoneExportNoZones", "ARES: Zone export — no zones on level {0}"
     moTranslations.Add "EN_ZoneExportComplete", "ARES: Zone export complete — {0} elements, {1} groups ({2})"
     moTranslations.Add "EN_ZoneExportFailed", "ARES: Zone export failed"
+    ' --- Property Tagging (custom-property) options GUI ---
+    moTranslations.Add "EN_PropertyTaggingGUIOptionsCaption", "Edit custom-property options:"
+    moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelCaption", "Auto-attach on create / modify"
+    moTranslations.Add "EN_PropertyTaggingGUIOptionsEditList_CommandCaption", "Edit property list"
+    moTranslations.Add "EN_PropertyTaggingGUIOptionsEditRules_CommandCaption", "Edit rules"
     moTranslations.Add "EN_ZoningNoBufferCreated", "No buffer could be created for any of the {0} element(s) found."
     moTranslations.Add "EN_ZoningSomeBuffersFailed", "{0} of {1} element(s) could not be buffered and were skipped."
     moTranslations.Add "EN_ZoneExportGUIOptionsCaption", "Edit zone export options:"
@@ -245,6 +250,11 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoneExportNoZones", "ARES : Export de zone — aucune zone sur le niveau {0}"
     moTranslations.Add "FR_ZoneExportComplete", "ARES : Export de zone terminé — {0} éléments, {1} groupes ({2})"
     moTranslations.Add "FR_ZoneExportFailed", "ARES : Échec de l'export de zone"
+    ' --- Property Tagging (custom-property) options GUI ---
+    moTranslations.Add "FR_PropertyTaggingGUIOptionsCaption", "Modifier les options de propriétés personnalisées :"
+    moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelCaption", "Attache auto à la création / modification"
+    moTranslations.Add "FR_PropertyTaggingGUIOptionsEditList_CommandCaption", "Modifier la liste des propriétés"
+    moTranslations.Add "FR_PropertyTaggingGUIOptionsEditRules_CommandCaption", "Modifier les règles"
     moTranslations.Add "FR_ZoningNoBufferCreated", "Aucun buffer n'a pu être créé pour les {0} élément(s) trouvé(s)."
     moTranslations.Add "FR_ZoningSomeBuffersFailed", "{0} des {1} élément(s) n'ont pas pu être bufférisés et ont été ignorés."
     moTranslations.Add "FR_ZoneExportGUIOptionsCaption", "Modifier les options d'export de zone :"
