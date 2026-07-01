@@ -55,8 +55,19 @@ Public ARES_ZONING_OUTPUT_STYLE As ARES_MS_VAR_Class 'Default Value: 0          
 Public ARES_ZONING_OUTPUT_WEIGHT As ARES_MS_VAR_Class 'Default Value: 4            MicroStation line weight index (Long)
 ' Used in Zoning module for default buffer distance
 Public ARES_ZONING_DISTANCE As ARES_MS_VAR_Class 'Default Value: 2.0              Buffer distance in master units (Double)
-' Used in RunZoning2 command for default buffer distance
-Public ARES_ZONING2_DISTANCE As ARES_MS_VAR_Class 'Default Value: 0.2             Buffer distance in master units (Double)
+' === Outline (tight per-element zoning variant) — own option set ===
+' Used in Outline module for source level names to process
+Public ARES_OUTLINE_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)          can a array use | (ARES_VAR_DELIMITER)
+' Used in Outline module for default buffer distance
+Public ARES_OUTLINE_DISTANCE As ARES_MS_VAR_Class 'Default Value: 0.2            Buffer distance in master units (Double)
+' Used in Outline module for output level name
+Public ARES_OUTLINE_OUTPUT_LEVEL As ARES_MS_VAR_Class 'Default Value: ARES_Outline   Level name string
+' Used in Outline module for output element color
+Public ARES_OUTLINE_OUTPUT_COLOR As ARES_MS_VAR_Class 'Default Value: 5           MicroStation color index (Long)
+' Used in Outline module for output element line style
+Public ARES_OUTLINE_OUTPUT_STYLE As ARES_MS_VAR_Class 'Default Value: 0           MicroStation line style index (Long)
+' Used in Outline module for output element line weight
+Public ARES_OUTLINE_OUTPUT_WEIGHT As ARES_MS_VAR_Class 'Default Value: 4          MicroStation line weight index (Long)
 ' Used in ExportLengthInRegion module — open the workbook in Excel after export when True; False = headless silent export
 Public ARES_ZONE_EXPORT_EXCEL_VISIBLE As ARES_MS_VAR_Class 'Default Value: false          True or False (Boolean)
 ' Used in ExportLengthInRegion module — name of the worksheet tab in the output Excel workbook
@@ -131,7 +142,12 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0")
     Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4")
     Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0")
-    Set ARES_ZONING2_DISTANCE = CreateConfigVar("ARES_Zoning2_Distance", "0.2")
+    Set ARES_OUTLINE_LEVEL = CreateConfigVar("ARES_Outline_Level", "")
+    Set ARES_OUTLINE_DISTANCE = CreateConfigVar("ARES_Outline_Distance", "0.2")
+    Set ARES_OUTLINE_OUTPUT_LEVEL = CreateConfigVar("ARES_Outline_Output_Level", "ARES_Outline")
+    Set ARES_OUTLINE_OUTPUT_COLOR = CreateConfigVar("ARES_Outline_Output_Color", "5")
+    Set ARES_OUTLINE_OUTPUT_STYLE = CreateConfigVar("ARES_Outline_Output_Style", "0")
+    Set ARES_OUTLINE_OUTPUT_WEIGHT = CreateConfigVar("ARES_Outline_Output_Weight", "4")
     Set ARES_ZONE_EXPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_Zone_Export_Excel_Visible", "False")
     Set ARES_ZONE_EXPORT_SHEET_NAME = CreateConfigVar("ARES_Zone_Export_Sheet_Name", "Export")
     Set ARES_ZONE_EXPORT_USE_DIALOG = CreateConfigVar("ARES_Zone_Export_Use_Dialog", "True")

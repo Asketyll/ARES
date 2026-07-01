@@ -179,23 +179,27 @@ End Sub
 ' Then perform merge/reprojection, then call ResumeChangeTracking
 Public Sub SuspendChangeTracking()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
 
     If mbChangeTrackingSuspended Then
-        ShowStatus "ARES: Change tracking already suspended"
+        ShowStatusT "ChangeTrackingAlreadySuspended"
         Exit Sub
     End If
 
     If Not ChangeHandler Is Nothing Then
         DetachChangeTracking
         mbChangeTrackingSuspended = True
-        ShowStatus "ARES: Change tracking SUSPENDED - perform bulk operation then resume"
+        ShowStatusT "ChangeTrackingSuspended"
     Else
-        ShowStatus "ARES: No change handler to suspend"
+        ShowStatusT "ChangeTrackingNoHandler"
     End If
+    If ErrorHandler.HadError Then ShowStatus GetTranslation("CommandFailed", "SuspendChangeTracking")
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "ARES: Error suspending change tracking: " & Err.Description
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.SuspendChangeTracking"
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+    ShowStatus GetTranslation("CommandFailed", "SuspendChangeTracking")
 End Sub
 
 ' Resume change tracking after bulk operations

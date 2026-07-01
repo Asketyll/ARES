@@ -15,7 +15,7 @@ Public Function GetLength(ByVal El As element, Optional RND As Variant, Optional
     If RndLength Then
         RND = HandleRounding(RND, ErasRnd)
         If RND = ARES_RND_ERROR_VALUE Then
-            ShowStatus GetTranslation("LengthRoundError") & ARES_RND_ERROR_VALUE
+            ShowStatus GetTranslation("LengthRoundError", ARES_RND_ERROR_VALUE)
             GetLength = 0
             Exit Function
         End If
@@ -262,7 +262,7 @@ Public Function SetRound(RND As Byte) As Boolean
     If RND <> ARES_RND_ERROR_VALUE Then
         SetRound = Config.SetVar(ARESConfig.ARES_ROUNDS.key, RND)
     Else
-        ShowStatus GetTranslation("LengthRoundError") & ARES_RND_ERROR_VALUE
+        ShowStatus GetTranslation("LengthRoundError", ARES_RND_ERROR_VALUE)
     End If
     Exit Function
 

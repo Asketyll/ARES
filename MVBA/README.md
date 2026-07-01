@@ -48,7 +48,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | | `DGNOpenClose.cls` | `Application` events — re-init change tracking on file open/close |
 | | `ReRegisterIdleHandler.cls` | one-shot idle handler that re-attaches change tracking after a bulk suspend |
 | **Features/** | `AutoLengths/Auto_Lengths.cls` | write linked-geometry length into a text trigger (+ optional color sync) |
-| | `Zoning/Zoning.bas` | buffer zones around elements (`RunZoning` / `RunZoning2`) |
+| | `Zoning/Zoning.bas` | buffer zones around elements (`RunZoning` / `RunOutline`) |
 | | `ZoneExport/ExportLengthInRegion.bas` | sum element length inside zones → Excel (`ExportLength`) |
 | | `RegionSplit/RegionSplit.bas` + `RegionSplitLocate.cls` | knife-cut a region in two (`SplitRegion`) |
 | | `PropertyTagging/PropertyTagging.bas` | auto-attach custom properties on add/modify per rules (`ARES_Property_Rules`) |
@@ -111,7 +111,7 @@ If ElementInProcesse.HasElements -> ProcessPendingElements   else CleanupHandler
 Key-in names and configuration variables are in the [wiki](https://github.com/Asketyll/ARES/wiki); below is the implementation summary.
 
 - **Auto Lengths** (`Auto_Lengths.cls`; runs inside the flow + key-in `ForceUpdateLength`): measures linked geometry (`Link.GetLink` → `Length.GetLength`) and writes the rounded value into the text trigger (e.g. `(Xx_m)` → `(12.3_m)`) via `StringsInEl`. Multiple differing lengths → modeless selection form → `OnElementSelected`. Optional color sync. This is the only feature wired into the live `ElementInProcesse` / `ChangeHandler` pipeline; it scrupulously `Remove`s from the queue on every path.
-- **Zoning** (`Zoning.bas`; `RunZoning` = merged / round caps, `RunZoning2` = unmerged / flat caps): offset buffer per element type (Line → stadium, Arc → annular/pie sector, Ellipse → donut, Cell → rotated rounded rect), optional `GetRegionUnion` fuse. Round-vs-flat caps via `CapRoundAt` (flat only at true free ends).
+- **Zoning** (`Zoning.bas`; `RunZoning` = merged / round caps, `RunOutline` = tight per-element, unmerged / flat caps): offset buffer per element type (Line → stadium, Arc → annular/pie sector, Ellipse → donut, Cell → rotated rounded rect), optional `GetRegionUnion` fuse. Round-vs-flat caps via `CapRoundAt` (flat only at true free ends). Both share the engine but have separate option sets + GUIs: `RunZoning`/`EditZoningOptions` read `ARES_Zoning_*`, `RunOutline`/`EditOutlineOptions` read `ARES_Outline_*` (own source level, distance, output symbology).
 - **Zone Export** (`ExportLengthInRegion.bas`; `ExportLength`): for each element, `Length.GetPartialLengthInsideZones` (length inside zone polygons), aggregated by Style/Level/Color, written to a new `.xlsx`. The Excel COM lifecycle is carefully managed (never quits the user's own session).
 - **Region Split** (`RegionSplit.bas` engine + `RegionSplitLocate.cls` single-click driver; `SplitRegion`): cut a Shape/ComplexShape in two from one datapoint, perpendicular (or radial on arcs) across the interior via a thin "knife" rectangle + `GetRegionDifference`. **Anti-destructive invariant**: build, add and validate BOTH halves before deleting the original (`ARES_RegionSplit_Keep_Original` keeps it).
 - **Property Tagging** (`PropertyTagging.bas`; automatic, no key-in; master switch `ARES_Auto_Properties`): on element add/modify, auto-attaches custom properties per `ARES_Property_Rules` (`level[:type]=prop|prop ; …`). Matches by level name (+ optional element type); properties from `ARES_Custom_Property_List`, attached via `CustomPropertyHandler.AttachItemToElement` (attach-only, idempotent). Rules are parsed + cached (`RefreshRules` reloads). It also queues **ungrouped** matching elements, extending capture beyond the graphic-group AutoLengths workflow; attaches at `Depth = 0` only.
@@ -198,7 +198,26 @@ End Function
 
 - **`HandleError(Description, Number, Source, Optional ModuleName)`** — the 4th arg is the call-site location (`"Module.Proc"`), printed as `[ModuleName]` in the log. `Number = 0` → informational formatting (no `Error N`); `Number > 0` → `Error N (Source)` + a critical MsgBox **in VBA design mode only**. There is **no severity system**.
 - **Informational / non-error logs**: call `HandleError "<message>", 0, "", "Module.Proc"` (Number 0, empty Source, location in the ModuleName slot). Do NOT pass a severity word — there is no severity channel.
-- **Documented exceptions** (don't "fix"): `ErrorHandlerClass` can't call itself; the `UUID` module is fail-closed/silent; `Command.bas` mostly uses `ShowStatus "<x> failed"`; trivial/pure-math helpers and `Class_Terminate` use `On Error Resume Next`.
+- **Documented exceptions** (don't "fix"): `ErrorHandlerClass` can't call itself (no logging inside it); the `UUID` module is fail-closed/silent; trivial/pure-math helpers and `Class_Terminate` use `On Error Resume Next`.
+
+### User-facing messages vs logs
+
+Two purposes, two channels — never conflate them:
+
+- **Diagnostics / trapped faults** → `ErrorHandler.HandleError Desc, Number, Source, "Module.Sub"` (writes the `.log`; + a MsgBox in VBA design mode only). Log text is **English, never translated** — it must stay greppable, stable and support-readable whatever the UI language. Every `ErrorHandler:` block logs.
+- **User feedback** (command result, validation abort, actionable progress, interactive-tool guidance) → the MicroStation status bar, **always translated**:
+  - parameter-less status → `LangManager.ShowStatusT "Key"` (self-initialises the translation system, no English fallback needed);
+  - status carrying an identifier/count → `ShowStatus GetTranslation("Key", arg0, …)`;
+  - interactive tool prompts → `ShowCommand` / `ShowPrompt GetTranslation(...)`.
+
+Rules:
+- **Raw `Err.Description` never reaches the status bar** — the detail goes to the `.log`; the user sees a translated line.
+- **Key-in faults**: `Command.bas` traps every fault with `ReportFailure "SubName", Err.Description, Err.Number, Err.Source` — one private helper that logs the detail *and* shows the generic translated `CommandFailed` (`"{0} failed"`). A key-in living in another module does the same two steps inline.
+- **Silently-swallowed faults**: most `ErrorHandler:` blocks log then *swallow* (no re-raise), so a fault caught in a called module never reaches the command's handler and would leave the user with a silent no-op. `ErrorHandlerClass` therefore carries a `HadError` flag (set on any `Number > 0` log); each **synchronous** key-in calls `ErrorHandler.ClearErrorFlag` on entry and `ReportIfLogged "SubName"` before returning, surfacing `CommandFailed` **once** if anything faulted downstream. The flag keys on `Number > 0` only, so expected/validation logs (`Number 0`, already self-reported) don't trip it. **Interactive** key-ins (`ForceUpdateLength`, `SplitRegion`) are excluded — their work is deferred to a self-reporting locate tool, so a start/end check wouldn't see it.
+- **Identifiers stay literal**: config-var / key-in / level / type names go through `{0}` params, never inside translated prose.
+- **No `MsgBox` for normal feedback** — use the status bar. `MsgBox` is reserved for: the design-mode `HandleError` popup, interactive confirmations (yes/no), the language-selection prompt, in-modal-form validation, a summary needing acknowledgment (e.g. `ShowARESConfigSummary`), and bootstrap-failure messages that predate translations.
+- **Verbose intermediate progress** is a diagnostic, not user feedback → log it (`HandleError "<step>", 0, "", "Module.Sub"`), don't put it on the status bar (see `ExportLengthInRegion`).
+- Every message is a paired `EN_`/`FR_` key in `LangManager`; add both. Switching language (`English`/`Français`) reloads translations so the confirmation shows in the resolved language.
 
 ### Recurring patterns
 

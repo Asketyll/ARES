@@ -40,7 +40,7 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_BootMSVarsMissing", "Variable management is missing."
     moTranslations.Add "EN_BootFail", "Error in automatic loading of VBA."
     moTranslations.Add "EN_LangFail", "Translation not found for key: "
-    moTranslations.Add "EN_LengthRoundError", "Rounding value unauthorized: "
+    moTranslations.Add "EN_LengthRoundError", "Rounding value unauthorized: {0}"
     moTranslations.Add "EN_LengthElementTypeNotSupportedByInterface", "The element: {0} is an element of type: {1}, it is not supported by the GetElementLength interface."
     moTranslations.Add "EN_DGNOpenCloseEventsInitialized", "Track events element initialized."
     moTranslations.Add "EN_DGNOpenCloseInitError", "Error initializing DGN Open/Close events: "
@@ -97,6 +97,33 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoningGUIOptionsEditColor_CommandCaption", "Edit Color"
     moTranslations.Add "EN_ZoningGUIOptionsWeight_LabelCaption", "Weight:"
     moTranslations.Add "EN_ZoningGUIOptionsDistanceError", "Distance must be a positive number."
+    moTranslations.Add "EN_OutlineGUIOptionsCaption", "Edit outline options:"
+    moTranslations.Add "EN_OutlineGUIOptionsEditLevels_CommandCaption", "Edit source levels"
+    moTranslations.Add "EN_OutlineGUIOptionsDistance_LabelCaption", "Distance:"
+    moTranslations.Add "EN_OutlineGUIOptionsEditOutputLevel_CommandCaption", "Edit output level ({0})"
+    moTranslations.Add "EN_OutlineGUIOptionsOutputStyle_LabelCaption", "Output style:"
+    moTranslations.Add "EN_OutlineGUIOptionsEditColor_CommandCaption", "Edit Color"
+    moTranslations.Add "EN_OutlineGUIOptionsWeight_LabelCaption", "Weight:"
+    moTranslations.Add "EN_OutlineGUIOptionsDistanceError", "Distance must be a positive number."
+    moTranslations.Add "EN_OutlineDistanceInvalid", "ARES: ARES_Outline_Distance invalid or empty — RunOutline aborted"
+    moTranslations.Add "EN_OutlineLevelEmpty", "ARES: ARES_Outline_Level empty — RunOutline aborted"
+    ' --- Messaging retrofit: generic command failure (detail goes to the .log) ---
+    moTranslations.Add "EN_CommandFailed", "{0} failed"
+    ' --- Language switch ---
+    moTranslations.Add "EN_LanguageChanged", "ARES language set — please restart MicroStation."
+    moTranslations.Add "EN_LanguageChangeFailed", "Unable to set ARES language — set ARES_Language manually."
+    ' --- Change tracking (bulk suspend/resume) ---
+    moTranslations.Add "EN_ChangeTrackingAlreadySuspended", "ARES: Change tracking already suspended"
+    moTranslations.Add "EN_ChangeTrackingSuspended", "ARES: Change tracking suspended — perform the bulk operation, then resume"
+    moTranslations.Add "EN_ChangeTrackingNoHandler", "ARES: No change handler to suspend"
+    ' --- Zone export (user-facing results; progress steps go to the .log) ---
+    moTranslations.Add "EN_ZoneExportNoActiveModel", "ARES: Zone export — no active model reference"
+    moTranslations.Add "EN_ZoneExportLevelNotConfigured", "ARES: Zone export — zone level not configured"
+    moTranslations.Add "EN_ZoneExportLevelNotFound", "ARES: Zone export — zone level not found: {0}"
+    moTranslations.Add "EN_ZoneExportCancelled", "ARES: Zone export — cancelled"
+    moTranslations.Add "EN_ZoneExportNoZones", "ARES: Zone export — no zones on level {0}"
+    moTranslations.Add "EN_ZoneExportComplete", "ARES: Zone export complete — {0} elements, {1} groups ({2})"
+    moTranslations.Add "EN_ZoneExportFailed", "ARES: Zone export failed"
     moTranslations.Add "EN_ZoningNoBufferCreated", "No buffer could be created for any of the {0} element(s) found."
     moTranslations.Add "EN_ZoningSomeBuffersFailed", "{0} of {1} element(s) could not be buffered and were skipped."
     moTranslations.Add "EN_ZoneExportGUIOptionsCaption", "Edit zone export options:"
@@ -134,7 +161,7 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_BootMSVarsMissing", "Gestion des variables manquante."
     moTranslations.Add "FR_BootFail", "Erreur lors du chargement automatique de VBA."
     moTranslations.Add "FR_LangFail", "Traduction introuvable pour la clé: "
-    moTranslations.Add "FR_LengthRoundError", "Valeur d'arrondi interdit: "
+    moTranslations.Add "FR_LengthRoundError", "Valeur d'arrondi interdite : {0}"
     moTranslations.Add "FR_LengthElementTypeNotSupportedByInterface", "L'élément: {0} est un élément de type: {1}, il n'est pas géré par l'interface GetElementLength."
     moTranslations.Add "FR_DGNOpenCloseEventsInitialized", "Evénements de suivi d'objet initialisé."
     moTranslations.Add "FR_DGNOpenCloseInitError", "Erreur lors de l'initialisation des événements d'ouverture/fermeture DGN: "
@@ -191,6 +218,33 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoningGUIOptionsEditColor_CommandCaption", "Modifier la couleur"
     moTranslations.Add "FR_ZoningGUIOptionsWeight_LabelCaption", "Épaisseur :"
     moTranslations.Add "FR_ZoningGUIOptionsDistanceError", "La distance doit être un nombre positif."
+    moTranslations.Add "FR_OutlineGUIOptionsCaption", "Modifier les options de contour :"
+    moTranslations.Add "FR_OutlineGUIOptionsEditLevels_CommandCaption", "Modifier les niveaux sources"
+    moTranslations.Add "FR_OutlineGUIOptionsDistance_LabelCaption", "Distance :"
+    moTranslations.Add "FR_OutlineGUIOptionsEditOutputLevel_CommandCaption", "Modifier le niveau de sortie ({0})"
+    moTranslations.Add "FR_OutlineGUIOptionsOutputStyle_LabelCaption", "Style :"
+    moTranslations.Add "FR_OutlineGUIOptionsEditColor_CommandCaption", "Modifier la couleur"
+    moTranslations.Add "FR_OutlineGUIOptionsWeight_LabelCaption", "Épaisseur :"
+    moTranslations.Add "FR_OutlineGUIOptionsDistanceError", "La distance doit être un nombre positif."
+    moTranslations.Add "FR_OutlineDistanceInvalid", "ARES : ARES_Outline_Distance invalide ou vide — RunOutline annulé"
+    moTranslations.Add "FR_OutlineLevelEmpty", "ARES : ARES_Outline_Level vide — RunOutline annulé"
+    ' --- Messaging retrofit: generic command failure (detail goes to the .log) ---
+    moTranslations.Add "FR_CommandFailed", "{0} a échoué"
+    ' --- Language switch ---
+    moTranslations.Add "FR_LanguageChanged", "Langue ARES définie — veuillez redémarrer MicroStation."
+    moTranslations.Add "FR_LanguageChangeFailed", "Impossible de définir la langue ARES — définissez ARES_Language manuellement."
+    ' --- Change tracking (bulk suspend/resume) ---
+    moTranslations.Add "FR_ChangeTrackingAlreadySuspended", "ARES : Suivi des modifications déjà suspendu"
+    moTranslations.Add "FR_ChangeTrackingSuspended", "ARES : Suivi des modifications suspendu — effectuez l'opération en lot, puis reprenez"
+    moTranslations.Add "FR_ChangeTrackingNoHandler", "ARES : Aucun gestionnaire de suivi à suspendre"
+    ' --- Zone export (user-facing results; progress steps go to the .log) ---
+    moTranslations.Add "FR_ZoneExportNoActiveModel", "ARES : Export de zone — aucun modèle actif"
+    moTranslations.Add "FR_ZoneExportLevelNotConfigured", "ARES : Export de zone — niveau de zone non configuré"
+    moTranslations.Add "FR_ZoneExportLevelNotFound", "ARES : Export de zone — niveau de zone introuvable : {0}"
+    moTranslations.Add "FR_ZoneExportCancelled", "ARES : Export de zone — annulé"
+    moTranslations.Add "FR_ZoneExportNoZones", "ARES : Export de zone — aucune zone sur le niveau {0}"
+    moTranslations.Add "FR_ZoneExportComplete", "ARES : Export de zone terminé — {0} éléments, {1} groupes ({2})"
+    moTranslations.Add "FR_ZoneExportFailed", "ARES : Échec de l'export de zone"
     moTranslations.Add "FR_ZoningNoBufferCreated", "Aucun buffer n'a pu être créé pour les {0} élément(s) trouvé(s)."
     moTranslations.Add "FR_ZoningSomeBuffersFailed", "{0} des {1} élément(s) n'ont pas pu être bufférisés et ont été ignorés."
     moTranslations.Add "FR_ZoneExportGUIOptionsCaption", "Modifier les options d'export de zone :"
@@ -271,6 +325,17 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetTranslation"
     GetTranslation = "[Translation error for: " & sKey & "]"
 End Function
+
+' Show a user-facing status line, translated. Self-initialises the translation system so
+' callers never leak the "[not initialized]" sentinel. This is THE channel for parameter-less
+' user status; for messages carrying an identifier/count call ShowStatus GetTranslation(key, args)
+' directly (after ensuring init). Diagnostics/faults NEVER come here — they go to
+' ErrorHandler.HandleError (the .log). See the messaging rules in project-context.md / MVBA README.
+Public Sub ShowStatusT(ByVal sKey As String)
+    On Error Resume Next
+    If Not IsInit Then InitializeTranslations
+    ShowStatus GetTranslation(sKey)
+End Sub
 
 ' Return the resolved user language (e.g. "English", "Français")
 ' Falls back to English if the translation system has not resolved a language yet

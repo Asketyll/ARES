@@ -6,7 +6,29 @@ Option Explicit
 
 Private moAutoLengthsGUI  As AutoLengths_GUI_Options
 Private moZoningGUI       As Zoning_GUI_Options
+Private moOutlineGUI      As Outline_GUI_Options
 Private moZoneExportGUI   As ExportLengthInReg_GUI_Options
+
+' Report a trapped fault from a key-in entry point (messaging rules): log the technical detail
+' to the .log (English, via HandleError), then show the user a translated, GENERIC failure line.
+' Raw Err.Description never reaches the status bar. Capture Err.* at the handler and pass them in.
+Private Sub ReportFailure(ByVal sOp As String, ByVal sDesc As String, ByVal lNum As Long, ByVal sSrc As String)
+    On Error Resume Next
+    ErrorHandler.HandleError sDesc, lNum, sSrc, "Command." & sOp
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+    ShowStatus GetTranslation("CommandFailed", sOp)
+End Sub
+
+' Success-path counterpart to ReportFailure: if a real fault was logged (by this command or a module
+' it called) since ClearErrorFlag, tell the user once — with the command's own name. Covers the
+' log-and-swallow case where the fault was caught downstream and never reached the ErrorHandler.
+Private Sub ReportIfLogged(ByVal sOp As String)
+    On Error Resume Next
+    If ErrorHandler.HadError Then
+        If Not LangManager.IsInit Then LangManager.InitializeTranslations
+        ShowStatus GetTranslation("CommandFailed", sOp)
+    End If
+End Sub
 
 ' === AUTO LENGTHS COMMANDS ===
 
@@ -17,7 +39,7 @@ Sub ForceUpdateLength()
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Command.ForceUpdateLength"
+    ReportFailure "ForceUpdateLength", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === UPDATE COMMANDS ===
@@ -25,11 +47,13 @@ End Sub
 ' Manually check for an available update — bypasses mute and ignore-version preferences
 Sub CheckForUpdate()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     UpdateChecker.CheckForUpdateManual
+    ReportIfLogged "CheckForUpdate"
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "Update check failed: " & Err.Description
+    ReportFailure "CheckForUpdate", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === CONFIGURATION MANAGEMENT COMMANDS ===
@@ -37,41 +61,39 @@ End Sub
 ' Export current configuration using event-driven UI
 Sub ExportARESConfig()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     FileDialogs.ExportConfigurationUI
+    ReportIfLogged "ExportARESConfig"
     Exit Sub
     
 ErrorHandler:
-    If LangManager.IsInit Then
-        ShowStatus GetTranslation("ConfigExportFailed") & ": " & Err.Description
-    Else
-        ShowStatus "Configuration export failed: " & Err.Description
-    End If
+    ReportFailure "ExportARESConfig", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Import configuration using event-driven UI
 Sub ImportARESConfig()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     FileDialogs.ImportConfigurationUI
+    ReportIfLogged "ImportARESConfig"
     Exit Sub
     
 ErrorHandler:
-    If LangManager.IsInit Then
-        ShowStatus GetTranslation("ConfigImportFailed") & ": " & Err.Description
-    Else
-        ShowStatus "Configuration import failed: " & Err.Description
-    End If
+    ReportFailure "ImportARESConfig", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Show current configuration summary
 Sub ShowARESConfigSummary()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
     MsgBox ARESConfig.GetConfigSummary(), vbOKOnly + vbInformation, GetTranslation("ConfigSummaryTitle")
+    ReportIfLogged "ShowARESConfigSummary"
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "Configuration summary failed: " & Err.Description
+    ReportFailure "ShowARESConfigSummary", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === VARIABLE MANAGEMENT COMMANDS ===
@@ -79,6 +101,7 @@ End Sub
 ' Sub to reset all ARES var in MS
 Sub ResetARESVariables()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
@@ -91,16 +114,18 @@ Sub ResetARESVariables()
     Else
         ShowStatus GetTranslation("VarResetAllFailed")
     End If
+    ReportIfLogged "ResetARESVariables"
     
     Exit Sub
     
 ErrorHandler:
-    ShowStatus "Reset variables failed: " & Err.Description
+    ReportFailure "ResetARESVariables", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Sub to remove all ARES var in MS
 Sub RemoveARESVariables()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
@@ -113,11 +138,12 @@ Sub RemoveARESVariables()
     Else
         ShowStatus GetTranslation("VarRemoveError")
     End If
+    ReportIfLogged "RemoveARESVariables"
     
     Exit Sub
     
 ErrorHandler:
-    ShowStatus "Remove variables failed: " & Err.Description
+    ReportFailure "RemoveARESVariables", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === GUI COMMANDS ===
@@ -125,6 +151,7 @@ End Sub
 ' Sub to call GUI Options of AutoLengths
 Sub EditAutoLengthsOptions()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -139,11 +166,12 @@ Sub EditAutoLengthsOptions()
     
     ' Show will bring to front if already visible
     moAutoLengthsGUI.Show vbModeless
+    ReportIfLogged "EditAutoLengthsOptions"
     
     Exit Sub
     
 ErrorHandler:
-    ShowStatus "Failed to open AutoLengths options: " & Err.Description
+    ReportFailure "EditAutoLengthsOptions", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === ZONING COMMANDS ===
@@ -151,43 +179,65 @@ End Sub
 ' Run zoning using configuration defaults (levels, distance, output properties from ARESConfig)
 Sub RunZoning()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
     End If
 
     Zoning.Zoning
+    ReportIfLogged "RunZoning"
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "Zoning failed: " & Err.Description
+    ReportFailure "RunZoning", Err.Description, Err.Number, Err.Source
 End Sub
 
-' Run a second, tighter zoning pass: buffer distance from ARES_Zoning2_Distance
-' (default 0.2 m), flat (square) caps, per-element sub-zones fused but zones from
-' different elements NOT merged.
-Sub RunZoning2()
+' Run the Outline pass: a tighter per-element zoning variant driven entirely by its
+' own option set (ARES_Outline_* — source levels, distance, output symbology). Flat
+' (square) caps, per-element sub-zones fused but zones from different elements NOT
+' merged. Edit its options via EditOutlineOptions.
+Sub RunOutline()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
     End If
 
-    ' Resolve the tight buffer distance from its config var. Abort cleanly on an
-    ' invalid (<= 0 / empty / non-numeric) value instead of letting the engine
-    ' silently fall back to ARES_ZONING_DISTANCE (2.0 m) via its Dist<=0 contract.
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    ' Resolve Outline's own buffer distance. Abort cleanly on an invalid
+    ' (<= 0 / empty / non-numeric) value instead of letting the engine silently
+    ' fall back to ARES_ZONING_DISTANCE (2.0 m) via its Dist<=0 contract.
     Dim dDist As Double
-    dDist = Val(ARESConfig.ARES_ZONING2_DISTANCE.Value)
+    dDist = Val(ARESConfig.ARES_OUTLINE_DISTANCE.Value)
     If dDist <= 0 Then
-        ShowStatus "ARES: ARES_Zoning2_Distance invalid or empty — RunZoning2 aborted"
+        ShowStatus GetTranslation("OutlineDistanceInvalid")
         Exit Sub
     End If
 
-    Zoning.Zoning Dist:=dDist, MergeZones:=False, RoundCaps:=False
+    ' Resolve Outline's own source levels. Pass an explicit array so the engine does
+    ' not fall back to ARES_ZONING_LEVEL (an empty string would trigger that contract).
+    Dim sLvls As String
+    sLvls = ARESConfig.ARES_OUTLINE_LEVEL.Value
+    If Len(Trim(sLvls)) = 0 Then
+        ShowStatus GetTranslation("OutlineLevelEmpty")
+        Exit Sub
+    End If
+
+    ' Drive the engine from Outline's own option set (output symbology included).
+    Zoning.Zoning Lvls:=Split(sLvls, ARES_VAR_DELIMITER), _
+                  OutputLevel:=ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.Value, _
+                  Color:=CLng(ARESConfig.ARES_OUTLINE_OUTPUT_COLOR.Value), _
+                  Style:=ARESConfig.ARES_OUTLINE_OUTPUT_STYLE.Value, _
+                  Weight:=CLng(ARESConfig.ARES_OUTLINE_OUTPUT_WEIGHT.Value), _
+                  Dist:=dDist, MergeZones:=False, RoundCaps:=False
+    ReportIfLogged "RunOutline"
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "RunZoning2 failed: " & Err.Description
+    ReportFailure "RunOutline", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Export element lengths per zone to Excel.
@@ -195,6 +245,7 @@ End Sub
 ' Excel visibility is driven by ARES_Zone_Export_Excel_Visible (default: True).
 Sub ExportLength()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -204,15 +255,17 @@ Sub ExportLength()
     bVisible = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE.Value)) = "TRUE")
 
     ExportLengthInRegion.ExportLengthInRegion ExcelVisible:=bVisible
+    ReportIfLogged "ExportLength"
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "ExportLengthInRegion failed: " & Err.Description
+    ReportFailure "ExportLength", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Open the Zoning options GUI
 Sub EditZoningOptions()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -225,10 +278,34 @@ Sub EditZoningOptions()
     End If
 
     moZoningGUI.Show vbModeless
+    ReportIfLogged "EditZoningOptions"
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "Failed to open Zoning options: " & Err.Description
+    ReportFailure "EditZoningOptions", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Open the Outline options GUI
+Sub EditOutlineOptions()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moOutlineGUI Is Nothing Then
+        Set moOutlineGUI = New Outline_GUI_Options
+    End If
+
+    moOutlineGUI.Show vbModeless
+    ReportIfLogged "EditOutlineOptions"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "EditOutlineOptions", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === REGION SPLIT COMMANDS ===
@@ -250,7 +327,7 @@ Sub SplitRegion()
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "SplitRegion failed: " & Err.Description
+    ReportFailure "SplitRegion", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === TESTING COMMANDS ===
@@ -258,21 +335,25 @@ End Sub
 ' Run all unit tests
 Sub RunARESTests()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     UnitTesting.RunAllTests
+    ReportIfLogged "RunARESTests"
     Exit Sub
     
 ErrorHandler:
-    ShowStatus "Unit tests failed: " & Err.Description
+    ReportFailure "RunARESTests", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Run performance tests
 Sub RunARESPerformanceTests()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     UnitTesting.RunPerformanceTests
+    ReportIfLogged "RunARESPerformanceTests"
     Exit Sub
     
 ErrorHandler:
-    ShowStatus "Performance tests failed: " & Err.Description
+    ReportFailure "RunARESPerformanceTests", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === LANGUAGE COMMANDS ===
@@ -280,38 +361,45 @@ End Sub
 ' Sub to set language to English
 Sub English()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     
     If Config.SetVar("ARES_Language", "English") Then
-        ShowStatus "ARES_Language set to English, please restart."
+        LangManager.InitializeTranslations          ' reload so the confirmation shows in the resolved language
+        LangManager.ShowStatusT "LanguageChanged"
     Else
-        ShowStatus "Impossible to set ARES_Language, please try manually."
+        LangManager.ShowStatusT "LanguageChangeFailed"
     End If
-    
+    ReportIfLogged "English"
+
     Exit Sub
-    
+
 ErrorHandler:
-    ShowStatus "Failed to set English language: " & Err.Description
+    ReportFailure "English", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Sub to set language to French
 Sub Français()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     
     If Config.SetVar("ARES_Language", "Français") Then
-        ShowStatus "ARES_Language défini à Français, veuillez redémarrer."
+        LangManager.InitializeTranslations          ' reload so the confirmation shows in the resolved language
+        LangManager.ShowStatusT "LanguageChanged"
     Else
-        ShowStatus "Impossible de définir ARES_Language, veuillez essayer manuellement."
+        LangManager.ShowStatusT "LanguageChangeFailed"
     End If
-    
+    ReportIfLogged "Français"
+
     Exit Sub
-    
+
 ErrorHandler:
-    ShowStatus "Failed to set French language: " & Err.Description
+    ReportFailure "Français", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Sub to open ARES wiki in default browser
 Sub OpenARESWiki()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     
     Dim WikiURL As String
     Dim Result As Long
@@ -325,16 +413,12 @@ Sub OpenARESWiki()
 
     ' Use Shell to open URL in default browser
     Result = Shell("rundll32.exe url.dll,FileProtocolHandler " & WikiURL, vbNormalFocus)
+    ReportIfLogged "OpenARESWiki"
     
     Exit Sub
     
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Command.OpenARESWiki"
-    If LangManager.IsInit Then
-        ShowStatus GetTranslation("WikiOpenFailed") & ": " & Err.Description
-    Else
-        ShowStatus "Failed to open ARES wiki: " & Err.Description
-    End If
+    ReportFailure "OpenARESWiki", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Called from UserForm_QueryClose when form closes
@@ -346,9 +430,14 @@ Public Sub OnZoningGUIClosed()
     Set moZoningGUI = Nothing
 End Sub
 
+Public Sub OnOutlineGUIClosed()
+    Set moOutlineGUI = Nothing
+End Sub
+
 ' Open the ZoneExport options GUI
 Sub EditZoneExportOptions()
     On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -361,10 +450,11 @@ Sub EditZoneExportOptions()
     End If
 
     moZoneExportGUI.Show vbModeless
+    ReportIfLogged "EditZoneExportOptions"
     Exit Sub
 
 ErrorHandler:
-    ShowStatus "Failed to open ZoneExport options: " & Err.Description
+    ReportFailure "EditZoneExportOptions", Err.Description, Err.Number, Err.Source
 End Sub
 
 Public Sub OnZoneExportGUIClosed()

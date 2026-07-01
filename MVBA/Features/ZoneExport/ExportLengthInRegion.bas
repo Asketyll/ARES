@@ -66,7 +66,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     ' --- AC-5: Active model must exist ---
     If Not Application.HasActiveModelReference Then
         ErrorHandler.HandleError "No active model reference", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
-		ShowStatus "ARES: ExportLengthInRegion - no active model reference"
+		ShowStatusT "ZoneExportNoActiveModel"
         Exit Sub
     End If
 
@@ -74,14 +74,14 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     If Len(ZoneLevel) = 0 Then ZoneLevel = ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value
     If Len(ZoneLevel) = 0 Then
         ErrorHandler.HandleError "Zone level is empty (config ARES_ZONING_OUTPUT_LEVEL not set)", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
-		ShowStatus "ARES: ExportLengthInRegion - zone level not configured"
+		ShowStatusT "ZoneExportLevelNotConfigured"
         Exit Sub
     End If
 
     ' --- AC-7: zone level must exist ---
     If Not GetElements.IsValidLevelName(ZoneLevel) Then
         ErrorHandler.HandleError "Zone level not found in ActiveDesignFile.Levels: " & ZoneLevel, 0, "", "ExportLengthInRegion.ExportLengthInRegion"
-		ShowStatus "ARES: ExportLengthInRegion - zone level not found: " & ZoneLevel
+		ShowStatus GetTranslation("ZoneExportLevelNotFound", ZoneLevel)
         Exit Sub
     End If
 
@@ -94,7 +94,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
                            BuildDefaultFilename(), _
                            DIALOG_FILTER_XLSX, "xlsx")
             If Len(Filepath) = 0 Then
-                ShowStatus "ARES: ExportLengthInRegion - export cancelled"
+                ShowStatusT "ZoneExportCancelled"
                 Exit Sub
             End If
         Else
@@ -102,20 +102,20 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
         End If
     End If
 
-    ShowStatus "ARES: ExportLengthInRegion - collecting zones on level " & ZoneLevel
+    ErrorHandler.HandleError "collecting zones on level " & ZoneLevel, 0, "", "ExportLengthInRegion.ExportLengthInRegion"
 
     ' --- T3: collect zone elements ---
     Dim zones() As Element
     If Not CollectZones(ZoneLevel, zones) Then
         ' AC-6: warning already logged inside CollectZones.
-        ShowStatus "ARES: ExportLengthInRegion - no zones on level " & ZoneLevel
+        ShowStatus GetTranslation("ZoneExportNoZones", ZoneLevel)
         Exit Sub
     End If
 
     ' --- T4: union bbox of all zones ---
     Dim oZoneRange As Range3d
     If Not ComputeZoneUnionRange(zones, oZoneRange) Then
-        ShowStatus "ARES: ExportLengthInRegion - failed to compute zone bbox, aborting"
+        ErrorHandler.HandleError "failed to compute zone bbox, aborting", 0, "", "ExportLengthInRegion.ExportLengthInRegion": ShowStatusT "ZoneExportFailed"
         Exit Sub
     End If
 
@@ -123,7 +123,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     Dim oee As ElementEnumerator
     Set oee = CollectCandidates(oZoneRange)
 
-    ShowStatus "ARES: ExportLengthInRegion - scanning candidates"
+    ErrorHandler.HandleError "scanning candidates", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
 
     ' --- Resolve group-by mode ---
     Dim sGroupBy As String
@@ -139,7 +139,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     ' --- T8: export to Excel (always create the workbook, even when empty — AC-8) ---
     WriteToExcel oGroups, Filepath, ExcelVisible, sGroupBy
 
-    ShowStatus "ARES: ExportLengthInRegion complete - " & CStr(nElementCount) & " elements, " & CStr(oGroups.Count) & " groups (" & sGroupBy & ")"
+    ShowStatus GetTranslation("ZoneExportComplete", nElementCount, oGroups.Count, sGroupBy)
     Exit Sub
 
 ErrorHandler:

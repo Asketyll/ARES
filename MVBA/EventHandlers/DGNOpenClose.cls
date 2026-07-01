@@ -55,19 +55,10 @@ Private Sub InitializeChangeHandler()
     ' length updates after a DGN conversion that closed the file mid-bulk-suspend).
     ReinitChangeTrackingForNewFile
     ' Show a status message indicating that the event handlers have been initialized
-    If LangManager.IsInit Then
-        ShowStatus GetTranslation("DGNOpenCloseEventsInitialized")
-    Else
-        ShowStatus "Track events element initialized."
-    End If
+    ShowStatusT "DGNOpenCloseEventsInitialized"
     Exit Sub
 
 ErrorHandler:
-    ' Show an error message if the change handler initialization fails
-    If LangManager.IsInit Then
-        ShowStatus GetTranslation("DGNOpenCloseInitError") & Err.Description
-    Else
-        ShowStatus "Error initializing DGN Open/Close events: " & Err.Description
-    End If
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "DGNOpenClose.InitializeChangeHandler"
+    ShowStatusT "DGNOpenCloseInitError"
 End Sub

@@ -38,7 +38,7 @@ Public Sub ExportConfigurationUI()
     
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ExportConfigurationUI"
-    ShowStatus GetTranslation("ConfigExportFailed") & ": " & Err.Description
+    ShowStatus GetTranslation("ConfigExportFailed")
 End Sub
 
 ' Import configuration with file dialog
@@ -88,7 +88,7 @@ Public Sub ImportConfigurationUI()
     
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ImportConfigurationUI"
-    ShowStatus GetTranslation("ConfigImportFailed") & ": " & Err.Description
+    ShowStatus GetTranslation("ConfigImportFailed")
 End Sub
 
 ' === CORE DIALOG FUNCTIONS ===

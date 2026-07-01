@@ -32,7 +32,7 @@ Public Sub Initialize(ByVal NewElement As element)
     
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.Initialize"
-    ShowStatus GetTranslation("AutoLengthsInitError") & Err.Description
+    ShowStatus GetTranslation("AutoLengthsInitError")
 End Sub
 
 ' Method to get linked elements based on specific types
@@ -75,7 +75,7 @@ Private Sub CalculateLengths()
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.CalculateLengths"
-    ShowStatus GetTranslation("AutoLengthsCalculationError") & Err.Description
+    ShowStatus GetTranslation("AutoLengthsCalculationError")
 End Sub
 
 ' Method to update lengths in the new element based on linked elements
@@ -89,7 +89,7 @@ Public Sub UpdateLengths()
 ErrorHandler:
     ElementInProcesse.Remove moNewElement
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.UpdateLengths"
-    ShowStatus GetTranslation("AutoLengthsUpdateError") & Err.Description
+    ShowStatus GetTranslation("AutoLengthsUpdateError")
 End Sub
 
 ' Method to handle the selection logic for elements
@@ -218,7 +218,7 @@ Private Sub ShowElementSelectionForm()
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.ShowElementSelectionForm"
-    ShowStatus GetTranslation("AutoLengthsShowFormError") & Err.Description
+    ShowStatus GetTranslation("AutoLengthsShowFormError")
 End Sub
 
 ' Method to be called when an element is selected in the form
@@ -259,7 +259,7 @@ Public Sub OnElementSelected(ByVal selectedElement As element, ByVal MasterEleme
 ErrorHandler:
     ElementInProcesse.Remove MasterElement
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths.OnElementSelected"
-    ShowStatus GetTranslation("AutoLengthsSelectionError") & Err.Description
+    ShowStatus GetTranslation("AutoLengthsSelectionError")
 End Sub
 
 Private Sub ILocateCommandEvents_Accept(ByVal element As element, Point As Point3d, ByVal View As View)

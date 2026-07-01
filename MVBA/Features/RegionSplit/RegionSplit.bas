@@ -1155,14 +1155,10 @@ Private Function HasAtLeast(ByRef arr() As Point3d, ByVal n As Long) As Boolean
 End Function
 
 ' ShowSplitStatus
-' Shows a user-facing status via LangManager.GetTranslation when initialised, else falls
-' back to a literal English string (as several Command.bas subs do).
-Private Sub ShowSplitStatus(ByVal Key As String, ByVal FallbackEN As String)
-    On Error Resume Next
-    If LangManager.IsInit Then
-        ShowStatus GetTranslation(Key)
-    Else
-        ShowStatus FallbackEN
-    End If
-    On Error GoTo 0
+' Shows a translated, user-facing status for a split outcome through the shared
+' LangManager.ShowStatusT (the single channel for all user status; it self-initialises the
+' translation system). ReasonEN is the inline English reason for that abort branch, kept as
+' code documentation — genuine faults are logged separately by the ErrorHandler blocks.
+Private Sub ShowSplitStatus(ByVal Key As String, ByVal ReasonEN As String)
+    ShowStatusT Key
 End Sub

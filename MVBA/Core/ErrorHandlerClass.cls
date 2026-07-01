@@ -9,6 +9,10 @@ Private Const MAX_LOG_FILE_SIZE As Long = 1048576    ' 1 MB
 
 ' === PRIVATE MEMBERS ===
 Private msLogFilePath As String
+' Set True when a real fault (Number > 0) is logged. A command entry point clears it before it runs
+' and checks it after, so a fault caught + swallowed deep in a called module still surfaces to the
+' user exactly once (see Command.ReportIfLogged). Informational logs (Number 0) never set it.
+Private mbHadError As Boolean
 
 ' === CLASS INITIALIZATION ===
 Private Sub Class_Initialize()
@@ -32,6 +36,10 @@ Public Function HandleError(ByVal Description As String, _
     
     ' Build and format complete error message
     ErrorMessage = FormatErrorMessage(Description, Number, Source, ModuleName)
+
+    ' Flag real faults (not informational Number-0 logs) so a command entry point can report a
+    ' swallowed-downstream fault to the user exactly once.
+    If Number > 0 Then mbHadError = True
     
     ' Check log rotation
     RotateIfNeeded
@@ -53,6 +61,18 @@ Public Function HandleError(ByVal Description As String, _
 ErrorHandler:
     HandleError = False
 End Function
+
+' True if a real fault (Number > 0) has been logged since the last ClearErrorFlag. Command entry
+' points use this to surface a downstream fault that was caught + swallowed in a called module.
+Public Property Get HadError() As Boolean
+    HadError = mbHadError
+End Property
+
+' Reset the fault flag. A command entry point calls this before it runs so HadError then reflects
+' only faults raised during that command's execution.
+Public Sub ClearErrorFlag()
+    mbHadError = False
+End Sub
 
 Public Sub UpdateLogFilePath()
     On Error Resume Next
