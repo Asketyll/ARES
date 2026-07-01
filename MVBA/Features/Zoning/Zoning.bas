@@ -79,7 +79,16 @@ Public Sub Zoning(Optional Lvls As Variant, _
     '                        a single String → wrap in a 1-element array;
     '                        a String array  → copy as-is.
     Dim ResolvedLvls() As String
-    If IsMissing(Lvls) Or IsEmpty(Lvls) Or (VarType(Lvls) = vbString And Len(Trim(CStr(Lvls))) = 0) Then
+    ' IMPORTANT: test IsArray FIRST. VBA does not short-circuit Or/And, so any CStr(Lvls) in the
+    ' later branches is evaluated even when Lvls is an array — and CStr(array) raises Error 13
+    ' (type mismatch). RunOutline passes a String() array here; RunZoning omits Lvls (Missing) and
+    ' falls through to the config branch, where CStr on a Missing/scalar is safe.
+    If IsArray(Lvls) Then
+        ReDim ResolvedLvls(LBound(Lvls) To UBound(Lvls))
+        For k = LBound(Lvls) To UBound(Lvls)
+            ResolvedLvls(k) = CStr(Lvls(k))
+        Next k
+    ElseIf IsMissing(Lvls) Or IsEmpty(Lvls) Or Len(Trim(CStr(Lvls))) = 0 Then
         Dim LvlsStr As String
         LvlsStr = ARESConfig.ARES_ZONING_LEVEL.Value
         If Len(LvlsStr) = 0 Then
@@ -87,11 +96,6 @@ Public Sub Zoning(Optional Lvls As Variant, _
             Exit Sub
         End If
         ResolvedLvls = Split(LvlsStr, ARES_VAR_DELIMITER)
-    ElseIf IsArray(Lvls) Then
-        ReDim ResolvedLvls(LBound(Lvls) To UBound(Lvls))
-        For k = LBound(Lvls) To UBound(Lvls)
-            ResolvedLvls(k) = CStr(Lvls(k))
-        Next k
     Else
         ReDim ResolvedLvls(0 To 0)
         ResolvedLvls(0) = CStr(Lvls)
