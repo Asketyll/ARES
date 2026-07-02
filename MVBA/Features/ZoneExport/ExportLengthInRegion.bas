@@ -25,6 +25,7 @@
 '
 ' ENTRY POINT  Call ExportLengthInRegion([ZoneLevel], [Filepath], [ExcelVisible])
 '   Filepath empty → ARES_Zone_Export_Use_Dialog: True = Save-As dialog, False = auto path.
+'   ARES_Zone_Export_Level (| -delimited) restricts measured candidates to those levels; empty = all levels.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, FileDialogs, GetElements
 
@@ -85,6 +86,21 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
         Exit Sub
     End If
 
+    ' --- Resolve optional candidate level filter (ARES_Zone_Export_Level) ---
+    '     Empty = all levels. Level names that do not exist in the file are ignored
+    '     (non-fatal) and reported via a translated status; the export runs on the
+    '     valid subset, or on all levels when none of the named levels exist.
+    Dim sLevelFilter   As String
+    Dim filterLevels() As String
+    Dim sIgnoredLevels As String
+    Dim nFilterLevels  As Long
+    sLevelFilter = Trim(ARESConfig.ARES_ZONE_EXPORT_LEVEL.Value)
+    nFilterLevels = ResolveFilterLevels(sLevelFilter, filterLevels, sIgnoredLevels)
+    If Len(sIgnoredLevels) > 0 Then
+        ErrorHandler.HandleError "Ignored non-existent export filter level(s): " & sIgnoredLevels, 0, "", "ExportLengthInRegion.ExportLengthInRegion"
+        ShowStatus GetTranslation("ZoneExportFilterLevelsIgnored", sIgnoredLevels)
+    End If
+
     ' --- Resolve filepath: dialog or auto-generated depending on ARES_ZONE_EXPORT_USE_DIALOG ---
     If Len(Filepath) = 0 Then
         If UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG.Value)) = "TRUE" Then
@@ -119,9 +135,9 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
         Exit Sub
     End If
 
-    ' --- T5: coarse-scan candidates (graphical, bbox overlap) ---
+    ' --- T5: coarse-scan candidates (graphical, bbox overlap, optional level filter) ---
     Dim oee As ElementEnumerator
-    Set oee = CollectCandidates(oZoneRange)
+    Set oee = CollectCandidates(oZoneRange, filterLevels, nFilterLevels)
 
     ErrorHandler.HandleError "scanning candidates", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
 
@@ -210,21 +226,84 @@ End Function
 ' CollectCandidates
 ' Returns a lazy ElementEnumerator for all length-supported element types whose bbox
 ' overlaps the zone union range. Avoids materialising the full candidate set into memory.
-Private Function CollectCandidates(ByRef oRange As Range3d) As ElementEnumerator
+' When nFilterLevels > 0, the scan is additionally restricted to filterLevels (AND).
+Private Function CollectCandidates(ByRef oRange As Range3d, _
+                                   ByRef filterLevels() As String, _
+                                   ByVal nFilterLevels As Long) As ElementEnumerator
     On Error GoTo ErrorHandler
 
-    Set CollectCandidates = GetElements.ByEE(Range:=oRange, _
-                                              ElTypes:=Array(msdElementTypeLine, _
-                                                             msdElementTypeArc, _
-                                                             msdElementTypeLineString, _
-                                                             msdElementTypeShape, _
-                                                             msdElementTypeComplexString, _
-                                                             msdElementTypeComplexShape))
+    If nFilterLevels > 0 Then
+        Set CollectCandidates = GetElements.ByEE(Levels:=filterLevels, _
+                                                 Range:=oRange, _
+                                                 ElTypes:=CandidateTypes())
+    Else
+        Set CollectCandidates = GetElements.ByEE(Range:=oRange, _
+                                                 ElTypes:=CandidateTypes())
+    End If
     Exit Function
 
 ErrorHandler:
     Set CollectCandidates = Nothing
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.CollectCandidates"
+End Function
+
+' CandidateTypes
+' The length-supported element types scanned as export candidates.
+Private Function CandidateTypes() As Variant
+    CandidateTypes = Array(msdElementTypeLine, _
+                           msdElementTypeArc, _
+                           msdElementTypeLineString, _
+                           msdElementTypeShape, _
+                           msdElementTypeComplexString, _
+                           msdElementTypeComplexShape)
+End Function
+
+' ResolveFilterLevels
+' Parses the |-delimited ARES_Zone_Export_Level value into a 0-based array of
+' trimmed, existing level names (empty tokens dropped). Non-existent names are
+' NOT kept but accumulated into outIgnored (|-joined) so the caller can report
+' them. Returns the count of valid (existing) names; 0 when the filter is empty
+' or every named level is missing.
+Private Function ResolveFilterLevels(ByVal sFilter As String, _
+                                     ByRef outNames() As String, _
+                                     ByRef outIgnored As String) As Long
+    On Error GoTo ErrorHandler
+
+    Dim parts() As String
+    Dim sName   As String
+    Dim i       As Long
+    Dim n       As Long
+
+    n = 0
+    outIgnored = ""
+    If Len(Trim(sFilter)) = 0 Then
+        ResolveFilterLevels = 0
+        Exit Function
+    End If
+
+    parts = Split(sFilter, ARES_VAR_DELIMITER)
+    ReDim outNames(0 To UBound(parts) - LBound(parts))
+    For i = LBound(parts) To UBound(parts)
+        sName = Trim(parts(i))
+        If Len(sName) > 0 Then
+            If GetElements.IsValidLevelName(sName) Then
+                outNames(n) = sName
+                n = n + 1
+            Else
+                If Len(outIgnored) > 0 Then outIgnored = outIgnored & ARES_VAR_DELIMITER
+                outIgnored = outIgnored & sName
+            End If
+        End If
+    Next i
+
+    If n > 0 Then ReDim Preserve outNames(0 To n - 1)
+    ResolveFilterLevels = n
+    Exit Function
+
+ErrorHandler:
+    ResolveFilterLevels = 0
+    outIgnored = ""
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ResolveFilterLevels"
 End Function
 
 ' HasElements

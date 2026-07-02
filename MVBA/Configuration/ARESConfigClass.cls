@@ -78,6 +78,8 @@ Public ARES_ZONE_EXPORT_USE_DIALOG As ARES_MS_VAR_Class 'Default Value: True    
 Public ARES_ZONE_EXPORT_ROUND As ARES_MS_VAR_Class 'Default Value: 2                               Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
 ' Used in ExportLengthInRegion module — grouping key for exported rows: Style = line style name, Level = element level name, Color = color index
 Public ARES_ZONE_EXPORT_GROUP_BY As ARES_MS_VAR_Class 'Default Value: Style                        "Style" or "Level" or "Color"
+' Used in ExportLengthInRegion module — | -delimited list of level names restricting the measured candidate elements. Empty = all levels (no filter).
+Public ARES_ZONE_EXPORT_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)   |-delimited level list (ARES_VAR_DELIMITER); empty = all levels
 ' Used in RegionSplit module — geometric epsilon: degenerate-segment / zero-parameter / coincident-point threshold; also drives the cut-knife half-width
 Public ARES_REGIONSPLIT_COLLINEAR_TOL As ARES_MS_VAR_Class 'Default Value: 0.000001               Geometric epsilon in master units (Double)
 ' Used in RegionSplit module — False = original region is deleted after the two halves are written; True = original is kept alongside the two halves
@@ -155,6 +157,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ZONE_EXPORT_USE_DIALOG = CreateConfigVar("ARES_Zone_Export_Use_Dialog", "True")
     Set ARES_ZONE_EXPORT_ROUND = CreateConfigVar("ARES_Zone_Export_Round", "2")
     Set ARES_ZONE_EXPORT_GROUP_BY = CreateConfigVar("ARES_Zone_Export_Group_By", "Style")
+    Set ARES_ZONE_EXPORT_LEVEL = CreateConfigVar("ARES_Zone_Export_Level", "")
     Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
     Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
     Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")

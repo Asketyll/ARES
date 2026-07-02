@@ -124,6 +124,7 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoneExportNoZones", "ARES: Zone export — no zones on level {0}"
     moTranslations.Add "EN_ZoneExportComplete", "ARES: Zone export complete — {0} elements, {1} groups ({2})"
     moTranslations.Add "EN_ZoneExportFailed", "ARES: Zone export failed"
+    moTranslations.Add "EN_ZoneExportFilterLevelsIgnored", "ARES: Zone export — filter level(s) ignored (not found): {0}"
     ' --- Property Tagging (custom-property) options GUI ---
     moTranslations.Add "EN_PropertyTaggingGUIOptionsCaption", "Edit custom-property options:"
     moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelCaption", "Auto-attach on create / modify"
@@ -133,6 +134,7 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoningSomeBuffersFailed", "{0} of {1} element(s) could not be buffered and were skipped."
     moTranslations.Add "EN_ZoneExportGUIOptionsCaption", "Edit zone export options:"
     moTranslations.Add "EN_ZoneExportGUIOptionsEdit_Level_Region_CommandCaption", "Edit zone level"
+    moTranslations.Add "EN_ZoneExportGUIOptionsEdit_Level_Candidate_CommandCaption", "Edit filter level"
     moTranslations.Add "EN_ZoneExportGUIOptionsRound_LabelCaption", "Decimal places:"
     moTranslations.Add "EN_ZoneExportGUIOptionsUse_Dialog_LabelCaption", "Prompt save location"
     moTranslations.Add "EN_WikiOpenFailed", "Failed to open ARES wiki"
@@ -186,6 +188,7 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_OutlineGUIOptionsWeight_LabelTip", "Output line weight (0-31)."
     ' Tooltips - Zone Export
     moTranslations.Add "EN_ZoneExportGUIOptionsEdit_Level_Region_CommandTip", "Level holding the zone regions to measure inside."
+    moTranslations.Add "EN_ZoneExportGUIOptionsEdit_Level_Candidate_CommandTip", "Restrict measured elements to these level(s), pipe-separated (|). Empty = all levels."
     moTranslations.Add "EN_ZoneExportGUIOptionsGroupBy_LabelTip", "How exported rows are grouped: line style, level, or color."
     moTranslations.Add "EN_ZoneExportGUIOptionsRound_LabelTip", "Decimal places for exported lengths (0-10)."
     moTranslations.Add "EN_ZoneExportGUIOptionsUse_Dialog_LabelTip", "When on, prompt for the save location; otherwise auto-name the file."
@@ -302,6 +305,7 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoneExportNoZones", "ARES : Export de zone — aucune zone sur le niveau {0}"
     moTranslations.Add "FR_ZoneExportComplete", "ARES : Export de zone terminé — {0} éléments, {1} groupes ({2})"
     moTranslations.Add "FR_ZoneExportFailed", "ARES : Échec de l'export de zone"
+    moTranslations.Add "FR_ZoneExportFilterLevelsIgnored", "ARES : Export de zone — niveau(x) de filtre ignoré(s) (introuvable) : {0}"
     ' --- Property Tagging (custom-property) options GUI ---
     moTranslations.Add "FR_PropertyTaggingGUIOptionsCaption", "Modifier les options de propriétés personnalisées :"
     moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelCaption", "Attache auto à la création / modification"
@@ -311,6 +315,7 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoningSomeBuffersFailed", "{0} des {1} élément(s) n'ont pas pu être bufférisés et ont été ignorés."
     moTranslations.Add "FR_ZoneExportGUIOptionsCaption", "Modifier les options d'export de zone :"
     moTranslations.Add "FR_ZoneExportGUIOptionsEdit_Level_Region_CommandCaption", "Modifier le niveau de zone"
+    moTranslations.Add "FR_ZoneExportGUIOptionsEdit_Level_Candidate_CommandCaption", "Modifier le niveau de filtre"
     moTranslations.Add "FR_ZoneExportGUIOptionsRound_LabelCaption", "Décimales :"
     moTranslations.Add "FR_ZoneExportGUIOptionsUse_Dialog_LabelCaption", "Demander l'emplacement d'export"
     moTranslations.Add "FR_WikiOpenFailed", "Echec de l'ouverture du wiki ARES"
@@ -364,6 +369,7 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_OutlineGUIOptionsWeight_LabelTip", "Épaisseur de ligne de sortie (0-31)."
     ' Tooltips - Zone Export
     moTranslations.Add "FR_ZoneExportGUIOptionsEdit_Level_Region_CommandTip", "Niveau contenant les régions de zone où mesurer."
+    moTranslations.Add "FR_ZoneExportGUIOptionsEdit_Level_Candidate_CommandTip", "Limite les éléments mesurés à ce(s) niveau(x), séparés par |. Vide = tous les niveaux."
     moTranslations.Add "FR_ZoneExportGUIOptionsGroupBy_LabelTip", "Regroupement des lignes exportées : style, niveau ou couleur."
     moTranslations.Add "FR_ZoneExportGUIOptionsRound_LabelTip", "Décimales pour les longueurs exportées (0-10)."
     moTranslations.Add "FR_ZoneExportGUIOptionsUse_Dialog_LabelTip", "Si activé, demande l'emplacement d'export ; sinon nomme le fichier automatiquement."

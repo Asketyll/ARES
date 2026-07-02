@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ExportLengthInReg_GUI_Options 
    Caption         =   "Edit export length in region options:"
-   ClientHeight    =   2295
+   ClientHeight    =   2775
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3015
@@ -14,7 +14,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' UserForm: ExportLengthInReg_GUI_Options
-' Description: Options panel for ExportLengthInRegion - zone level, grouping key, rounding, save dialog.
+' Description: Options panel for ExportLengthInRegion - zone level, candidate level filter, grouping key, rounding, save dialog.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ARESConfigClass, ErrorHandlerClass, FormUXHelper
 Option Explicit
@@ -84,6 +84,74 @@ Private Sub TextBox_RegionLevel_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, By
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.TextBox_RegionLevel_KeyUp"
+End Sub
+
+' ============================================================
+' CANDIDATE LEVEL FILTER - Edit button + hidden TextBox
+' Restricts the measured elements to these level(s); empty = all levels.
+' Distinct from the ZONE level above (ARES_ZONING_OUTPUT_LEVEL).
+' ============================================================
+
+Private Sub Edit_Level_Candidate_Command_Click()
+    On Error GoTo ErrorHandler
+    If Not mbLocked Then
+        SetLocked True
+        TextBox_CandidateLevel.Value = ARESConfig.ARES_ZONE_EXPORT_LEVEL.Value
+        TextBox_CandidateLevel.Visible = True
+        Edit_Level_Candidate_Command.Visible = False
+        TextBox_CandidateLevel.SetFocus
+    End If
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.Edit_Level_Candidate_Command_Click"
+End Sub
+
+Private Sub TextBox_CandidateLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    On Error GoTo ErrorHandler
+    ' Empty is a valid value here (clears the filter -> all levels), so no Len>0 guard.
+    Dim sVal As String
+    sVal = Trim(TextBox_CandidateLevel.Value)
+    If sVal <> ARESConfig.ARES_ZONE_EXPORT_LEVEL.Value Then
+        ARESConfig.ARES_ZONE_EXPORT_LEVEL.Value = sVal
+    End If
+    TextBox_CandidateLevel.Visible = False
+    Edit_Level_Candidate_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Candidate_CommandCaption")
+    Edit_Level_Candidate_Command.Visible = True
+    SetLocked False
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.TextBox_CandidateLevel_Exit"
+End Sub
+
+Private Sub TextBox_CandidateLevel_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.TextBox_CandidateLevel_KeyDown"
+End Sub
+
+Private Sub TextBox_CandidateLevel_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    Dim returnB As MSForms.ReturnBoolean
+    Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
+        Case FormUXKeyCommit
+            TextBox_CandidateLevel_Exit returnB
+            Edit_Level_Candidate_Command.SetFocus
+        Case FormUXKeyCancel
+            FormUXHelper.RevertInlineEdit TextBox_CandidateLevel, ARESConfig.ARES_ZONE_EXPORT_LEVEL
+            TextBox_CandidateLevel_Exit returnB
+            Edit_Level_Candidate_Command.SetFocus
+    End Select
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.TextBox_CandidateLevel_KeyUp"
 End Sub
 
 ' ============================================================
@@ -168,10 +236,12 @@ Private Sub UserForm_Initialize()
     ' Checkbox caption lives on the checkbox: Tab-focus visible + the text toggles the box
     Use_Dialog_CheckBox.Caption = GetTranslation("ZoneExportGUIOptionsUse_Dialog_LabelCaption")
     Edit_Level_Region_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Region_CommandCaption")
+    Edit_Level_Candidate_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Candidate_CommandCaption")
     GroupBy_Label.Caption = GetTranslation("ZoneExportGUIOptionsGroupBy_LabelCaption")
 
     ' Tooltips (AC-6)
     FormUXHelper.SetTip Edit_Level_Region_Command, "ZoneExportGUIOptionsEdit_Level_Region_CommandTip"
+    FormUXHelper.SetTip Edit_Level_Candidate_Command, "ZoneExportGUIOptionsEdit_Level_Candidate_CommandTip"
     FormUXHelper.SetTip GroupBy_Label, "ZoneExportGUIOptionsGroupBy_LabelTip"
     FormUXHelper.SetTip ComboBox_Export_Type, "ZoneExportGUIOptionsGroupBy_LabelTip"
     FormUXHelper.SetTip Round_Label, "ZoneExportGUIOptionsRound_LabelTip"
@@ -209,6 +279,7 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     If mbLocked Then
         Cancel = True
         If TextBox_RegionLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_RegionLevel
+        If TextBox_CandidateLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_CandidateLevel
     Else
         FormPlacement.SaveFormPosition Me, Me.Name
     End If
@@ -249,6 +320,7 @@ Private Sub SeedControls()
     Use_Dialog_CheckBox.Value = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG.Value)) = "TRUE")
 
     TextBox_RegionLevel.Visible = False
+    TextBox_CandidateLevel.Visible = False
     Exit Sub
 
 ErrorHandler:
@@ -259,6 +331,7 @@ End Sub
 Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONING_OUTPUT_LEVEL
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_LEVEL
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_GROUP_BY
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_ROUND
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG
@@ -318,3 +391,4 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.GroupByDisplayFromKey"
     GroupByDisplayFromKey = GetTranslation("ZoneExportGroupByStyle")
 End Function
+
