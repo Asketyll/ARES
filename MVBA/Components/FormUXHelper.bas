@@ -12,13 +12,29 @@ Public Enum FormUXInlineKey
     FormUXKeyCancel = 2
 End Enum
 
+' True only while an Enter key-DOWN has fired inside the active inline editor. Guards the reveal-button
+' flash: Enter's key-down lands on the button (activating it) and its key-up leaks onto the textbox that
+' button just focused - which would otherwise commit and close the editor instantly. Module-level, so it
+' must stay in the declarations section (before any Sub/Function).
+Private mbInlineEnterArmed As Boolean
+
 ' Enable/disable every actionable control on a form, recursing into containers.
 ' Explicit state - replaces each form's toggle Locked()/CheckControlForLock pair.
+' The control that currently has focus is never disabled: disabling the focused control makes
+' MSForms eject focus (e.g. a checkbox's own _Change would kick focus onto another control). Every
+' OTHER actionable control is still locked, which is all an inline edit needs.
 Public Sub SetControlsLocked(ByVal oForm As Object, ByVal bLocked As Boolean)
     On Error GoTo ErrorHandler
+    Dim oActive As Object
+    Set oActive = Nothing
+    If bLocked Then
+        On Error Resume Next
+        Set oActive = oForm.ActiveControl
+        On Error GoTo ErrorHandler
+    End If
     Dim oCtrl As Control
     For Each oCtrl In oForm.Controls
-        LockControl oCtrl, bLocked
+        LockControl oCtrl, bLocked, oActive
     Next oCtrl
     Exit Sub
 
@@ -26,16 +42,20 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FormUXHelper.SetControlsLocked"
 End Sub
 
-' Recursive worker for SetControlsLocked.
-Private Sub LockControl(ByVal oCtrl As Control, ByVal bLocked As Boolean)
+' Recursive worker for SetControlsLocked. oActive (set only while locking) is the focused control to skip.
+Private Sub LockControl(ByVal oCtrl As Control, ByVal bLocked As Boolean, ByVal oActive As Object)
     On Error GoTo ErrorHandler
     Select Case TypeName(oCtrl)
         Case "CommandButton", "CheckBox", "SpinButton", "ComboBox"
-            oCtrl.Enabled = Not bLocked
+            If bLocked And Not (oActive Is Nothing) Then
+                If Not (oCtrl Is oActive) Then oCtrl.Enabled = False
+            Else
+                oCtrl.Enabled = Not bLocked
+            End If
         Case "Frame", "MultiPage", "Page"
             Dim oSub As Control
             For Each oSub In oCtrl.Controls
-                LockControl oSub, bLocked
+                LockControl oSub, bLocked, oActive
             Next oSub
     End Select
     Exit Sub
@@ -44,16 +64,22 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FormUXHelper.LockControl"
 End Sub
 
-' Classify an inline-edit key press. Enter (no Shift) commits, Esc cancels, anything else is none.
+' Call from each inline textbox's _KeyDown so only an Enter pressed INSIDE the box can commit.
+Public Sub NoteInlineKeyDown(ByVal KeyCode As Integer, ByVal Shift As Integer)
+    If KeyCode = vbKeyReturn And Shift = 0 Then mbInlineEnterArmed = True
+End Sub
+
+' Classify an inline-edit key press. Enter (no Shift) commits ONLY if armed by NoteInlineKeyDown;
+' Esc cancels; anything else is none.
 Public Function InlineEditKey(ByVal KeyCode As Integer, ByVal Shift As Integer) As FormUXInlineKey
     On Error GoTo ErrorHandler
     InlineEditKey = FormUXKeyNone
-    If Shift <> 0 Then Exit Function
     Select Case KeyCode
         Case vbKeyReturn
-            InlineEditKey = FormUXKeyCommit
+            If Shift = 0 And mbInlineEnterArmed Then InlineEditKey = FormUXKeyCommit
+            mbInlineEnterArmed = False
         Case vbKeyEscape
-            InlineEditKey = FormUXKeyCancel
+            If Shift = 0 Then InlineEditKey = FormUXKeyCancel
     End Select
     Exit Function
 

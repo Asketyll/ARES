@@ -1,10 +1,10 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} UpdateChecker_GUI
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} UpdateChecker_GUI 
    Caption         =   "New update available"
    ClientHeight    =   1230
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   4350
+   ClientWidth     =   4530
    OleObjectBlob   =   "UpdateChecker_GUI.frx":0000
    StartUpPosition =   2  'CenterScreen
 End
@@ -30,7 +30,6 @@ Private Sub UserForm_Initialize()
     cmdNo.Caption = GetTranslation("UpdateBtnSkipVersion")     ' truthful label (was "No"): skips THIS version only
     cmdIgnoreAll.Caption = GetTranslation("UpdateBtnIgnoreAll")
 
-    ' Tooltips (AC-6/AC-11)
     FormUXHelper.SetTip cmdYes, "UpdateBtnYesTip"
     FormUXHelper.SetTip cmdNo, "UpdateBtnSkipVersionTip"
     FormUXHelper.SetTip cmdIgnoreAll, "UpdateBtnIgnoreAllTip"
@@ -80,4 +79,3 @@ ErrorHandler:
 End Sub
 
 ' Intended "remind me later" affordance: closing via the window [X] writes NO config, so ARES simply
-' offers the update again on the next launch. An explicit "Later" button is Track B (story 8-1, section 6.1).

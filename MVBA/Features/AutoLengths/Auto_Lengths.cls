@@ -196,8 +196,8 @@ Private Sub ShowElementSelectionForm()
     For i = LBound(moLinkedElements) To UBound(moLinkedElements)
         If mdLengths(i) <> 0 Then
             lengthValue = CStr(mdLengths(i))
-            frm.ListBox1.AddItem lengthValue
-            frm.ListBox1.List(frm.ListBox1.ListCount - 1, 1) = i
+            frm.ListBox_Lengths.AddItem lengthValue
+            frm.ListBox_Lengths.List(frm.ListBox_Lengths.ListCount - 1, 1) = i
             lengthCount = lengthCount + 1
         End If
     Next i

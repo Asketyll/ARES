@@ -1,12 +1,12 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyTagging_GUI_Options 
    Caption         =   "UserForm1"
-   ClientHeight    =   1575
+   ClientHeight    =   2655
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   4560
+   ClientWidth     =   3735
    OleObjectBlob   =   "PropertyTagging_GUI_Options.frx":0000
-   StartUpPosition =   1  'CenterOwner
+   StartUpPosition =   0  'Manual
 End
 Attribute VB_Name = "PropertyTagging_GUI_Options"
 Attribute VB_GlobalNameSpace = False
@@ -24,6 +24,16 @@ Private mbLocked As Boolean
 ' ============================================================
 ' MASTER SWITCH - CheckBox -> ARES_Auto_Properties
 ' ============================================================
+
+Private Sub Main_CheckBox_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    ' Enter toggles the checkbox too (uniform with buttons; Space already toggles natively).
+    If Shift = 0 And KeyCode = vbKeyReturn Then Main_CheckBox.Value = Not Main_CheckBox.Value
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.Main_CheckBox_KeyUp"
+End Sub
 
 Private Sub Main_CheckBox_Change()
     On Error GoTo ErrorHandler
@@ -72,15 +82,26 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.TextBox_PropertyList_Exit"
 End Sub
 
+Private Sub TextBox_PropertyList_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.TextBox_PropertyList_KeyDown"
+End Sub
+
 Private Sub TextBox_PropertyList_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
     Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
         Case FormUXKeyCommit
             TextBox_PropertyList_Exit returnB
+            Edit_PropertyList_Command.SetFocus
         Case FormUXKeyCancel
             FormUXHelper.RevertInlineEdit TextBox_PropertyList, ARESConfig.ARES_CUSTOM_PROPERTY_LIST
             TextBox_PropertyList_Exit returnB
+            Edit_PropertyList_Command.SetFocus
     End Select
     Exit Sub
 
@@ -122,15 +143,26 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.TextBox_Rules_Exit"
 End Sub
 
+Private Sub TextBox_Rules_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.TextBox_Rules_KeyDown"
+End Sub
+
 Private Sub TextBox_Rules_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
     Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
         Case FormUXKeyCommit
             TextBox_Rules_Exit returnB
+            Edit_Rules_Command.SetFocus
         Case FormUXKeyCancel
             FormUXHelper.RevertInlineEdit TextBox_Rules, ARESConfig.ARES_PROPERTY_RULES
             TextBox_Rules_Exit returnB
+            Edit_Rules_Command.SetFocus
     End Select
     Exit Sub
 
@@ -146,41 +178,63 @@ Private Sub UserForm_Initialize()
     On Error GoTo ErrorHandler
 
     Me.Caption = GetTranslation("PropertyTaggingGUIOptionsCaption")
-    Main_Label.Caption = GetTranslation("PropertyTaggingGUIOptionsMain_LabelCaption")
+    ' Checkbox caption lives on the checkbox: Tab-focus visible + the text toggles the box
+    Main_CheckBox.Caption = GetTranslation("PropertyTaggingGUIOptionsMain_LabelCaption")
     Edit_PropertyList_Command.Caption = GetTranslation("PropertyTaggingGUIOptionsEditList_CommandCaption")
     Edit_Rules_Command.Caption = GetTranslation("PropertyTaggingGUIOptionsEditRules_CommandCaption")
 
-    ' Tooltips (AC-6)
+    ' Tooltips
     FormUXHelper.SetTip Main_CheckBox, "PropertyTaggingGUIOptionsMain_LabelTip"
-    FormUXHelper.SetTip Main_Label, "PropertyTaggingGUIOptionsMain_LabelTip"
     FormUXHelper.SetTip Edit_PropertyList_Command, "PropertyTaggingGUIOptionsEditList_CommandTip"
     FormUXHelper.SetTip TextBox_PropertyList, "PropertyTaggingGUIOptionsEditList_CommandTip"
     FormUXHelper.SetTip Edit_Rules_Command, "PropertyTaggingGUIOptionsEditRules_CommandTip"
     FormUXHelper.SetTip TextBox_Rules, "PropertyTaggingGUIOptionsEditRules_CommandTip"
 
-    ' Keyboard order + mnemonics (AC-7) - existing controls only
-    Main_CheckBox.TabIndex = 0
-    Edit_PropertyList_Command.TabIndex = 1
-    Edit_Rules_Command.TabIndex = 2
-    Main_CheckBox.Accelerator = "A"
-    Edit_PropertyList_Command.Accelerator = "P"
-    Edit_Rules_Command.Accelerator = "R"
 
-    If ARESConfig.ARES_AUTO_PROPERTIES.Value Then
-        Main_CheckBox.Value = "True"
-    Else
-        Main_CheckBox.Value = "False"
-    End If
+    ' Restore-defaults button
+    Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
+    FormUXHelper.SetTip Reset_Command, "FormResetDefaultsTip"
 
-    TextBox_PropertyList.Visible = False
-    TextBox_Rules.Visible = False
+    SeedControls
+    FormPlacement.RestoreFormPosition Me, Me.Name
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.UserForm_Initialize"
 End Sub
 
-' Explicit-state lock (AC-2/AC-8): replaces the toggle Locked()/CheckControlForLock pair.
+' Re-seed all controls from the current config values.
+Private Sub SeedControls()
+    On Error GoTo ErrorHandler
+    If ARESConfig.ARES_AUTO_PROPERTIES.Value Then
+        Main_CheckBox.Value = "True"
+    Else
+        Main_CheckBox.Value = "False"
+    End If
+    TextBox_PropertyList.Visible = False
+    TextBox_Rules.Visible = False
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.SeedControls"
+End Sub
+
+' Restore every option this form edits to its default value, persist, then re-seed.
+Private Sub Reset_Command_Click()
+    On Error GoTo ErrorHandler
+    FormUXHelper.PersistDefault ARESConfig.ARES_AUTO_PROPERTIES
+    FormUXHelper.PersistDefault ARESConfig.ARES_CUSTOM_PROPERTY_LIST
+    FormUXHelper.PersistDefault ARESConfig.ARES_PROPERTY_RULES
+    PropertyTagging.RefreshRules
+    SeedControls
+    LangManager.ShowStatusT "FormDefaultsRestored"
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.Reset_Command_Click"
+End Sub
+
 ' Any error path must call SetLocked False so controls are never left disabled.
 Private Sub SetLocked(ByVal bState As Boolean)
     On Error GoTo ErrorHandler
@@ -204,6 +258,7 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
                 FormUXHelper.NudgeActiveEdit TextBox_Rules
         End Select
     Else
+        FormPlacement.SaveFormPosition Me, Me.Name
         command.OnPropertyTaggingGUIClosed
     End If
     Exit Sub

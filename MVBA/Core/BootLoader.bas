@@ -100,6 +100,9 @@ End Function
 Public Sub OnProjectUnload()
     On Error Resume Next
 
+    ' --- Step 0: best-effort snapshot of open option forms' positions while ARESConfig is still alive ---
+    Command.SaveAllOpenFormPositions
+
     ' --- Step 1: reset all scalar flags first (cheap, cannot raise; keeps ErrorHandler available) ---
     mbChangeTrackingSuspended = False
     mbChangeTrackingAttached = False

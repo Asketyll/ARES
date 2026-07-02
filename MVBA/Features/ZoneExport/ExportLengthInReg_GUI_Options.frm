@@ -1,12 +1,12 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ExportLengthInReg_GUI_Options
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ExportLengthInReg_GUI_Options 
    Caption         =   "Edit export length in region options:"
-   ClientHeight    =   1710
+   ClientHeight    =   2295
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3015
    OleObjectBlob   =   "ExportLengthInReg_GUI_Options.frx":0000
-   StartUpPosition =   1  'CenterOwner
+   StartUpPosition =   0  'Manual
 End
 Attribute VB_Name = "ExportLengthInReg_GUI_Options"
 Attribute VB_GlobalNameSpace = False
@@ -59,15 +59,26 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.TextBox_RegionLevel_Exit"
 End Sub
 
+Private Sub TextBox_RegionLevel_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.TextBox_RegionLevel_KeyDown"
+End Sub
+
 Private Sub TextBox_RegionLevel_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
     Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
         Case FormUXKeyCommit
             TextBox_RegionLevel_Exit returnB
+            Edit_Level_Region_Command.SetFocus
         Case FormUXKeyCancel
             FormUXHelper.RevertInlineEdit TextBox_RegionLevel, ARESConfig.ARES_ZONING_OUTPUT_LEVEL
             TextBox_RegionLevel_Exit returnB
+            Edit_Level_Region_Command.SetFocus
     End Select
     Exit Sub
 
@@ -119,6 +130,16 @@ End Sub
 ' USE DIALOG - CheckBox
 ' ============================================================
 
+Private Sub Use_Dialog_CheckBox_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    ' Enter toggles the checkbox too (uniform with buttons; Space already toggles natively).
+    If Shift = 0 And KeyCode = vbKeyReturn Then Use_Dialog_CheckBox.Value = Not Use_Dialog_CheckBox.Value
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.Use_Dialog_CheckBox_KeyUp"
+End Sub
+
 Private Sub Use_Dialog_CheckBox_Change()
     On Error GoTo ErrorHandler
     Dim sVal As String
@@ -144,39 +165,76 @@ Private Sub UserForm_Initialize()
 
     Me.Caption = GetTranslation("ZoneExportGUIOptionsCaption")
     Round_Label.Caption = GetTranslation("ZoneExportGUIOptionsRound_LabelCaption")
-    Use_Dialog_Label.Caption = GetTranslation("ZoneExportGUIOptionsUse_Dialog_LabelCaption")
+    ' Checkbox caption lives on the checkbox: Tab-focus visible + the text toggles the box
+    Use_Dialog_CheckBox.Caption = GetTranslation("ZoneExportGUIOptionsUse_Dialog_LabelCaption")
     Edit_Level_Region_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Region_CommandCaption")
+    GroupBy_Label.Caption = GetTranslation("ZoneExportGUIOptionsGroupBy_LabelCaption")
 
-    ' Tooltips (AC-6). NOTE: a visible group-by label needs a new label control (Track B, deferred);
-    ' the localized ZoneExportGUIOptionsGroupBy_LabelCaption key is ready for when it exists.
+    ' Tooltips (AC-6)
     FormUXHelper.SetTip Edit_Level_Region_Command, "ZoneExportGUIOptionsEdit_Level_Region_CommandTip"
+    FormUXHelper.SetTip GroupBy_Label, "ZoneExportGUIOptionsGroupBy_LabelTip"
     FormUXHelper.SetTip ComboBox_Export_Type, "ZoneExportGUIOptionsGroupBy_LabelTip"
     FormUXHelper.SetTip Round_Label, "ZoneExportGUIOptionsRound_LabelTip"
     FormUXHelper.SetTip Round_SpinButton, "ZoneExportGUIOptionsRound_LabelTip"
     FormUXHelper.SetTip Use_Dialog_CheckBox, "ZoneExportGUIOptionsUse_Dialog_LabelTip"
-    FormUXHelper.SetTip Use_Dialog_Label, "ZoneExportGUIOptionsUse_Dialog_LabelTip"
 
-    ' Keyboard order + mnemonics (AC-7) - existing controls only
-    Edit_Level_Region_Command.TabIndex = 0
-    ComboBox_Export_Type.TabIndex = 1
-    Round_SpinButton.TabIndex = 2
-    Use_Dialog_CheckBox.TabIndex = 3
-    Edit_Level_Region_Command.Accelerator = "Z"
-    Use_Dialog_CheckBox.Accelerator = "P"
+    ' Restore-defaults button
+    Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
+    FormUXHelper.SetTip Reset_Command, "FormResetDefaultsTip"
 
-    ' Group-by combo: localized display, stable English stored key (AC-9)
+    ' Group-by combo items: localized display, stable English stored key
     ComboBox_Export_Type.Clear
     ComboBox_Export_Type.AddItem GroupByDisplayFromKey("Style")
     ComboBox_Export_Type.AddItem GroupByDisplayFromKey("Level")
     ComboBox_Export_Type.AddItem GroupByDisplayFromKey("Color")
+
+    ' Rounding spin bounds (value seeded in SeedControls, guarded against non-numeric config)
+    Round_SpinButton.Min = 0
+    Round_SpinButton.Max = 10
+
+    SeedControls
+    FormPlacement.RestoreFormPosition Me, Me.Name
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.UserForm_Initialize"
+End Sub
+
+' ============================================================
+' CLOSE
+' ============================================================
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    On Error GoTo ErrorHandler
+    If mbLocked Then
+        Cancel = True
+        If TextBox_RegionLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_RegionLevel
+    Else
+        FormPlacement.SaveFormPosition Me, Me.Name
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.UserForm_QueryClose"
+End Sub
+
+Private Sub UserForm_Terminate()
+    On Error Resume Next
+    command.OnZoneExportGUIClosed
+End Sub
+
+' ============================================================
+' HELPERS
+' ============================================================
+
+' Re-seed all controls from the current config values.
+Private Sub SeedControls()
+    On Error GoTo ErrorHandler
     Dim sGroupBy As String
     sGroupBy = Trim(ARESConfig.ARES_ZONE_EXPORT_GROUP_BY.Value)
     If sGroupBy <> "Level" And sGroupBy <> "Color" Then sGroupBy = "Style"
     ComboBox_Export_Type.Value = GroupByDisplayFromKey(sGroupBy)
 
-    ' Rounding spin, guarded against non-numeric config (AC-9)
-    Round_SpinButton.Min = 0
-    Round_SpinButton.Max = 10
     Dim nRound As Integer
     If IsNumeric(ARESConfig.ARES_ZONE_EXPORT_ROUND.Value) Then
         nRound = CInt(ARESConfig.ARES_ZONE_EXPORT_ROUND.Value)
@@ -194,35 +252,26 @@ Private Sub UserForm_Initialize()
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.UserForm_Initialize"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.SeedControls"
 End Sub
 
-' ============================================================
-' CLOSE
-' ============================================================
-
-Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+' NOTE: ARES_Zoning_Output_Level is the region output level shown here and is shared with the Zoning form.
+Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
-    If mbLocked Then
-        Cancel = True
-        If TextBox_RegionLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_RegionLevel
-    End If
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONING_OUTPUT_LEVEL
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_GROUP_BY
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_ROUND
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG
+    SeedControls
+    LangManager.ShowStatusT "FormDefaultsRestored"
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.UserForm_QueryClose"
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.Reset_Command_Click"
 End Sub
 
-Private Sub UserForm_Terminate()
-    On Error Resume Next
-    command.OnZoneExportGUIClosed
-End Sub
-
-' ============================================================
-' HELPERS
-' ============================================================
-
-' Explicit-state lock (AC-2/AC-8): replaces the toggle Locked()/CheckControlForLock pair.
+' Explicit-state lock: replaces the toggle Locked()/CheckControlForLock pair.
 Private Sub SetLocked(ByVal bState As Boolean)
     On Error GoTo ErrorHandler
     mbLocked = bState
@@ -233,7 +282,7 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.SetLocked"
 End Sub
 
-' Map the localized combo display back to the stable English stored key (AC-9).
+' Map the localized combo display back to the stable English stored key.
 Private Function GroupByKeyFromDisplay() As String
     On Error GoTo ErrorHandler
     Dim sDisp As String
@@ -252,7 +301,7 @@ ErrorHandler:
     GroupByKeyFromDisplay = "Style"
 End Function
 
-' Map a stable English stored key to its localized combo display (AC-9).
+' Map a stable English stored key to its localized combo display.
 Private Function GroupByDisplayFromKey(ByVal sKey As String) As String
     On Error GoTo ErrorHandler
     Select Case sKey

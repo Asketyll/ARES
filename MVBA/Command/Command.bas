@@ -488,3 +488,38 @@ End Sub
 Public Sub OnPropertyTaggingGUIClosed()
     Set moPropertyTaggingGUI = Nothing
 End Sub
+
+' Persist the position of every option form still open (best-effort; called at project unload).
+Public Sub SaveAllOpenFormPositions()
+    On Error Resume Next
+    If Not moAutoLengthsGUI Is Nothing Then FormPlacement.SaveFormPosition moAutoLengthsGUI, moAutoLengthsGUI.Name
+    If Not moZoningGUI Is Nothing Then FormPlacement.SaveFormPosition moZoningGUI, moZoningGUI.Name
+    If Not moOutlineGUI Is Nothing Then FormPlacement.SaveFormPosition moOutlineGUI, moOutlineGUI.Name
+    If Not moZoneExportGUI Is Nothing Then FormPlacement.SaveFormPosition moZoneExportGUI, moZoneExportGUI.Name
+    If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyTaggingGUI, moPropertyTaggingGUI.Name
+End Sub
+
+' Key-in: forget all saved form positions and re-center any option form currently open.
+Sub ResetFormPositions()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    FormPlacement.ClearFormPositions
+    If Not moAutoLengthsGUI Is Nothing Then FormPlacement.CenterForm moAutoLengthsGUI
+    If Not moZoningGUI Is Nothing Then FormPlacement.CenterForm moZoningGUI
+    If Not moOutlineGUI Is Nothing Then FormPlacement.CenterForm moOutlineGUI
+    If Not moZoneExportGUI Is Nothing Then FormPlacement.CenterForm moZoneExportGUI
+    If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.CenterForm moPropertyTaggingGUI
+
+    ShowStatusT "FormPositionsReset"
+    ReportIfLogged "ResetFormPositions"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "ResetFormPositions", Err.Description, Err.Number, Err.Source
+End Sub

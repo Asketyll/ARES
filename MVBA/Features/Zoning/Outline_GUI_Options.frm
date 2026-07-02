@@ -1,12 +1,12 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} Outline_GUI_Options 
    Caption         =   "Edit zoning options:"
-   ClientHeight    =   3285
+   ClientHeight    =   3735
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3015
    OleObjectBlob   =   "Outline_GUI_Options.frx":0000
-   StartUpPosition =   1  'CenterOwner
+   StartUpPosition =   0  'Manual
 End
 Attribute VB_Name = "Outline_GUI_Options"
 Attribute VB_GlobalNameSpace = False
@@ -52,15 +52,26 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.TextBox_Levels_Exit"
 End Sub
 
+Private Sub TextBox_Levels_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.TextBox_Levels_KeyDown"
+End Sub
+
 Private Sub TextBox_Levels_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
     Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
         Case FormUXKeyCommit
             TextBox_Levels_Exit returnB
+            Edit_Levels_Command.SetFocus
         Case FormUXKeyCancel
             FormUXHelper.RevertInlineEdit TextBox_Levels, ARESConfig.ARES_OUTLINE_LEVEL
             TextBox_Levels_Exit returnB
+            Edit_Levels_Command.SetFocus
     End Select
     Exit Sub
 
@@ -124,15 +135,26 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.TextBox_OutputLevel_Exit"
 End Sub
 
+Private Sub TextBox_OutputLevel_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.TextBox_OutputLevel_KeyDown"
+End Sub
+
 Private Sub TextBox_OutputLevel_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     Dim returnB As MSForms.ReturnBoolean
     Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
         Case FormUXKeyCommit
             TextBox_OutputLevel_Exit returnB
+            Edit_OutputLevel_Command.SetFocus
         Case FormUXKeyCancel
             FormUXHelper.RevertInlineEdit TextBox_OutputLevel, ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL
             TextBox_OutputLevel_Exit returnB
+            Edit_OutputLevel_Command.SetFocus
     End Select
     Exit Sub
 
@@ -204,13 +226,12 @@ Private Sub UserForm_Initialize()
     Me.Caption = GetTranslation("OutlineGUIOptionsCaption")
     Edit_Levels_Command.Caption = GetTranslation("OutlineGUIOptionsEditLevels_CommandCaption")
     Distance_Label.Caption = GetTranslation("OutlineGUIOptionsDistance_LabelCaption")
-    Edit_OutputLevel_Command.Caption = GetTranslation("OutlineGUIOptionsEditOutputLevel_CommandCaption", ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.Value)
     Edit_OutputLevel_Command.WordWrap = True
     Edit_Color_Command.Caption = GetTranslation("OutlineGUIOptionsEditColor_CommandCaption")
     Style_Label.Caption = GetTranslation("OutlineGUIOptionsOutputStyle_LabelCaption")
     Weight_Label.Caption = GetTranslation("OutlineGUIOptionsWeight_LabelCaption")
 
-    ' Tooltips (AC-6)
+    ' Tooltips
     FormUXHelper.SetTip Edit_Levels_Command, "OutlineGUIOptionsEditLevels_CommandTip"
     FormUXHelper.SetTip Distance_Label, "OutlineGUIOptionsDistance_LabelTip"
     FormUXHelper.SetTip TextBox_Distance, "OutlineGUIOptionsDistance_LabelTip"
@@ -222,16 +243,22 @@ Private Sub UserForm_Initialize()
     FormUXHelper.SetTip Weight_Label, "OutlineGUIOptionsWeight_LabelTip"
     FormUXHelper.SetTip Weight_SpinButton, "OutlineGUIOptionsWeight_LabelTip"
 
-    ' Keyboard order + mnemonics (AC-7) - existing controls only
-    Edit_Levels_Command.TabIndex = 0
-    TextBox_Distance.TabIndex = 1
-    Edit_OutputLevel_Command.TabIndex = 2
-    Edit_Color_Command.TabIndex = 3
-    TextBox_Style.TabIndex = 4
-    Weight_SpinButton.TabIndex = 5
-    Edit_Levels_Command.Accelerator = "L"
-    Edit_OutputLevel_Command.Accelerator = "O"
-    Edit_Color_Command.Accelerator = "C"
+    ' Restore-defaults button
+    Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
+    FormUXHelper.SetTip Reset_Command, "FormResetDefaultsTip"
+
+    SeedControls
+    FormPlacement.RestoreFormPosition Me, Me.Name
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.UserForm_Initialize"
+End Sub
+
+' Re-seed all controls from the current config values.
+Private Sub SeedControls()
+    On Error GoTo ErrorHandler
+    Edit_OutputLevel_Command.Caption = GetTranslation("OutlineGUIOptionsEditOutputLevel_CommandCaption", ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.Value)
 
     Dim storedDist As String
     storedDist = Replace(ARESConfig.ARES_OUTLINE_DISTANCE.Value, ",", ".")
@@ -247,7 +274,6 @@ Private Sub UserForm_Initialize()
     TextBox_Style.Value = ARESConfig.ARES_OUTLINE_OUTPUT_STYLE.Value
 
     Weight_SpinButton.Min = 0:  Weight_SpinButton.Max = 31
-
     Weight_Number_Label.Caption = ARESConfig.ARES_OUTLINE_OUTPUT_WEIGHT.Value
     Weight_SpinButton.Value = CLng(ARESConfig.ARES_OUTLINE_OUTPUT_WEIGHT.Value)
 
@@ -256,10 +282,27 @@ Private Sub UserForm_Initialize()
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.UserForm_Initialize"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.SeedControls"
 End Sub
 
-' Explicit-state lock (AC-2/AC-8): replaces the toggle Locked()/CheckControlForLock pair.
+' Restore every option this form edits to its default value, persist, then re-seed.
+Private Sub Reset_Command_Click()
+    On Error GoTo ErrorHandler
+    FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_LEVEL
+    FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_DISTANCE
+    FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL
+    FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_OUTPUT_COLOR
+    FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_OUTPUT_STYLE
+    FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_OUTPUT_WEIGHT
+    SeedControls
+    LangManager.ShowStatusT "FormDefaultsRestored"
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.Reset_Command_Click"
+End Sub
+
 ' Any error path must call SetLocked False so controls are never left disabled.
 Private Sub SetLocked(ByVal bState As Boolean)
     On Error GoTo ErrorHandler
@@ -283,6 +326,7 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
                 FormUXHelper.NudgeActiveEdit TextBox_OutputLevel
         End Select
     Else
+        FormPlacement.SaveFormPosition Me, Me.Name
         command.OnOutlineGUIClosed
     End If
     Exit Sub
@@ -290,4 +334,3 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.UserForm_QueryClose"
 End Sub
-

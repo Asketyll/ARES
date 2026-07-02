@@ -1,10 +1,10 @@
 VERSION 5.00
-Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} AutoLengths_GUI_SelectElements
+Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} AutoLengths_GUI_SelectElements 
    Caption         =   "Select :"
-   ClientHeight    =   1575
+   ClientHeight    =   2055
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   1815
+   ClientWidth     =   2535
    OleObjectBlob   =   "AutoLengths_GUI_SelectElements.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -43,10 +43,10 @@ End Property
 
 ' Event handler for clicking an item in the ListBox
 ' Zooms and highlights the selected element in the graphical interface
-Private Sub ListBox1_Click()
+Private Sub ListBox_Lengths_Click()
     On Error GoTo ErrorHandler
     Dim idx As Long
-    If ListBox1.ListIndex = -1 Then Exit Sub
+    If ListBox_Lengths.ListIndex = -1 Then Exit Sub
     idx = SelectedElementIndex()
     If idx = -1 Then Exit Sub
     If Not moLinkedElements(idx) Is Nothing Then
@@ -58,21 +58,21 @@ Private Sub ListBox1_Click()
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox1_Click"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox_Lengths_Click"
 End Sub
 
 ' Event handler for double-clicking an item in the ListBox: commit the selection.
-Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
+Private Sub ListBox_Lengths_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
     CommitSelection
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox1_DblClick"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox_Lengths_DblClick"
 End Sub
 
-' Keyboard (AC-10): Enter commits the selected row (same path as double-click), Esc closes.
-Private Sub ListBox1_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+' Keyboard: Enter commits the selected row (same path as double-click), Esc closes.
+Private Sub ListBox_Lengths_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
     On Error GoTo ErrorHandler
     If Shift <> 0 Then Exit Sub
     Select Case KeyCode
@@ -84,17 +84,43 @@ Private Sub ListBox1_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift A
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox1_KeyUp"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.ListBox_Lengths_KeyUp"
+End Sub
+
+' OK button: commit the selected row, same path as double-click / Enter.
+Private Sub OK_Command_Click()
+    On Error GoTo ErrorHandler
+    CommitSelection
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.OK_Command_Click"
+End Sub
+
+' Cancel button: close the picker without selecting.
+Private Sub Cancel_Command_Click()
+    On Error GoTo ErrorHandler
+    Unload Me
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengths_GUI_SelectElements.Cancel_Command_Click"
 End Sub
 
 ' Event handler for initializing the UserForm
 Private Sub UserForm_Initialize()
     On Error GoTo ErrorHandler
     Me.Caption = GetTranslation("AutoLengthsGUISelectElementsCaption")
-    ' Hide the index column: column 2 carries the moLinkedElements index (AC-10)
-    ListBox1.ColumnCount = 2
-    ListBox1.ColumnWidths = ";0"
-    FormUXHelper.SetTip ListBox1, "AutoLengthsGUISelectElementsListTip"
+    ' Hide the index column: column 2 carries the moLinkedElements index
+    ListBox_Lengths.ColumnCount = 2
+    ListBox_Lengths.ColumnWidths = ";0"
+    FormUXHelper.SetTip ListBox_Lengths, "AutoLengthsGUISelectElementsListTip"
+
+    ' OK/Cancel buttons
+    OK_Command.Caption = GetTranslation("AutoLengthsGUISelectElementsOK_CommandCaption")
+    Cancel_Command.Caption = GetTranslation("AutoLengthsGUISelectElementsCancel_CommandCaption")
+    OK_Command.Default = True
+    Cancel_Command.Cancel = True
     Exit Sub
 
 ErrorHandler:
@@ -117,9 +143,9 @@ End Sub
 Private Function SelectedElementIndex() As Long
     On Error GoTo ErrorHandler
     SelectedElementIndex = -1
-    If ListBox1.ListIndex = -1 Then Exit Function
+    If ListBox_Lengths.ListIndex = -1 Then Exit Function
     Dim idx As Long
-    idx = CLng(ListBox1.List(ListBox1.ListIndex, 1))
+    idx = CLng(ListBox_Lengths.List(ListBox_Lengths.ListIndex, 1))
     If idx < LBound(moLinkedElements) Or idx > UBound(moLinkedElements) Then
         LangManager.ShowStatusT "AutoLengthsGUIInvalidSelectedElement"
         Exit Function
@@ -132,7 +158,7 @@ ErrorHandler:
     SelectedElementIndex = -1
 End Function
 
-' Commit the currently selected element and close the modeless picker (AC-10).
+' Commit the currently selected element and close the modeless picker.
 Private Sub CommitSelection()
     On Error GoTo ErrorHandler
     Dim idx As Long

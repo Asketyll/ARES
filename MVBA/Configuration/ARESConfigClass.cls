@@ -92,6 +92,8 @@ Public ARES_CUSTOM_PROPERTY_LIST As ARES_MS_VAR_Class 'Default Value: Commune|Co
 Public ARES_AUTO_PROPERTIES As ARES_MS_VAR_Class 'Default Value: True                       True or False (Boolean)
 ' Used in PropertyTagging module — rules "level[:type]=prop|prop ; …" mapping elements to properties to attach.
 Public ARES_PROPERTY_RULES As ARES_MS_VAR_Class 'Default Value: (empty)                     e.g. WALLS=Commune|Coupe_Type ; DOORS:Cell=Commune
+' Used in FormPlacement module — remembers each option form's last on-screen position. INTERNAL, managed automatically (do not edit by hand).
+Public ARES_FORM_LAYOUT As ARES_MS_VAR_Class 'Default Value: (empty)   <FormName>=<xPct>:<yPct> entries delimited by | (ARES_VAR_DELIMITER)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -159,6 +161,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CUSTOM_PROPERTY_LIST = CreateConfigVar("ARES_Custom_Property_List", "Commune|Coupe_Type")
     Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
     Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
+    Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
     CreateConfigVariables = True
     Exit Function
 

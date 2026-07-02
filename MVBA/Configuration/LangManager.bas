@@ -151,6 +151,7 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_FormFinishEditFirst", "Finish the current edit, or press Esc to cancel."
     moTranslations.Add "EN_FormResetDefaultsCaption", "Restore defaults"
     moTranslations.Add "EN_FormDefaultsRestored", "Default options restored."
+    moTranslations.Add "EN_FormPositionsReset", "Window positions reset."
     moTranslations.Add "EN_UpdateBtnSkipVersion", "Skip this version"
     moTranslations.Add "EN_UpdateBtnYesTip", "Download and install the new version now."
     moTranslations.Add "EN_UpdateBtnSkipVersionTip", "Do not remind me about this version again (newer versions will still be announced)."
@@ -159,6 +160,10 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoneExportGroupByStyle", "Style"
     moTranslations.Add "EN_ZoneExportGroupByLevel", "Level"
     moTranslations.Add "EN_ZoneExportGroupByColor", "Color"
+    ' --- Story 8-2: restore-defaults tooltip + element-picker OK/Cancel ---
+    moTranslations.Add "EN_FormResetDefaultsTip", "Reset every option on this panel to its default value."
+    moTranslations.Add "EN_AutoLengthsGUISelectElementsOK_CommandCaption", "Select"
+    moTranslations.Add "EN_AutoLengthsGUISelectElementsCancel_CommandCaption", "Cancel"
     ' Tooltips (ControlTipText) - Property Tagging
     moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelTip", "Attach ARES custom properties automatically when elements are created or modified."
     moTranslations.Add "EN_PropertyTaggingGUIOptionsEditList_CommandTip", "Pipe-separated (|) list of custom-property names. Example: Commune|Coupe_Type"
@@ -322,8 +327,9 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ChangeTrackingResumeWarning", "ARES : ATTENTION - le suivi des modifications n'a PAS été réattaché après l'opération en masse"
     ' --- Story 8-1: shared form-UX baseline (FormUXHelper) ---
     moTranslations.Add "FR_FormFinishEditFirst", "Terminez la saisie en cours, ou appuyez sur Échap pour annuler."
-    moTranslations.Add "FR_FormResetDefaultsCaption", "Réinitialiser les défauts"
+    moTranslations.Add "FR_FormResetDefaultsCaption", "Réinitialiser"
     moTranslations.Add "FR_FormDefaultsRestored", "Options par défaut restaurées."
+    moTranslations.Add "FR_FormPositionsReset", "Positions des fenêtres réinitialisées."
     moTranslations.Add "FR_UpdateBtnSkipVersion", "Ignorer cette version"
     moTranslations.Add "FR_UpdateBtnYesTip", "Télécharger et installer la nouvelle version maintenant."
     moTranslations.Add "FR_UpdateBtnSkipVersionTip", "Ne plus me rappeler cette version (les versions plus récentes seront toujours signalées)."
@@ -332,6 +338,10 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoneExportGroupByStyle", "Style"
     moTranslations.Add "FR_ZoneExportGroupByLevel", "Niveau"
     moTranslations.Add "FR_ZoneExportGroupByColor", "Couleur"
+    ' --- Story 8-2 : info-bulle reinitialisation + OK/Annuler du selecteur d'elements ---
+    moTranslations.Add "FR_FormResetDefaultsTip", "Réinitialise chaque option de ce panneau à sa valeur par défaut."
+    moTranslations.Add "FR_AutoLengthsGUISelectElementsOK_CommandCaption", "Sélectionner"
+    moTranslations.Add "FR_AutoLengthsGUISelectElementsCancel_CommandCaption", "Annuler"
     ' Tooltips (ControlTipText) - Property Tagging
     moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelTip", "Attache automatiquement les propriétés ARES à la création ou à la modification d'éléments."
     moTranslations.Add "FR_PropertyTaggingGUIOptionsEditList_CommandTip", "Liste de noms de propriétés séparés par | . Exemple : Commune|Coupe_Type"
