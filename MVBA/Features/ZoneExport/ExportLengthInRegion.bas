@@ -26,8 +26,17 @@
 ' ENTRY POINT  Call ExportLengthInRegion([ZoneLevel], [Filepath], [ExcelVisible])
 '   Filepath empty → ARES_Zone_Export_Use_Dialog: True = Save-As dialog, False = auto path.
 '   ARES_Zone_Export_Level (| -delimited) restricts measured candidates to those levels; empty = all levels.
+'
+' GROUPING  ARES_Zone_Export_Group_By ∈ {Style, Level, Color} — the group key of each measured
+'   element. Unchanged; the classic path writes one global row per group (byte-identical).
+' PER-ZONE SPLIT  ARES_Zone_Export_Per_Zone = True additionally splits every group by zone →
+'   LONG FORMAT (Zone | <Style/Level/Color header> | Total Length), one row per (zone × group key).
+'   Length is attributed PER ZONE (GetPartialLengthInsideZones called once per zone with a
+'   1-element array). Each zone is labeled by the value of ARES_Zone_Export_Zone_Property read on
+'   the ZONE element, else "Zone <n>" (empty var silent; a non-member name logs + one-shot status).
+'   Same-value zones stay on SEPARATE rows (the aggregation key uses the zone scan index — Option A).
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, FileDialogs, GetElements
+' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, FileDialogs, GetElements, CustomPropertyHandler
 
 Option Explicit
 
@@ -35,6 +44,8 @@ Private Const HEADER_STYLE      As String = "Line Style"
 Private Const HEADER_LEVEL      As String = "Level"
 Private Const HEADER_COLOR      As String = "Color"
 Private Const HEADER_LENGTH     As String = "Total Length (master units)"
+Private Const HEADER_ZONE       As String = "Zone"           ' per-zone split: column 1 header
+Private Const KEY_SEP           As String = vbTab            ' composite key separator (zoneIndex & KEY_SEP & group-key)
 Private Const XL_OPENXML_FORMAT As Long   = 51   ' xlOpenXMLWorkbook (.xlsx)
 
 ' ============================================================
@@ -118,8 +129,6 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
         End If
     End If
 
-    ErrorHandler.HandleError "collecting zones on level " & ZoneLevel, 0, "", "ExportLengthInRegion.ExportLengthInRegion"
-
     ' --- T3: collect zone elements ---
     Dim zones() As Element
     If Not CollectZones(ZoneLevel, zones) Then
@@ -139,23 +148,37 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     Dim oee As ElementEnumerator
     Set oee = CollectCandidates(oZoneRange, filterLevels, nFilterLevels)
 
-    ErrorHandler.HandleError "scanning candidates", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
-
-    ' --- Resolve group-by mode ---
+    ' --- Resolve group-by key ---
     Dim sGroupBy As String
     sGroupBy = Trim(ARESConfig.ARES_ZONE_EXPORT_GROUP_BY.Value)
     If sGroupBy <> "Level" And sGroupBy <> "Color" Then sGroupBy = "Style"
 
-    ' --- T7: aggregate lengths ---
+    ' --- Resolve per-zone split (independent axis from the group-by key) ---
+    Dim bPerZone As Boolean
+    bPerZone = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_PER_ZONE.Value)) = "TRUE")
+
+    ' --- T7: aggregate lengths (classic global, or additionally split per zone) ---
     Dim oGroups       As Object   ' Scripting.Dictionary
     Dim nElementCount As Long
+    Dim zoneLabels()  As String
     Set oGroups = CreateObject("Scripting.Dictionary")
-    AggregateLengths oee, zones, ZoneLevel, oGroups, nElementCount, sGroupBy
+    If bPerZone Then
+        Dim sLabelProp As String
+        sLabelProp = ResolveZoneLabelProperty()
+        BuildZoneLabels zones, sLabelProp, zoneLabels
+        AggregateByZoneAndProperty oee, zones, zoneLabels, ZoneLevel, sGroupBy, oGroups, nElementCount
+    Else
+        AggregateLengths oee, zones, ZoneLevel, oGroups, nElementCount, sGroupBy
+    End If
 
     ' --- T8: export to Excel (always create the workbook, even when empty — AC-8) ---
-    WriteToExcel oGroups, Filepath, ExcelVisible, sGroupBy
+    WriteToExcel oGroups, Filepath, ExcelVisible, sGroupBy, bPerZone, zoneLabels
 
-    ShowStatus GetTranslation("ZoneExportComplete", nElementCount, oGroups.Count, sGroupBy)
+    If bPerZone Then
+        ShowStatus GetTranslation("ZoneExportCompletePerZone", nElementCount, oGroups.Count, sGroupBy)
+    Else
+        ShowStatus GetTranslation("ZoneExportComplete", nElementCount, oGroups.Count, sGroupBy)
+    End If
     Exit Sub
 
 ErrorHandler:
@@ -365,6 +388,171 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
+'  PER-ZONE SPLIT (aggregate each group additionally by zone)
+' ============================================================
+
+' NameInList
+' Case-insensitive membership test over a 0-based names array (GetCustomPropertyNames output).
+' Split() always returns an allocated array, so LBound/UBound are safe here.
+Private Function NameInList(ByVal sName As String, ByRef names() As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    NameInList = False
+    Dim i As Long
+    For i = LBound(names) To UBound(names)
+        If StrComp(Trim(names(i)), sName, vbTextCompare) = 0 Then
+            NameInList = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    NameInList = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.NameInList"
+End Function
+
+' ResolveZoneLabelProperty
+' Resolves ARES_ZONE_EXPORT_ZONE_PROPERTY once (per-zone split only):
+'   empty                          → "" (silent; zones fall back to "Zone <n>")
+'   non-empty, member of the list  → the name (zones labeled by its value on each zone element)
+'   non-empty, NOT a member        → log (English) + one-shot ZoneExportZonePropertyInvalid
+'                                    status + "" (zones fall back to "Zone <n>"). Never aborts.
+Private Function ResolveZoneLabelProperty() As String
+    On Error GoTo ErrorHandler
+
+    ResolveZoneLabelProperty = ""
+    Dim sName   As String
+    Dim names() As String
+    sName = Trim(ARESConfig.ARES_ZONE_EXPORT_ZONE_PROPERTY.Value)
+    If Len(sName) = 0 Then Exit Function          ' unconfigured → silent "Zone <n>"
+
+    names = CustomPropertyHandler.GetCustomPropertyNames()
+    If NameInList(sName, names) Then
+        ResolveZoneLabelProperty = sName
+        Exit Function
+    End If
+
+    ErrorHandler.HandleError "Zone property set but not a member of ARES_Custom_Property_List: '" & sName & "'", 0, "", "ExportLengthInRegion.ResolveZoneLabelProperty"
+    ShowStatusT "ZoneExportZonePropertyInvalid"          ' non-fatal — zones fall back to "Zone <n>"
+    Exit Function
+
+ErrorHandler:
+    ResolveZoneLabelProperty = ""
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ResolveZoneLabelProperty"
+End Function
+
+' BuildZoneLabels
+' Fills outLabels (0-based, indexed by zone scan position z = i - LBound(zones)) with each
+' zone's display label via ResolveZoneLabel, using the chosen zone-property (sLabelProp;
+' "" ⇒ every zone gets "Zone <n>"). The 0-based indexing matches the aggregation key's zone index.
+Private Sub BuildZoneLabels(ByRef zones() As Element, ByVal sLabelProp As String, _
+                            ByRef outLabels() As String)
+    On Error GoTo ErrorHandler
+
+    Dim i As Long
+    Dim z As Long
+    ReDim outLabels(0 To UBound(zones) - LBound(zones))
+    For i = LBound(zones) To UBound(zones)
+        z = i - LBound(zones)
+        outLabels(z) = ResolveZoneLabel(zones(i), z, sLabelProp)
+    Next i
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.BuildZoneLabels"
+End Sub
+
+' ResolveZoneLabel
+' Returns the zone element's label: the value of sLabelProp read on the zone element
+' (GetPropertyValueFromElement, name = ItemType = property), else "Zone <idx+1>".
+' Falls back to the positional label when sLabelProp = "" or the zone has no/empty value.
+' idx is 0-based (scan order); the fallback is 1-based for human display.
+Private Function ResolveZoneLabel(ByVal oZone As Element, ByVal idx As Long, _
+                                  ByVal sLabelProp As String) As String
+    On Error GoTo ErrorHandler
+
+    ResolveZoneLabel = "Zone " & (idx + 1)
+    If Len(sLabelProp) = 0 Then Exit Function
+
+    Dim vVal As Variant
+    vVal = CustomPropertyHandler.GetPropertyValueFromElement(oZone, sLabelProp, sLabelProp)
+    If Not IsNull(vVal) Then
+        Dim sVal As String
+        sVal = Trim(CStr(vVal))
+        If Len(sVal) > 0 Then ResolveZoneLabel = sVal
+    End If
+    Exit Function
+
+ErrorHandler:
+    ' Keep the positional "Zone <n>" fallback already assigned above.
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ResolveZoneLabel"
+End Function
+
+' AggregateByZoneAndProperty
+' Per-zone aggregation. Mirrors AggregateLengths but attributes length PER ZONE: for each
+' candidate, loops the zones and calls GetPartialLengthInsideZones with a 1-element array (the
+' tested engine, UNCHANGED) to get the element's length inside THAT zone. The group key is the
+' SAME as AggregateLengths (Style→LineStyle.Name, Level→Level.Name, Color→CStr(Color)). Composite
+' key = Format(z, "0000") & KEY_SEP & <group key>, where z is the 0-based zone scan index — so two
+' zones sharing a label stay on SEPARATE rows (Option A) and SortedKeysCI orders zone-major
+' (zero-padded numeric), then group key. zoneLabels is display-only (consumed by WriteToExcel via
+' the same z index); the aggregation itself keys on the index, not the label. nOutElementCount
+' counts candidates contributing length to >= 1 zone.
+Private Sub AggregateByZoneAndProperty(ByVal oee As ElementEnumerator, _
+                                       ByRef oZones() As Element, _
+                                       ByRef zoneLabels() As String, _
+                                       ByVal sZoneLevelName As String, _
+                                       ByVal sGroupBy As String, _
+                                       ByRef oOutGroups As Object, _
+                                       ByRef nOutElementCount As Long)
+    On Error GoTo ErrorHandler
+
+    Dim oEl              As Element
+    Dim oneZone(0 To 0)  As Element
+    Dim i                As Long
+    Dim z                As Long
+    Dim dLen             As Double
+    Dim sGbKey           As String
+    Dim sKey             As String
+    Dim bCounted         As Boolean
+
+    nOutElementCount = 0
+    If oee Is Nothing Then Exit Sub
+
+    Do While oee.MoveNext
+        Set oEl = oee.Current
+        If oEl.Level.Name <> sZoneLevelName Then
+            Select Case sGroupBy
+                Case "Level" : sGbKey = oEl.Level.Name
+                Case "Color" : sGbKey = CStr(oEl.Color)
+                Case Else    : sGbKey = oEl.LineStyle.Name
+            End Select
+            bCounted = False
+            For i = LBound(oZones) To UBound(oZones)
+                z = i - LBound(oZones)
+                Set oneZone(0) = oZones(i)
+                dLen = Length.GetPartialLengthInsideZones(oEl, oneZone)
+                If dLen > 0 Then
+                    sKey = Format(z, "0000") & KEY_SEP & sGbKey
+                    If oOutGroups.Exists(sKey) Then
+                        oOutGroups(sKey) = oOutGroups(sKey) + dLen
+                    Else
+                        oOutGroups.Add sKey, dLen
+                    End If
+                    bCounted = True
+                End If
+            Next i
+            If bCounted Then nOutElementCount = nOutElementCount + 1
+        End If
+    Loop
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.AggregateByZoneAndProperty"
+End Sub
+
+' ============================================================
 '  EXCEL EXPORT (T8)
 ' ============================================================
 
@@ -405,8 +593,13 @@ End Function
 '     pre-existing session).
 '   - Cleanup: re-arms On Error Resume Next so a cleanup-time COM glitch
 '     cannot escape and mask the root error in the caller's log.
+' In per-zone mode (bLongFormat = True), writes 3 columns (Zone | <group-by header> | Total
+' Length), splitting each composite key (zoneIndex & KEY_SEP & group key) — column 1 is the zone's
+' display label from zoneLabels(zoneIndex). Otherwise the classic 2-column path (untouched,
+' byte-identical). zoneLabels is only used for the long-format column 1.
 Private Sub WriteToExcel(ByRef oLevels As Object, ByVal Filepath As String, _
-                         ByVal bVisible As Boolean, ByVal sGroupBy As String)
+                         ByVal bVisible As Boolean, ByVal sGroupBy As String, _
+                         ByVal bLongFormat As Boolean, ByRef zoneLabels() As String)
 
     Dim xlApp             As Object
     Dim xlBook            As Object
@@ -414,8 +607,11 @@ Private Sub WriteToExcel(ByRef oLevels As Object, ByVal Filepath As String, _
     Dim bExcelStartedByUs As Boolean
     Dim sortedKeys()      As String
     Dim i                 As Long
+    Dim z                 As Long
     Dim sKey              As String
     Dim nRound            As Byte
+    Dim sGroupHeader      As String
+    Dim keyParts()        As String
 
     On Error GoTo ErrorHandler
 
@@ -446,23 +642,40 @@ Private Sub WriteToExcel(ByRef oLevels As Object, ByVal Filepath As String, _
     Set xlSheet = xlBook.Worksheets(1)
     xlSheet.Name = ARESConfig.ARES_ZONE_EXPORT_SHEET_NAME.Value
 
-    ' (3) Headers (AC-15).
-    Dim sGroupHeader As String
+    ' (3) Headers (AC-15). Per-zone mode writes 3 columns; classic writes 2 (untouched).
+    '     Column 2's header is the group-by header in BOTH modes.
     Select Case sGroupBy
         Case "Level" : sGroupHeader = HEADER_LEVEL
         Case "Color" : sGroupHeader = HEADER_COLOR
         Case Else    : sGroupHeader = HEADER_STYLE
     End Select
-    xlSheet.Cells(1, 1).Value = sGroupHeader
-    xlSheet.Cells(1, 2).Value = HEADER_LENGTH
+    If bLongFormat Then
+        xlSheet.Cells(1, 1).Value = HEADER_ZONE
+        xlSheet.Cells(1, 2).Value = sGroupHeader
+        xlSheet.Cells(1, 3).Value = HEADER_LENGTH
+    Else
+        xlSheet.Cells(1, 1).Value = sGroupHeader
+        xlSheet.Cells(1, 2).Value = HEADER_LENGTH
+    End If
 
-    ' (4) Sort level names case-insensitively (AC-12) and write data rows.
+    ' (4) Sort keys case-insensitively (AC-12) and write data rows.
+    '     Classic: (group key, length). Per-zone: composite key (zoneIndex & KEY_SEP & group key)
+    '     → zone label (col 1, via zoneLabels(zoneIndex)) + group key (col 2), length in col 3.
     If oLevels.Count > 0 Then
         sortedKeys = SortedKeysCI(oLevels)
         For i = LBound(sortedKeys) To UBound(sortedKeys)
             sKey = sortedKeys(i)
-            xlSheet.Cells(i - LBound(sortedKeys) + 2, 1).Value = sKey
-            xlSheet.Cells(i - LBound(sortedKeys) + 2, 2).Value = Round(oLevels(sKey), nRound)
+            If bLongFormat Then
+                keyParts = Split(sKey, KEY_SEP)
+                z = CLng(keyParts(0))
+                xlSheet.Cells(i - LBound(sortedKeys) + 2, 1).Value = zoneLabels(z)
+                If UBound(keyParts) >= 1 Then _
+                    xlSheet.Cells(i - LBound(sortedKeys) + 2, 2).Value = keyParts(1)
+                xlSheet.Cells(i - LBound(sortedKeys) + 2, 3).Value = Round(oLevels(sKey), nRound)
+            Else
+                xlSheet.Cells(i - LBound(sortedKeys) + 2, 1).Value = sKey
+                xlSheet.Cells(i - LBound(sortedKeys) + 2, 2).Value = Round(oLevels(sKey), nRound)
+            End If
         Next i
     End If
 

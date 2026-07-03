@@ -80,6 +80,11 @@ Public ARES_ZONE_EXPORT_ROUND As ARES_MS_VAR_Class 'Default Value: 2            
 Public ARES_ZONE_EXPORT_GROUP_BY As ARES_MS_VAR_Class 'Default Value: Style                        "Style" or "Level" or "Color"
 ' Used in ExportLengthInRegion module — | -delimited list of level names restricting the measured candidate elements. Empty = all levels (no filter).
 Public ARES_ZONE_EXPORT_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)   |-delimited level list (ARES_VAR_DELIMITER); empty = all levels
+' Used in ExportLengthInRegion module — True = additionally split every group by zone (long format: Zone | group | length); False = classic global export.
+Public ARES_ZONE_EXPORT_PER_ZONE As ARES_MS_VAR_Class 'Default Value: False                       True or False (Boolean)
+' Used in ExportLengthInRegion module — custom-property NAME whose value labels each zone (read on the ZONE element) when per-zone split is on.
+' Member of ARES_Custom_Property_List. Empty/invalid = zones labeled "Zone <n>" (scan order).
+Public ARES_ZONE_EXPORT_ZONE_PROPERTY As ARES_MS_VAR_Class 'Default Value: (empty)   custom-property name; must be a member of ARES_Custom_Property_List
 ' Used in RegionSplit module — geometric epsilon: degenerate-segment / zero-parameter / coincident-point threshold; also drives the cut-knife half-width
 Public ARES_REGIONSPLIT_COLLINEAR_TOL As ARES_MS_VAR_Class 'Default Value: 0.000001               Geometric epsilon in master units (Double)
 ' Used in RegionSplit module — False = original region is deleted after the two halves are written; True = original is kept alongside the two halves
@@ -158,6 +163,8 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ZONE_EXPORT_ROUND = CreateConfigVar("ARES_Zone_Export_Round", "2")
     Set ARES_ZONE_EXPORT_GROUP_BY = CreateConfigVar("ARES_Zone_Export_Group_By", "Style")
     Set ARES_ZONE_EXPORT_LEVEL = CreateConfigVar("ARES_Zone_Export_Level", "")
+    Set ARES_ZONE_EXPORT_PER_ZONE = CreateConfigVar("ARES_Zone_Export_Per_Zone", "False")
+    Set ARES_ZONE_EXPORT_ZONE_PROPERTY = CreateConfigVar("ARES_Zone_Export_Zone_Property", "")
     Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
     Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
     Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")

@@ -1,12 +1,11 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ExportLengthInReg_GUI_Options 
    Caption         =   "Edit export length in region options:"
-   ClientHeight    =   2775
+   ClientHeight    =   3615
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   3015
+   ClientWidth     =   3615
    OleObjectBlob   =   "ExportLengthInReg_GUI_Options.frx":0000
-   StartUpPosition =   0  'Manual
 End
 Attribute VB_Name = "ExportLengthInReg_GUI_Options"
 Attribute VB_GlobalNameSpace = False
@@ -16,7 +15,7 @@ Attribute VB_Exposed = False
 ' UserForm: ExportLengthInReg_GUI_Options
 ' Description: Options panel for ExportLengthInRegion - zone level, candidate level filter, grouping key, rounding, save dialog.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: LangManager, ARESConfigClass, ErrorHandlerClass, FormUXHelper
+' Dependencies: LangManager, ARESConfigClass, ErrorHandlerClass, FormUXHelper, CustomPropertyHandler
 Option Explicit
 
 Private mbLocked As Boolean
@@ -176,6 +175,64 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
+' PER-ZONE SPLIT - CheckBox (turns on the per-zone breakdown)
+' ============================================================
+
+Private Sub CheckBox_PerZone_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    ' Enter toggles the checkbox too (uniform with buttons; Space already toggles natively).
+    If Shift = 0 And KeyCode = vbKeyReturn Then CheckBox_PerZone.Value = Not CheckBox_PerZone.Value
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.CheckBox_PerZone_KeyUp"
+End Sub
+
+Private Sub CheckBox_PerZone_Change()
+    On Error GoTo ErrorHandler
+    Dim sVal As String
+    sVal = IIf(CheckBox_PerZone.Value, "True", "False")
+    If Not mbLocked And ARESConfig.ARES_ZONE_EXPORT_PER_ZONE.Value <> sVal Then
+        SetLocked True
+        ARESConfig.ARES_ZONE_EXPORT_PER_ZONE.Value = sVal
+        SetLocked False
+    End If
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.CheckBox_PerZone_Change"
+End Sub
+
+' ============================================================
+' ZONE PROPERTY - ComboBox (custom-property read ON EACH ZONE for its label)
+' Populated from ARES_Custom_Property_List so only valid names are selectable.
+' ============================================================
+
+Private Sub ComboBox_ZoneProperty_Change()
+    On Error GoTo ErrorHandler
+    If mbLocked Then Exit Sub
+    Dim sVal As String
+    ' Null-safe read: a dropdown-list combo with no selection returns Null (assigning it to a
+    ' String would raise Error 94). Nested If (not And) per the no-short-circuit cheatsheet rule.
+    If IsNull(ComboBox_ZoneProperty.Value) Then
+        sVal = ""
+    Else
+        sVal = Trim(CStr(ComboBox_ZoneProperty.Value))
+    End If
+    If ARESConfig.ARES_ZONE_EXPORT_ZONE_PROPERTY.Value <> sVal Then
+        SetLocked True
+        ARESConfig.ARES_ZONE_EXPORT_ZONE_PROPERTY.Value = sVal
+        SetLocked False
+    End If
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.ComboBox_ZoneProperty_Change"
+End Sub
+
+' ============================================================
 ' ROUNDING - SpinButton
 ' ============================================================
 
@@ -235,15 +292,20 @@ Private Sub UserForm_Initialize()
     Round_Label.Caption = GetTranslation("ZoneExportGUIOptionsRound_LabelCaption")
     ' Checkbox caption lives on the checkbox: Tab-focus visible + the text toggles the box
     Use_Dialog_CheckBox.Caption = GetTranslation("ZoneExportGUIOptionsUse_Dialog_LabelCaption")
+    CheckBox_PerZone.Caption = GetTranslation("ZoneExportGUIOptionsPerZone_LabelCaption")
     Edit_Level_Region_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Region_CommandCaption")
     Edit_Level_Candidate_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Candidate_CommandCaption")
     GroupBy_Label.Caption = GetTranslation("ZoneExportGUIOptionsGroupBy_LabelCaption")
+    ZoneProperty_Label.Caption = GetTranslation("ZoneExportGUIOptionsZoneProperty_LabelCaption")
 
     ' Tooltips (AC-6)
     FormUXHelper.SetTip Edit_Level_Region_Command, "ZoneExportGUIOptionsEdit_Level_Region_CommandTip"
     FormUXHelper.SetTip Edit_Level_Candidate_Command, "ZoneExportGUIOptionsEdit_Level_Candidate_CommandTip"
     FormUXHelper.SetTip GroupBy_Label, "ZoneExportGUIOptionsGroupBy_LabelTip"
     FormUXHelper.SetTip ComboBox_Export_Type, "ZoneExportGUIOptionsGroupBy_LabelTip"
+    FormUXHelper.SetTip CheckBox_PerZone, "ZoneExportGUIOptionsPerZone_LabelTip"
+    FormUXHelper.SetTip ZoneProperty_Label, "ZoneExportGUIOptionsZoneProperty_LabelTip"
+    FormUXHelper.SetTip ComboBox_ZoneProperty, "ZoneExportGUIOptionsZoneProperty_LabelTip"
     FormUXHelper.SetTip Round_Label, "ZoneExportGUIOptionsRound_LabelTip"
     FormUXHelper.SetTip Round_SpinButton, "ZoneExportGUIOptionsRound_LabelTip"
     FormUXHelper.SetTip Use_Dialog_CheckBox, "ZoneExportGUIOptionsUse_Dialog_LabelTip"
@@ -306,6 +368,32 @@ Private Sub SeedControls()
     If sGroupBy <> "Level" And sGroupBy <> "Color" Then sGroupBy = "Style"
     ComboBox_Export_Type.Value = GroupByDisplayFromKey(sGroupBy)
 
+    ' Per-zone split checkbox.
+    CheckBox_PerZone.Value = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_PER_ZONE.Value)) = "TRUE")
+
+    ' Zone-property combo: populate from the managed custom-property names, then seed the current
+    ' value Null-safe (a dropdown-list combo rejects an out-of-list value) — set .Value only when
+    ' the stored name is a list member, else .ListIndex = -1 (M1).
+    ComboBox_ZoneProperty.Clear
+    Dim propNames()    As String
+    Dim pi             As Long
+    Dim sSelZoneProp   As String
+    Dim bZonePropFound As Boolean
+    sSelZoneProp = Trim(ARESConfig.ARES_ZONE_EXPORT_ZONE_PROPERTY.Value)
+    bZonePropFound = False
+    propNames = CustomPropertyHandler.GetCustomPropertyNames()
+    For pi = LBound(propNames) To UBound(propNames)
+        If Len(Trim(propNames(pi))) > 0 Then
+            ComboBox_ZoneProperty.AddItem propNames(pi)
+            If StrComp(Trim(propNames(pi)), sSelZoneProp, vbTextCompare) = 0 Then bZonePropFound = True
+        End If
+    Next pi
+    If bZonePropFound Then
+        ComboBox_ZoneProperty.Value = sSelZoneProp
+    Else
+        ComboBox_ZoneProperty.ListIndex = -1
+    End If
+
     Dim nRound As Integer
     If IsNumeric(ARESConfig.ARES_ZONE_EXPORT_ROUND.Value) Then
         nRound = CInt(ARESConfig.ARES_ZONE_EXPORT_ROUND.Value)
@@ -333,6 +421,8 @@ Private Sub Reset_Command_Click()
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONING_OUTPUT_LEVEL
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_LEVEL
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_GROUP_BY
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_PER_ZONE
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_ZONE_PROPERTY
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_ROUND
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG
     SeedControls
@@ -391,4 +481,3 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.GroupByDisplayFromKey"
     GroupByDisplayFromKey = GetTranslation("ZoneExportGroupByStyle")
 End Function
-

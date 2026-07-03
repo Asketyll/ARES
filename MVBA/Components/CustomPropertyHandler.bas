@@ -234,6 +234,11 @@ ErrorHandler:
 End Function
 
 ' Read a property value from an element. Returns Null when the item/property is not present.
+' Tolerant of a hand-authored DGNLib whose real property name differs from the ItemType name: it
+' tries the caller's access string first (fast path), and only if that RAISES or yields Null does it
+' fall back to the ItemType definition's actual property name(s). ARES item types carry a single
+' property, so "the first property that yields a value" is unambiguous. A genuinely value-less item
+' returns Null SILENTLY (the normal "no value" case) — no parasitic log.
 Public Function GetPropertyValueFromElement(ByVal El As element, ByVal PropertyName As String, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Variant
     On Error GoTo ErrorHandler
 
@@ -241,14 +246,66 @@ Public Function GetPropertyValueFromElement(ByVal El As element, ByVal PropertyN
 
     Dim oHandler As ItemTypePropertyHandler
     Set oHandler = GetItemTypePropertyHandlerFromElement(El, ItemName, LibraryName)
-    If Not oHandler Is Nothing Then
-        GetPropertyValueFromElement = oHandler.GetPropertyValue(PropertyName)
+    If oHandler Is Nothing Then Exit Function
+
+    ' Fast path: the caller's access string. GetPropertyValue RAISES on an unknown access string, so
+    ' isolate it under On Error Resume Next (the mismatch is expected for some DGNLibs — stay silent).
+    Dim vVal As Variant
+    vVal = Null
+    On Error Resume Next
+    vVal = oHandler.GetPropertyValue(PropertyName)
+    On Error GoTo ErrorHandler
+    If Not IsNull(vVal) Then
+        GetPropertyValueFromElement = vVal
+        Exit Function
     End If
+
+    ' Fallback: resolve the real property name from the ItemType definition and retry.
+    GetPropertyValueFromElement = GetFirstPropertyValue(oHandler, LibraryName)
     Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetPropertyValueFromElement"
     GetPropertyValueFromElement = Null
+End Function
+
+' Fallback for GetPropertyValueFromElement: iterate the attached ItemType's real ItemTypeProperty
+' names (from the definition) and return the value of the first one the handler can read. Resolves
+' the ItemType from the handler's own ItemTypeName (robust when the caller passed no ItemName). Each
+' GetPropertyValue is isolated (silent) since a mismatch/absence must not log. Returns Null when no
+' property yields a value. ARES item types are single-property, so the first hit is unambiguous.
+Private Function GetFirstPropertyValue(ByVal oHandler As ItemTypePropertyHandler, ByVal LibraryName As String) As Variant
+    On Error GoTo ErrorHandler
+
+    GetFirstPropertyValue = Null
+
+    Dim ITL As ItemTypeLibrary
+    Set ITL = FindItemTypeLibrary(LibraryName)
+    If ITL Is Nothing Then Exit Function
+
+    Dim oItem As ItemType
+    Set oItem = ITL.GetItemTypeByName(oHandler.ItemTypeName)
+    If oItem Is Nothing Then Exit Function
+
+    Dim oProp As ItemTypeProperty
+    Dim vVal  As Variant
+    Do
+        Set oProp = oItem.Find("*", oProp)
+        If oProp Is Nothing Then Exit Do
+        vVal = Null
+        On Error Resume Next
+        vVal = oHandler.GetPropertyValue(oProp.PropertyName)
+        On Error GoTo ErrorHandler
+        If Not IsNull(vVal) Then
+            GetFirstPropertyValue = vVal
+            Exit Function
+        End If
+    Loop
+    Exit Function
+
+ErrorHandler:
+    GetFirstPropertyValue = Null
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetFirstPropertyValue"
 End Function
 
 ' Write a property value to an element. Returns True on success.

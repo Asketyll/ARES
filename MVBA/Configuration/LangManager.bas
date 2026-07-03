@@ -123,8 +123,10 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoneExportCancelled", "ARES: Zone export — cancelled"
     moTranslations.Add "EN_ZoneExportNoZones", "ARES: Zone export — no zones on level {0}"
     moTranslations.Add "EN_ZoneExportComplete", "ARES: Zone export complete — {0} elements, {1} groups ({2})"
+    moTranslations.Add "EN_ZoneExportCompletePerZone", "ARES: Zone export complete — {0} elements, {1} rows per zone ({2})"
     moTranslations.Add "EN_ZoneExportFailed", "ARES: Zone export failed"
     moTranslations.Add "EN_ZoneExportFilterLevelsIgnored", "ARES: Zone export — filter level(s) ignored (not found): {0}"
+    moTranslations.Add "EN_ZoneExportZonePropertyInvalid", "ARES: Zone export — zone property invalid, using zone index"
     ' --- Property Tagging (custom-property) options GUI ---
     moTranslations.Add "EN_PropertyTaggingGUIOptionsCaption", "Edit custom-property options:"
     moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelCaption", "Auto-attach on create / modify"
@@ -162,6 +164,8 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoneExportGroupByStyle", "Style"
     moTranslations.Add "EN_ZoneExportGroupByLevel", "Level"
     moTranslations.Add "EN_ZoneExportGroupByColor", "Color"
+    moTranslations.Add "EN_ZoneExportGUIOptionsPerZone_LabelCaption", "Break down by property"
+    moTranslations.Add "EN_ZoneExportGUIOptionsZoneProperty_LabelCaption", "Property used:"
     ' --- Story 8-2: restore-defaults tooltip + element-picker OK/Cancel ---
     moTranslations.Add "EN_FormResetDefaultsTip", "Reset every option on this panel to its default value."
     moTranslations.Add "EN_AutoLengthsGUISelectElementsOK_CommandCaption", "Select"
@@ -189,7 +193,9 @@ Sub InitializeTranslations()
     ' Tooltips - Zone Export
     moTranslations.Add "EN_ZoneExportGUIOptionsEdit_Level_Region_CommandTip", "Level holding the zone regions to measure inside."
     moTranslations.Add "EN_ZoneExportGUIOptionsEdit_Level_Candidate_CommandTip", "Restrict measured elements to these level(s), pipe-separated (|). Empty = all levels."
-    moTranslations.Add "EN_ZoneExportGUIOptionsGroupBy_LabelTip", "How exported rows are grouped: line style, level, or color."
+    moTranslations.Add "EN_ZoneExportGUIOptionsGroupBy_LabelTip", "How exported rows are grouped: line style, level, color, or a per-zone breakdown by custom property."
+    moTranslations.Add "EN_ZoneExportGUIOptionsPerZone_LabelTip", "Split each group by zone; label each zone with the chosen zone property."
+    moTranslations.Add "EN_ZoneExportGUIOptionsZoneProperty_LabelTip", "Custom property whose value labels each zone in the Zone column (when 'Break down by property' is on). Empty or invalid = zones numbered Zone 1, Zone 2, ..."
     moTranslations.Add "EN_ZoneExportGUIOptionsRound_LabelTip", "Decimal places for exported lengths (0-10)."
     moTranslations.Add "EN_ZoneExportGUIOptionsUse_Dialog_LabelTip", "When on, prompt for the save location; otherwise auto-name the file."
     ' Tooltips - Auto Lengths
@@ -304,8 +310,10 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoneExportCancelled", "ARES : Export de zone — annulé"
     moTranslations.Add "FR_ZoneExportNoZones", "ARES : Export de zone — aucune zone sur le niveau {0}"
     moTranslations.Add "FR_ZoneExportComplete", "ARES : Export de zone terminé — {0} éléments, {1} groupes ({2})"
+    moTranslations.Add "FR_ZoneExportCompletePerZone", "ARES : Export de zone terminé — {0} éléments, {1} lignes par zone ({2})"
     moTranslations.Add "FR_ZoneExportFailed", "ARES : Échec de l'export de zone"
     moTranslations.Add "FR_ZoneExportFilterLevelsIgnored", "ARES : Export de zone — niveau(x) de filtre ignoré(s) (introuvable) : {0}"
+    moTranslations.Add "FR_ZoneExportZonePropertyInvalid", "ARES : Export de zone — propriété de zone invalide, index de zone utilisé"
     ' --- Property Tagging (custom-property) options GUI ---
     moTranslations.Add "FR_PropertyTaggingGUIOptionsCaption", "Modifier les options de propriétés personnalisées :"
     moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelCaption", "Attache auto à la création / modification"
@@ -343,6 +351,8 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoneExportGroupByStyle", "Style"
     moTranslations.Add "FR_ZoneExportGroupByLevel", "Niveau"
     moTranslations.Add "FR_ZoneExportGroupByColor", "Couleur"
+    moTranslations.Add "FR_ZoneExportGUIOptionsPerZone_LabelCaption", "Répartir par propriété"
+    moTranslations.Add "FR_ZoneExportGUIOptionsZoneProperty_LabelCaption", "Propriété utilisée :"
     ' --- Story 8-2 : info-bulle reinitialisation + OK/Annuler du selecteur d'elements ---
     moTranslations.Add "FR_FormResetDefaultsTip", "Réinitialise chaque option de ce panneau à sa valeur par défaut."
     moTranslations.Add "FR_AutoLengthsGUISelectElementsOK_CommandCaption", "Sélectionner"
@@ -370,7 +380,9 @@ Sub InitializeTranslations()
     ' Tooltips - Zone Export
     moTranslations.Add "FR_ZoneExportGUIOptionsEdit_Level_Region_CommandTip", "Niveau contenant les régions de zone où mesurer."
     moTranslations.Add "FR_ZoneExportGUIOptionsEdit_Level_Candidate_CommandTip", "Limite les éléments mesurés à ce(s) niveau(x), séparés par |. Vide = tous les niveaux."
-    moTranslations.Add "FR_ZoneExportGUIOptionsGroupBy_LabelTip", "Regroupement des lignes exportées : style, niveau ou couleur."
+    moTranslations.Add "FR_ZoneExportGUIOptionsGroupBy_LabelTip", "Regroupement des lignes exportées : style, niveau, couleur, ou répartition par zone selon une propriété personnalisée."
+    moTranslations.Add "FR_ZoneExportGUIOptionsPerZone_LabelTip", "Répartit chaque groupe par zone ; étiquette chaque zone avec la propriété de zone choisie."
+    moTranslations.Add "FR_ZoneExportGUIOptionsZoneProperty_LabelTip", "Propriété personnalisée dont la valeur étiquette chaque zone dans la colonne Zone (quand « Répartir par propriété » est actif). Vide ou invalide = zones numérotées Zone 1, Zone 2, ..."
     moTranslations.Add "FR_ZoneExportGUIOptionsRound_LabelTip", "Décimales pour les longueurs exportées (0-10)."
     moTranslations.Add "FR_ZoneExportGUIOptionsUse_Dialog_LabelTip", "Si activé, demande l'emplacement d'export ; sinon nomme le fichier automatiquement."
     ' Tooltips - Auto Lengths
