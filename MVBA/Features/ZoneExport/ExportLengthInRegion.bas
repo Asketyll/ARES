@@ -45,8 +45,18 @@ Private Const HEADER_LEVEL      As String = "Level"
 Private Const HEADER_COLOR      As String = "Color"
 Private Const HEADER_LENGTH     As String = "Total Length (master units)"
 Private Const HEADER_ZONE       As String = "Zone"           ' per-zone split: column 1 header
+Private Const HEADER_ID         As String = "ID"             ' group-by = ID (DLong): column header
 Private Const KEY_SEP           As String = vbTab            ' composite key separator (zoneIndex & KEY_SEP & group-key)
 Private Const XL_OPENXML_FORMAT As Long   = 51   ' xlOpenXMLWorkbook (.xlsx)
+' Late-bound Excel enum values (named xl* constants are unavailable under CreateObject).
+Private Const XL_EDGE_TOP        As Long   = 8      ' Borders() index: top edge
+Private Const XL_EDGE_BOTTOM     As Long   = 9      ' Borders() index: bottom edge
+Private Const XL_EDGE_LEFT       As Long   = 7      ' Borders() index: left edge
+Private Const XL_EDGE_RIGHT      As Long   = 10     ' Borders() index: right edge
+Private Const XL_INSIDE_VERTICAL As Long  = 11      ' Borders() index: inter-column lines
+Private Const XL_LINE_CONTINUOUS As Long  = 1      ' xlContinuous
+Private Const XL_WEIGHT_THIN     As Long   = 2      ' xlThin
+Private Const XL_V_ALIGN_CENTER  As Long   = -4108 ' xlCenter (vertical alignment)
 
 ' ============================================================
 '  PUBLIC ENTRY POINT
@@ -151,7 +161,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     ' --- Resolve group-by key ---
     Dim sGroupBy As String
     sGroupBy = Trim(ARESConfig.ARES_ZONE_EXPORT_GROUP_BY.Value)
-    If sGroupBy <> "Level" And sGroupBy <> "Color" Then sGroupBy = "Style"
+    If sGroupBy <> "Level" And sGroupBy <> "Color" And sGroupBy <> "ID" Then sGroupBy = "Style"
 
     ' --- Resolve per-zone split (independent axis from the group-by key) ---
     Dim bPerZone As Boolean
@@ -369,6 +379,7 @@ Private Sub AggregateLengths(ByVal oee As ElementEnumerator, _
                 Select Case sGroupBy
                     Case "Level" : sKey = oEl.Level.Name
                     Case "Color" : sKey = CStr(oEl.Color)
+                    Case "ID"    : sKey = DLongToString(oEl.ID)
                     Case Else    : sKey = oEl.LineStyle.Name
                 End Select
                 If oOutGroups.Exists(sKey) Then
@@ -526,6 +537,7 @@ Private Sub AggregateByZoneAndProperty(ByVal oee As ElementEnumerator, _
             Select Case sGroupBy
                 Case "Level" : sGbKey = oEl.Level.Name
                 Case "Color" : sGbKey = CStr(oEl.Color)
+                Case "ID"    : sGbKey = DLongToString(oEl.ID)
                 Case Else    : sGbKey = oEl.LineStyle.Name
             End Select
             bCounted = False
@@ -597,6 +609,8 @@ End Function
 ' Length), splitting each composite key (zoneIndex & KEY_SEP & group key) — column 1 is the zone's
 ' display label from zoneLabels(zoneIndex). Otherwise the classic 2-column path (untouched,
 ' byte-identical). zoneLabels is only used for the long-format column 1.
+' Long-format rows are then grouped visually (MergeZoneBlocks): each zone's label cell is merged
+' over its rows and a thin border separates consecutive zones.
 Private Sub WriteToExcel(ByRef oLevels As Object, ByVal Filepath As String, _
                          ByVal bVisible As Boolean, ByVal sGroupBy As String, _
                          ByVal bLongFormat As Boolean, ByRef zoneLabels() As String)
@@ -647,6 +661,7 @@ Private Sub WriteToExcel(ByRef oLevels As Object, ByVal Filepath As String, _
     Select Case sGroupBy
         Case "Level" : sGroupHeader = HEADER_LEVEL
         Case "Color" : sGroupHeader = HEADER_COLOR
+        Case "ID"    : sGroupHeader = HEADER_ID
         Case Else    : sGroupHeader = HEADER_STYLE
     End Select
     If bLongFormat Then
@@ -678,6 +693,11 @@ Private Sub WriteToExcel(ByRef oLevels As Object, ByVal Filepath As String, _
             End If
         Next i
     End If
+
+    ' (4b) Per-zone visual grouping (long format only): merge each zone's label cell over its rows
+    '      and draw a separator border between zones, so a multi-level zone reads as one block and
+    '      consecutive same-named zones stay distinct (runs keyed by zone index, not label).
+    If bLongFormat And oLevels.Count > 0 Then MergeZoneBlocks xlSheet, xlApp, sortedKeys
 
     ' (5) Save when a path is provided (AC-18 / AC-19).
     If Len(Filepath) > 0 Then
@@ -716,6 +736,113 @@ ErrorHandler:
     Set xlBook  = Nothing
     Set xlApp   = Nothing
 End Sub
+
+' MergeZoneBlocks (per-zone long format only)
+' Merges the Zone-label cell (column 1) across each contiguous run of rows sharing the same zone
+' SCAN INDEX, vertically centres it, and draws a thin top border at each zone boundary. Rows are
+' already zone-index-major and contiguous (composite key = zeroPaddedIndex & KEY_SEP & group key),
+' so a run break = a change of the leading index. Keying on the index (not the label) keeps two
+' consecutive zones with the SAME name in separate blocks - the whole point of the grouping.
+Private Sub MergeZoneBlocks(ByVal xlSheet As Object, ByVal xlApp As Object, ByRef sortedKeys() As String)
+    On Error GoTo ErrorHandler
+
+    Dim n As Long
+    n = UBound(sortedKeys) - LBound(sortedKeys) + 1
+    If n <= 0 Then Exit Sub
+
+    Dim bPrevAlerts As Boolean
+    bPrevAlerts = xlApp.DisplayAlerts
+    xlApp.DisplayAlerts = False          ' identical labels never prompt, but stay safe
+
+    Dim i        As Long
+    Dim r        As Long
+    Dim zCur     As Long
+    Dim zPrev    As Long
+    Dim runStart As Long
+
+    runStart = 2                         ' first data row (row 1 = header)
+    zPrev = ZoneIndexOfKey(sortedKeys(LBound(sortedKeys)))
+    For i = LBound(sortedKeys) + 1 To UBound(sortedKeys)
+        r = i - LBound(sortedKeys) + 2
+        zCur = ZoneIndexOfKey(sortedKeys(i))
+        If zCur <> zPrev Then
+            FinishZoneBlock xlSheet, runStart, r - 1
+            runStart = r
+            zPrev = zCur
+        End If
+    Next i
+    FinishZoneBlock xlSheet, runStart, n + 1   ' last data row = 2 + n - 1
+    FrameTable xlSheet, n + 1                   ' outer + inter-column borders, header & bottom lines
+
+    xlApp.DisplayAlerts = bPrevAlerts
+    Exit Sub
+
+ErrorHandler:
+    On Error Resume Next
+    xlApp.DisplayAlerts = True
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.MergeZoneBlocks"
+End Sub
+
+' Merge + vertically centre the zone label over [rStart, rEnd]; for every block after the first,
+' draw a thin top border across the 3 columns to separate it from the zone above.
+Private Sub FinishZoneBlock(ByVal xlSheet As Object, ByVal rStart As Long, ByVal rEnd As Long)
+    On Error GoTo ErrorHandler
+    If rEnd > rStart Then
+        With xlSheet.Range(xlSheet.Cells(rStart, 1), xlSheet.Cells(rEnd, 1))
+            .Merge
+            .VerticalAlignment = XL_V_ALIGN_CENTER
+        End With
+    End If
+    If rStart > 2 Then
+        SetBorder xlSheet.Range(xlSheet.Cells(rStart, 1), xlSheet.Cells(rStart, 3)).Borders(XL_EDGE_TOP)
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.FinishZoneBlock"
+End Sub
+
+' FrameTable (per-zone long format only)
+' Frames the whole table: outer left/right edges + inter-column vertical lines over every row
+' (header + data), a line under the header, and a line closing the bottom. The between-zone
+' horizontal separators are drawn by FinishZoneBlock; here we add only the outer frame + verticals.
+Private Sub FrameTable(ByVal xlSheet As Object, ByVal lastRow As Long)
+    On Error GoTo ErrorHandler
+    With xlSheet.Range(xlSheet.Cells(1, 1), xlSheet.Cells(lastRow, 3))
+        SetBorder .Borders(XL_EDGE_LEFT)
+        SetBorder .Borders(XL_EDGE_RIGHT)
+        SetBorder .Borders(XL_INSIDE_VERTICAL)
+    End With
+    SetBorder xlSheet.Range(xlSheet.Cells(1, 1), xlSheet.Cells(1, 3)).Borders(XL_EDGE_BOTTOM)
+    SetBorder xlSheet.Range(xlSheet.Cells(lastRow, 1), xlSheet.Cells(lastRow, 3)).Borders(XL_EDGE_BOTTOM)
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.FrameTable"
+End Sub
+
+' Apply a thin continuous line to a single Border object (late-bound Excel).
+Private Sub SetBorder(ByVal oBorder As Object)
+    On Error GoTo ErrorHandler
+    oBorder.LineStyle = XL_LINE_CONTINUOUS
+    oBorder.Weight = XL_WEIGHT_THIN
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.SetBorder"
+End Sub
+
+' Leading zone scan index of a composite sort key (zeroPaddedIndex & KEY_SEP & group key).
+Private Function ZoneIndexOfKey(ByVal sKey As String) As Long
+    On Error GoTo ErrorHandler
+    Dim parts() As String
+    parts = Split(sKey, KEY_SEP)
+    ZoneIndexOfKey = CLng(parts(0))
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ZoneIndexOfKey"
+End Function
 
 ' SortedKeysCI
 ' Returns a 0-based String() of the dictionary keys sorted case-insensitive.

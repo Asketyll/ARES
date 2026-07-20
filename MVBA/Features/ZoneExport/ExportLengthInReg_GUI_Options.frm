@@ -353,6 +353,7 @@ Private Sub UserForm_Initialize()
     ComboBox_Export_Type.AddItem GroupByDisplayFromKey("Style")
     ComboBox_Export_Type.AddItem GroupByDisplayFromKey("Level")
     ComboBox_Export_Type.AddItem GroupByDisplayFromKey("Color")
+    ComboBox_Export_Type.AddItem GroupByDisplayFromKey("ID")
 
     ' Rounding spin bounds (value seeded in SeedControls, guarded against non-numeric config)
     Round_SpinButton.Min = 0
@@ -399,7 +400,7 @@ Private Sub SeedControls()
     On Error GoTo ErrorHandler
     Dim sGroupBy As String
     sGroupBy = Trim(ARESConfig.ARES_ZONE_EXPORT_GROUP_BY.Value)
-    If sGroupBy <> "Level" And sGroupBy <> "Color" Then sGroupBy = "Style"
+    If sGroupBy <> "Level" And sGroupBy <> "Color" And sGroupBy <> "ID" Then sGroupBy = "Style"
     ComboBox_Export_Type.Value = GroupByDisplayFromKey(sGroupBy)
 
     ' Per-zone split checkbox.
@@ -512,6 +513,8 @@ Private Function GroupByKeyFromDisplay() As String
         GroupByKeyFromDisplay = "Level"
     ElseIf sDisp = GetTranslation("ZoneExportGroupByColor") Then
         GroupByKeyFromDisplay = "Color"
+    ElseIf sDisp = GetTranslation("ZoneExportGroupByID") Then
+        GroupByKeyFromDisplay = "ID"
     Else
         GroupByKeyFromDisplay = "Style"
     End If
@@ -530,6 +533,8 @@ Private Function GroupByDisplayFromKey(ByVal sKey As String) As String
             GroupByDisplayFromKey = GetTranslation("ZoneExportGroupByLevel")
         Case "Color"
             GroupByDisplayFromKey = GetTranslation("ZoneExportGroupByColor")
+        Case "ID"
+            GroupByDisplayFromKey = GetTranslation("ZoneExportGroupByID")
         Case Else
             GroupByDisplayFromKey = GetTranslation("ZoneExportGroupByStyle")
     End Select
