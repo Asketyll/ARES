@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ExportLengthInReg_GUI_Options 
    Caption         =   "Edit export length in region options:"
-   ClientHeight    =   3615
+   ClientHeight    =   4095
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3615
@@ -197,6 +197,7 @@ Private Sub CheckBox_PerZone_Change()
         ARESConfig.ARES_ZONE_EXPORT_PER_ZONE.Value = sVal
         SetLocked False
     End If
+    ApplyPerZoneEnabled
     Exit Sub
 
 ErrorHandler:
@@ -282,6 +283,37 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
+' OPEN AFTER EXPORT - CheckBox (surfaces ARES_Zone_Export_Excel_Visible)
+' When on, the saved workbook is left visible in Excel after the export.
+' ============================================================
+
+Private Sub OpenAfter_CheckBox_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    ' Enter toggles the checkbox too (uniform with buttons; Space already toggles natively).
+    If Shift = 0 And KeyCode = vbKeyReturn Then OpenAfter_CheckBox.Value = Not OpenAfter_CheckBox.Value
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.OpenAfter_CheckBox_KeyUp"
+End Sub
+
+Private Sub OpenAfter_CheckBox_Change()
+    On Error GoTo ErrorHandler
+    Dim sVal As String
+    sVal = IIf(OpenAfter_CheckBox.Value, "True", "False")
+    If Not mbLocked And ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE.Value <> sVal Then
+        SetLocked True
+        ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE.Value = sVal
+        SetLocked False
+    End If
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.OpenAfter_CheckBox_Change"
+End Sub
+
+' ============================================================
 ' INITIALIZATION
 ' ============================================================
 
@@ -292,6 +324,7 @@ Private Sub UserForm_Initialize()
     Round_Label.Caption = GetTranslation("ZoneExportGUIOptionsRound_LabelCaption")
     ' Checkbox caption lives on the checkbox: Tab-focus visible + the text toggles the box
     Use_Dialog_CheckBox.Caption = GetTranslation("ZoneExportGUIOptionsUse_Dialog_LabelCaption")
+    OpenAfter_CheckBox.Caption = GetTranslation("ZoneExportGUIOptionsOpenAfter_LabelCaption")
     CheckBox_PerZone.Caption = GetTranslation("ZoneExportGUIOptionsPerZone_LabelCaption")
     Edit_Level_Region_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Region_CommandCaption")
     Edit_Level_Candidate_Command.Caption = GetTranslation("ZoneExportGUIOptionsEdit_Level_Candidate_CommandCaption")
@@ -309,6 +342,7 @@ Private Sub UserForm_Initialize()
     FormUXHelper.SetTip Round_Label, "ZoneExportGUIOptionsRound_LabelTip"
     FormUXHelper.SetTip Round_SpinButton, "ZoneExportGUIOptionsRound_LabelTip"
     FormUXHelper.SetTip Use_Dialog_CheckBox, "ZoneExportGUIOptionsUse_Dialog_LabelTip"
+    FormUXHelper.SetTip OpenAfter_CheckBox, "ZoneExportGUIOptionsOpenAfter_LabelTip"
 
     ' Restore-defaults button
     Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
@@ -372,7 +406,7 @@ Private Sub SeedControls()
     CheckBox_PerZone.Value = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_PER_ZONE.Value)) = "TRUE")
 
     ' Zone-property combo: populate from the managed custom-property names, then seed the current
-    ' value Null-safe (a dropdown-list combo rejects an out-of-list value) — set .Value only when
+    ' value Null-safe (a dropdown-list combo rejects an out-of-list value) - set .Value only when
     ' the stored name is a list member, else .ListIndex = -1 (M1).
     ComboBox_ZoneProperty.Clear
     Dim propNames()    As String
@@ -406,9 +440,11 @@ Private Sub SeedControls()
     Round_Number_Label.Caption = nRound
 
     Use_Dialog_CheckBox.Value = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG.Value)) = "TRUE")
+    OpenAfter_CheckBox.Value = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE.Value)) = "TRUE")
 
     TextBox_RegionLevel.Visible = False
     TextBox_CandidateLevel.Visible = False
+    ApplyPerZoneEnabled
     Exit Sub
 
 ErrorHandler:
@@ -425,6 +461,7 @@ Private Sub Reset_Command_Click()
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_ZONE_PROPERTY
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_ROUND
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG
+    FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE
     SeedControls
     LangManager.ShowStatusT "FormDefaultsRestored"
     Exit Sub
@@ -439,10 +476,31 @@ Private Sub SetLocked(ByVal bState As Boolean)
     On Error GoTo ErrorHandler
     mbLocked = bState
     FormUXHelper.SetControlsLocked Me, bState
+    ' SetControlsLocked(False) re-enables every combo/checkbox, so re-assert the conditional
+    ' zone-property grey-out after each global unlock.
+    If Not bState Then ApplyPerZoneEnabled
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.SetLocked"
+End Sub
+
+' Conditional grey-out: the zone-property combo + its label are only meaningful when the per-zone
+' breakdown is on. Re-asserted after every SetControlsLocked(False) and on every SeedControls. Runs
+' only on unlock/seed, when the combo cannot hold focus, so disabling it never ejects focus.
+Private Sub ApplyPerZoneEnabled()
+    On Error GoTo ErrorHandler
+    ' Null-safe read: a triple-state checkbox could yield Null, which errors on a direct Boolean
+    ' assign; "If ... = True" treats Null as False (bOn defaults False). Mirrors the IIf idiom used
+    ' by the sibling checkbox handlers.
+    Dim bOn As Boolean
+    If CheckBox_PerZone.Value = True Then bOn = True
+    ComboBox_ZoneProperty.Enabled = bOn
+    ZoneProperty_Label.Enabled = bOn
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.ApplyPerZoneEnabled"
 End Sub
 
 ' Map the localized combo display back to the stable English stored key.
@@ -481,3 +539,4 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.GroupByDisplayFromKey"
     GroupByDisplayFromKey = GetTranslation("ZoneExportGroupByStyle")
 End Function
+

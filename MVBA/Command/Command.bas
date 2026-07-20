@@ -243,7 +243,8 @@ End Sub
 
 ' Export element lengths per zone to Excel.
 ' Filepath defaults to the active design file's folder (timestamped .xlsx).
-' Excel visibility is driven by ARES_Zone_Export_Excel_Visible (default: True).
+' Excel visibility is driven by ARES_Zone_Export_Excel_Visible (default: False;
+' user-editable via the "Open once exported" checkbox in EditZoneExportOptions).
 Sub ExportLength()
     On Error GoTo ErrorHandler
     ErrorHandler.ClearErrorFlag
