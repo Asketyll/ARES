@@ -432,3 +432,74 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "StringsInEl.UpdateTextLines"
     UpdateTextLines = NewTxts
 End Function
+
+' ========================================
+' READ-ONLY TEXT AGGREGATION (PropertyPropagation)
+' ========================================
+
+' Concatenate ALL text an element contains, read-only, for PropertyPropagation. Depth-first over a
+' cell's GetSubElements order: TextElement -> its whole .Text; TextNodeElement -> each .TextLine
+' top-to-bottom; nested CellElement -> recurse. Each fragment is trimmed, empty fragments are
+' dropped, kept fragments are joined by Separator (default a single space). Never writes, never
+' touches color; returns "" on fault or when no text is present.
+' NOTE: this deliberately does NOT reuse GetSetTextsInEl. That function, in GET mode, returns only
+' the LAST text-bearing sub-element of a cell, split PER-CHARACTER (a documented trap) - it does not
+' aggregate a cell's text. AutoLengths depends on GetSetTextsInEl's current behavior, so a fresh
+' read-only extractor is used instead of modifying it.
+Public Function GetConcatenatedText(ByRef El As element, Optional ByVal Separator As String = " ") As String
+    On Error GoTo ErrorHandler
+    Dim sResult As String
+    sResult = ""
+    If Not El Is Nothing Then
+        AppendElementText El, Separator, sResult
+    End If
+    GetConcatenatedText = sResult
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "StringsInEl.GetConcatenatedText"
+    GetConcatenatedText = ""
+End Function
+
+' Recursive DFS worker for GetConcatenatedText. Appends this element's text fragment(s) to sResult.
+' TextElement -> whole .Text; TextNodeElement -> each .TextLine(1..TextLinesCount) (read is safe;
+' only the TextLine WRITE property is buggy); CellElement -> recurse over GetSubElements order.
+Private Sub AppendElementText(ByRef El As element, ByVal Separator As String, ByRef sResult As String)
+    On Error GoTo ErrorHandler
+    Dim ELEnum As ElementEnumerator
+    Dim subEl As element
+    Dim i As Long
+
+    Select Case True
+        Case El.IsTextElement
+            AppendFragment El.AsTextElement.text, Separator, sResult
+
+        Case El.IsTextNodeElement
+            For i = 1 To El.AsTextNodeElement.TextLinesCount
+                AppendFragment El.AsTextNodeElement.TextLine(i), Separator, sResult
+            Next i
+
+        Case El.IsCellElement
+            Set ELEnum = El.AsCellElement.GetSubElements
+            Do While ELEnum.MoveNext
+                Set subEl = ELEnum.Current
+                AppendElementText subEl, Separator, sResult
+            Loop
+    End Select
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "StringsInEl.AppendElementText"
+End Sub
+
+' Trim a text fragment; drop it when empty, otherwise append it to sResult separated by Separator.
+Private Sub AppendFragment(ByVal sFragment As String, ByVal Separator As String, ByRef sResult As String)
+    Dim sTrim As String
+    sTrim = Trim(sFragment)
+    If Len(sTrim) = 0 Then Exit Sub
+    If Len(sResult) = 0 Then
+        sResult = sTrim
+    Else
+        sResult = sResult & Separator & sTrim
+    End If
+End Sub

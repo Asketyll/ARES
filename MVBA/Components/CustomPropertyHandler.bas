@@ -309,6 +309,12 @@ ErrorHandler:
 End Function
 
 ' Write a property value to an element. Returns True on success.
+' Tolerant of a hand-authored DGNLib whose real property name differs from the ItemType name (the
+' write-side mirror of GetPropertyValueFromElement): it tries the caller's access string first (fast
+' path), and only if that RAISES or returns False does it fall back to the ItemType definition's
+' actual property name(s). ARES item types carry a single property, so "the first property that
+' accepts the write" is unambiguous. Returns False only when neither the given name nor any real
+' property name accepts the value (a genuinely constrained property — picklist / type mismatch).
 Public Function SetPropertyValueToElement(ByVal El As element, ByVal PropertyName As String, ByVal PropertyValue As Variant, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
     On Error GoTo ErrorHandler
 
@@ -316,12 +322,65 @@ Public Function SetPropertyValueToElement(ByVal El As element, ByVal PropertyNam
 
     Dim oHandler As ItemTypePropertyHandler
     Set oHandler = GetItemTypePropertyHandlerFromElement(El, ItemName, LibraryName)
-    If Not oHandler Is Nothing Then
-        SetPropertyValueToElement = oHandler.SetPropertyValue(PropertyName, PropertyValue)
+    If oHandler Is Nothing Then Exit Function
+
+    ' Fast path: the caller's access string. SetPropertyValue RAISES on an unknown access string, so
+    ' isolate it under On Error Resume Next (the mismatch is expected for some DGNLibs — stay silent).
+    Dim bOk As Boolean
+    bOk = False
+    On Error Resume Next
+    bOk = oHandler.SetPropertyValue(PropertyName, PropertyValue)
+    On Error GoTo ErrorHandler
+    If bOk Then
+        SetPropertyValueToElement = True
+        Exit Function
     End If
+
+    ' Fallback: resolve the real property name from the ItemType definition and retry.
+    SetPropertyValueToElement = SetFirstPropertyValue(oHandler, LibraryName, PropertyValue)
     Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.SetPropertyValueToElement"
     SetPropertyValueToElement = False
+End Function
+
+' Fallback for SetPropertyValueToElement: iterate the attached ItemType's real ItemTypeProperty names
+' (from the definition) and write PropertyValue to the first one the handler accepts. Resolves the
+' ItemType from the handler's own ItemTypeName (robust when the caller passed no ItemName). Each
+' SetPropertyValue is isolated (silent) since a wrong name RAISES and must not log. Returns True on the
+' first accepted write, False when no property accepts the value. ARES item types are single-property,
+' so the first success is unambiguous. Structural mirror of GetFirstPropertyValue.
+Private Function SetFirstPropertyValue(ByVal oHandler As ItemTypePropertyHandler, ByVal LibraryName As String, ByVal PropertyValue As Variant) As Boolean
+    On Error GoTo ErrorHandler
+
+    SetFirstPropertyValue = False
+
+    Dim ITL As ItemTypeLibrary
+    Set ITL = FindItemTypeLibrary(LibraryName)
+    If ITL Is Nothing Then Exit Function
+
+    Dim oItem As ItemType
+    Set oItem = ITL.GetItemTypeByName(oHandler.ItemTypeName)
+    If oItem Is Nothing Then Exit Function
+
+    Dim oProp As ItemTypeProperty
+    Dim bOk   As Boolean
+    Do
+        Set oProp = oItem.Find("*", oProp)
+        If oProp Is Nothing Then Exit Do
+        bOk = False
+        On Error Resume Next
+        bOk = oHandler.SetPropertyValue(oProp.PropertyName, PropertyValue)
+        On Error GoTo ErrorHandler
+        If bOk Then
+            SetFirstPropertyValue = True
+            Exit Function
+        End If
+    Loop
+    Exit Function
+
+ErrorHandler:
+    SetFirstPropertyValue = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.SetFirstPropertyValue"
 End Function

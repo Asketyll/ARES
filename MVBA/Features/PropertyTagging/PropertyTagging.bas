@@ -53,6 +53,11 @@ Public Function ElementMatchesAnyRule(ByVal oElement As element) As Boolean
 
     Dim sLevel As String
     Dim i As Long
+    ' Level-based rules: an element with no level matches nothing. Guard with nested Ifs (never And -
+    ' no short-circuit in VBA): Level GET raises on a non-graphical element and can be Nothing (e.g. a
+    ' cell header), which would make .Name raise Error 91. Silent no-match, no log.
+    If Not oElement.IsGraphical Then Exit Function
+    If oElement.Level Is Nothing Then Exit Function
     sLevel = oElement.Level.Name
 
     For i = 0 To mnRuleCount - 1
@@ -79,6 +84,11 @@ Public Sub ApplyPropertyRules(ByVal oElement As element)
 
     Dim sLevel As String
     Dim i As Long, j As Long
+    ' Level-based rules: an element with no level matches nothing. Guard with nested Ifs (never And -
+    ' no short-circuit in VBA): Level GET raises on a non-graphical element and can be Nothing (e.g. a
+    ' cell header), which would make .Name raise Error 91. Silent skip, no log.
+    If Not oElement.IsGraphical Then Exit Sub
+    If oElement.Level Is Nothing Then Exit Sub
     sLevel = oElement.Level.Name
 
     For i = 0 To mnRuleCount - 1

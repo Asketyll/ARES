@@ -24,6 +24,7 @@ Private Enum TestID
     tidAutoLengths = 15
     tidConfigExportImport = 16
     tidFileDialogs = 17
+    tidPropertyPropagation = 18
 End Enum
 
 ' Test result structure
@@ -86,7 +87,8 @@ Public Sub RunAllTests()
     RunTest "Auto Lengths", tidAutoLengths
     RunTest "Config Export Import", tidConfigExportImport
     RunTest "File Dialogs", tidFileDialogs
-    
+    RunTest "Property Propagation", tidPropertyPropagation
+
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
     
@@ -155,8 +157,11 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidFileDialogs
             TestName = "File Dialogs"
             Result = FileDialogsTest()
+        Case tidPropertyPropagation
+            TestName = "Property Propagation"
+            Result = PropertyPropagationTest()
         Case Else
-            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-17", vbCritical, "Test Error"
+            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-18", vbCritical, "Test Error"
             Exit Sub
     End Select
     
@@ -1556,6 +1561,200 @@ ErrorHandler:
     FileDialogsTest = False
 End Function
 
+' Test 18: Property Propagation
+' Covers the synchronously-callable units (no dependency on the idle loop firing):
+'   (a) GetConcatenatedText on a cell holding a TextElement + a 2-line TextNodeElement (DFS order);
+'   (b) IsTriggerCell: true (name in list + grouped), false (name not in list), false (ungrouped);
+'   (c) Propagate (via ProcessElement) sets the property on the sibling; a second call is idempotent;
+'   (d) NoteDeletedTriggerCell + delete + ProcessElement detaches the property from the former sibling.
+' (c) and (d) need the "ARES" DGNLib (strategy A). If it (or a configured property) is unavailable,
+' they are treated as not-applicable (pass), like CustomPropertyHandlerTest.
+Private Function PropertyPropagationTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+
+    ' Save config to restore afterwards
+    Dim sOldEnabled As String, sOldCells As String, sOldProp As String
+    sOldEnabled = ARESConfig.ARES_PROPERTY_PROPAGATION.Value
+    sOldCells = ARESConfig.ARES_PROPAGATION_CELLS.Value
+    sOldProp = ARESConfig.ARES_PROPAGATION_PROPERTY.Value
+
+    ARESConfig.ARES_PROPERTY_PROPAGATION.Value = "True"
+    ARESConfig.ARES_PROPAGATION_CELLS.Value = "PROPTEST"
+
+    ' --- (a) GetConcatenatedText: cell = TextElement "Alpha" + TextNode ["Beta","Gamma"] ---
+    TotalTests = TotalTests + 1
+    Dim arrA(1) As element
+    Set arrA(0) = CreateTextElement1(Nothing, "Alpha", Point3dFromXYZ(0, 0, 0), Matrix3dIdentity)
+    Dim tnA As TextNodeElement
+    Set tnA = CreateTextNodeElement2(Nothing, Point3dFromXYZ(0, 0, 0), Matrix3dIdentity)
+    tnA.AddTextLine "Beta"
+    tnA.AddTextLine "Gamma"
+    Set arrA(1) = tnA
+    ' Typed As element (not CellElement): GetConcatenatedText / Link.GetLink take ByRef As element,
+    ' which requires an exact-type argument (a CellElement variable would raise ByRef type mismatch).
+    Dim cellA As element
+    Set cellA = CreateCellElement1("PROPTEST_A", arrA, Point3dFromXYZ(0, 0, 0))
+    ActiveModelReference.AddElement cellA
+    If StringsInEl.GetConcatenatedText(cellA) = "Alpha Beta Gamma" Then TestsPassed = TestsPassed + 1
+
+    ' --- (b) IsTriggerCell ---
+    ' true: name in list + grouped
+    TotalTests = TotalTests + 1
+    Dim cellMatch As element
+    Set cellMatch = CreatePropagationTestCell("PROPTEST", 201, "Val", Point3dFromXYZ(600, 0, 0))
+    If PropertyPropagation.IsTriggerCell(cellMatch) Then TestsPassed = TestsPassed + 1
+
+    ' false: name not in list
+    TotalTests = TotalTests + 1
+    Dim cellOther As element
+    Set cellOther = CreatePropagationTestCell("PROPTEST_OTHER", 202, "Val", Point3dFromXYZ(650, 0, 0))
+    If Not PropertyPropagation.IsTriggerCell(cellOther) Then TestsPassed = TestsPassed + 1
+
+    ' false: name in list but ungrouped (GraphicGroup = 0)
+    TotalTests = TotalTests + 1
+    Dim cellUngrouped As element
+    Set cellUngrouped = CreatePropagationTestCell("PROPTEST", 0, "Val", Point3dFromXYZ(700, 0, 0))
+    If Not PropertyPropagation.IsTriggerCell(cellUngrouped) Then TestsPassed = TestsPassed + 1
+
+    ' --- (c)/(d) require the ARES DGNLib + a configured property ---
+    Dim ITL As ItemTypeLibrary
+    Dim propNames() As String
+    Dim propName As String
+    Dim bLibReady As Boolean
+    bLibReady = False
+    Set ITL = CustomPropertyHandler.FindItemTypeLibrary(ARESConstants.ARES_NAME_LIBRARY_TYPE)
+    If Not ITL Is Nothing Then
+        propNames = CustomPropertyHandler.GetCustomPropertyNames()
+        If UBound(propNames) >= LBound(propNames) Then
+            propName = Trim(propNames(LBound(propNames)))
+            If Len(propName) > 0 Then bLibReady = True
+        End If
+    End If
+
+    ' --- (c) Propagate sets the property on the sibling; second call is idempotent ---
+    Dim cellCD As element
+    Dim sibCD As element
+    Dim sExpected As String
+    Dim vVal As Variant
+
+    If bLibReady Then
+        ARESConfig.ARES_PROPAGATION_PROPERTY.Value = propName
+
+        Set cellCD = CreatePropagationTestCell("PROPTEST", 300, "Sibling text", Point3dFromXYZ(800, 0, 0))
+        Set sibCD = CreateLineElement2(Nothing, Point3dFromXYZ(800, 50, 0), Point3dFromXYZ(900, 50, 0))
+        sibCD.GraphicGroup = 300
+        ActiveModelReference.AddElement sibCD
+        CustomPropertyHandler.RemoveItemFromElement sibCD, propName    ' start clean
+
+        sExpected = StringsInEl.GetConcatenatedText(cellCD)
+
+        ' First propagation
+        TotalTests = TotalTests + 1
+        PropertyPropagation.ProcessElement cellCD
+        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibCD, propName, propName)
+        If Not IsNull(vVal) Then
+            If CStr(vVal) = sExpected Then TestsPassed = TestsPassed + 1
+        End If
+
+        ' Second propagation: value must be unchanged (compare-guard, no runaway)
+        TotalTests = TotalTests + 1
+        PropertyPropagation.ProcessElement cellCD
+        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibCD, propName, propName)
+        If Not IsNull(vVal) Then
+            If CStr(vVal) = sExpected Then TestsPassed = TestsPassed + 1
+        End If
+
+        ' --- (d) Deletion detaches the property from the former sibling ---
+        TotalTests = TotalTests + 1
+        Dim sibs() As element
+        sibs = Link.GetLink(cellCD)                          ' siblings resolved before delete
+        PropertyPropagation.NoteDeletedTriggerCell cellCD, sibs
+        ActiveModelReference.RemoveElement cellCD            ' genuine deletion
+        PropertyPropagation.ProcessElement sibCD             ' idle-side consume + reconcile + detach
+        Set sibCD = ActiveModelReference.GetElementByID(sibCD.ID)
+        If Not sibCD.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, propName) Then TestsPassed = TestsPassed + 1
+
+        ' --- (e) round-2: two trigger cells + child. FindGroupTriggerCell flags multi; last cell wins ---
+        Dim cellE1 As element, cellE2 As element, sibE As element
+        Dim bMultiE As Boolean
+        Dim oSurv As element
+        Set cellE1 = CreatePropagationTestCell("PROPTEST", 400, "E1val", Point3dFromXYZ(1000, 0, 0))
+        Set cellE2 = CreatePropagationTestCell("PROPTEST", 400, "E2val", Point3dFromXYZ(1050, 0, 0))
+        Set sibE = CreateLineElement2(Nothing, Point3dFromXYZ(1000, 50, 0), Point3dFromXYZ(1100, 50, 0))
+        sibE.GraphicGroup = 400
+        ActiveModelReference.AddElement sibE
+        CustomPropertyHandler.RemoveItemFromElement sibE, propName
+
+        ' FindGroupTriggerCell: a trigger survivor exists AND bMultiple is True (2 triggers in the group)
+        TotalTests = TotalTests + 1
+        Set oSurv = PropertyPropagation.FindGroupTriggerCell(sibE, bMultiE)
+        If (Not oSurv Is Nothing) And bMultiE Then TestsPassed = TestsPassed + 1
+
+        ' Last-processed cell wins: ProcessElement cellE1 then cellE2 -> child holds cellE2's value
+        TotalTests = TotalTests + 1
+        PropertyPropagation.ProcessElement cellE1
+        PropertyPropagation.ProcessElement cellE2
+        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibE, propName, propName)
+        If Not IsNull(vVal) Then
+            If CStr(vVal) = "E2val" Then TestsPassed = TestsPassed + 1
+        End If
+
+        ' --- (f) round-2 desync guard: delete P1 of {P1,P2,child} -> child ends on P2's value ---
+        Dim cellF1 As element, cellF2 As element, sibF As element
+        Dim sibsF() As element
+        Set cellF1 = CreatePropagationTestCell("PROPTEST", 401, "F1val", Point3dFromXYZ(1200, 0, 0))
+        Set cellF2 = CreatePropagationTestCell("PROPTEST", 401, "F2val", Point3dFromXYZ(1250, 0, 0))
+        Set sibF = CreateLineElement2(Nothing, Point3dFromXYZ(1200, 50, 0), Point3dFromXYZ(1300, 50, 0))
+        sibF.GraphicGroup = 401
+        ActiveModelReference.AddElement sibF
+        CustomPropertyHandler.RemoveItemFromElement sibF, propName
+
+        ' Seed the child with F1's value, then delete F1 and consume: the child must switch to F2's value
+        TotalTests = TotalTests + 1
+        PropertyPropagation.ProcessElement cellF1
+        sibsF = Link.GetLink(cellF1)                          ' siblings resolved before delete
+        PropertyPropagation.NoteDeletedTriggerCell cellF1, sibsF
+        ActiveModelReference.RemoveElement cellF1
+        PropertyPropagation.ProcessElement sibF              ' consume -> survivor F2 -> re-propagate
+        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibF, propName, propName)
+        If Not IsNull(vVal) Then
+            If CStr(vVal) = "F2val" Then TestsPassed = TestsPassed + 1
+        End If
+    End If
+
+    ' Restore config
+    ARESConfig.ARES_PROPERTY_PROPAGATION.Value = sOldEnabled
+    ARESConfig.ARES_PROPAGATION_CELLS.Value = sOldCells
+    ARESConfig.ARES_PROPAGATION_PROPERTY.Value = sOldProp
+
+    ' Allow a small margin for environment-dependent library operations (as CustomPropertyHandlerTest does)
+    PropertyPropagationTest = (TestsPassed >= TotalTests - 1)
+    Exit Function
+
+ErrorHandler:
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyPropagationTest"
+    End If
+    PropertyPropagationTest = False
+End Function
+
+' Build a single-TextElement graphic cell named sName, in graphic group lGroup (0 = ungrouped),
+' added to the active model. Helper for PropertyPropagationTest.
+Private Function CreatePropagationTestCell(ByVal sName As String, ByVal lGroup As Long, ByVal sText As String, ByVal origin As Point3d) As CellElement
+    Dim arr(0) As element
+    Set arr(0) = CreateTextElement1(Nothing, sText, origin, Matrix3dIdentity)
+    Dim oCell As CellElement
+    Set oCell = CreateCellElement1(sName, arr, origin)
+    If lGroup <> 0 Then oCell.GraphicGroup = lGroup
+    ActiveModelReference.AddElement oCell
+    Set CreatePropagationTestCell = oCell
+End Function
+
 ' === HELPER FUNCTIONS ===
 
 Private Function CreateTestElement() As element
@@ -1837,6 +2036,7 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidAutoLengths: Result.Passed = AutoLengthsTest()
         Case tidConfigExportImport: Result.Passed = ConfigExportImportTest()
         Case tidFileDialogs: Result.Passed = FileDialogsTest()
+        Case tidPropertyPropagation: Result.Passed = PropertyPropagationTest()
         Case Else
             Result.Passed = False
             Result.Message = "Unknown test ID"

@@ -9,6 +9,7 @@ Private moZoningGUI          As Zoning_GUI_Options
 Private moOutlineGUI         As Outline_GUI_Options
 Private moZoneExportGUI      As ExportLengthInReg_GUI_Options
 Private moPropertyTaggingGUI As PropertyTagging_GUI_Options
+Private moPropagationGUI     As PropertyPropagation_GUI_Options
 
 ' Report a trapped fault from a key-in entry point (messaging rules): log the technical detail
 ' to the .log (English, via HandleError), then show the user a translated, GENERIC failure line.
@@ -490,6 +491,33 @@ Public Sub OnPropertyTaggingGUIClosed()
     Set moPropertyTaggingGUI = Nothing
 End Sub
 
+' Open the Property Propagation (label-cell text -> group custom property) options GUI
+Sub EditPropagationOptions()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moPropagationGUI Is Nothing Then
+        Set moPropagationGUI = New PropertyPropagation_GUI_Options
+    End If
+
+    moPropagationGUI.Show vbModeless
+    ReportIfLogged "EditPropagationOptions"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "EditPropagationOptions", Err.Description, Err.Number, Err.Source
+End Sub
+
+Public Sub OnPropagationGUIClosed()
+    Set moPropagationGUI = Nothing
+End Sub
+
 ' Persist the position of every option form still open (best-effort; called at project unload).
 Public Sub SaveAllOpenFormPositions()
     On Error Resume Next
@@ -498,6 +526,7 @@ Public Sub SaveAllOpenFormPositions()
     If Not moOutlineGUI Is Nothing Then FormPlacement.SaveFormPosition moOutlineGUI, moOutlineGUI.Name
     If Not moZoneExportGUI Is Nothing Then FormPlacement.SaveFormPosition moZoneExportGUI, moZoneExportGUI.Name
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyTaggingGUI, moPropertyTaggingGUI.Name
+    If Not moPropagationGUI Is Nothing Then FormPlacement.SaveFormPosition moPropagationGUI, moPropagationGUI.Name
 End Sub
 
 ' Key-in: forget all saved form positions and re-center any option form currently open.
@@ -516,6 +545,7 @@ Sub ResetFormPositions()
     If Not moOutlineGUI Is Nothing Then FormPlacement.CenterForm moOutlineGUI
     If Not moZoneExportGUI Is Nothing Then FormPlacement.CenterForm moZoneExportGUI
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.CenterForm moPropertyTaggingGUI
+    If Not moPropagationGUI Is Nothing Then FormPlacement.CenterForm moPropagationGUI
 
     ShowStatusT "FormPositionsReset"
     ReportIfLogged "ResetFormPositions"
