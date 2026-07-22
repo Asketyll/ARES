@@ -115,6 +115,30 @@ ErrorHandler:
     AttachItemToElement = False
 End Function
 
+' Read-only attach check: True when El carries the named ItemType from LibraryName. Thin wrapper over
+' Element.Items.HasItems (verified in mvba-docs/03-methods/HasItems_Method.md, signature
+' Boolean = object.HasItems(Libname [, ItemTypename])) after a cache Refresh (mvba-docs/03-methods/
+' Refresh_Method.md, Items.Refresh Libname) so a same-pass attach is visible. Unlike inferring absence
+' from GetPropertyValueFromElement returning Null (which cannot distinguish "not attached" from
+' "attached but empty"), this reports the unambiguous ATTACHMENT state - the frontier the value engine
+' (PropertyPropagation) uses to write a value only where the target property is already attached.
+' No model write (Refresh is a cache refresh only). Standard error pattern -> False on fault.
+Public Function IsItemAttachedToElement(ByVal El As element, ByVal ItemName As String, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsItemAttachedToElement = False
+    If El Is Nothing Then Exit Function
+    If Len(ItemName) = 0 Then Exit Function
+
+    El.Items.Refresh LibraryName
+    IsItemAttachedToElement = El.Items.HasItems(LibraryName, ItemName)
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.IsItemAttachedToElement"
+    IsItemAttachedToElement = False
+End Function
+
 ' Detach an ItemType (by name) from an element. Returns True only when an attached item was removed.
 Public Function RemoveItemFromElement(ByVal El As element, ByVal ItemName As String, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
     On Error GoTo ErrorHandler

@@ -101,10 +101,8 @@ Public ARES_AUTO_PROPERTIES As ARES_MS_VAR_Class 'Default Value: True           
 Public ARES_PROPERTY_RULES As ARES_MS_VAR_Class 'Default Value: (empty)                     e.g. WALLS=Commune|Coupe_Type ; DOORS:Cell=Commune
 ' Used in PropertyPropagation module — master switch: propagate a trigger label cell's full text as a custom-property value onto its graphic-group siblings.
 Public ARES_PROPERTY_PROPAGATION As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
-' Used in PropertyPropagation module — | -delimited list of cell names that trigger propagation (matched on AsCellElement.Name, case-insensitive).
-Public ARES_PROPAGATION_CELLS As ARES_MS_VAR_Class 'Default Value: (empty)                     can a array use | (ARES_VAR_DELIMITER) like ETI076|ETI01E
-' Used in PropertyPropagation module — target custom-property NAME that receives the cell's text on each sibling. Must be a member of ARES_Custom_Property_List.
-Public ARES_PROPAGATION_PROPERTY As ARES_MS_VAR_Class 'Default Value: (empty)                     custom-property name; must be a member of ARES_Custom_Property_List
+' Used in PropertyPropagation module — when True, an emptied value detaches the property (via the tagger, PropertyTagging.DetachRuleProperty) instead of clearing it; a rule that still mandates the property re-attaches it empty.
+Public ARES_PROPAGATION_DETACH_EMPTY As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in FormPlacement module — remembers each option form's last on-screen position. INTERNAL, managed automatically (do not edit by hand).
 Public ARES_FORM_LAYOUT As ARES_MS_VAR_Class 'Default Value: (empty)   <FormName>=<xPct>:<yPct> entries delimited by | (ARES_VAR_DELIMITER)
 
@@ -178,8 +176,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
     Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
     Set ARES_PROPERTY_PROPAGATION = CreateConfigVar("ARES_Property_Propagation", "False")
-    Set ARES_PROPAGATION_CELLS = CreateConfigVar("ARES_Propagation_Cells", "")
-    Set ARES_PROPAGATION_PROPERTY = CreateConfigVar("ARES_Propagation_Property", "")
+    Set ARES_PROPAGATION_DETACH_EMPTY = CreateConfigVar("ARES_Propagation_Detach_Empty", "False")
     Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
     CreateConfigVariables = True
     Exit Function

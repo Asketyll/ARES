@@ -241,9 +241,11 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     TriggerFinded = False
     ONLY_COLOR = ARESConfig.ARES_ONLY_COLOR.Value
 
-    ' Auto-attach configured custom properties (PropertyTagging) to the changed element itself.
-    ' Runs BEFORE the graphic-group filter so it also reaches ungrouped elements, and only at the
-    ' top level (Depth 0) so linked descendants are not tagged. Attach is idempotent.
+    ' Auto-attach configured custom properties (PropertyTagging). Level rules attach to the changed
+    ' element itself; a cell-group rule (@CellName) additionally fans out and attaches to the OTHER
+    ' members of the element's graphic group when it is the named cell. Runs BEFORE the graphic-group
+    ' filter so it also reaches ungrouped elements, and only at the top level (Depth 0) so linked
+    ' descendants are not tagged. Attach is idempotent.
     If Depth = 0 Then
         If CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value) Then
             PropertyTagging.ApplyPropertyRules oElement
