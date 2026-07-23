@@ -434,10 +434,10 @@ ErrorHandler:
 End Function
 
 ' ========================================
-' READ-ONLY TEXT AGGREGATION (PropertyPropagation)
+' READ-ONLY TEXT AGGREGATION (PropertyCalculation)
 ' ========================================
 
-' Concatenate ALL text an element contains, read-only, for PropertyPropagation. Depth-first over a
+' Concatenate ALL text an element contains, read-only, for PropertyCalculation. Depth-first over a
 ' cell's GetSubElements order: TextElement -> its whole .Text; TextNodeElement -> each .TextLine
 ' top-to-bottom; nested CellElement -> recurse. Each fragment is trimmed, empty fragments are
 ' dropped, kept fragments are joined by Separator (default a single space). Never writes, never

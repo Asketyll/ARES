@@ -5,7 +5,7 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
-'               PropertyPropagation
+'               PropertyCalculation
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -98,11 +98,11 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
                         End If
                     Next i
 
-                    ' Property Propagation: if the deleted element is a trigger cell, record its
+                    ' Property Calculation: if the deleted element is a trigger cell, record its
                     ' former siblings (els, already resolved above) for a deferred, reconciled detach
                     ' on idle. Read-only here - never writes to the model inside the change event.
-                    If PropertyPropagation.IsEnabled Then
-                        PropertyPropagation.NoteDeletedTriggerCell BeforeChange, els
+                    If PropertyCalculation.IsEnabled Then
+                        PropertyCalculation.NoteDeletedTriggerCell BeforeChange, els
                     End If
                 End If
             End If
@@ -250,14 +250,14 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         If CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value) Then
             PropertyTagging.ApplyPropertyRules oElement
         End If
-        ' Property Propagation runs at Depth 0 too, BEFORE the graphic-group filter below, so the
+        ' Property Calculation runs at Depth 0 too, BEFORE the graphic-group filter below, so the
         ' deferred-detach consume path still fires for a former sibling whose graphic group may have
         ' collapsed to a single member after its trigger cell was deleted. IsTriggerCell requires a
-        ' real graphic group internally, so the propagate path stays naturally inert for ungrouped
+        ' real graphic group internally, so the calculation path stays naturally inert for ungrouped
         ' cells even though the hook runs before the filter. Ordered AFTER PropertyTagging so both
-        ' features' Depth-0 work runs; propagation only ever touches its own configured property.
-        If PropertyPropagation.IsEnabled Then
-            PropertyPropagation.ProcessElement oElement
+        ' features' Depth-0 work runs; calculation only ever touches its own configured property.
+        If PropertyCalculation.IsEnabled Then
+            PropertyCalculation.ProcessElement oElement
         End If
     End If
 
@@ -630,16 +630,16 @@ Private Function IsAnyFeatureEnabled() As Boolean
     Dim autoLengthEnabled As Boolean
     Dim onlyColorEnabled As Boolean
     Dim autoPropertiesEnabled As Boolean
-    Dim propagationEnabled As Boolean
+    Dim calcEnabled As Boolean
 
     ' Config values are stored as Strings, convert to Boolean with CBool
     ' Auto lengths requires both flags to be True
     autoLengthEnabled = CBool(ARESConfig.ARES_AUTO_LENGTHS.Value) And CBool(ARESConfig.ARES_UPDATE_LENGTHS.Value)
     onlyColorEnabled = CBool(ARESConfig.ARES_ONLY_COLOR.Value)
     autoPropertiesEnabled = CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value)
-    propagationEnabled = CBool(ARESConfig.ARES_PROPERTY_PROPAGATION.Value)
+    calcEnabled = CBool(ARESConfig.ARES_PROPERTY_CALC.Value)
 
-    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled Or autoPropertiesEnabled Or propagationEnabled
+    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled
 End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)

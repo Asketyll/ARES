@@ -1,29 +1,28 @@
-' Module: PropertyPropagation
+' Module: PropertyCalculation
 ' Description: The VALUE-CALCULATION engine (redécoupage, epic 11). Writes a trigger "label cell"'s
 '              full text as the VALUE of a target custom property onto every OTHER element of the
 '              cell's graphic group - but ONLY where that property is ALREADY ATTACHED (by a
 '              PropertyTagging rule). It NEVER attaches, and never calls CustomPropertyHandler
 '              attach/detach directly. A member that does not carry the target property is SKIPPED
 '              (the frontier: attach/detach is the tagger's domain). Opt-in, OFF by default
-'              (ARES_Property_Propagation). Reuses the deferred change/idle pipeline: capture in
+'              (ARES_Property_Calc). Reuses the deferred change/idle pipeline: capture in
 '              ElementChangeHandler.IChangeTrackEvents_ElementChanged, deferred processing in
 '              ElementChangeHandler.ProcessElement (Depth 0). Custom-property read/write go through
 '              CustomPropertyHandler; item-type definitions live in the "ARES" DGNLib (strategy A).
 '
-'              Trigger + targets come from the @cell RULES (epic 12 - the @cell rules are the SINGLE
-'              source; the value engine owns no cell-name / target-property config). A cell is a trigger
-'              when the master switch is ON, it IsCellElement, it is in a real graphic group, and its
-'              name is the subject of at least one @cell rule (PropertyTagging.GetCellGroupProperties
-'              returns >=1 property). The target properties are the aggregated props of the matching
-'              @cell rules (per-rule): @X=P1|P2 or @X=P1 ; @X=P2 both target {P1,P2}; the cell's text is
-'              written into EACH. The value is the cell's full concatenated text
-'              (StringsInEl.GetConcatenatedText). The frontier check is
-'              CustomPropertyHandler.IsItemAttachedToElement (HasItems, NOT Null-inference: an
-'              attached-but-empty property also reads back Null).
+'              PHASE-1 DORMANT (grammar v2, story 13-2): the @cell=prop value seam was removed, so this
+'              engine no longer derives any trigger or target - IsTriggerCell returns False and
+'              PropertyTagging.GetCellGroupProperties no longer exists. The value-WRITE machinery
+'              (ApplyValueToSibling + the compare/transition loop-safety guards + IsDetachEmptyEnabled) is
+'              retained BYTE-INTACT as scaffolding for phase 2 (per-property calculation rules), which will
+'              re-derive the triggers/targets and re-wire this module. The master switch ARES_Property_Calc
+'              is still read (IsEnabled / IsAnyFeatureEnabled), so the engine is enabled but INERT. The
+'              frontier check for phase 2 is CustomPropertyHandler.IsItemAttachedToElement (HasItems, NOT
+'              Null-inference: an attached-but-empty property also reads back Null).
 '
 '              Emptying semantics (round-4): when a value is emptied (trigger cell text emptied, or the
 '              cell deleted with no surviving trigger cell), by default the value is CLEARED and the
-'              property stays attached; with ARES_Propagation_Detach_Empty ON, the detach is DELEGATED
+'              property stays attached; with ARES_Calc_Detach_Empty ON, the detach is DELEGATED
 '              to the tagger (PropertyTagging.DetachRuleProperty) instead - a governing rule then
 '              re-attaches the property empty on the next pass (rules win). The detach fires ONLY on a
 '              real non-empty -> empty TRANSITION (the member currently holds a non-empty value).
@@ -38,7 +37,7 @@
 '
 '              Deletion is DEFERRED + reconciled: the Delete branch only records intent
 '              (NoteDeletedTriggerCell, read-only Link.GetLink(BeforeChange)); on idle ProcessElement
-'              reconciles each former sibling against its CURRENT group - re-propagate a surviving
+'              reconciles each former sibling against its CURRENT group - re-apply a surviving
 '              trigger cell's text, else empty the value (clear or delegated-detach per the option).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), CustomPropertyHandler, PropertyTagging,
@@ -50,16 +49,16 @@ Option Explicit
 ' properties, a |-joined list (ARES_VAR_DELIMITER). Recorded synchronously when a trigger cell is DELETED
 ' (read-only) and consumed on idle in ProcessElement, where the consume path splits the list and
 ' reconciles EACH target property independently. Keyed by the ID string so re-recording the same sibling
-' is idempotent. An entry always carries >=1 non-empty target (GetCellGroupProperties returned >=1).
+' is idempotent. An entry always carries >=1 non-empty target. (Phase-1 dormant scaffolding.)
 ' Named "Clear" (not "Detach"): the value engine clears the value, or delegates a detach to the tagger
 ' with the option ON - it never detaches directly.
 Private moPendingClear As Collection
 
-' One-shot guards so the propagation statuses (PropagationValueRejected / PropagationNoTarget /
-' PropagationMultipleTriggers) each surface only once per propagation batch. Reset at the start of each
-' Propagate; the fault one (Rejected) also keeps its English log on every occurrence; NoTarget and
+' One-shot guards so the calculation statuses (CalculationValueRejected / CalculationNoTarget /
+' CalculationMultipleTriggers) each surface only once per calculation batch. Reset at the start of each
+' Calculate; the fault one (Rejected) also keeps its English log on every occurrence; NoTarget and
 ' Multiple are user feedback (status-only, no log). mbMultiShown is additionally reset in
-' NoteDeletedTriggerCell (a pure-deletion idle batch runs no Propagate but must still surface the
+' NoteDeletedTriggerCell (a pure-deletion idle batch runs no Calculate but must still surface the
 ' multi-trigger warning once).
 Private mbRejectedShown As Boolean
 Private mbNoTargetShown As Boolean
@@ -76,29 +75,21 @@ Public Function IsEnabled() As Boolean
     IsEnabled = False
     If ARESConfig Is Nothing Then Exit Function
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_PROPERTY_PROPAGATION Is Nothing Then Exit Function
-    IsEnabled = CBool(ARESConfig.ARES_PROPERTY_PROPAGATION.Value)
+    If ARESConfig.ARES_PROPERTY_CALC Is Nothing Then Exit Function
+    IsEnabled = CBool(ARESConfig.ARES_PROPERTY_CALC.Value)
     Exit Function
 
 ErrorHandler:
     IsEnabled = False
 End Function
 
-' Trigger test (epic 12): IsCellElement AND a real graphic group AND the cell's name is the subject of
-' at least one @cell rule (PropertyTagging.GetCellGroupProperties returns >=1 property). The @cell rules
-' are the SINGLE source - the value engine no longer reads its own cell-name list. Cheap IsCellElement
-' test first (dormant fast path).
+' Trigger test - PHASE-1 DORMANT (grammar v2, story 13-2). Grammar v2 removed the @cell=prop value seam,
+' so nothing is a trigger any more: this returns False unconditionally. The signature is kept so callers
+' stay compilable; phase 2 re-introduces the trigger derivation (from per-property calculation rules).
 Public Function IsTriggerCell(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
     IsTriggerCell = False
-    If oEl Is Nothing Then Exit Function
-    If Not oEl.IsCellElement Then Exit Function
-    If oEl.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
-
-    Dim props() As String
-    props = PropertyTagging.GetCellGroupProperties(oEl.AsCellElement.Name)
-    IsTriggerCell = (Len(props(LBound(props))) > 0)
     Exit Function
 
 ErrorHandler:
@@ -107,9 +98,9 @@ End Function
 
 ' Depth-0 hook, called from ElementChangeHandler.ProcessElement (before the graphic-group filter).
 ' (1) If oEl was recorded as a former sibling of a deleted trigger cell, consume that entry and
-'     reconcile against oEl's CURRENT group: re-propagate the surviving trigger cell's text if one
+'     reconcile against oEl's CURRENT group: re-apply the surviving trigger cell's text if one
 '     remains (round-2), else empty the value (clear, or delegated tagger-detach with the option ON).
-'     (2) Otherwise, if oEl is itself a trigger cell, propagate its text onto its siblings.
+'     (2) Otherwise, if oEl is itself a trigger cell, write its text onto its siblings.
 Public Sub ProcessElement(ByVal oEl As element)
     On Error GoTo ErrorHandler
 
@@ -120,7 +111,7 @@ Public Sub ProcessElement(ByVal oEl As element)
     If Len(sPending) > 0 Then
         ' The pending value is a |-joined list of the deleted cell's target properties (12-1). Reconcile
         ' EACH target independently against oEl's CURRENT group: if a surviving trigger cell whose targets
-        ' include P still governs the group, RE-PROPAGATE its text into P (compare-guarded); else EMPTY it
+        ' include P still governs the group, RE-APPLY its text into P (compare-guarded); else EMPTY it
         ' via ApplyValueToSibling(oEl, P, "") - clears (option OFF) or delegates a tagger-detach (option
         ' ON), transition-guarded. The per-property survivor is the first in scan order (deterministic ->
         ' convergent); >=2 survivors targeting P -> one-shot warning. NO direct CustomPropertyHandler detach.
@@ -143,16 +134,16 @@ Public Sub ProcessElement(ByVal oEl As element)
         Exit Sub
     End If
 
-    If IsTriggerCell(oEl) Then Propagate oEl
+    If IsTriggerCell(oEl) Then Calculate oEl
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyPropagation.ProcessElement"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ProcessElement"
 End Sub
 
 ' Delete-branch hook, called synchronously from IChangeTrackEvents_ElementChanged (READ-ONLY - never
 ' writes to the model here). If the deleted element was a @cell trigger, resolve its target properties
-' (GetCellGroupProperties, readable synchronously - BeforeChange is intact) and record, per former
+' (the former @cell target derivation, now removed - phase-1 dormant) and record, per former
 ' sibling (els, already computed by ShouldQueueForDeletion via Link.GetLink(BeforeChange)), the |-joined
 ' target list into the pending-clear set for a per-property reconciled emptying on idle.
 Public Sub NoteDeletedTriggerCell(ByVal oDeletedCell As element, ByRef els() As element)
@@ -162,11 +153,14 @@ Public Sub NoteDeletedTriggerCell(ByVal oDeletedCell As element, ByRef els() As 
     If Not IsTriggerCell(oDeletedCell) Then Exit Sub
 
     ' Round-2: reset the multi-trigger one-shot here too. A pure-deletion idle batch consumes pending
-    ' entries (which may warn) but runs no Propagate, so this is the only reset point that covers it.
+    ' entries (which may warn) but runs no Calculate, so this is the only reset point that covers it.
     mbMultiShown = False
 
+    ' Phase-1 dormant: no target derivation (GetCellGroupProperties is gone). Unreachable anyway - the
+    ' IsTriggerCell guard above always exits first - but kept compilable with the empty convention.
     Dim props() As String
-    props = PropertyTagging.GetCellGroupProperties(oDeletedCell.AsCellElement.Name)
+    ReDim props(0 To 0)
+    props(0) = ""
     If Len(props(LBound(props))) = 0 Then Exit Sub
 
     ' All entries are non-empty past the guard above (the empty convention is a single ""); join them.
@@ -190,7 +184,7 @@ Public Sub NoteDeletedTriggerCell(ByVal oDeletedCell As element, ByRef els() As 
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyPropagation.NoteDeletedTriggerCell"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.NoteDeletedTriggerCell"
 End Sub
 
 '######################################################################################################################
@@ -200,16 +194,19 @@ End Sub
 ' Resolve the cell's target properties from the @cell rules, compute its full text once, and write it
 ' (compare-guarded, frontier-checked) into EACH target on every graphic-group sibling carrying it. No
 ' sibling, or no @cell target, means nothing to do.
-Private Sub Propagate(ByVal oCell As element)
+Private Sub Calculate(ByVal oCell As element)
     On Error GoTo ErrorHandler
 
     mbRejectedShown = False
     mbNoTargetShown = False
     mbMultiShown = False
 
+    ' Phase-1 dormant: no target derivation (GetCellGroupProperties is gone). Unreachable anyway - Calculate
+    ' is only called behind IsTriggerCell (always False) - but kept compilable with the empty convention.
     Dim props() As String
-    props = PropertyTagging.GetCellGroupProperties(oCell.AsCellElement.Name)
-    If Len(props(LBound(props))) = 0 Then Exit Sub    ' not a @cell trigger -> nothing to write
+    ReDim props(0 To 0)
+    props(0) = ""
+    If Len(props(LBound(props))) = 0 Then Exit Sub    ' phase-1 dormant -> nothing to write
 
     Dim sValue As String
     sValue = StringsInEl.GetConcatenatedText(oCell)
@@ -239,7 +236,8 @@ Private Sub Propagate(ByVal oCell As element)
             ' targets intersect this cell's. Nested If (not And) - no short-circuit; skips once known.
             If Not bMulti Then
                 If IsTriggerCell(s) Then
-                    If TargetsIntersect(props, PropertyTagging.GetCellGroupProperties(s.AsCellElement.Name)) Then bMulti = True
+                    ' Phase-1 dormant + unreachable (IsTriggerCell always False); GetCellGroupProperties gone.
+                    If TargetsIntersect(props, props) Then bMulti = True
                 End If
             End If
         End If
@@ -254,7 +252,7 @@ Private Sub Propagate(ByVal oCell As element)
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyPropagation.Propagate"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.Calculate"
 End Sub
 
 ' The frontier + compare-before-write on a single sibling (loop-safety). Returns True when s ALREADY
@@ -311,10 +309,10 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
 ErrorHandler:
     ' A fault mid-write does not un-attach P; the return value (set True once past the frontier) is only
     ' used to detect "no member carried P", so leaving it as-is is correct.
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyPropagation.ApplyValueToSibling"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ApplyValueToSibling"
 End Function
 
-' Round-4 option (ARES_Propagation_Detach_Empty): when True, an emptied value is DETACHED (delegated to
+' Round-4 option (ARES_Calc_Detach_Empty): when True, an emptied value is DETACHED (delegated to
 ' the tagger) instead of cleared. Mirrors IsEnabled - fail-closed False on any nil; lazy ARESConfig init.
 Private Function IsDetachEmptyEnabled() As Boolean
     On Error GoTo ErrorHandler
@@ -322,8 +320,8 @@ Private Function IsDetachEmptyEnabled() As Boolean
     IsDetachEmptyEnabled = False
     If ARESConfig Is Nothing Then Exit Function
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_PROPAGATION_DETACH_EMPTY Is Nothing Then Exit Function
-    IsDetachEmptyEnabled = CBool(ARESConfig.ARES_PROPAGATION_DETACH_EMPTY.Value)
+    If ARESConfig.ARES_CALC_DETACH_EMPTY Is Nothing Then Exit Function
+    IsDetachEmptyEnabled = CBool(ARESConfig.ARES_CALC_DETACH_EMPTY.Value)
     Exit Function
 
 ErrorHandler:
@@ -333,9 +331,9 @@ End Function
 ' Reconcile helper (12-1, per-property): scans oEl's CURRENT graphic group (the whole group, including
 ' oEl itself via Link.GetLink ReturnMe:=True) and returns the FIRST trigger cell in scan order whose
 ' target properties INCLUDE P (Nothing if none remains). Sets bMultiple = True when >=2 such cells
-' target P (drives the PropagationMultipleTriggers warning). Scan order is deterministic, so every
-' consumed sibling resolves to the SAME survivor for P -> the re-propagation converges (Design Notes).
-' Public so PropertyPropagationTest can assert survivor + bMultiple directly. Read-only query.
+' target P (drives the CalculationMultipleTriggers warning). Scan order is deterministic, so every
+' consumed sibling resolves to the SAME survivor for P -> the re-calculation converges (Design Notes).
+' Public so PropertyCalculationTest can assert survivor + bMultiple directly. Read-only query.
 Public Function FindGroupTriggerCellForProperty(ByVal oEl As element, ByVal P As String, ByRef bMultiple As Boolean) As element
     On Error GoTo ErrorHandler
 
@@ -355,7 +353,9 @@ Public Function FindGroupTriggerCellForProperty(ByVal oEl As element, ByVal P As
     nFound = 0
     For i = LBound(members) To UBound(members)
         If IsTriggerCell(members(i)) Then
-            mProps = PropertyTagging.GetCellGroupProperties(members(i).AsCellElement.Name)
+            ' Phase-1 dormant + unreachable (IsTriggerCell always False); GetCellGroupProperties gone.
+            ReDim mProps(0 To 0)
+            mProps(0) = ""
             If NameInList(P, mProps) Then
                 If FindGroupTriggerCellForProperty Is Nothing Then Set FindGroupTriggerCellForProperty = members(i)
                 nFound = nFound + 1
@@ -418,37 +418,37 @@ ErrorHandler:
     NameInList = False
 End Function
 
-' Log the rejected write (English, Number 0) and surface PropagationValueRejected ONCE per batch.
+' Log the rejected write (English, Number 0) and surface CalculationValueRejected ONCE per batch.
 Private Sub ReportRejected()
     On Error Resume Next
-    ErrorHandler.HandleError "Property propagation: target property rejected the value", 0, "", "PropertyPropagation.ApplyValueToSibling"
+    ErrorHandler.HandleError "Property calculation: target property rejected the value", 0, "", "PropertyCalculation.ApplyValueToSibling"
     If Not mbRejectedShown Then
-        LangManager.ShowStatusT "PropagationValueRejected"
+        LangManager.ShowStatusT "CalculationValueRejected"
         mbRejectedShown = True
     End If
 End Sub
 
-' Surface PropagationNoTarget ONCE per batch: a propagation ran with siblings present but NONE carried
+' Surface CalculationNoTarget ONCE per batch: a calculation ran with siblings present but NONE carried
 ' the target property (the value engine writes only where a rule already attached P). USER FEEDBACK,
 ' not a fault - status-only, no English .log (like ReportMultipleTriggers). Hints the user to add an
 ' attach rule in Property Tagging (GUI 1).
 Private Sub ReportNoTarget()
     On Error Resume Next
     If Not mbNoTargetShown Then
-        LangManager.ShowStatusT "PropagationNoTarget"
+        LangManager.ShowStatusT "CalculationNoTarget"
         mbNoTargetShown = True
     End If
 End Sub
 
-' Round-2 (Demand 1): surface PropagationMultipleTriggers ONCE per batch (deduped via mbMultiShown,
-' reset in Propagate and NoteDeletedTriggerCell). This is USER FEEDBACK, not a fault: per the Design
+' Round-2 (Demand 1): surface CalculationMultipleTriggers ONCE per batch (deduped via mbMultiShown,
+' reset in Calculate and NoteDeletedTriggerCell). This is USER FEEDBACK, not a fault: per the Design
 ' Note it is status-only and does NOT write an English .log line (unlike ReportRejected). Deviation
 ' from the Code Map wording ("mirror ReportRejected: English log + status") in favour of the
 ' authoritative Design Note.
 Private Sub ReportMultipleTriggers()
     On Error Resume Next
     If Not mbMultiShown Then
-        LangManager.ShowStatusT "PropagationMultipleTriggers"
+        LangManager.ShowStatusT "CalculationMultipleTriggers"
         mbMultiShown = True
     End If
 End Sub

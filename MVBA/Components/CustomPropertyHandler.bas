@@ -121,7 +121,7 @@ End Function
 ' Refresh_Method.md, Items.Refresh Libname) so a same-pass attach is visible. Unlike inferring absence
 ' from GetPropertyValueFromElement returning Null (which cannot distinguish "not attached" from
 ' "attached but empty"), this reports the unambiguous ATTACHMENT state - the frontier the value engine
-' (PropertyPropagation) uses to write a value only where the target property is already attached.
+' (PropertyCalculation) uses to write a value only where the target property is already attached.
 ' No model write (Refresh is a cache refresh only). Standard error pattern -> False on fault.
 Public Function IsItemAttachedToElement(ByVal El As element, ByVal ItemName As String, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
     On Error GoTo ErrorHandler

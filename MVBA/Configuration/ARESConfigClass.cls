@@ -99,10 +99,10 @@ Public ARES_CUSTOM_PROPERTY_LIST As ARES_MS_VAR_Class 'Default Value: Commune|Co
 Public ARES_AUTO_PROPERTIES As ARES_MS_VAR_Class 'Default Value: True                       True or False (Boolean)
 ' Used in PropertyTagging module — rules "level[:type]=prop|prop ; …" mapping elements to properties to attach.
 Public ARES_PROPERTY_RULES As ARES_MS_VAR_Class 'Default Value: (empty)                     e.g. WALLS=Commune|Coupe_Type ; DOORS:Cell=Commune
-' Used in PropertyPropagation module — master switch: propagate a trigger label cell's full text as a custom-property value onto its graphic-group siblings.
-Public ARES_PROPERTY_PROPAGATION As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
-' Used in PropertyPropagation module — when True, an emptied value detaches the property (via the tagger, PropertyTagging.DetachRuleProperty) instead of clearing it; a rule that still mandates the property re-attaches it empty.
-Public ARES_PROPAGATION_DETACH_EMPTY As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
+' Used in PropertyCalculation module — master switch: calculate a custom-property value from a trigger label cell's full text onto its graphic-group siblings.
+Public ARES_PROPERTY_CALC As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
+' Used in PropertyCalculation module — when True, an emptied value detaches the property (via the tagger, PropertyTagging.DetachRuleProperty) instead of clearing it; a rule that still mandates the property re-attaches it empty.
+Public ARES_CALC_DETACH_EMPTY As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in FormPlacement module — remembers each option form's last on-screen position. INTERNAL, managed automatically (do not edit by hand).
 Public ARES_FORM_LAYOUT As ARES_MS_VAR_Class 'Default Value: (empty)   <FormName>=<xPct>:<yPct> entries delimited by | (ARES_VAR_DELIMITER)
 
@@ -175,8 +175,8 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CUSTOM_PROPERTY_LIST = CreateConfigVar("ARES_Custom_Property_List", "Commune|Coupe_Type")
     Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
     Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
-    Set ARES_PROPERTY_PROPAGATION = CreateConfigVar("ARES_Property_Propagation", "False")
-    Set ARES_PROPAGATION_DETACH_EMPTY = CreateConfigVar("ARES_Propagation_Detach_Empty", "False")
+    Set ARES_PROPERTY_CALC = CreateConfigVar("ARES_Property_Calc", "False")
+    Set ARES_CALC_DETACH_EMPTY = CreateConfigVar("ARES_Calc_Detach_Empty", "False")
     Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
     CreateConfigVariables = True
     Exit Function

@@ -24,7 +24,7 @@ Private Enum TestID
     tidAutoLengths = 15
     tidConfigExportImport = 16
     tidFileDialogs = 17
-    tidPropertyPropagation = 18
+    tidPropertyCalculation = 18
     tidPropertyRuleValidation = 19
 End Enum
 
@@ -88,7 +88,7 @@ Public Sub RunAllTests()
     RunTest "Auto Lengths", tidAutoLengths
     RunTest "Config Export Import", tidConfigExportImport
     RunTest "File Dialogs", tidFileDialogs
-    RunTest "Property Propagation", tidPropertyPropagation
+    RunTest "Property Calculation", tidPropertyCalculation
     RunTest "Property Rule Validation", tidPropertyRuleValidation
 
     ' Generate summary report
@@ -159,9 +159,9 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidFileDialogs
             TestName = "File Dialogs"
             Result = FileDialogsTest()
-        Case tidPropertyPropagation
-            TestName = "Property Propagation"
-            Result = PropertyPropagationTest()
+        Case tidPropertyCalculation
+            TestName = "Property Calculation"
+            Result = PropertyCalculationTest()
         Case tidPropertyRuleValidation
             TestName = "Property Rule Validation"
             Result = PropertyRuleValidationTest()
@@ -1566,23 +1566,14 @@ ErrorHandler:
     FileDialogsTest = False
 End Function
 
-' Test 18: Property Propagation value engine (epic 12: @cell rules are the SINGLE source)
-' Covers the synchronously-callable units (no dependency on the idle loop firing). The trigger AND the
-' target property both derive from an @cell rule (ARES_Property_Rules = "@PROPTEST=<prop>"):
-'   (a) GetConcatenatedText on a cell holding a TextElement + a 2-line TextNodeElement (DFS order);
-'   (b) IsTriggerCell: true (name in a @cell rule + grouped), false (name in no rule), false (ungrouped);
-'   (c) attached sibling gets valued (via ProcessElement); a second call is idempotent (compare-guard);
-'   (i) delete with no survivor CLEARS the value but KEEPS P attached (option OFF);
-'   (g) frontier: a sibling NOT carrying P is skipped; (h) a sibling carrying P is valued;
-'   (e)/(f) multi-trigger + delete-desync (siblings pre-attached);
-'   (j) cell-group rule @PROPTEST fans out and attaches P to the group members (PropertyTagging);
-'   (k) detach-empty OFF clears; (l) detach-empty ON detaches + re-run stays detached (no oscillation);
-'   (m) two @cells with DIFFERENT props in one group -> no shared-target conflict; (n) two @cells SAME
-'       prop -> bMulti True (both via FindGroupTriggerCellForProperty, rule-cache only);
-'   plus a PropertyTagging.DetachRuleProperty attach/detach/idempotence unit.
-' The DGNLib-dependent cases (c/g/h/i/j/k/l + DetachRuleProperty) auto-pass without the "ARES" DGNLib.
-' The rule-cache-only cases (a/b/m/n) run unconditionally. A -1 margin is kept for environment variance.
-Private Function PropertyPropagationTest() As Boolean
+' Test 18: Property Calculation engine (PHASE-1 DORMANT, story 13-2) + PropertyTagging grammar-v2 matcher.
+' The @cell=prop value seam is gone, so the calculation engine is asleep: IsTriggerCell is False for a cell
+' that WOULD have triggered under v1, and ProcessElement / NoteDeletedTriggerCell are inert no-ops. The
+' matcher assertions drive ElementMatchesAnyRule (Public, DGNLib-free) on real elements to prove the v2
+' grammar matches as specified: Type[Line] matches a line not a cell; Cell[name] matches the named cell
+' only; Type[Cell]&!Cell[A] matches a cell B, not cell A and not a line (strict negation); a wildcard
+' Cell[ETI0*] matches ETI076. Pure element+config logic (no DGNLib); a -1 margin covers environment variance.
+Private Function PropertyCalculationTest() As Boolean
     On Error GoTo ErrorHandler
 
     Dim TestsPassed As Integer
@@ -1591,355 +1582,185 @@ Private Function PropertyPropagationTest() As Boolean
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
 
     ' Save config to restore afterwards
-    Dim sOldEnabled As String, sOldDetach As String, sOldRules As String
-    sOldEnabled = ARESConfig.ARES_PROPERTY_PROPAGATION.Value
-    sOldDetach = ARESConfig.ARES_PROPAGATION_DETACH_EMPTY.Value
+    Dim sOldEnabled As String, sOldDetach As String, sOldRules As String, sOldAuto As String
+    sOldEnabled = ARESConfig.ARES_PROPERTY_CALC.Value
+    sOldDetach = ARESConfig.ARES_CALC_DETACH_EMPTY.Value
     sOldRules = ARESConfig.ARES_PROPERTY_RULES.Value
+    sOldAuto = ARESConfig.ARES_AUTO_PROPERTIES.Value
 
-    ARESConfig.ARES_PROPERTY_PROPAGATION.Value = "True"
-    ARESConfig.ARES_PROPAGATION_DETACH_EMPTY.Value = "False"
-    ' 12-1: the value engine derives triggers + targets from the @cell rules (single source). A @PROPTEST
-    ' rule makes PROPTEST a trigger; its prop is the target. A placeholder prop suffices for the rule-cache
-    ' -only cases (a/b); the bLibReady block overwrites it with the real DGNLib prop for (c)+.
-    ARESConfig.ARES_PROPERTY_RULES.Value = "@PROPTEST=Repere"
+    ARESConfig.ARES_PROPERTY_CALC.Value = "True"          ' master ON - the engine is enabled but INERT
+    ARESConfig.ARES_CALC_DETACH_EMPTY.Value = "False"
+    ARESConfig.ARES_AUTO_PROPERTIES.Value = "True"
+
+    ' --- Engine ASLEEP: a cell that WOULD have triggered under v1 (@Cell[PROPTEST]) is not a trigger ---
+    ARESConfig.ARES_PROPERTY_RULES.Value = "@Cell[PROPTEST]=Repere"
     PropertyTagging.RefreshRules
 
-    ' --- (a) GetConcatenatedText: cell = TextElement "Alpha" + TextNode ["Beta","Gamma"] ---
     TotalTests = TotalTests + 1
-    Dim arrA(1) As element
-    Set arrA(0) = CreateTextElement1(Nothing, "Alpha", Point3dFromXYZ(0, 0, 0), Matrix3dIdentity)
-    Dim tnA As TextNodeElement
-    Set tnA = CreateTextNodeElement2(Nothing, Point3dFromXYZ(0, 0, 0), Matrix3dIdentity)
-    tnA.AddTextLine "Beta"
-    tnA.AddTextLine "Gamma"
-    Set arrA(1) = tnA
-    ' Typed As element (not CellElement): GetConcatenatedText / Link.GetLink take ByRef As element,
-    ' which requires an exact-type argument (a CellElement variable would raise ByRef type mismatch).
-    Dim cellA As element
-    Set cellA = CreateCellElement1("PROPTEST_A", arrA, Point3dFromXYZ(0, 0, 0))
-    ActiveModelReference.AddElement cellA
-    If StringsInEl.GetConcatenatedText(cellA) = "Alpha Beta Gamma" Then TestsPassed = TestsPassed + 1
+    Dim cellSleep As element
+    Set cellSleep = CreateCalculationTestCell("PROPTEST", 201, "Val", Point3dFromXYZ(600, 0, 0))
+    If Not PropertyCalculation.IsTriggerCell(cellSleep) Then TestsPassed = TestsPassed + 1
 
-    ' --- (b) IsTriggerCell ---
-    ' true: name in list + grouped
+    ' A plain (ungrouped) cell is not a trigger either
     TotalTests = TotalTests + 1
-    Dim cellMatch As element
-    Set cellMatch = CreatePropagationTestCell("PROPTEST", 201, "Val", Point3dFromXYZ(600, 0, 0))
-    If PropertyPropagation.IsTriggerCell(cellMatch) Then TestsPassed = TestsPassed + 1
+    Dim cellSleep2 As element
+    Set cellSleep2 = CreateCalculationTestCell("PROPTEST", 0, "Val", Point3dFromXYZ(650, 0, 0))
+    If Not PropertyCalculation.IsTriggerCell(cellSleep2) Then TestsPassed = TestsPassed + 1
 
-    ' false: name not in list
+    ' ProcessElement + NoteDeletedTriggerCell are inert no-ops (asleep: no crash, nothing recorded/written)
     TotalTests = TotalTests + 1
-    Dim cellOther As element
-    Set cellOther = CreatePropagationTestCell("PROPTEST_OTHER", 202, "Val", Point3dFromXYZ(650, 0, 0))
-    If Not PropertyPropagation.IsTriggerCell(cellOther) Then TestsPassed = TestsPassed + 1
+    Dim bInert As Boolean
+    Dim sibsSleep() As element
+    bInert = True
+    PropertyCalculation.ProcessElement cellSleep                 ' asleep -> nothing calculated
+    sibsSleep = Link.GetLink(cellSleep)
+    PropertyCalculation.NoteDeletedTriggerCell cellSleep, sibsSleep   ' asleep -> records nothing
+    If bInert Then TestsPassed = TestsPassed + 1
 
-    ' false: name in list but ungrouped (GraphicGroup = 0)
-    TotalTests = TotalTests + 1
-    Dim cellUngrouped As element
-    Set cellUngrouped = CreatePropagationTestCell("PROPTEST", 0, "Val", Point3dFromXYZ(700, 0, 0))
-    If Not PropertyPropagation.IsTriggerCell(cellUngrouped) Then TestsPassed = TestsPassed + 1
+    ' --- Matcher (grammar v2) via ElementMatchesAnyRule (non-group rules, DGNLib-free) ---
 
-    ' --- (c)/(d) require the ARES DGNLib + a configured property ---
-    Dim ITL As ItemTypeLibrary
-    Dim propNames() As String
-    Dim propName As String
-    Dim bLibReady As Boolean
-    bLibReady = False
-    Set ITL = CustomPropertyHandler.FindItemTypeLibrary(ARESConstants.ARES_NAME_LIBRARY_TYPE)
-    If Not ITL Is Nothing Then
-        propNames = CustomPropertyHandler.GetCustomPropertyNames()
-        If UBound(propNames) >= LBound(propNames) Then
-            propName = Trim(propNames(LBound(propNames)))
-            If Len(propName) > 0 Then bLibReady = True
-        End If
-    End If
-
-    ' --- (c) attached sibling gets valued; second call is idempotent (compare-guard) ---
-    Dim cellCD As element
-    Dim sibCD As element
-    Dim sExpected As String
-    Dim vVal As Variant
-
-    If bLibReady Then
-        ' Overwrite the placeholder rule with the real DGNLib prop as the @PROPTEST target for (c)+.
-        ARESConfig.ARES_PROPERTY_RULES.Value = "@PROPTEST=" & propName
-        PropertyTagging.RefreshRules
-        ARESConfig.ARES_PROPAGATION_DETACH_EMPTY.Value = "False"   ' default regime for (c)-(f),(j)
-
-        Set cellCD = CreatePropagationTestCell("PROPTEST", 300, "Sibling text", Point3dFromXYZ(800, 0, 0))
-        Set sibCD = CreateLineElement2(Nothing, Point3dFromXYZ(800, 50, 0), Point3dFromXYZ(900, 50, 0))
-        sibCD.GraphicGroup = 300
-        ActiveModelReference.AddElement sibCD
-        CustomPropertyHandler.AttachItemToElement sibCD, propName   ' sibling must ALREADY carry P (frontier)
-
-        sExpected = StringsInEl.GetConcatenatedText(cellCD)
-
-        ' First propagation
-        TotalTests = TotalTests + 1
-        PropertyPropagation.ProcessElement cellCD
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibCD, propName, propName)
-        If Not IsNull(vVal) Then
-            If CStr(vVal) = sExpected Then TestsPassed = TestsPassed + 1
-        End If
-
-        ' Second propagation: value must be unchanged (compare-guard, no runaway)
-        TotalTests = TotalTests + 1
-        PropertyPropagation.ProcessElement cellCD
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibCD, propName, propName)
-        If Not IsNull(vVal) Then
-            If CStr(vVal) = sExpected Then TestsPassed = TestsPassed + 1
-        End If
-
-        ' --- (i) delete with no survivor CLEARS the value but KEEPS P attached (option OFF) ---
-        ' (Redécoupage change vs 10-1's (d): the value engine no longer detaches; it clears the value.)
-        TotalTests = TotalTests + 1
-        Dim sibs() As element
-        sibs = Link.GetLink(cellCD)                          ' siblings resolved before delete
-        PropertyPropagation.NoteDeletedTriggerCell cellCD, sibs
-        ActiveModelReference.RemoveElement cellCD            ' genuine deletion
-        PropertyPropagation.ProcessElement sibCD             ' idle-side consume + reconcile -> clear
-        Set sibCD = ActiveModelReference.GetElementByID(sibCD.ID)
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibCD, propName, propName)
-        If CustomPropertyHandler.IsItemAttachedToElement(sibCD, propName) Then   ' STILL attached
-            If IsNull(vVal) Then
-                TestsPassed = TestsPassed + 1
-            ElseIf Len(CStr(vVal)) = 0 Then
-                TestsPassed = TestsPassed + 1
-            End If
-        End If
-
-        ' --- (g) frontier: a sibling that does NOT carry P is SKIPPED (never attached, never valued) ---
-        TotalTests = TotalTests + 1
-        Dim cellG As element, sibG As element
-        Set cellG = CreatePropagationTestCell("PROPTEST", 500, "G text", Point3dFromXYZ(1400, 0, 0))
-        Set sibG = CreateLineElement2(Nothing, Point3dFromXYZ(1400, 50, 0), Point3dFromXYZ(1500, 50, 0))
-        sibG.GraphicGroup = 500
-        ActiveModelReference.AddElement sibG
-        CustomPropertyHandler.RemoveItemFromElement sibG, propName   ' ensure NOT carrying P
-        PropertyPropagation.ProcessElement cellG
-        Set sibG = ActiveModelReference.GetElementByID(sibG.ID)
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibG, propName, propName)
-        If Not CustomPropertyHandler.IsItemAttachedToElement(sibG, propName) Then   ' still unattached
-            If IsNull(vVal) Then TestsPassed = TestsPassed + 1                      ' and value-less
-        End If
-
-        ' --- (h) frontier: a sibling that DOES carry P is valued with the cell's text ---
-        TotalTests = TotalTests + 1
-        Dim cellH As element, sibH As element
-        Dim sExpH As String
-        Set cellH = CreatePropagationTestCell("PROPTEST", 520, "H text", Point3dFromXYZ(1550, 0, 0))
-        Set sibH = CreateLineElement2(Nothing, Point3dFromXYZ(1550, 50, 0), Point3dFromXYZ(1650, 50, 0))
-        sibH.GraphicGroup = 520
-        ActiveModelReference.AddElement sibH
-        CustomPropertyHandler.AttachItemToElement sibH, propName    ' sibling carries P
-        sExpH = StringsInEl.GetConcatenatedText(cellH)
-        PropertyPropagation.ProcessElement cellH
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibH, propName, propName)
-        If Not IsNull(vVal) Then
-            If CStr(vVal) = sExpH Then TestsPassed = TestsPassed + 1
-        End If
-
-        ' --- (e) round-2: two trigger cells + child. FindGroupTriggerCellForProperty flags multi; last wins ---
-        Dim cellE1 As element, cellE2 As element, sibE As element
-        Dim bMultiE As Boolean
-        Dim oSurv As element
-        Set cellE1 = CreatePropagationTestCell("PROPTEST", 400, "E1val", Point3dFromXYZ(1000, 0, 0))
-        Set cellE2 = CreatePropagationTestCell("PROPTEST", 400, "E2val", Point3dFromXYZ(1050, 0, 0))
-        Set sibE = CreateLineElement2(Nothing, Point3dFromXYZ(1000, 50, 0), Point3dFromXYZ(1100, 50, 0))
-        sibE.GraphicGroup = 400
-        ActiveModelReference.AddElement sibE
-        CustomPropertyHandler.AttachItemToElement sibE, propName    ' carries P so it can be valued (new model)
-
-        ' FindGroupTriggerCellForProperty: a survivor targeting propName exists AND bMultiple is True
-        ' (2 trigger cells target propName in the group)
-        TotalTests = TotalTests + 1
-        Set oSurv = PropertyPropagation.FindGroupTriggerCellForProperty(sibE, propName, bMultiE)
-        If (Not oSurv Is Nothing) And bMultiE Then TestsPassed = TestsPassed + 1
-
-        ' Last-processed cell wins: ProcessElement cellE1 then cellE2 -> child holds cellE2's value
-        TotalTests = TotalTests + 1
-        PropertyPropagation.ProcessElement cellE1
-        PropertyPropagation.ProcessElement cellE2
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibE, propName, propName)
-        If Not IsNull(vVal) Then
-            If CStr(vVal) = "E2val" Then TestsPassed = TestsPassed + 1
-        End If
-
-        ' --- (f) round-2 desync guard: delete P1 of {P1,P2,child} -> child ends on P2's value ---
-        Dim cellF1 As element, cellF2 As element, sibF As element
-        Dim sibsF() As element
-        Set cellF1 = CreatePropagationTestCell("PROPTEST", 401, "F1val", Point3dFromXYZ(1200, 0, 0))
-        Set cellF2 = CreatePropagationTestCell("PROPTEST", 401, "F2val", Point3dFromXYZ(1250, 0, 0))
-        Set sibF = CreateLineElement2(Nothing, Point3dFromXYZ(1200, 50, 0), Point3dFromXYZ(1300, 50, 0))
-        sibF.GraphicGroup = 401
-        ActiveModelReference.AddElement sibF
-        CustomPropertyHandler.AttachItemToElement sibF, propName    ' carries P so it can be valued (new model)
-
-        ' Seed the child with F1's value, then delete F1 and consume: the child must switch to F2's value
-        TotalTests = TotalTests + 1
-        PropertyPropagation.ProcessElement cellF1
-        sibsF = Link.GetLink(cellF1)                          ' siblings resolved before delete
-        PropertyPropagation.NoteDeletedTriggerCell cellF1, sibsF
-        ActiveModelReference.RemoveElement cellF1
-        PropertyPropagation.ProcessElement sibF              ' consume -> survivor F2 -> re-propagate
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibF, propName, propName)
-        If Not IsNull(vVal) Then
-            If CStr(vVal) = "F2val" Then TestsPassed = TestsPassed + 1
-        End If
-
-        ' --- (j) cell-group rule fan-out: @PROPTEST attaches P to the OTHER group members ---
-        TotalTests = TotalTests + 1
-        Dim cellJ As element, sibJ As element
-        ARESConfig.ARES_PROPERTY_RULES.Value = "@PROPTEST=" & propName
-        PropertyTagging.RefreshRules
-        Set cellJ = CreatePropagationTestCell("PROPTEST", 540, "J text", Point3dFromXYZ(1700, 0, 0))
-        Set sibJ = CreateLineElement2(Nothing, Point3dFromXYZ(1700, 50, 0), Point3dFromXYZ(1800, 50, 0))
-        sibJ.GraphicGroup = 540
-        ActiveModelReference.AddElement sibJ
-        CustomPropertyHandler.RemoveItemFromElement sibJ, propName   ' start unattached
-        PropertyTagging.ApplyPropertyRules cellJ                     ' cell-group fan-out attaches P
-        If CustomPropertyHandler.IsItemAttachedToElement(sibJ, propName) Then TestsPassed = TestsPassed + 1
-
-        ' --- (k) detach-empty OFF: emptying the cell text CLEARS the value, keeps P attached ---
-        ' Whitespace-only cell text -> GetConcatenatedText trims to "" (an "emptied" trigger cell).
-        ARESConfig.ARES_PROPAGATION_DETACH_EMPTY.Value = "False"
-        TotalTests = TotalTests + 1
-        Dim cellK As element, sibK As element
-        Set cellK = CreatePropagationTestCell("PROPTEST", 560, " ", Point3dFromXYZ(1850, 0, 0))
-        Set sibK = CreateLineElement2(Nothing, Point3dFromXYZ(1850, 50, 0), Point3dFromXYZ(1950, 50, 0))
-        sibK.GraphicGroup = 560
-        ActiveModelReference.AddElement sibK
-        CustomPropertyHandler.AttachItemToElement sibK, propName
-        CustomPropertyHandler.SetPropertyValueToElement sibK, propName, "SeedK"   ' non-empty precondition
-        PropertyPropagation.ProcessElement cellK                      ' empty value -> clear (OFF)
-        Set sibK = ActiveModelReference.GetElementByID(sibK.ID)
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(sibK, propName, propName)
-        If CustomPropertyHandler.IsItemAttachedToElement(sibK, propName) Then   ' STILL attached
-            If IsNull(vVal) Then
-                TestsPassed = TestsPassed + 1
-            ElseIf Len(CStr(vVal)) = 0 Then
-                TestsPassed = TestsPassed + 1
-            End If
-        End If
-
-        ' --- (l) detach-empty ON: emptying DETACHES P; a re-run stays detached (frontier skip, no
-        ' oscillation). The @PROPTEST rule stays present (12-1: no rule => not a trigger), but the test
-        ' drives ProcessElement directly (no ApplyPropertyRules), so nothing re-attaches within the test -
-        ' the detach is observable. (Live, a present @cell re-attaches empty; that is the live matrix.)
-        ARESConfig.ARES_PROPAGATION_DETACH_EMPTY.Value = "True"
-        TotalTests = TotalTests + 1
-        Dim cellL As element, sibL As element
-        Dim bDetached As Boolean
-        Set cellL = CreatePropagationTestCell("PROPTEST", 580, " ", Point3dFromXYZ(2000, 0, 0))
-        Set sibL = CreateLineElement2(Nothing, Point3dFromXYZ(2000, 50, 0), Point3dFromXYZ(2100, 50, 0))
-        sibL.GraphicGroup = 580
-        ActiveModelReference.AddElement sibL
-        CustomPropertyHandler.AttachItemToElement sibL, propName
-        CustomPropertyHandler.SetPropertyValueToElement sibL, propName, "SeedL"   ' non-empty precondition
-        PropertyPropagation.ProcessElement cellL                      ' empty value -> detach (ON)
-        Set sibL = ActiveModelReference.GetElementByID(sibL.ID)
-        bDetached = Not CustomPropertyHandler.IsItemAttachedToElement(sibL, propName)
-        ' Second run, value still empty: frontier skip -> no re-attach, no re-detach (no oscillation)
-        PropertyPropagation.ProcessElement cellL
-        Set sibL = ActiveModelReference.GetElementByID(sibL.ID)
-        If bDetached Then
-            If Not CustomPropertyHandler.IsItemAttachedToElement(sibL, propName) Then TestsPassed = TestsPassed + 1
-        End If
-
-        ' --- DetachRuleProperty unit: attach P then detach; idempotent second call ---
-        TotalTests = TotalTests + 1
-        Dim elDet As element
-        Dim bGone As Boolean
-        Set elDet = CreateLineElement2(Nothing, Point3dFromXYZ(2150, 0, 0), Point3dFromXYZ(2250, 0, 0))
-        ActiveModelReference.AddElement elDet
-        CustomPropertyHandler.AttachItemToElement elDet, propName
-        PropertyTagging.DetachRuleProperty elDet, propName
-        Set elDet = ActiveModelReference.GetElementByID(elDet.ID)
-        bGone = Not CustomPropertyHandler.IsItemAttachedToElement(elDet, propName)
-        PropertyTagging.DetachRuleProperty elDet, propName            ' idempotent: silent no-op
-        Set elDet = ActiveModelReference.GetElementByID(elDet.ID)
-        If bGone Then
-            If Not CustomPropertyHandler.IsItemAttachedToElement(elDet, propName) Then TestsPassed = TestsPassed + 1
-        End If
-    End If
-
-    ' --- (m)/(n) multi-trigger scoping via FindGroupTriggerCellForProperty (rule-cache only; no DGNLib) ---
-    ' (m) two @cells with DIFFERENT props in one group: for a prop only ONE cell targets, the survivor is
-    ' found with bMulti False (the different-prop cell is ignored -> different props do not conflict).
-    TotalTests = TotalTests + 1
-    ARESConfig.ARES_PROPERTY_RULES.Value = "@MDIFFA=RepMA;@MDIFFB=RepMB"
+    ' Type[Line]: matches a line, not a cell
+    ARESConfig.ARES_PROPERTY_RULES.Value = "Type[Line]=Repere"
     PropertyTagging.RefreshRules
-    Dim cellMa As element, cellMb As element, sibM As element
-    Dim bMultiM As Boolean, oSurvM As element
-    Set cellMa = CreatePropagationTestCell("MDIFFA", 600, "Ma", Point3dFromXYZ(2200, 0, 0))
-    Set cellMb = CreatePropagationTestCell("MDIFFB", 600, "Mb", Point3dFromXYZ(2250, 0, 0))
-    Set sibM = CreateLineElement2(Nothing, Point3dFromXYZ(2200, 50, 0), Point3dFromXYZ(2300, 50, 0))
-    sibM.GraphicGroup = 600
-    ActiveModelReference.AddElement sibM
-    Set oSurvM = PropertyPropagation.FindGroupTriggerCellForProperty(sibM, "RepMA", bMultiM)
-    If (Not oSurvM Is Nothing) And (Not bMultiM) Then TestsPassed = TestsPassed + 1
-
-    ' (n) two @cells with the SAME prop in one group: both target RepN -> survivor found AND bMulti True.
+    Dim elLine As element
+    Set elLine = CreateLineElement2(Nothing, Point3dFromXYZ(700, 0, 0), Point3dFromXYZ(800, 0, 0))
+    ActiveModelReference.AddElement elLine
+    Dim cellForType As element
+    Set cellForType = CreateCalculationTestCell("ANYCELL", 0, "Val", Point3dFromXYZ(700, 60, 0))
     TotalTests = TotalTests + 1
-    ARESConfig.ARES_PROPERTY_RULES.Value = "@NSAME=RepN"
+    If PropertyTagging.ElementMatchesAnyRule(elLine) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Not PropertyTagging.ElementMatchesAnyRule(cellForType) Then TestsPassed = TestsPassed + 1
+
+    ' Cell[PROPX]: matches the cell named PROPX only (not another cell, not a line)
+    ARESConfig.ARES_PROPERTY_RULES.Value = "Cell[PROPX]=Repere"
     PropertyTagging.RefreshRules
-    Dim cellNa As element, cellNb As element, sibN As element
-    Dim bMultiN As Boolean, oSurvN As element
-    Set cellNa = CreatePropagationTestCell("NSAME", 601, "Na", Point3dFromXYZ(2400, 0, 0))
-    Set cellNb = CreatePropagationTestCell("NSAME", 601, "Nb", Point3dFromXYZ(2450, 0, 0))
-    Set sibN = CreateLineElement2(Nothing, Point3dFromXYZ(2400, 50, 0), Point3dFromXYZ(2500, 50, 0))
-    sibN.GraphicGroup = 601
-    ActiveModelReference.AddElement sibN
-    Set oSurvN = PropertyPropagation.FindGroupTriggerCellForProperty(sibN, "RepN", bMultiN)
-    If (Not oSurvN Is Nothing) And bMultiN Then TestsPassed = TestsPassed + 1
+    Dim cellNamed As element, cellUnnamed As element, lineForCell As element
+    Set cellNamed = CreateCalculationTestCell("PROPX", 0, "Val", Point3dFromXYZ(900, 0, 0))
+    Set cellUnnamed = CreateCalculationTestCell("PROPY", 0, "Val", Point3dFromXYZ(950, 0, 0))
+    Set lineForCell = CreateLineElement2(Nothing, Point3dFromXYZ(900, 60, 0), Point3dFromXYZ(1000, 60, 0))
+    ActiveModelReference.AddElement lineForCell
+    TotalTests = TotalTests + 1
+    If PropertyTagging.ElementMatchesAnyRule(cellNamed) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Not PropertyTagging.ElementMatchesAnyRule(cellUnnamed) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Not PropertyTagging.ElementMatchesAnyRule(lineForCell) Then TestsPassed = TestsPassed + 1
+
+    ' Type[Cell]&!Cell[A]: matches a cell B, not a cell A, not a line (strict negation)
+    ARESConfig.ARES_PROPERTY_RULES.Value = "Type[Cell]&!Cell[A]=Repere"
+    PropertyTagging.RefreshRules
+    Dim cellB As element, cellA As element, lineNeg As element
+    Set cellB = CreateCalculationTestCell("B", 0, "Val", Point3dFromXYZ(1100, 0, 0))
+    Set cellA = CreateCalculationTestCell("A", 0, "Val", Point3dFromXYZ(1150, 0, 0))
+    Set lineNeg = CreateLineElement2(Nothing, Point3dFromXYZ(1100, 60, 0), Point3dFromXYZ(1200, 60, 0))
+    ActiveModelReference.AddElement lineNeg
+    TotalTests = TotalTests + 1
+    If PropertyTagging.ElementMatchesAnyRule(cellB) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Not PropertyTagging.ElementMatchesAnyRule(cellA) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Not PropertyTagging.ElementMatchesAnyRule(lineNeg) Then TestsPassed = TestsPassed + 1
+
+    ' Wildcard Cell[ETI0*]: matches a cell named ETI076
+    ARESConfig.ARES_PROPERTY_RULES.Value = "Cell[ETI0*]=Repere"
+    PropertyTagging.RefreshRules
+    Dim cellWild As element
+    Set cellWild = CreateCalculationTestCell("ETI076", 0, "Val", Point3dFromXYZ(1300, 0, 0))
+    TotalTests = TotalTests + 1
+    If PropertyTagging.ElementMatchesAnyRule(cellWild) Then TestsPassed = TestsPassed + 1
 
     ' Restore config
-    ARESConfig.ARES_PROPERTY_PROPAGATION.Value = sOldEnabled
-    ARESConfig.ARES_PROPAGATION_DETACH_EMPTY.Value = sOldDetach
+    ARESConfig.ARES_PROPERTY_CALC.Value = sOldEnabled
+    ARESConfig.ARES_CALC_DETACH_EMPTY.Value = sOldDetach
     ARESConfig.ARES_PROPERTY_RULES.Value = sOldRules
+    ARESConfig.ARES_AUTO_PROPERTIES.Value = sOldAuto
     PropertyTagging.RefreshRules                          ' re-parse the restored rules (tests changed them)
 
-    ' Allow a small margin for environment-dependent library operations (as CustomPropertyHandlerTest does)
-    PropertyPropagationTest = (TestsPassed >= TotalTests - 1)
+    ' Allow a small margin for environment variance (as CustomPropertyHandlerTest does)
+    PropertyCalculationTest = (TestsPassed >= TotalTests - 1)
     Exit Function
 
 ErrorHandler:
     If Not BootLoader.ErrorHandler Is Nothing Then
-        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyPropagationTest"
+        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculationTest"
     End If
-    PropertyPropagationTest = False
+    PropertyCalculationTest = False
 End Function
 
-' Test 19: PropertyTagging.ValidateRuleSyntax (epic 12-2). Pure string logic, deterministic, no DGNLib
-' and no config mutation (ValidateRuleSyntax takes a rule string and reads only module constants), so no
-' save/restore and no -1 tolerance - every case must pass exactly. Valid rules return "", malformed rules
-' return a non-empty English reason. The load-bearing case is the "|"-instead-of-";" incident rejection.
+' Test 19: PropertyTagging grammar v2 - ValidateAndNormalizeRule (validate + normalise to canonical) and
+' RuleHasNoEffect (dead-rule contradiction detector). Pure string logic, deterministic, DGNLib-free, no
+' config mutation (reads only module constants), so no save/restore and no -1 tolerance - every case passes
+' EXACTLY. Valid rules return "" and the expected COMPACT canonical form (matching the story I/O matrix,
+' no spaces around "&"/"="); invalid rules return a non-empty reason (incl. every v1 rule and the exact
+' "|"-instead-of-";" incident); RuleHasNoEffect is True (with the two conflicting segments) for the four
+' contradiction shapes and False for a compatible or wildcard-guarded rule.
 Private Function PropertyRuleValidationTest() As Boolean
     On Error GoTo ErrorHandler
 
     Dim TestsPassed As Integer
     Dim TotalTests As Integer
+    Dim canon As String
+    Dim segs() As String
 
-    ' --- Valid rules (expect "") ---
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("WALLS=Commune") = "" Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("@X=P") = "" Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("@X=P1|P2") = "" Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("DOORS:Cell=Commune") = "" Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("") = "" Then TestsPassed = TestsPassed + 1
-    ' Asketyll's real config, rule by rule (must never be falsely rejected)
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("ARES_Tranchee=Coupe_Type") = "" Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("@ETI03Z=Repere") = "" Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If PropertyTagging.ValidateRuleSyntax("@ETI053B=Repere") = "" Then TestsPassed = TestsPassed + 1
+    ' --- Valid rules: reason "" AND the expected canonical form (matrix #1-16) ---
+    TotalTests = TotalTests + 1: If VNorm("Lvl[WALLS]=Commune", "Lvl[WALLS]=Commune") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Cell[ETI076]=Repere", "Cell[ETI076]=Repere") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("@Cell[ETI076]=Repere", "@Cell[ETI076]=Repere") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Type[Line]=Commune", "Type[Line]=Commune") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Type[Cell]&!Cell[A]=Repere", "Type[Cell]&!Cell[A]=Repere") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Lvl[Poste=HTA]=Coupe_Type", "Lvl[Poste=HTA]=Coupe_Type") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Lvl[R&D]=Commune", "Lvl[R&D]=Commune") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Cell[ETI0*]=Repere", "Cell[ETI0*]=Repere") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Cell[ETI0?6]=Repere", "Cell[ETI0?6]=Repere") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Lvl[A|B]=Commune", "Lvl[A|B]=Commune") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Cell[X]&Lvl[Y]=P", "Cell[X]&Lvl[Y]=P") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Cell[X]=P1|P2", "Cell[X]=P1|P2") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("lvl[walls]=Commune", "Lvl[walls]=Commune") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Cell[X]@=P", "@Cell[X]=P") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("@@Cell[X]=P", "@Cell[X]=P") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If VNorm("Cell[X]=Rep@ere", "Cell[X]=Rep@ere") Then TestsPassed = TestsPassed + 1
+    ' Normalisation collapses spare spaces around "&" and "="
+    TotalTests = TotalTests + 1: If VNorm("  Cell[X] & Lvl[Y]  =  P  ", "Cell[X]&Lvl[Y]=P") Then TestsPassed = TestsPassed + 1
+    ' Empty rule -> "" reason with empty canonical (the caller deletes)
+    TotalTests = TotalTests + 1
+    canon = "sentinel"
+    If PropertyTagging.ValidateAndNormalizeRule("", canon) = "" Then
+        If canon = "" Then TestsPassed = TestsPassed + 1
+    End If
 
-    ' --- Invalid rules (expect a non-empty reason) ---
-    TotalTests = TotalTests + 1: If Len(PropertyTagging.ValidateRuleSyntax("@X")) > 0 Then TestsPassed = TestsPassed + 1        ' no '='
-    TotalTests = TotalTests + 1: If Len(PropertyTagging.ValidateRuleSyntax("=P")) > 0 Then TestsPassed = TestsPassed + 1        ' empty selector
-    TotalTests = TotalTests + 1: If Len(PropertyTagging.ValidateRuleSyntax("@=P")) > 0 Then TestsPassed = TestsPassed + 1       ' empty cell name
-    TotalTests = TotalTests + 1: If Len(PropertyTagging.ValidateRuleSyntax("X=")) > 0 Then TestsPassed = TestsPassed + 1        ' empty props
-    TotalTests = TotalTests + 1: If Len(PropertyTagging.ValidateRuleSyntax("@X=P|@Y=Q")) > 0 Then TestsPassed = TestsPassed + 1 ' prop token has '='/'@'
-    TotalTests = TotalTests + 1: If Len(PropertyTagging.ValidateRuleSyntax("@X=@Y")) > 0 Then TestsPassed = TestsPassed + 1     ' prop token has '@'
-    ' The exact incident: rules joined with '|' instead of ';' -> parses as ONE rule -> must be REJECTED
-    TotalTests = TotalTests + 1: If Len(PropertyTagging.ValidateRuleSyntax("ARES_Tranchee=Coupe_Type|@ETI03Z=Repere|@ETI053B=Repere")) > 0 Then TestsPassed = TestsPassed + 1
+    ' --- Invalid rules: a non-empty reason (matrix #17-28 + the v1 incident) ---
+    TotalTests = TotalTests + 1: If VReject("WALLS=Commune") Then TestsPassed = TestsPassed + 1               ' v1 level rule (no keyword)
+    TotalTests = TotalTests + 1: If VReject("@ETI076=Repere") Then TestsPassed = TestsPassed + 1              ' v1 cell rule (no keyword)
+    TotalTests = TotalTests + 1: If VReject("Color[3]=P") Then TestsPassed = TestsPassed + 1                  ' unknown keyword
+    TotalTests = TotalTests + 1: If VReject("Cell[X]") Then TestsPassed = TestsPassed + 1                     ' no "="
+    TotalTests = TotalTests + 1: If VReject("=P") Then TestsPassed = TestsPassed + 1                          ' empty condition side
+    TotalTests = TotalTests + 1: If VReject("Cell[X]=") Then TestsPassed = TestsPassed + 1                    ' empty prop side
+    TotalTests = TotalTests + 1: If VReject("Cell[]=P") Then TestsPassed = TestsPassed + 1                    ' empty name list
+    TotalTests = TotalTests + 1: If VReject("Cell[A;B]=P") Then TestsPassed = TestsPassed + 1                 ' ";" inside [...]
+    TotalTests = TotalTests + 1: If VReject("Cell[A=P") Then TestsPassed = TestsPassed + 1                    ' unbalanced "["
+    TotalTests = TotalTests + 1: If VReject("(Cell[X])=P") Then TestsPassed = TestsPassed + 1                 ' reserved parens
+    TotalTests = TotalTests + 1: If VReject("Cell[X]=P1|@Y=Q") Then TestsPassed = TestsPassed + 1             ' prop token contains "="
+    TotalTests = TotalTests + 1: If VReject("Type[Bogus]=P") Then TestsPassed = TestsPassed + 1               ' unknown type
+    TotalTests = TotalTests + 1: If VReject("Type[Li*]=P") Then TestsPassed = TestsPassed + 1                 ' wildcard in Type
+    ' The exact v1 incident: rules joined with "|" instead of ";" -> parses as ONE rule -> rejected
+    TotalTests = TotalTests + 1: If VReject("ARES_Tranchee=Coupe_Type|@ETI03Z=Repere|@ETI053B=Repere") Then TestsPassed = TestsPassed + 1
+
+    ' --- Contradiction detector: True (with the two segments) for the four shapes + #34 ---
+    TotalTests = TotalTests + 1: If DeadSeg("Type[Line]&Type[Arc]=P", "Type[Line]", "Type[Arc]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If DeadSeg("Lvl[A]&Lvl[B]=P", "Lvl[A]", "Lvl[B]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If DeadSeg("Cell[X]&Type[Line]=P", "Cell[X]", "Type[Line]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If DeadSeg("!Type[Cell]&Cell[X]=P", "!Type[Cell]", "Cell[X]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If DeadSeg("Type[Line|Arc]&Type[Shape]=P", "Type[Line|Arc]", "Type[Shape]") Then TestsPassed = TestsPassed + 1
+    ' Round 3: the Cell-vs-Type contradiction is STRUCTURAL - a wildcard in the Cell name does NOT suppress it.
+    TotalTests = TotalTests + 1: If DeadSeg("@Cell[ETI0*]&!Type[Cell]=P", "Cell[ETI0*]", "!Type[Cell]") Then TestsPassed = TestsPassed + 1
+    ' Not dead: compatible (Cell + Type[Cell]) / wildcard guard (Lvl[A*]) -> no verdict
+    TotalTests = TotalTests + 1: If Not PropertyTagging.RuleHasNoEffect("Cell[X]&Type[Cell]=P", segs) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If Not PropertyTagging.RuleHasNoEffect("Lvl[A*]&Lvl[B]=P", segs) Then TestsPassed = TestsPassed + 1
+    ' Round 3: a wildcard STILL suppresses the same-keyword disjoint-list verdict (undecidable).
+    TotalTests = TotalTests + 1: If Not PropertyTagging.RuleHasNoEffect("Lvl[A*]&Lvl[B*]=P", segs) Then TestsPassed = TestsPassed + 1
+    ' An invalid rule (wildcard in Type) yields no verdict
+    TotalTests = TotalTests + 1: If Not PropertyTagging.RuleHasNoEffect("Type[Line]&Type[Lin*]=P", segs) Then TestsPassed = TestsPassed + 1
 
     PropertyRuleValidationTest = (TestsPassed = TotalTests)
     Exit Function
@@ -1951,16 +1772,46 @@ ErrorHandler:
     PropertyRuleValidationTest = False
 End Function
 
+' Helper: True when sRule validates (reason "") to EXACTLY sExpectedCanonical.
+Private Function VNorm(ByVal sRule As String, ByVal sExpectedCanonical As String) As Boolean
+    Dim canon As String
+    Dim reason As String
+    VNorm = False
+    reason = PropertyTagging.ValidateAndNormalizeRule(sRule, canon)
+    If Len(reason) = 0 Then
+        If canon = sExpectedCanonical Then VNorm = True
+    End If
+End Function
+
+' Helper: True when sRule is rejected (non-empty reason).
+Private Function VReject(ByVal sRule As String) As Boolean
+    Dim canon As String
+    VReject = (Len(PropertyTagging.ValidateAndNormalizeRule(sRule, canon)) > 0)
+End Function
+
+' Helper: True when sRule is flagged dead with exactly the two expected canonical segments (in order).
+Private Function DeadSeg(ByVal sRule As String, ByVal seg1 As String, ByVal seg2 As String) As Boolean
+    Dim segs() As String
+    DeadSeg = False
+    If PropertyTagging.RuleHasNoEffect(sRule, segs) Then
+        If UBound(segs) - LBound(segs) = 1 Then
+            If segs(LBound(segs)) = seg1 Then
+                If segs(LBound(segs) + 1) = seg2 Then DeadSeg = True
+            End If
+        End If
+    End If
+End Function
+
 ' Build a single-TextElement graphic cell named sName, in graphic group lGroup (0 = ungrouped),
-' added to the active model. Helper for PropertyPropagationTest.
-Private Function CreatePropagationTestCell(ByVal sName As String, ByVal lGroup As Long, ByVal sText As String, ByVal origin As Point3d) As CellElement
+' added to the active model. Helper for PropertyCalculationTest.
+Private Function CreateCalculationTestCell(ByVal sName As String, ByVal lGroup As Long, ByVal sText As String, ByVal origin As Point3d) As CellElement
     Dim arr(0) As element
     Set arr(0) = CreateTextElement1(Nothing, sText, origin, Matrix3dIdentity)
     Dim oCell As CellElement
     Set oCell = CreateCellElement1(sName, arr, origin)
     If lGroup <> 0 Then oCell.GraphicGroup = lGroup
     ActiveModelReference.AddElement oCell
-    Set CreatePropagationTestCell = oCell
+    Set CreateCalculationTestCell = oCell
 End Function
 
 ' === HELPER FUNCTIONS ===
@@ -2244,7 +2095,7 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidAutoLengths: Result.Passed = AutoLengthsTest()
         Case tidConfigExportImport: Result.Passed = ConfigExportImportTest()
         Case tidFileDialogs: Result.Passed = FileDialogsTest()
-        Case tidPropertyPropagation: Result.Passed = PropertyPropagationTest()
+        Case tidPropertyCalculation: Result.Passed = PropertyCalculationTest()
         Case tidPropertyRuleValidation: Result.Passed = PropertyRuleValidationTest()
         Case Else
             Result.Passed = False
