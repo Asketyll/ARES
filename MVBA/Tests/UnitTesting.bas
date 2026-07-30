@@ -26,6 +26,7 @@ Private Enum TestID
     tidFileDialogs = 17
     tidPropertyCalculation = 18
     tidPropertyRuleValidation = 19
+    tidCalcRuleValidation = 20
 End Enum
 
 ' Test result structure
@@ -90,6 +91,7 @@ Public Sub RunAllTests()
     RunTest "File Dialogs", tidFileDialogs
     RunTest "Property Calculation", tidPropertyCalculation
     RunTest "Property Rule Validation", tidPropertyRuleValidation
+    RunTest "Calc Rule Validation", tidCalcRuleValidation
 
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -165,8 +167,11 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidPropertyRuleValidation
             TestName = "Property Rule Validation"
             Result = PropertyRuleValidationTest()
+        Case tidCalcRuleValidation
+            TestName = "Calc Rule Validation"
+            Result = CalcRuleValidationTest()
         Case Else
-            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-19", vbCritical, "Test Error"
+            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-20", vbCritical, "Test Error"
             Exit Sub
     End Select
     
@@ -1566,13 +1571,14 @@ ErrorHandler:
     FileDialogsTest = False
 End Function
 
-' Test 18: Property Calculation engine (PHASE-1 DORMANT, story 13-2) + PropertyTagging grammar-v2 matcher.
-' The @cell=prop value seam is gone, so the calculation engine is asleep: IsTriggerCell is False for a cell
-' that WOULD have triggered under v1, and ProcessElement / NoteDeletedTriggerCell are inert no-ops. The
-' matcher assertions drive ElementMatchesAnyRule (Public, DGNLib-free) on real elements to prove the v2
-' grammar matches as specified: Type[Line] matches a line not a cell; Cell[name] matches the named cell
-' only; Type[Cell]&!Cell[A] matches a cell B, not cell A and not a line (strict negation); a wildcard
-' Cell[ETI0*] matches ETI076. Pure element+config logic (no DGNLib); a -1 margin covers environment variance.
+' Test 18: Property Calculation engine (AWAKE, epic 14). Drives ARES_Calc_Rules through the read-only
+' resolver ResolvePropertyValue (finds the first-match rule + evaluates the source WITHOUT attaching or
+' reading the property, so the four sources and first-match are asserted DGNLib-FREE) and the re-wired
+' IsTriggerCell (a cell in a real group whose name matches a CellText[pattern]). Covers: CellText nominal +
+' self + ungrouped self; first-match specific-then-general; Value; Id (DLongToString); Coord on a cell/line/
+' shape (tolerant "X;Y" shape); no-matching-rule -> "no rule"; CellText with no surviving cell -> governed
+' but empty (the delete-reconcile path); multi-trigger (a cell text is returned); IsTriggerCell cases;
+' ProcessElement smoke. Saves/restores every touched config var. A -1 margin covers environment variance.
 Private Function PropertyCalculationTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -1582,100 +1588,138 @@ Private Function PropertyCalculationTest() As Boolean
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
 
     ' Save config to restore afterwards
-    Dim sOldEnabled As String, sOldDetach As String, sOldRules As String, sOldAuto As String
+    Dim sOldEnabled As String, sOldCalcRules As String
     sOldEnabled = ARESConfig.ARES_PROPERTY_CALC.Value
-    sOldDetach = ARESConfig.ARES_CALC_DETACH_EMPTY.Value
-    sOldRules = ARESConfig.ARES_PROPERTY_RULES.Value
-    sOldAuto = ARESConfig.ARES_AUTO_PROPERTIES.Value
+    sOldCalcRules = ARESConfig.ARES_CALC_RULES.Value
 
-    ARESConfig.ARES_PROPERTY_CALC.Value = "True"          ' master ON - the engine is enabled but INERT
-    ARESConfig.ARES_CALC_DETACH_EMPTY.Value = "False"
-    ARESConfig.ARES_AUTO_PROPERTIES.Value = "True"
+    ARESConfig.ARES_PROPERTY_CALC.Value = "True"
 
-    ' --- Engine ASLEEP: a cell that WOULD have triggered under v1 (@Cell[PROPTEST]) is not a trigger ---
-    ARESConfig.ARES_PROPERTY_RULES.Value = "@Cell[PROPTEST]=Repere"
-    PropertyTagging.RefreshRules
+    ' --- CellText nominal + self (grouped) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=CellText[ETI*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cA As element, lA As element
+    Set cA = CreateCalculationTestCell("ETI076", 7401, "R-12", Point3dFromXYZ(2000, 0, 0))
+    Set lA = CreateGroupedTestLine(7401, Point3dFromXYZ(2000, 60, 0), Point3dFromXYZ(2100, 60, 0))
+    TotalTests = TotalTests + 1
+    If RVEq("Repere", lA, "R-12") Then TestsPassed = TestsPassed + 1     ' member pulls the group cell's text
+    TotalTests = TotalTests + 1
+    If RVEq("Repere", cA, "R-12") Then TestsPassed = TestsPassed + 1     ' the cell pulls its own text (self)
 
+    ' --- CellText ungrouped self ---
+    Dim cB As element
+    Set cB = CreateCalculationTestCell("ETI077", 0, "R-99", Point3dFromXYZ(2200, 0, 0))
     TotalTests = TotalTests + 1
-    Dim cellSleep As element
-    Set cellSleep = CreateCalculationTestCell("PROPTEST", 201, "Val", Point3dFromXYZ(600, 0, 0))
-    If Not PropertyCalculation.IsTriggerCell(cellSleep) Then TestsPassed = TestsPassed + 1
+    If RVEq("Repere", cB, "R-99") Then TestsPassed = TestsPassed + 1     ' ungrouped matching cell -> own text
 
-    ' A plain (ungrouped) cell is not a trigger either
+    ' --- First-match: a specific rule before a general one wins ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cRef As element
+    Set cRef = CreateCalculationTestCell("ETIREF", 7403, "ignored", Point3dFromXYZ(2400, 0, 0))
     TotalTests = TotalTests + 1
-    Dim cellSleep2 As element
-    Set cellSleep2 = CreateCalculationTestCell("PROPTEST", 0, "Val", Point3dFromXYZ(650, 0, 0))
-    If Not PropertyCalculation.IsTriggerCell(cellSleep2) Then TestsPassed = TestsPassed + 1
+    If RVEq("Repere", cRef, "REF") Then TestsPassed = TestsPassed + 1    ' first matching rule (Value[REF]) wins
 
-    ' ProcessElement + NoteDeletedTriggerCell are inert no-ops (asleep: no crash, nothing recorded/written)
+    ' --- Value (fixed literal) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coupe]=Value[Type-A]"
+    PropertyCalculation.RefreshCalcRules
+    Dim lVal As element
+    Set lVal = CreateGroupedTestLine(0, Point3dFromXYZ(2600, 0, 0), Point3dFromXYZ(2700, 0, 0))
     TotalTests = TotalTests + 1
-    Dim bInert As Boolean
-    Dim sibsSleep() As element
-    bInert = True
-    PropertyCalculation.ProcessElement cellSleep                 ' asleep -> nothing calculated
-    sibsSleep = Link.GetLink(cellSleep)
-    PropertyCalculation.NoteDeletedTriggerCell cellSleep, sibsSleep   ' asleep -> records nothing
-    If bInert Then TestsPassed = TestsPassed + 1
+    If RVEq("Coupe", lVal, "Type-A") Then TestsPassed = TestsPassed + 1
 
-    ' --- Matcher (grammar v2) via ElementMatchesAnyRule (non-group rules, DGNLib-free) ---
+    ' --- Id (DLongToString of the bearing element) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Ref]=Id"
+    PropertyCalculation.RefreshCalcRules
+    Dim lId As element
+    Set lId = CreateGroupedTestLine(0, Point3dFromXYZ(2700, 0, 0), Point3dFromXYZ(2800, 0, 0))
+    TotalTests = TotalTests + 1
+    If RVEq("Ref", lId, DLongToString(lId.ID)) Then TestsPassed = TestsPassed + 1
 
-    ' Type[Line]: matches a line, not a cell
-    ARESConfig.ARES_PROPERTY_RULES.Value = "Type[Line]=Repere"
-    PropertyTagging.RefreshRules
-    Dim elLine As element
-    Set elLine = CreateLineElement2(Nothing, Point3dFromXYZ(700, 0, 0), Point3dFromXYZ(800, 0, 0))
-    ActiveModelReference.AddElement elLine
-    Dim cellForType As element
-    Set cellForType = CreateCalculationTestCell("ANYCELL", 0, "Val", Point3dFromXYZ(700, 60, 0))
+    ' --- Coord on a cell / line / shape / point-string. The cell (Origin=2800,30), shape (rectangle centre
+    '     3150,75) and point-string (Range centre 5050,50) assert the REAL anchor's X-substring so a
+    '     fabricated "0;0" (the m1 fault fallback) would FAIL - the point-string isolates the pure Range-
+    '     centre seed (no specific anchor). The line stays tolerant on its exact Origin. ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[XY]=Coord"
+    PropertyCalculation.RefreshCalcRules
+    Dim cCoord As element
+    Set cCoord = CreateCalculationTestCell("XYCELL", 0, "t", Point3dFromXYZ(2800, 30, 0))
     TotalTests = TotalTests + 1
-    If PropertyTagging.ElementMatchesAnyRule(elLine) Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1
-    If Not PropertyTagging.ElementMatchesAnyRule(cellForType) Then TestsPassed = TestsPassed + 1
+    If RVContains("XY", cCoord, "2800") Then TestsPassed = TestsPassed + 1     ' cell Origin (not a fabricated "0;0")
 
-    ' Cell[PROPX]: matches the cell named PROPX only (not another cell, not a line)
-    ARESConfig.ARES_PROPERTY_RULES.Value = "Cell[PROPX]=Repere"
-    PropertyTagging.RefreshRules
-    Dim cellNamed As element, cellUnnamed As element, lineForCell As element
-    Set cellNamed = CreateCalculationTestCell("PROPX", 0, "Val", Point3dFromXYZ(900, 0, 0))
-    Set cellUnnamed = CreateCalculationTestCell("PROPY", 0, "Val", Point3dFromXYZ(950, 0, 0))
-    Set lineForCell = CreateLineElement2(Nothing, Point3dFromXYZ(900, 60, 0), Point3dFromXYZ(1000, 60, 0))
-    ActiveModelReference.AddElement lineForCell
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[XY]=Coord[3]"
+    PropertyCalculation.RefreshCalcRules
+    Dim lCoord As element
+    Set lCoord = CreateGroupedTestLine(0, Point3dFromXYZ(2900, 40, 0), Point3dFromXYZ(3000, 40, 0))
     TotalTests = TotalTests + 1
-    If PropertyTagging.ElementMatchesAnyRule(cellNamed) Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1
-    If Not PropertyTagging.ElementMatchesAnyRule(cellUnnamed) Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1
-    If Not PropertyTagging.ElementMatchesAnyRule(lineForCell) Then TestsPassed = TestsPassed + 1
+    If RVContains("XY", lCoord, ";") Then TestsPassed = TestsPassed + 1
 
-    ' Type[Cell]&!Cell[A]: matches a cell B, not a cell A, not a line (strict negation)
-    ARESConfig.ARES_PROPERTY_RULES.Value = "Type[Cell]&!Cell[A]=Repere"
-    PropertyTagging.RefreshRules
-    Dim cellB As element, cellA As element, lineNeg As element
-    Set cellB = CreateCalculationTestCell("B", 0, "Val", Point3dFromXYZ(1100, 0, 0))
-    Set cellA = CreateCalculationTestCell("A", 0, "Val", Point3dFromXYZ(1150, 0, 0))
-    Set lineNeg = CreateLineElement2(Nothing, Point3dFromXYZ(1100, 60, 0), Point3dFromXYZ(1200, 60, 0))
-    ActiveModelReference.AddElement lineNeg
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[XY]=Coord"
+    PropertyCalculation.RefreshCalcRules
+    Dim shCoord As element
+    Set shCoord = CreateCalculationTestShape(0, 3100, 50)
     TotalTests = TotalTests + 1
-    If PropertyTagging.ElementMatchesAnyRule(cellB) Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1
-    If Not PropertyTagging.ElementMatchesAnyRule(cellA) Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1
-    If Not PropertyTagging.ElementMatchesAnyRule(lineNeg) Then TestsPassed = TestsPassed + 1
+    If RVContains("XY", shCoord, "3150") Then TestsPassed = TestsPassed + 1    ' closed -> Centroid or Range seed = centre 3150,75
 
-    ' Wildcard Cell[ETI0*]: matches a cell named ETI076
-    ARESConfig.ARES_PROPERTY_RULES.Value = "Cell[ETI0*]=Repere"
-    PropertyTagging.RefreshRules
-    Dim cellWild As element
-    Set cellWild = CreateCalculationTestCell("ETI076", 0, "Val", Point3dFromXYZ(1300, 0, 0))
+    ' Point string = NO specific anchor -> the universal Range-centre SEED (m1 fix: a geometry fault degrades
+    ' to this seed, never to a fabricated "0;0"). Range [(5000,0),(5100,100)] -> centre (5050,50).
+    Dim psSeed As element
+    Set psSeed = CreateCalculationTestPointString(0, 5000, 0)
     TotalTests = TotalTests + 1
-    If PropertyTagging.ElementMatchesAnyRule(cellWild) Then TestsPassed = TestsPassed + 1
+    If RVEq("XY", psSeed, "5050;50") Then TestsPassed = TestsPassed + 1
+
+    ' --- No matching rule for P -> the resolver reports "no rule" (P is left untouched) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]&Cell[NOSUCH]=Value[x]"
+    PropertyCalculation.RefreshCalcRules
+    Dim lNo As element
+    Set lNo = CreateGroupedTestLine(0, Point3dFromXYZ(3300, 0, 0), Point3dFromXYZ(3400, 0, 0))
+    TotalTests = TotalTests + 1
+    If RVNoRule("Repere", lNo) Then TestsPassed = TestsPassed + 1
+
+    ' --- CellText with no surviving matching cell -> the rule governs but yields "" (delete-reconcile) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=CellText[ETI*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim lEmpty As element
+    Set lEmpty = CreateGroupedTestLine(7410, Point3dFromXYZ(3400, 0, 0), Point3dFromXYZ(3500, 0, 0))
+    TotalTests = TotalTests + 1
+    If RVHasEmpty("Repere", lEmpty) Then TestsPassed = TestsPassed + 1
+
+    ' --- Multi-trigger: two ETI cells in a group -> the resolver returns one cell's text (non-empty) ---
+    Dim cM1 As element, cM2 As element, lM As element
+    Set cM1 = CreateCalculationTestCell("ETI076", 7411, "A", Point3dFromXYZ(3600, 0, 0))
+    Set cM2 = CreateCalculationTestCell("ETI077", 7411, "B", Point3dFromXYZ(3650, 0, 0))
+    Set lM = CreateGroupedTestLine(7411, Point3dFromXYZ(3600, 60, 0), Point3dFromXYZ(3700, 60, 0))
+    TotalTests = TotalTests + 1
+    If RVHasNonEmpty("Repere", lM) Then TestsPassed = TestsPassed + 1
+
+    ' --- IsTriggerCell re-wire (DGNLib-FREE) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=CellText[ETI*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cTrig As element, cNoTrig As element, cUngrp As element, lTrig As element
+    Set cTrig = CreateCalculationTestCell("ETI076", 7420, "x", Point3dFromXYZ(3800, 0, 0))
+    Set cNoTrig = CreateCalculationTestCell("OTHER", 7421, "x", Point3dFromXYZ(3850, 0, 0))
+    Set cUngrp = CreateCalculationTestCell("ETI076", 0, "x", Point3dFromXYZ(3900, 0, 0))
+    Set lTrig = CreateGroupedTestLine(7422, Point3dFromXYZ(3800, 60, 0), Point3dFromXYZ(3900, 60, 0))
+    TotalTests = TotalTests + 1
+    If PropertyCalculation.IsTriggerCell(cTrig) Then TestsPassed = TestsPassed + 1        ' grouped ETI cell
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.IsTriggerCell(cNoTrig) Then TestsPassed = TestsPassed + 1  ' name mismatch
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.IsTriggerCell(cUngrp) Then TestsPassed = TestsPassed + 1   ' ungrouped -> not a trigger
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.IsTriggerCell(lTrig) Then TestsPassed = TestsPassed + 1    ' a line is not a trigger
+
+    ' --- ProcessElement smoke: both passes run without crashing (writes only where attached) ---
+    Dim bSmoke As Boolean
+    bSmoke = True
+    PropertyCalculation.ProcessElement cTrig
+    PropertyCalculation.ProcessElement lTrig
+    TotalTests = TotalTests + 1
+    If bSmoke Then TestsPassed = TestsPassed + 1
 
     ' Restore config
     ARESConfig.ARES_PROPERTY_CALC.Value = sOldEnabled
-    ARESConfig.ARES_CALC_DETACH_EMPTY.Value = sOldDetach
-    ARESConfig.ARES_PROPERTY_RULES.Value = sOldRules
-    ARESConfig.ARES_AUTO_PROPERTIES.Value = sOldAuto
-    PropertyTagging.RefreshRules                          ' re-parse the restored rules (tests changed them)
+    ARESConfig.ARES_CALC_RULES.Value = sOldCalcRules
+    PropertyCalculation.RefreshCalcRules
 
     ' Allow a small margin for environment variance (as CustomPropertyHandlerTest does)
     PropertyCalculationTest = (TestsPassed >= TotalTests - 1)
@@ -1800,6 +1844,202 @@ Private Function DeadSeg(ByVal sRule As String, ByVal seg1 As String, ByVal seg2
             End If
         End If
     End If
+End Function
+
+' Test 20: PropertyCalculation calc grammar - ValidateAndNormalizeCalcRule (validate + normalise to the
+' COMPACT canonical form) and CalcRuleHasNoEffect (dead-condition detector, Prop target ignored). Pure
+' string logic, deterministic, DGNLib-free, no config mutation, so no save/restore and no -1 tolerance -
+' every case passes EXACTLY. Valid rules return "" and the expected canonical (Prop keyword + source
+' keyword canonical, condition names/args VERBATIM via the shared RuleGrammar); invalid rules (tag rule /
+' unknown source / bad arity / wildcard target / empty side) return a non-empty reason; CalcRuleHasNoEffect
+' is True (with the two conflicting segments) for a dead condition combo and False otherwise.
+Private Function CalcRuleValidationTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    Dim canon As String
+    Dim segs() As String
+
+    ' --- Valid rules: reason "" AND the expected canonical form (matrix #1-9, #20) ---
+    TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=CellText[ETI*]", "Prop[Repere]=CellText[ETI*]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[Coupe]=Value[Type-A]", "Prop[Coupe]=Value[Type-A]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[XY]=Coord", "Prop[XY]=Coord") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[XY]=Coord[3]", "Prop[XY]=Coord[3]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[Ref]=Id", "Prop[Ref]=Id") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[Repere]&Cell[ETIREF]=Value[REF]", "Prop[Repere]&Cell[ETIREF]=Value[REF]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[XY]&Type[Line]=Coord", "Prop[XY]&Type[Line]=Coord") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=CellText[ETI0?6]", "Prop[Repere]=CellText[ETI0?6]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[X]=Value[a|b]", "Prop[X]=Value[a|b]") Then TestsPassed = TestsPassed + 1
+    ' Keyword casing canonicalises; the condition type NAME stays VERBATIM ("line", not "Line") - reusing
+    ' RuleGrammar.ConditionToCanonical, which keeps names verbatim (matrix #8's "Type[Line]" is a typo).
+    TotalTests = TotalTests + 1: If CNorm("prop[xy]&type[line]=coord", "Prop[xy]&Type[line]=Coord") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("PROP[x]=ID", "Prop[x]=Id") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("prop[x]=cellText[ETI*]", "Prop[x]=CellText[ETI*]") Then TestsPassed = TestsPassed + 1
+    ' Normalisation collapses spare spaces around "&" and "="
+    TotalTests = TotalTests + 1: If CNorm("  Prop[XY]  &  Type[Line]  =  Coord  ", "Prop[XY]&Type[Line]=Coord") Then TestsPassed = TestsPassed + 1
+    ' Empty rule -> "" reason with empty canonical (the caller deletes)
+    TotalTests = TotalTests + 1
+    canon = "sentinel"
+    If PropertyCalculation.ValidateAndNormalizeCalcRule("", canon) = "" Then
+        If canon = "" Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' --- Invalid rules: a non-empty reason (matrix #10-18 + a tag rule + bare sources) ---
+    TotalTests = TotalTests + 1: If CReject("WALLS=Commune") Then TestsPassed = TestsPassed + 1              ' no Prop target (a tag-style rule)
+    TotalTests = TotalTests + 1: If CReject("Cell[X]=Repere") Then TestsPassed = TestsPassed + 1             ' a tag rule (left is a condition)
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=Colour[3]") Then TestsPassed = TestsPassed + 1          ' unknown source
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=") Then TestsPassed = TestsPassed + 1                   ' empty source side
+    TotalTests = TotalTests + 1: If CReject("=CellText[a]") Then TestsPassed = TestsPassed + 1               ' empty target side
+    TotalTests = TotalTests + 1: If CReject("Prop[]=Value[a]") Then TestsPassed = TestsPassed + 1            ' empty property name
+    TotalTests = TotalTests + 1: If CReject("Prop[Re*]=Value[a]") Then TestsPassed = TestsPassed + 1         ' wildcard target
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=Value[]") Then TestsPassed = TestsPassed + 1            ' empty Value[]
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=CellText[]") Then TestsPassed = TestsPassed + 1         ' empty CellText[] pattern
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=CellText") Then TestsPassed = TestsPassed + 1           ' CellText with no [pattern]
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=Value") Then TestsPassed = TestsPassed + 1              ' Value with no [text]
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=Id[5]") Then TestsPassed = TestsPassed + 1              ' Id takes no argument
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=Coord[x]") Then TestsPassed = TestsPassed + 1           ' Coord[n] non-integer
+    TotalTests = TotalTests + 1: If CReject("Prop[A;B]=Value[a]") Then TestsPassed = TestsPassed + 1         ' ";" inside Prop[...]
+
+    ' --- Contradiction detector (conditions only; the Prop target is ignored) ---
+    TotalTests = TotalTests + 1: If CDeadSeg("Prop[X]&Cell[A]&Type[Line]=Value[a]", "Cell[A]", "Type[Line]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CDeadSeg("Prop[X]&Type[Line]&Type[Arc]=Value[a]", "Type[Line]", "Type[Arc]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CDeadSeg("Prop[X]&Lvl[A]&Lvl[B]=Value[a]", "Lvl[A]", "Lvl[B]") Then TestsPassed = TestsPassed + 1
+    ' Not dead: compatible (Cell + Type[Cell]) / no conditions -> no verdict
+    TotalTests = TotalTests + 1: If Not PropertyCalculation.CalcRuleHasNoEffect("Prop[X]&Cell[A]&Type[Cell]=Value[a]", segs) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If Not PropertyCalculation.CalcRuleHasNoEffect("Prop[X]=CellText[ETI*]", segs) Then TestsPassed = TestsPassed + 1
+
+    CalcRuleValidationTest = (TestsPassed = TotalTests)
+    Exit Function
+
+ErrorHandler:
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CalcRuleValidationTest"
+    End If
+    CalcRuleValidationTest = False
+End Function
+
+' Helper: True when sRule validates (reason "") to EXACTLY sExpectedCanonical (calc grammar).
+Private Function CNorm(ByVal sRule As String, ByVal sExpectedCanonical As String) As Boolean
+    Dim canon As String
+    Dim reason As String
+    CNorm = False
+    reason = PropertyCalculation.ValidateAndNormalizeCalcRule(sRule, canon)
+    If Len(reason) = 0 Then
+        If canon = sExpectedCanonical Then CNorm = True
+    End If
+End Function
+
+' Helper: True when sRule is rejected (non-empty reason).
+Private Function CReject(ByVal sRule As String) As Boolean
+    Dim canon As String
+    CReject = (Len(PropertyCalculation.ValidateAndNormalizeCalcRule(sRule, canon)) > 0)
+End Function
+
+' Helper: True when the calc rule's conditions are flagged dead with exactly the two expected segments.
+Private Function CDeadSeg(ByVal sRule As String, ByVal seg1 As String, ByVal seg2 As String) As Boolean
+    Dim segs() As String
+    CDeadSeg = False
+    If PropertyCalculation.CalcRuleHasNoEffect(sRule, segs) Then
+        If UBound(segs) - LBound(segs) = 1 Then
+            If segs(LBound(segs)) = seg1 Then
+                If segs(LBound(segs) + 1) = seg2 Then CDeadSeg = True
+            End If
+        End If
+    End If
+End Function
+
+' Helper: True when ResolvePropertyValue governs P on el (bHasRule) AND yields EXACTLY sExpected.
+Private Function RVEq(ByVal P As String, ByVal el As element, ByVal sExpected As String) As Boolean
+    Dim bHas As Boolean
+    Dim v As String
+    RVEq = False
+    v = PropertyCalculation.ResolvePropertyValue(P, el, bHas)
+    If bHas Then
+        If v = sExpected Then RVEq = True
+    End If
+End Function
+
+' Helper: True when P is governed (bHasRule) AND yields a value CONTAINING sSub.
+Private Function RVContains(ByVal P As String, ByVal el As element, ByVal sSub As String) As Boolean
+    Dim bHas As Boolean
+    Dim v As String
+    RVContains = False
+    v = PropertyCalculation.ResolvePropertyValue(P, el, bHas)
+    If bHas Then
+        If InStr(v, sSub) > 0 Then RVContains = True
+    End If
+End Function
+
+' Helper: True when NO calc rule governs P on el (the property is left untouched).
+Private Function RVNoRule(ByVal P As String, ByVal el As element) As Boolean
+    Dim bHas As Boolean
+    Dim v As String
+    v = PropertyCalculation.ResolvePropertyValue(P, el, bHas)
+    RVNoRule = (Not bHas)
+End Function
+
+' Helper: True when P is governed (bHasRule) AND yields the EMPTY string (a CellText with no surviving cell).
+Private Function RVHasEmpty(ByVal P As String, ByVal el As element) As Boolean
+    Dim bHas As Boolean
+    Dim v As String
+    RVHasEmpty = False
+    v = PropertyCalculation.ResolvePropertyValue(P, el, bHas)
+    If bHas Then
+        If Len(v) = 0 Then RVHasEmpty = True
+    End If
+End Function
+
+' Helper: True when P is governed (bHasRule) AND yields a NON-empty value (multi-trigger: one cell's text).
+Private Function RVHasNonEmpty(ByVal P As String, ByVal el As element) As Boolean
+    Dim bHas As Boolean
+    Dim v As String
+    RVHasNonEmpty = False
+    v = PropertyCalculation.ResolvePropertyValue(P, el, bHas)
+    If bHas Then
+        If Len(v) > 0 Then RVHasNonEmpty = True
+    End If
+End Function
+
+' Build a graphic line from p1 to p2 in graphic group lGroup (0 = ungrouped), added to the active model.
+' Helper for PropertyCalculationTest.
+Private Function CreateGroupedTestLine(ByVal lGroup As Long, ByVal p1 As Point3d, ByVal p2 As Point3d) As element
+    Dim oLine As LineElement
+    Set oLine = CreateLineElement2(Nothing, p1, p2)
+    If lGroup <> 0 Then oLine.GraphicGroup = lGroup
+    ActiveModelReference.AddElement oLine
+    Set CreateGroupedTestLine = oLine
+End Function
+
+' Build a closed rectangular shape at (baseX, baseY) in graphic group lGroup (0 = ungrouped), added to the
+' active model. Helper for PropertyCalculationTest (Coord on a closed element -> Centroid).
+Private Function CreateCalculationTestShape(ByVal lGroup As Long, ByVal baseX As Double, ByVal baseY As Double) As element
+    Dim verts(4) As Point3d
+    verts(0) = Point3dFromXYZ(baseX, baseY, 0)
+    verts(1) = Point3dFromXYZ(baseX + 100, baseY, 0)
+    verts(2) = Point3dFromXYZ(baseX + 100, baseY + 50, 0)
+    verts(3) = Point3dFromXYZ(baseX, baseY + 50, 0)
+    verts(4) = verts(0)
+    Dim oShape As ShapeElement
+    Set oShape = CreateShapeElement1(Nothing, verts, msdFillModeNotFilled)
+    If lGroup <> 0 Then oShape.GraphicGroup = lGroup
+    ActiveModelReference.AddElement oShape
+    Set CreateCalculationTestShape = oShape
+End Function
+
+' Build a 2-point point string with corners (baseX, baseY) and (baseX+100, baseY+100) in graphic group
+' lGroup (0 = ungrouped), added to the active model. Helper for PropertyCalculationTest: a point string has
+' NO type-specific anchor (not cell/text/line/arc/ellipse/closed), so its Coord exercises the universal
+' Range-centre seed (Range centre = (baseX+50, baseY+50)).
+Private Function CreateCalculationTestPointString(ByVal lGroup As Long, ByVal baseX As Double, ByVal baseY As Double) As element
+    Dim verts(1) As Point3d
+    verts(0) = Point3dFromXYZ(baseX, baseY, 0)
+    verts(1) = Point3dFromXYZ(baseX + 100, baseY + 100, 0)
+    Dim oPs As element
+    Set oPs = CreatePointStringElement1(Nothing, verts, False)
+    If lGroup <> 0 Then oPs.GraphicGroup = lGroup
+    ActiveModelReference.AddElement oPs
+    Set CreateCalculationTestPointString = oPs
 End Function
 
 ' Build a single-TextElement graphic cell named sName, in graphic group lGroup (0 = ungrouped),

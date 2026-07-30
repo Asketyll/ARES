@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyCalculation_GUI_Options 
    Caption         =   "PropertyPropagation_GUI_Options"
-   ClientHeight    =   1455
+   ClientHeight    =   2175
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   4815
+   ClientWidth     =   5295
    OleObjectBlob   =   "PropertyCalculation_GUI_Options.frx":0000
 End
 Attribute VB_Name = "PropertyCalculation_GUI_Options"
@@ -14,19 +14,36 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' UserForm: PropertyCalculation_GUI_Options
 ' Description: Options panel for Property Calculation - the value-calc master switch
-'              (ARES_Property_Calc) and the detach-empty option (ARES_Calc_Detach_Empty).
-'              The trigger cells and target properties now come from the @cell rules in Property Tagging
-'              (GUI 1, epic 12) - this form owns no cell-name / target-property config.
+'              (ARES_Property_Calc), the detach-empty option (ARES_Calc_Detach_Empty), and the calc rules
+'              (ARES_Calc_Rules, epic 14). Calc rules are edited one at a time through an editable ComboBox
+'              (split on ";"): pick a rule -> edit -> commit replaces it; free-type + commit appends; empty
+'              + commit removes it. Every commit is validated by PropertyCalculation.ValidateAndNormalizeCalcRule,
+'              so a malformed rule is refused (status-only, never logged) instead of saved.
+'
+'              The editable-ComboBox mechanics and the read-only COLOURED SYNTAX PREVIEW below
+'              ComboBox_CalcRules are provided by the shared RuleEditorUX module (the same code the tag rule
+'              editor uses - no divergence). This form stays a thin consumer: it runs the calc grammar
+'              (ValidateAndNormalizeCalcRule + CalcRuleHasNoEffect) and hands RuleEditorUX the render string
+'              + validity + red segments + the bold-keyword list (the target/condition keywords Prop/Lvl/
+'              Cell/Type AND the four source keywords CellText/Value/Coord/Id).
 '
 '              DESIGNER (manual, Asketyll) - controls required with EXACTLY these names:
 '                Main_CheckBox (CheckBox, value master), DetachEmpty_CheckBox (CheckBox, detach-empty
-'                option; caption set in code), Reset_Command (CommandButton).
-'              StartUpPosition = 0 Manual. Tab order: master -> detach-empty -> reset.
+'                option; caption set in code), ComboBox_CalcRules (ComboBox, Style = 0 fmStyleDropDownCombo
+'                EDITABLE - the sole per-rule editor), Frame_CalcPreview (Frame, render surface directly
+'                BELOW ComboBox_CalcRules - the coloured Labels are created at runtime, NONE in the
+'                designer), Reset_Command (CommandButton).
+'              StartUpPosition = 0 Manual. Tab order: master -> detach-empty -> calc-rules-combo -> reset
+'              (Frame_CalcPreview is a non-focusable container, not in the tab order).
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, FormUXHelper, FormPlacement, Command
+' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyCalculation, RuleEditorUX, FormUXHelper, FormPlacement, Command
 Option Explicit
 
 Private mbLocked As Boolean
+
+' The ComboBox list index the user picked before editing its text (-1 = new / free-typed). Maintained via
+' RuleEditorUX.CaptureEditIndex on every _Change (a clean pick sets it; typing preserves it).
+Private mCalcRuleEditIndex As Long
 
 ' ============================================================
 ' MASTER SWITCH - CheckBox -> ARES_Property_Calc
@@ -91,6 +108,168 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
+' CALC RULES - editable ComboBox -> ARES_Calc_Rules (one rule at a time)
+' The editable-ComboBox mechanics + coloured preview are provided by RuleEditorUX (the SAME code as the tag
+' rule editor); this form runs the calc grammar (PropertyCalculation.ValidateAndNormalizeCalcRule /
+' CalcRuleHasNoEffect) and delegates the rest.
+' ============================================================
+
+' Re-seed the ComboBox from ARES_Calc_Rules and refresh the preview. The seed (clear/split/sentinel/
+' reset-text) is RuleEditorUX's; the edit index and the preview render stay here.
+Private Sub SeedCalcRulesCombo()
+    On Error GoTo ErrorHandler
+    RuleEditorUX.SeedRulesCombo ComboBox_CalcRules, ARESConfig.ARES_CALC_RULES.value
+    mCalcRuleEditIndex = -1
+    RenderCurrentCalcPreview
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.SeedCalcRulesCombo"
+End Sub
+
+' On every combo change: update the tracked edit index (RuleEditorUX.CaptureEditIndex preserves it while
+' typing, sets it on a clean pick) and re-render the coloured preview of the edited text.
+Private Sub ComboBox_CalcRules_Change()
+    On Error GoTo ErrorHandler
+    If mbLocked Then Exit Sub
+    mCalcRuleEditIndex = RuleEditorUX.CaptureEditIndex(ComboBox_CalcRules, mCalcRuleEditIndex)
+    RenderCurrentCalcPreview
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.ComboBox_CalcRules_Change"
+End Sub
+
+Private Sub ComboBox_CalcRules_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.ComboBox_CalcRules_KeyDown"
+End Sub
+
+Private Sub ComboBox_CalcRules_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
+        Case FormUXKeyCommit
+            CommitCalcRuleEdit
+        Case FormUXKeyCancel
+            SeedCalcRulesCombo                  ' revert: drop the edit, no write
+    End Select
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.ComboBox_CalcRules_KeyUp"
+End Sub
+
+Private Sub ComboBox_CalcRules_Exit(ByVal Cancel As MSForms.ReturnBoolean)
+    On Error GoTo ErrorHandler
+    CommitCalcRuleEdit                          ' focus-out commit (same path as Enter)
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.ComboBox_CalcRules_Exit"
+End Sub
+
+' Apply the current edit to the calc-rules list and write it back. This form keeps the GRAMMAR-SPECIFIC
+' lines: read the edited text, validate + normalise via PropertyCalculation (reason -> status + re-seed, no
+' write; canonical otherwise), then delegate the rebuild to RuleEditorUX.RebuildRules, write ARES_Calc_Rules,
+' RefreshCalcRules, re-seed. A refusal shows CalcRuleInvalid (status only - never logged). Both Enter (KeyUp)
+' and focus-out (Exit) route here - one commit path.
+Private Sub CommitCalcRuleEdit()
+    On Error GoTo ErrorHandler
+    If mbLocked Then Exit Sub                   ' re-entrance guard (a commit already running)
+
+    Dim sEdited As String
+    Dim bHasIndex As Boolean
+    sEdited = Trim(ComboBox_CalcRules.text)
+    bHasIndex = (mCalcRuleEditIndex >= 0)
+
+    ' Free-typed nothing: no change - just re-seed a clean combo. (Nested Ifs, never And.)
+    If Not bHasIndex Then
+        If Len(sEdited) = 0 Then
+            SeedCalcRulesCombo
+            Exit Sub
+        End If
+    End If
+
+    ' Validate + normalise the single edited rule (an empty text is a delete and needs no validation).
+    ' On success sCanonical holds the CANONICAL stored form; on failure a status is shown and nothing is
+    ' written. The reason itself is discarded (status-only - a mistyped rule is expected input, not a fault).
+    Dim sCanonical As String
+    sCanonical = ""
+    If Len(sEdited) > 0 Then
+        Dim sReason As String
+        sReason = PropertyCalculation.ValidateAndNormalizeCalcRule(sEdited, sCanonical)
+        If Len(sReason) > 0 Then
+            LangManager.ShowStatusT "CalcRuleInvalid"
+            SeedCalcRulesCombo                   ' revert to the last-good list
+            Exit Sub
+        End If
+    End If
+
+    ' Rebuild the ";"-joined value (replace/append/remove, sentinel excluded) - delegated to RuleEditorUX.
+    Dim sJoined As String
+    sJoined = RuleEditorUX.RebuildRules(ComboBox_CalcRules, mCalcRuleEditIndex, sCanonical)
+
+    SetLocked True
+    ARESConfig.ARES_CALC_RULES.value = sJoined
+    PropertyCalculation.RefreshCalcRules         ' apply the edited calc rules live, no restart
+    SeedCalcRulesCombo
+    SetLocked False
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.CommitCalcRuleEdit"
+End Sub
+
+' Compute this grammar's preview data for the text currently in ComboBox_CalcRules and hand it to
+' RuleEditorUX: validate + normalise -> canonical (valid) or raw (invalid); when valid, CalcRuleHasNoEffect
+' -> the red segments; the calc bold-keywords are the target/condition keywords AND the four sources
+' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id bold alongside CellText[..]/Value[..]).
+' RuleEditorUX renders the coloured runs (read-only).
+Private Sub RenderCurrentCalcPreview()
+    On Error GoTo ErrorHandler
+
+    Dim sText As String, sCanonical As String, sReason As String, sRender As String
+    Dim bValid As Boolean
+    Dim segs() As String
+    Dim kw(7) As String
+
+    ReDim segs(0 To 0)
+    segs(0) = ""
+    sRender = ""
+
+    sText = ComboBox_CalcRules.text
+    If Len(Trim(sText)) > 0 Then
+        sReason = PropertyCalculation.ValidateAndNormalizeCalcRule(sText, sCanonical)
+        bValid = (Len(sReason) = 0)
+        If bValid Then
+            sRender = sCanonical
+            PropertyCalculation.CalcRuleHasNoEffect sCanonical, segs   ' fills segs with the contradiction segments
+        Else
+            sRender = sText
+        End If
+    End If
+
+    kw(0) = "Prop"
+    kw(1) = "Lvl"
+    kw(2) = "Cell"
+    kw(3) = "Type"
+    kw(4) = "CellText"
+    kw(5) = "Value"
+    kw(6) = "Coord"
+    kw(7) = "Id"
+    RuleEditorUX.RenderPreview Frame_CalcPreview, sRender, bValid, segs, kw
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.RenderCurrentCalcPreview"
+End Sub
+
+' ============================================================
 ' FORM LIFECYCLE
 ' ============================================================
 
@@ -105,6 +284,11 @@ Private Sub UserForm_Initialize()
     ' Tooltips
     FormUXHelper.SetTip Main_CheckBox, "CalculationGUIOptionsMain_LabelTip"
     FormUXHelper.SetTip DetachEmpty_CheckBox, "CalculationGUIOptionsDetachEmpty_LabelTip"
+    FormUXHelper.SetTip ComboBox_CalcRules, "CalculationGUIOptionsCalcRules_Tip"
+
+    ' Match ComboBox_CalcRules' font to the coloured preview (fixed-pitch), so the combo text and the preview
+    ' below it line up (delegated to RuleEditorUX - fresh StdFont, conditional height bump).
+    RuleEditorUX.MatchComboFont ComboBox_CalcRules
 
     ' Restore-defaults button
     Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
@@ -118,13 +302,14 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.UserForm_Initialize"
 End Sub
 
-' Re-seed the two checkboxes from the current config values.
+' Re-seed the two checkboxes + the calc-rules combo from the current config values.
 Private Sub SeedControls()
     On Error GoTo ErrorHandler
 
     Main_CheckBox.value = (UCase(Trim(ARESConfig.ARES_PROPERTY_CALC.value)) = "TRUE")
     ' Detach-empty option is independent of the master switch (seeded like Main_CheckBox).
     DetachEmpty_CheckBox.value = (UCase(Trim(ARESConfig.ARES_CALC_DETACH_EMPTY.value)) = "TRUE")
+    SeedCalcRulesCombo
     Exit Sub
 
 ErrorHandler:
@@ -136,6 +321,8 @@ Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
     FormUXHelper.PersistDefault ARESConfig.ARES_PROPERTY_CALC
     FormUXHelper.PersistDefault ARESConfig.ARES_CALC_DETACH_EMPTY
+    FormUXHelper.PersistDefault ARESConfig.ARES_CALC_RULES
+    PropertyCalculation.RefreshCalcRules
     SeedControls
     LangManager.ShowStatusT "FormDefaultsRestored"
     Exit Sub
@@ -162,6 +349,11 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     If mbLocked Then
         Cancel = True
     Else
+        ' The ComboBox is the sole calc-rules editor, so flush a pending combo edit on click-X (MSForms does
+        ' not guarantee the combo's _Exit fires on teardown). CommitCalcRuleEdit is re-entrance-guarded and
+        ' idempotent: a valid edit is written, an invalid one is dropped with CalcRuleInvalid, and an
+        ' already-committed / empty state is a harmless no-op (RA7). No partial write on any path.
+        CommitCalcRuleEdit
         FormPlacement.SaveFormPosition Me, Me.Name
         command.OnPropertyCalculationGUIClosed
     End If
@@ -170,3 +362,4 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.UserForm_QueryClose"
 End Sub
+

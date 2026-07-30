@@ -91,19 +91,16 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
         Case msdChangeTrackActionDelete
             If Not BeforeChange Is Nothing Then
                 If ShouldQueueForDeletion(BeforeChange, els) Then
-                    ' Queue each linked element for processing
+                    ' Queue each linked element for processing. Property Calculation needs no deletion
+                    ' hook here (epic 14): deleting a trigger cell already re-queues its former group
+                    ' members (via Link.GetLink), so their Depth-0 BEARING pass re-resolves each carried
+                    ' calc property against the CURRENT group - the surviving matching cell's text, or ""
+                    ' (transition-guarded clear/detach) when none survives. No pending-clear machinery.
                     For i = LBound(els) To UBound(els)
                         If ElementInProcesse.Add(els(i)) Then
                             EnsureIdleHandlerRegistered
                         End If
                     Next i
-
-                    ' Property Calculation: if the deleted element is a trigger cell, record its
-                    ' former siblings (els, already resolved above) for a deferred, reconciled detach
-                    ' on idle. Read-only here - never writes to the model inside the change event.
-                    If PropertyCalculation.IsEnabled Then
-                        PropertyCalculation.NoteDeletedTriggerCell BeforeChange, els
-                    End If
                 End If
             End If
     End Select
@@ -251,11 +248,11 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
             PropertyTagging.ApplyPropertyRules oElement
         End If
         ' Property Calculation runs at Depth 0 too, BEFORE the graphic-group filter below, so the
-        ' deferred-detach consume path still fires for a former sibling whose graphic group may have
-        ' collapsed to a single member after its trigger cell was deleted. IsTriggerCell requires a
-        ' real graphic group internally, so the calculation path stays naturally inert for ungrouped
-        ' cells even though the hook runs before the filter. Ordered AFTER PropertyTagging so both
-        ' features' Depth-0 work runs; calculation only ever touches its own configured property.
+        ' BEARING pass still reconciles a former sibling whose graphic group may have collapsed to a
+        ' single member after its trigger cell was deleted (re-resolving each carried calc property
+        ' against the CURRENT group). IsTriggerCell requires a real graphic group internally, so the
+        ' calculation path stays naturally inert for ungrouped cells even though the hook runs before the
+        ' filter. Ordered AFTER PropertyTagging so both features' Depth-0 work runs.
         If PropertyCalculation.IsEnabled Then
             PropertyCalculation.ProcessElement oElement
         End If
@@ -662,7 +659,11 @@ Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
         Exit Function
     End If
 
-    ' Ungrouped element: queue it only if PropertyTagging is on and a rule matches it
+    ' Ungrouped element: queue it only if PropertyTagging is on and a rule matches it.
+    ' Documented limitation (epic 14, RA7): an UNGROUPED element already bearing a calc-target property
+    ' but matching NO tag rule is not re-queued on its own Modify, so a self-source calc rule (e.g.
+    ' Prop[XY]=Coord) does not auto-recompute on a pure move. Handling it would cost a per-distinct-target
+    ' IsItemAttachedToElement on every ungrouped add/modify (a hot-path cost) - declined for parsimony.
     If CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value) Then
         ShouldQueueElement = PropertyTagging.ElementMatchesAnyRule(oElement)
     End If

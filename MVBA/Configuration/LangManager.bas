@@ -185,6 +185,8 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_CalculationValueRejected", "ARES: Property calculation - value rejected by the target property"
     moTranslations.Add "EN_CalculationNoTarget", "ARES: Property calculation - no group member carries the target property; enable Property Tagging and check the property is attached (DGNLib)"
     moTranslations.Add "EN_CalculationMultipleTriggers", "ARES: Property calculation - several trigger cells in this group; the last-modified one sets the value"
+    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rules - invalid rule ignored (Prop[name]=CellText/Value/Coord/Id; separate rules with ';', not '|')"
+    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText[pattern] | Value[text] | Coord[n] | Id. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord"
     ' Tooltips - Zoning
     moTranslations.Add "EN_ZoningGUIOptionsEditLevels_CommandTip", "Source levels to process (pipe-separated |)."
     moTranslations.Add "EN_ZoningGUIOptionsDistance_LabelTip", "Buffer distance in master units. Must be a positive number."
@@ -384,6 +386,8 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_CalculationValueRejected", "ARES : Calcul de propriété - valeur refusée par la propriété cible"
     moTranslations.Add "FR_CalculationNoTarget", "ARES : Calcul de propriété - aucun membre du groupe ne porte la propriété cible ; activez l'étiquetage de propriété et vérifiez que la propriété est attachée (DGNLib)"
     moTranslations.Add "FR_CalculationMultipleTriggers", "ARES : Calcul de propriété - plusieurs cellules déclencheuses dans ce groupe ; la dernière modifiée impose la valeur"
+    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règles de calcul - règle invalide ignorée (Prop[nom]=CellText/Value/Coord/Id ; séparez les règles par ';', pas '|')"
+    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText[motif] | Value[texte] | Coord[n] | Id. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord"
     ' Tooltips - Zoning
     moTranslations.Add "FR_ZoningGUIOptionsEditLevels_CommandTip", "Niveaux sources à traiter (séparés par |)."
     moTranslations.Add "FR_ZoningGUIOptionsDistance_LabelTip", "Distance de la zone tampon en unités maître. Doit être un nombre positif."
