@@ -14,6 +14,10 @@
 '              var (default "Commune|Coupe_Type") - each name is BOTH the ItemType name and the
 '              property name. A user adds a custom property by authoring it in the DGNLib (ItemType +
 '              value list) and adding its name to that list; no code change needed.
+'
+'              It also owns the MicroStation-side Item Type STATE refresh (RefreshItemTypes):
+'              MicroStation reads MS_DGNLIBLIST only at boot, so a DGNLib deployed or edited
+'              afterwards needs an explicit refresh to become visible.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), ErrorHandlerClass (global ErrorHandler)
 
@@ -60,6 +64,36 @@ Private Function GetCustomPropertyListRaw() As String
 ErrorHandler:
     GetCustomPropertyListRaw = DEFAULT_CUSTOM_PROPERTIES
 End Function
+
+'######################################################################################################################
+'                              ITEM TYPE STATE REFRESH (MicroStation side)
+'######################################################################################################################
+
+' Force MicroStation to re-read its Item Type state, so ItemTypes deployed or edited in a DGNLib become
+' visible without restarting the session. MicroStation only scans MS_DGNLIBLIST at boot; this key-in is
+' the supported way to refresh that state afterwards. Note: SendKeyin is synchronous (it returns once
+' MicroStation has processed the key-in - mvba-docs/03-methods/SendKeyin_Method.md).
+'
+' Idempotent and deliberately silent: refreshing an already-current state is a no-op, and this is a
+' background consistency step, so there is no status message and no translation key.
+Public Sub RefreshItemTypes()
+    On Error GoTo ErrorHandler
+
+    ' The UPDATEALL key-in only takes effect while the Item Types dialog is OPEN (live-established by
+    ' Asketyll, 2026-08-10) - hence the open / update / close sandwich. Works inline from the DGN-open
+    ' event too (the earlier on-open failure was the missing dialog, not timing).
+    CadInputQueue.SendKeyin "DIALOG ITEMTYPE OPEN"
+    CadInputQueue.SendKeyin "ITEMTYPE DIALOG UPDATEALL"
+    CadInputQueue.SendKeyin "DIALOG ITEMTYPE CLOSE"
+
+    ' Restore the default command state after the key-ins (the documented SendKeyin pattern - see the
+    ' CadInputQueue example in mvba-docs; same call as RegionSplitLocate).
+    CommandState.StartDefaultCommand
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.RefreshItemTypes"
+End Sub
 
 '######################################################################################################################
 '                              GENERIC LIBRARY HELPERS (reusable, schema-agnostic)

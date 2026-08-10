@@ -2,7 +2,7 @@
 ' Description: Manages events when design files are opened or closed.
 ' This class module handles the events triggered when a design file is opened or closed in MicroStation.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ElementChangeHandler, LangManager, IdleEventHandler, ElementInProcesseClass, ErrorHandlerClass
+' Dependencies: ElementChangeHandler, LangManager, IdleEventHandler, ElementInProcesseClass, ErrorHandlerClass, CustomPropertyHandler
 Option Explicit
 
 ' Declare the application moHooks with events
@@ -40,8 +40,12 @@ Private Sub moHooks_OnDesignFileOpened(ByVal DesignFileName As String)
     InitializeChangeHandler
     ElementInProcesse.Reset
     ErrorHandler.UpdateLogFilePath
+    ' Refresh MicroStation's Item Type state for the file being opened, so ItemTypes deployed or edited in
+    ' a DGNLib show up without restarting the session. Sent last, after the change-tracking re-init above
+    ' (the open/update/close dialog sandwich works inline from here - see RefreshItemTypes).
+    CustomPropertyHandler.RefreshItemTypes
     Exit Sub
-    
+
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "DGNOpenClose.moHooks_OnDesignFileOpened"
 End Sub

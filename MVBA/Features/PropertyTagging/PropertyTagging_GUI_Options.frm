@@ -38,7 +38,7 @@ Attribute VB_Exposed = False
 '              StartUpPosition = 0 Manual. Tab order: master -> property-list -> rules-combo -> reset
 '              (Frame_RulePreview is a non-focusable container, not in the tab order).
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyTagging, RuleEditorUX, FormUXHelper, FormPlacement, Command
+' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyTagging, RuleEditorUX, FormUXHelper, FormPlacement, CustomPropertyHandler, Command
 Option Explicit
 
 Private mbLocked As Boolean
@@ -99,7 +99,15 @@ End Sub
 
 Private Sub TextBox_PropertyList_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
-    FormUXHelper.CommitInlineEdit TextBox_PropertyList, Edit_PropertyList_Command, ARESConfig.ARES_CUSTOM_PROPERTY_LIST
+    ' The list decides which ItemTypes ARES manages, so a real change refreshes MicroStation's Item Type
+    ' state. CommitInlineEdit returns True ONLY when it actually wrote, which is exactly the "once per
+    ' real commit" seam: Enter/Esc call this sub manually and the ensuing focus change can fire the real
+    ' _Exit a second time, but that pass sees box = stored value and returns False; Esc reverts before
+    ' committing, so a cancel returns False too. Sent directly rather than deferred to idle - a form event
+    ' is user-driven, with MicroStation between operations, unlike the DGN-open path.
+    If FormUXHelper.CommitInlineEdit(TextBox_PropertyList, Edit_PropertyList_Command, ARESConfig.ARES_CUSTOM_PROPERTY_LIST) Then
+        CustomPropertyHandler.RefreshItemTypes
+    End If
     SetLocked False
     Exit Sub
 
