@@ -178,8 +178,8 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_PropertyRuleInvalid", "ARES: Property rules - invalid rule ignored (check selector=prop|prop; separate rules with ';', not '|')"
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "EN_CalculationGUIOptionsCaption", "Property Calculation options"
-    moTranslations.Add "EN_CalculationGUIOptionsMain_LabelCaption", "Calculate a group's property from a label cell's text"
-    moTranslations.Add "EN_CalculationGUIOptionsMain_LabelTip", "When on, each @cell rule's label cell (defined in Property Tagging) writes its full text as the value of that rule's target property, onto the group members that already carry it. The trigger cells and target properties come from the @cell rules - there is no separate list here."
+    moTranslations.Add "EN_CalculationGUIOptionsMain_LabelCaption", "Enable property calculation"
+    moTranslations.Add "EN_CalculationGUIOptionsMain_LabelTip", "When on, properties get their values from the calculation rules below (Prop[name]=Source): a group label cell's text (CellText), a fixed value (Value), the element's coordinates (Coord) or its ID (Id). Values are only written where the property is already attached - attaching is Property Tagging's job."
     moTranslations.Add "EN_CalculationGUIOptionsDetachEmpty_LabelCaption", "Remove emptied properties after calculation"
     moTranslations.Add "EN_CalculationGUIOptionsDetachEmpty_LabelTip", "When on, a property whose value is emptied by the calculation is detached (the tagger removes it) instead of kept empty; a rule that still mandates the property re-attaches it empty."
     moTranslations.Add "EN_CalculationValueRejected", "ARES: Property calculation - value rejected by the target property"
@@ -379,8 +379,8 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_PropertyRuleInvalid", "ARES : Règles de propriété - règle invalide ignorée (vérifiez sélecteur=prop|prop ; séparez les règles par ';', pas '|')"
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "FR_CalculationGUIOptionsCaption", "Options de calcul de propriété"
-    moTranslations.Add "FR_CalculationGUIOptionsMain_LabelCaption", "Calculer la propriété d'un groupe à partir du texte d'une cellule étiquette"
-    moTranslations.Add "FR_CalculationGUIOptionsMain_LabelTip", "Si activé, la cellule étiquette de chaque règle @cellule (définie dans l'étiquetage de propriété) écrit tout son texte comme valeur de la propriété cible de cette règle, sur les membres du groupe qui la portent déjà. Les cellules déclencheuses et les propriétés cibles proviennent des règles @cellule - il n'y a pas de liste séparée ici."
+    moTranslations.Add "FR_CalculationGUIOptionsMain_LabelCaption", "Activer le calcul de propriété"
+    moTranslations.Add "FR_CalculationGUIOptionsMain_LabelTip", "Si activé, les propriétés reçoivent leur valeur selon les règles de calcul ci-dessous (Prop[nom]=Source) : le texte d'une cellule étiquette du groupe (CellText), une valeur fixe (Value), les coordonnées de l'élément (Coord) ou son ID (Id). Les valeurs ne sont écrites que là où la propriété est déjà attachée - l'attache relève de l'étiquetage de propriété."
     moTranslations.Add "FR_CalculationGUIOptionsDetachEmpty_LabelCaption", "Supprimer les propriétés vidées après calcul"
     moTranslations.Add "FR_CalculationGUIOptionsDetachEmpty_LabelTip", "Si activé, une propriété dont la valeur est vidée par le calcul est détachée (le tagueur la retire) au lieu d'être conservée vide ; une règle qui impose encore la propriété la ré-attache vide."
     moTranslations.Add "FR_CalculationValueRejected", "ARES : Calcul de propriété - valeur refusée par la propriété cible"
