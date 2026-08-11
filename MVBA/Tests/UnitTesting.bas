@@ -373,6 +373,10 @@ Private Function CustomPropertyHandlerTest() As Boolean
     Dim name1 As String
     Dim name2 As String
     Dim hasSecond As Boolean
+    Dim bRoundTrip1 As Boolean
+    Dim bTargeted As Boolean
+    Dim vFirst As Variant
+    Dim vSecond As Variant
 
     ' A graphical test element is required to attach items
     If TestElement Is Nothing Then
@@ -433,7 +437,10 @@ Private Function CustomPropertyHandlerTest() As Boolean
     ' Test 5.3: round-trip a free-text value on the first property
     TotalTests = TotalTests + 1
     If CustomPropertyHandler.SetPropertyValueToElement(TestElement, name1, "ARES Test", name1) Then
-        If CStr(CustomPropertyHandler.GetPropertyValueFromElement(TestElement, name1, name1)) = "ARES Test" Then TestsPassed = TestsPassed + 1
+        If CStr(CustomPropertyHandler.GetPropertyValueFromElement(TestElement, name1, name1)) = "ARES Test" Then
+            bRoundTrip1 = True
+            TestsPassed = TestsPassed + 1
+        End If
     End If
 
     ' Test 5.4: a second configured property attaches independently and both coexist
@@ -444,7 +451,35 @@ Private Function CustomPropertyHandlerTest() As Boolean
                And TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, name2) Then TestsPassed = TestsPassed + 1
         End If
 
-        ' Test 5.5: detaching the first leaves the second untouched
+        ' Test 5.5 (regression): with BOTH items attached, a no-ItemName write addressed to the second
+        ' property must land on the SECOND property and leave the first untouched. Guards the
+        ' empty-ItemName handler misdirection (Items.Find "*" returns the FIRST attached item, so the
+        ' fallback wrote the value into the WRONG property - the "Coord value lands in the last-attached
+        ' property" bug). A refused write (value-constrained library) is not-applicable: the misdirection
+        ' under test reported SUCCESS while writing the wrong property.
+        TotalTests = TotalTests + 1
+        If CustomPropertyHandler.SetPropertyValueToElement(TestElement, name2, "ARES Test 2") Then
+            bTargeted = False
+            vSecond = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, name2, name2)
+            If Not IsNull(vSecond) Then
+                If CStr(vSecond) = "ARES Test 2" Then bTargeted = True
+            End If
+            If bTargeted Then
+                If bRoundTrip1 Then
+                    ' The first property must still hold its own value (no cross-write).
+                    bTargeted = False
+                    vFirst = CustomPropertyHandler.GetPropertyValueFromElement(TestElement, name1, name1)
+                    If Not IsNull(vFirst) Then
+                        If CStr(vFirst) = "ARES Test" Then bTargeted = True
+                    End If
+                End If
+            End If
+            If bTargeted Then TestsPassed = TestsPassed + 1
+        Else
+            TestsPassed = TestsPassed + 1   ' write refused (constrained values) -> not applicable
+        End If
+
+        ' Test 5.6: detaching the first leaves the second untouched
         TotalTests = TotalTests + 1
         CustomPropertyHandler.RemoveItemFromElement TestElement, name1
         If (Not TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, name1)) _
@@ -453,11 +488,11 @@ Private Function CustomPropertyHandlerTest() As Boolean
         CustomPropertyHandler.RemoveItemFromElement TestElement, name1
     End If
 
-    ' Test 5.6: detaching an already-detached item type is graceful (False, no crash)
+    ' Test 5.7: detaching an already-detached item type is graceful (False, no crash)
     TotalTests = TotalTests + 1
     If Not CustomPropertyHandler.RemoveItemFromElement(TestElement, name1) Then TestsPassed = TestsPassed + 1
 
-    ' Test 5.7: unknown library/item resolves to Nothing (no crash)
+    ' Test 5.8: unknown library/item resolves to Nothing (no crash)
     TotalTests = TotalTests + 1
     If CustomPropertyHandler.GetItemTypePropertyHandlerFromElement(TestElement, "NonExistentItem", "NonExistentLibrary") Is Nothing Then TestsPassed = TestsPassed + 1
 

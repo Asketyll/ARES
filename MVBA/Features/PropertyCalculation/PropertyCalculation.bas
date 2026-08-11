@@ -39,9 +39,9 @@
 '              reason on invalid. CalcRuleHasNoEffect(sRule, segments) flags a dead CONDITION combo (via
 '              RuleGrammar.ConditionsHaveContradiction, ignoring the Prop target) for the preview.
 '
-'              ENGINE WAKE - two Depth-0 passes, both routing every write through the UNTOUCHED
-'              ApplyValueToSibling (its frontier + compare-guard + non-empty->empty transition guard +
-'              delegated detach-on-empty are load-bearing loop-safety BLOCKERs, byte-intact from phase 1):
+'              ENGINE WAKE - two Depth-0 passes, both routing every write through ApplyValueToSibling
+'              (its frontier + compare-guard + non-empty->empty transition guard + delegated
+'              detach-on-empty are load-bearing loop-safety BLOCKERs):
 '                - BEARING pass: for each DISTINCT calc-target property P that oEl carries, resolve its
 '                    value from the FIRST matching calc rule and write it (compare-guarded). This is the
 '                    single code path for "fill on attach", "recompute Coord on move", "re-pull CellText",
@@ -1117,7 +1117,7 @@ ErrorHandler:
 End Function
 
 '######################################################################################################################
-'                        VALUE-WRITE MACHINERY (BYTE-INTACT loop-safety BLOCKERs - do not touch)
+'                        VALUE-WRITE MACHINERY (loop-safety BLOCKERs - do not weaken the guards)
 '######################################################################################################################
 
 ' The frontier + compare-before-write on a single sibling (loop-safety). Returns True when s ALREADY
@@ -1132,6 +1132,9 @@ End Function
 '         (PropertyTagging.DetachRuleProperty). This is the ONLY detach path, gated on BOTH the option
 '         AND the non-empty->empty transition (the load-bearing loop-safety guard).
 '   - empty value, current already empty            -> no-op (transition guard: no re-detach).
+' The read AND both writes address P's OWN item explicitly (ItemName:=P): with ItemName omitted, the
+' handler resolves to the FIRST attached ARES item (Items.Find "*"), which misdirects the write as soon
+' as the element carries a second calc property (the "Coord value lands in the wrong property" bug).
 Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVal value As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1153,7 +1156,7 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
     If Len(value) > 0 Then
         ' Non-empty value: set only when different (compare-guarded).
         If sCurrent <> value Then
-            If Not CustomPropertyHandler.SetPropertyValueToElement(s, P, value) Then ReportRejected
+            If Not CustomPropertyHandler.SetPropertyValueToElement(s, P, value, P) Then ReportRejected
         End If
         ' already equal -> no-op (loop-safety)
     Else
@@ -1165,7 +1168,7 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
                 PropertyTagging.DetachRuleProperty s, P
             Else
                 ' Option OFF: clear the value; the property stays attached.
-                If Not CustomPropertyHandler.SetPropertyValueToElement(s, P, "") Then ReportRejected
+                If Not CustomPropertyHandler.SetPropertyValueToElement(s, P, "", P) Then ReportRejected
             End If
         End If
     End If

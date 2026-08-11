@@ -479,10 +479,17 @@ End Function
 ' fall back to the ItemType definition's actual property name(s). ARES item types carry a single
 ' property, so "the first property that yields a value" is unambiguous. A genuinely value-less item
 ' returns Null SILENTLY (the normal "no value" case) — no parasitic log.
+' ItemName omitted defaults to PropertyName (ARES convention: the ItemType name IS the property name),
+' so the read addresses the property's OWN item — never "the first attached item" of a multi-item element.
 Public Function GetPropertyValueFromElement(ByVal El As element, ByVal PropertyName As String, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Variant
     On Error GoTo ErrorHandler
 
     GetPropertyValueFromElement = Null
+    If Len(PropertyName) = 0 Then Exit Function    ' fail-closed: no property named, nothing to address
+
+    ' Address PropertyName's own item when the caller named none: resolving the FIRST attached ARES item
+    ' (Items.Find "*") reads the WRONG item on an element carrying several ARES properties.
+    If Len(ItemName) = 0 Then ItemName = PropertyName
 
     Dim oHandler As ItemTypePropertyHandler
     Set oHandler = GetItemTypePropertyHandlerFromElement(El, ItemName, LibraryName)
@@ -555,10 +562,17 @@ End Function
 ' actual property name(s). ARES item types carry a single property, so "the first property that
 ' accepts the write" is unambiguous. Returns False only when neither the given name nor any real
 ' property name accepts the value (a genuinely constrained property — picklist / type mismatch).
+' ItemName omitted defaults to PropertyName (ARES convention: the ItemType name IS the property name),
+' so the write addresses the property's OWN item — never "the first attached item" of a multi-item
+' element, where the fallback would land the value in the WRONG property.
 Public Function SetPropertyValueToElement(ByVal El As element, ByVal PropertyName As String, ByVal PropertyValue As Variant, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
     On Error GoTo ErrorHandler
 
     SetPropertyValueToElement = False
+    If Len(PropertyName) = 0 Then Exit Function    ' fail-closed: no property named, nothing to address
+
+    ' Address PropertyName's own item when the caller named none (see GetPropertyValueFromElement).
+    If Len(ItemName) = 0 Then ItemName = PropertyName
 
     Dim oHandler As ItemTypePropertyHandler
     Set oHandler = GetItemTypePropertyHandlerFromElement(El, ItemName, LibraryName)
