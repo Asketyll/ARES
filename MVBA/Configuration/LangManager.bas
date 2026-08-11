@@ -177,14 +177,14 @@ Sub InitializeTranslations()
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "EN_CalculationGUIOptionsCaption", "Property Calculation options"
     moTranslations.Add "EN_CalculationGUIOptionsMain_LabelCaption", "Enable property calculation"
-    moTranslations.Add "EN_CalculationGUIOptionsMain_LabelTip", "When on, properties get their values from the calculation rules below (Prop[name]=Source): a group label cell's text (CellText), a fixed value (Value), the element's coordinates (Coord) or its ID (Id). Values are only written where the property is already attached - attaching is Property Tagging's job."
+    moTranslations.Add "EN_CalculationGUIOptionsMain_LabelTip", "When on, properties get their values from the calculation rules below (Prop[name]=Source): a group label cell's text (CellText) or coordinates (CellCoord) or ID (CellId), a fixed value (Value), the element's own coordinates (Coord) or its own ID (Id). Values are only written where the property is already attached - attaching is Property Tagging's job."
     moTranslations.Add "EN_CalculationGUIOptionsDetachEmpty_LabelCaption", "Remove emptied properties after calculation"
     moTranslations.Add "EN_CalculationGUIOptionsDetachEmpty_LabelTip", "When on, a property whose value is emptied by the calculation is detached (the tagger removes it) instead of kept empty; a rule that still mandates the property re-attaches it empty."
     moTranslations.Add "EN_CalculationValueRejected", "ARES: Property calculation - value rejected by the target property"
     moTranslations.Add "EN_CalculationNoTarget", "ARES: Property calculation - no group member carries the target property; enable Property Tagging and check the property is attached (DGNLib)"
     moTranslations.Add "EN_CalculationMultipleTriggers", "ARES: Property calculation - several trigger cells in this group; the last-modified one sets the value"
-    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rules - invalid rule ignored (Prop[name]=CellText/Value/Coord/Id; separate rules with ';', not '|')"
-    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText[pattern] | Value[text] | Coord[n] | Id. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord"
+    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rules - invalid rule ignored (Prop[name]=CellText/CellCoord/CellId/Value/Coord/Id; separate rules with ';', not '|')"
+    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText[pattern] | CellCoord[pattern] | CellId[pattern] | Value[text] | Coord[n] | Id. pattern may use '|' for several name alternatives, e.g. ASUF*|SP0*. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "EN_PropertyLibraryNotFound", "ARES: Custom properties - the ARES DGNLib was not found (check MS_DGNLIBLIST)"
     ' Tooltips - Zoning
@@ -378,14 +378,14 @@ Sub InitializeTranslations()
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "FR_CalculationGUIOptionsCaption", "Options de calcul de propriété"
     moTranslations.Add "FR_CalculationGUIOptionsMain_LabelCaption", "Activer le calcul de propriété"
-    moTranslations.Add "FR_CalculationGUIOptionsMain_LabelTip", "Si activé, les propriétés reçoivent leur valeur selon les règles de calcul ci-dessous (Prop[nom]=Source) : le texte d'une cellule étiquette du groupe (CellText), une valeur fixe (Value), les coordonnées de l'élément (Coord) ou son ID (Id). Les valeurs ne sont écrites que là où la propriété est déjà attachée - l'attache relève de l'étiquetage de propriété."
+    moTranslations.Add "FR_CalculationGUIOptionsMain_LabelTip", "Si activé, les propriétés reçoivent leur valeur selon les règles de calcul ci-dessous (Prop[nom]=Source) : le texte d'une cellule étiquette du groupe (CellText) ou ses coordonnées (CellCoord) ou son ID (CellId), une valeur fixe (Value), les coordonnées propres de l'élément (Coord) ou son propre ID (Id). Les valeurs ne sont écrites que là où la propriété est déjà attachée - l'attache relève de l'étiquetage de propriété."
     moTranslations.Add "FR_CalculationGUIOptionsDetachEmpty_LabelCaption", "Supprimer les propriétés vidées après calcul"
     moTranslations.Add "FR_CalculationGUIOptionsDetachEmpty_LabelTip", "Si activé, une propriété dont la valeur est vidée par le calcul est détachée (le tagueur la retire) au lieu d'être conservée vide ; une règle qui impose encore la propriété la ré-attache vide."
     moTranslations.Add "FR_CalculationValueRejected", "ARES : Calcul de propriété - valeur refusée par la propriété cible"
     moTranslations.Add "FR_CalculationNoTarget", "ARES : Calcul de propriété - aucun membre du groupe ne porte la propriété cible ; activez l'étiquetage de propriété et vérifiez que la propriété est attachée (DGNLib)"
     moTranslations.Add "FR_CalculationMultipleTriggers", "ARES : Calcul de propriété - plusieurs cellules déclencheuses dans ce groupe ; la dernière modifiée impose la valeur"
-    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règles de calcul - règle invalide ignorée (Prop[nom]=CellText/Value/Coord/Id ; séparez les règles par ';', pas '|')"
-    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText[motif] | Value[texte] | Coord[n] | Id. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord"
+    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règles de calcul - règle invalide ignorée (Prop[nom]=CellText/CellCoord/CellId/Value/Coord/Id ; séparez les règles par ';', pas '|')"
+    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText[motif] | CellCoord[motif] | CellId[motif] | Value[texte] | Coord[n] | Id. Le motif peut utiliser '|' pour plusieurs alternatives de nom, ex. ASUF*|SP0*. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "FR_PropertyLibraryNotFound", "ARES : Propriétés personnalisées - DGNLib ARES introuvable (vérifiez MS_DGNLIBLIST)"
     ' Tooltips - Zoning

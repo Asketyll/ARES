@@ -25,7 +25,7 @@ Attribute VB_Exposed = False
 '              editor uses - no divergence). This form stays a thin consumer: it runs the calc grammar
 '              (ValidateAndNormalizeCalcRule + CalcRuleHasNoEffect) and hands RuleEditorUX the render string
 '              + validity + red segments + the bold-keyword list (the target/condition keywords Prop/Lvl/
-'              Cell/Type AND the four source keywords CellText/Value/Coord/Id).
+'              Cell/Type AND the six source keywords CellText/CellCoord/CellId/Value/Coord/Id).
 '
 '              DESIGNER (manual) - controls required with EXACTLY these names:
 '                Main_CheckBox (CheckBox, value master), DetachEmpty_CheckBox (CheckBox, detach-empty
@@ -227,16 +227,16 @@ End Sub
 
 ' Compute this grammar's preview data for the text currently in ComboBox_CalcRules and hand it to
 ' RuleEditorUX: validate + normalise -> canonical (valid) or raw (invalid); when valid, CalcRuleHasNoEffect
-' -> the red segments; the calc bold-keywords are the target/condition keywords AND the four sources
-' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id bold alongside CellText[..]/Value[..]).
-' RuleEditorUX renders the coloured runs (read-only).
+' -> the red segments; the calc bold-keywords are the target/condition keywords AND the six sources
+' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id bold alongside
+' CellText[..]/CellCoord[..]/CellId[..]/Value[..]). RuleEditorUX renders the coloured runs (read-only).
 Private Sub RenderCurrentCalcPreview()
     On Error GoTo ErrorHandler
 
     Dim sText As String, sCanonical As String, sReason As String, sRender As String
     Dim bValid As Boolean
     Dim segs() As String
-    Dim kw(7) As String
+    Dim kw(9) As String
 
     ReDim segs(0 To 0)
     segs(0) = ""
@@ -262,6 +262,8 @@ Private Sub RenderCurrentCalcPreview()
     kw(5) = "Value"
     kw(6) = "Coord"
     kw(7) = "Id"
+    kw(8) = "CellCoord"
+    kw(9) = "CellId"
     RuleEditorUX.RenderPreview Frame_CalcPreview, sRender, bValid, segs, kw
     Exit Sub
 

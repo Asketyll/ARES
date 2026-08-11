@@ -27,6 +27,7 @@ Private Enum TestID
     tidPropertyCalculation = 18
     tidPropertyRuleValidation = 19
     tidCalcRuleValidation = 20
+    tidPropertyTaggingPull = 21
 End Enum
 
 ' Test result structure
@@ -92,6 +93,7 @@ Public Sub RunAllTests()
     RunTest "Property Calculation", tidPropertyCalculation
     RunTest "Property Rule Validation", tidPropertyRuleValidation
     RunTest "Calc Rule Validation", tidCalcRuleValidation
+    RunTest "Property Tagging Pull", tidPropertyTaggingPull
 
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -170,8 +172,11 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidCalcRuleValidation
             TestName = "Calc Rule Validation"
             Result = CalcRuleValidationTest()
+        Case tidPropertyTaggingPull
+            TestName = "Property Tagging Pull"
+            Result = PropertyTaggingPullTest()
         Case Else
-            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-20", vbCritical, "Test Error"
+            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-21", vbCritical, "Test Error"
             Exit Sub
     End Select
     
@@ -1621,14 +1626,17 @@ ErrorHandler:
     FileDialogsTest = False
 End Function
 
-' Test 18: Property Calculation engine (AWAKE, epic 14). Drives ARES_Calc_Rules through the read-only
-' resolver ResolvePropertyValue (finds the first-match rule + evaluates the source WITHOUT attaching or
-' reading the property, so the four sources and first-match are asserted DGNLib-FREE) and the re-wired
-' IsTriggerCell (a cell in a real group whose name matches a CellText[pattern]). Covers: CellText nominal +
-' self + ungrouped self; first-match specific-then-general; Value; Id (DLongToString); Coord on a cell/line/
-' shape (tolerant "X;Y" shape); no-matching-rule -> "no rule"; CellText with no surviving cell -> governed
-' but empty (the delete-reconcile path); multi-trigger (a cell text is returned); IsTriggerCell cases;
-' ProcessElement smoke. Saves/restores every touched config var. A -1 margin covers environment variance.
+' Test 18: Property Calculation engine (AWAKE, epic 14; extended for CellCoord/CellId). Drives
+' ARES_Calc_Rules through the read-only resolver ResolvePropertyValue (finds the first-match rule +
+' evaluates the source WITHOUT attaching or reading the property, so all sources and first-match are
+' asserted DGNLib-FREE) and the re-wired IsTriggerCell (a cell in a real group whose name matches a
+' CellText[pattern] or CellCoord[pattern]). Covers: CellText nominal + self + ungrouped self; first-match
+' specific-then-general; Value; Id (DLongToString); Coord on a cell/line/shape (tolerant "X;Y" shape);
+' CellCoord/CellId on a GROUP MEMBER resolving to the MATCHING CELL's own position/id (not the member's
+' own) via the shared "|" ARES_VAR_DELIMITER alternation grammar; no-matching-rule -> "no rule"; CellText
+' with no surviving cell -> governed but empty (the delete-reconcile path); multi-trigger (a cell text is
+' returned); IsTriggerCell cases (CellCoord IS a trigger, CellId-only is NOT); ProcessElement smoke. Saves/
+' restores every touched config var. A -1 margin covers environment variance.
 Private Function PropertyCalculationTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -1717,6 +1725,49 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVEq("XY", psSeed, "5050;50") Then TestsPassed = TestsPassed + 1
 
+    ' --- CellCoord: a member's Prop resolves to the MATCHING CELL's own coordinates, not the member's own
+    '     position (the fix for Prop[Coordonnee]=Coord only ever giving the bearing/tagged element's own
+    '     position instead of the tagging cell's). Also exercises the "|" alternation (same
+    '     ARES_VAR_DELIMITER grammar as a tag/calc CONDITION's Cell[name|name|...]) - the cell name (SP012)
+    '     matches the SECOND alternative only. Cell at (6000,10); grouped line elsewhere at (6100,90). ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=CellCoord[ASUF*|SP0*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cCC As element, lCC As element
+    Set cCC = CreateCalculationTestCell("SP012", 7430, "t", Point3dFromXYZ(6000, 10, 0))
+    Set lCC = CreateGroupedTestLine(7430, Point3dFromXYZ(6100, 90, 0), Point3dFromXYZ(6200, 90, 0))
+    TotalTests = TotalTests + 1
+    If RVContains("Coordonnee", lCC, "6000") Then TestsPassed = TestsPassed + 1     ' member gets the CELL's X via the 2nd alternative
+    TotalTests = TotalTests + 1
+    If Not RVContains("Coordonnee", lCC, "6100") Then TestsPassed = TestsPassed + 1 ' never the member's own position
+
+    ' --- CellCoord self (ungrouped matching cell is its own sole candidate) ---
+    Dim cCCSelf As element
+    Set cCCSelf = CreateCalculationTestCell("ASUF9", 0, "t", Point3dFromXYZ(6300, 20, 0))
+    TotalTests = TotalTests + 1
+    If RVContains("Coordonnee", cCCSelf, "6300") Then TestsPassed = TestsPassed + 1
+
+    ' --- CellId: a member's Prop resolves to the MATCHING CELL's ID, distinct from the member's own ID ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[TagRef]=CellId[ASUF*|SP0*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cCI As element, lCI As element
+    Set cCI = CreateCalculationTestCell("ASUF8", 7431, "t", Point3dFromXYZ(6400, 0, 0))
+    Set lCI = CreateGroupedTestLine(7431, Point3dFromXYZ(6500, 0, 0), Point3dFromXYZ(6600, 0, 0))
+    TotalTests = TotalTests + 1
+    If RVEq("TagRef", lCI, DLongToString(cCI.ID)) Then TestsPassed = TestsPassed + 1 ' the CELL's id, not the line's
+
+    ' --- IsTriggerCell extended: a cell matching a CellCoord pattern IS a trigger (so a MOVED cell gets its
+    '     new coordinates pushed); one matching ONLY a CellId pattern is NOT (an ID never changes, no push
+    '     is ever needed) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=CellCoord[ASUF*] ; Prop[TagRef]=CellId[BOIS*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cCoordTrig As element, cIdOnly As element
+    Set cCoordTrig = CreateCalculationTestCell("ASUF7", 7432, "t", Point3dFromXYZ(6700, 0, 0))
+    Set cIdOnly = CreateCalculationTestCell("BOIS1", 7433, "t", Point3dFromXYZ(6800, 0, 0))
+    TotalTests = TotalTests + 1
+    If PropertyCalculation.IsTriggerCell(cCoordTrig) Then TestsPassed = TestsPassed + 1     ' CellCoord pattern -> trigger
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.IsTriggerCell(cIdOnly) Then TestsPassed = TestsPassed + 1    ' CellId-only -> not a trigger
+
     ' --- No matching rule for P -> the resolver reports "no rule" (P is left untouched) ---
     ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]&Cell[NOSUCH]=Value[x]"
     PropertyCalculation.RefreshCalcRules
@@ -1758,11 +1809,13 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If Not PropertyCalculation.IsTriggerCell(lTrig) Then TestsPassed = TestsPassed + 1    ' a line is not a trigger
 
-    ' --- ProcessElement smoke: both passes run without crashing (writes only where attached) ---
+    ' --- ProcessElement smoke: both passes run without crashing (writes only where attached), including
+    '     the CellCoord trigger-cell push path (cCoordTrig, group 7432) ---
     Dim bSmoke As Boolean
     bSmoke = True
     PropertyCalculation.ProcessElement cTrig
     PropertyCalculation.ProcessElement lTrig
+    PropertyCalculation.ProcessElement cCoordTrig
     TotalTests = TotalTests + 1
     If bSmoke Then TestsPassed = TestsPassed + 1
 
@@ -1997,6 +2050,147 @@ Private Function CDeadSeg(ByVal sRule As String, ByVal seg1 As String, ByVal seg
             End If
         End If
     End If
+End Function
+
+' Test 21: PropertyTagging "@" membership convergence - the PULL pass (story 15-1). An element added to an
+' ALREADY tagged graphic group must receive the "@" rule's properties at its OWN processing, without the
+' matching element being re-touched. Drives ApplyPropertyRules directly (that is exactly what
+' ElementChangeHandler.ProcessElement calls at Depth 0) on real elements of the throwaway test DGN, with a
+' "@Lvl[...]" rule targeting a REAL DGNLib property (the first enumerated one) - so, like
+' CustomPropertyHandlerTest, the test is not-applicable (pass) when the ARES DGNLib is not deployed.
+' Covers: pull-positive (edge #1), idempotence (edge #8), the matcher never self-receiving, and
+' pull-negative (edge #2, a group where no member matches). ARES_Property_Rules is saved and restored on
+' BOTH the nominal and the error path - VBA has no Finally and a failed assertion must never leave the
+' user's rules corrupted.
+Private Function PropertyTaggingPullTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    Dim ITL As ItemTypeLibrary
+    Dim names() As String
+    Dim sProp As String
+    Dim sLvlName As String
+    Dim oLvl As Level
+    Dim sOldRules As String
+    Dim bSaved As Boolean
+    Dim sErrDesc As String, lErrNum As Long, sErrSrc As String
+
+    bSaved = False
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+
+    ' Strategy A: attaching needs the ARES DGNLib (ItemTypes are authored there, never created from VBA).
+    ' No library / no ItemType -> not-applicable (pass); nothing has been mutated at this point.
+    Set ITL = CustomPropertyHandler.FindItemTypeLibrary(ARESConstants.ARES_NAME_LIBRARY_TYPE)
+    If ITL Is Nothing Then
+        PropertyTaggingPullTest = True
+        Exit Function
+    End If
+
+    names = CustomPropertyHandler.GetCustomPropertyNames()
+    If UBound(names) < LBound(names) Then
+        PropertyTaggingPullTest = True
+        Exit Function
+    End If
+    sProp = Trim(names(LBound(names)))
+    If Len(sProp) = 0 Then
+        PropertyTaggingPullTest = True
+        Exit Function
+    End If
+
+    ' A dedicated level, so only the elements this test puts on it can ever match the rule.
+    sLvlName = "ARES_PullTest_Lvl"
+    Set oLvl = GetElements.GetLevel(sLvlName, True)
+    If oLvl Is Nothing Then
+        PropertyTaggingPullTest = False
+        Exit Function
+    End If
+
+    ' Save the user's rules BEFORE the first mutation; every exit below must restore them.
+    sOldRules = ARESConfig.ARES_PROPERTY_RULES.Value
+    bSaved = True
+    ARESConfig.ARES_PROPERTY_RULES.Value = "@Lvl[" & sLvlName & "]=" & sProp
+    PropertyTagging.RefreshRules
+
+    ' --- Positive: a group whose LINE sits on the rule's level, with a text joining it afterwards ---
+    Dim elLine As element, elText As element
+    Set elLine = CreatePullTestLine(7501, oLvl, Point3dFromXYZ(6000, 0, 0), Point3dFromXYZ(6100, 0, 0))
+    Set elText = CreatePullTestText(7501, Nothing, "pull", Point3dFromXYZ(6000, 60, 0))
+    CustomPropertyHandler.RemoveItemFromElement elText, sProp     ' a previous run may have left it attached
+
+    ' Edge #1 (the headline case): the text matches NO rule itself - the pull delivers the line's "@" rule.
+    PropertyTagging.ApplyPropertyRules elText
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.IsItemAttachedToElement(elText, sProp) Then TestsPassed = TestsPassed + 1
+
+    ' Edge #8: re-processing is an idempotent no-op - still attached, no error.
+    PropertyTagging.ApplyPropertyRules elText
+    TotalTests = TotalTests + 1
+    If CustomPropertyHandler.IsItemAttachedToElement(elText, sProp) Then TestsPassed = TestsPassed + 1
+
+    ' The matcher never self-receives: processing the line pushes to the text (already attached) and pulls
+    ' nothing back, since the text does not match the rule.
+    PropertyTagging.ApplyPropertyRules elLine
+    TotalTests = TotalTests + 1
+    If Not CustomPropertyHandler.IsItemAttachedToElement(elLine, sProp) Then TestsPassed = TestsPassed + 1
+
+    ' --- Negative (edge #2): a group where NO member matches the rule -> nothing attached, no error ---
+    Dim elOther As element, elText2 As element
+    Set elOther = CreatePullTestLine(7502, Nothing, Point3dFromXYZ(6300, 0, 0), Point3dFromXYZ(6400, 0, 0))
+    Set elText2 = CreatePullTestText(7502, Nothing, "no-pull", Point3dFromXYZ(6300, 60, 0))
+    CustomPropertyHandler.RemoveItemFromElement elText2, sProp
+    PropertyTagging.ApplyPropertyRules elText2
+    TotalTests = TotalTests + 1
+    If Not CustomPropertyHandler.IsItemAttachedToElement(elText2, sProp) Then TestsPassed = TestsPassed + 1
+
+    ' Restore the user's rules (nominal path)
+    ARESConfig.ARES_PROPERTY_RULES.Value = sOldRules
+    PropertyTagging.RefreshRules
+
+    PropertyTaggingPullTest = (TestsPassed = TotalTests)
+    Exit Function
+
+ErrorHandler:
+    ' Capture the error BEFORE any On Error statement (which resets the Err object).
+    sErrDesc = Err.Description
+    lErrNum = Err.Number
+    sErrSrc = Err.Source
+    ' No Finally in VBA: the rules must be restored on the failure path too - but only if they were saved
+    ' (a fault before the save would otherwise blank the user's configuration).
+    On Error Resume Next
+    If bSaved Then
+        ARESConfig.ARES_PROPERTY_RULES.Value = sOldRules
+        PropertyTagging.RefreshRules
+    End If
+    On Error GoTo 0
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError sErrDesc, lErrNum, sErrSrc, "PropertyTaggingPullTest"
+    End If
+    PropertyTaggingPullTest = False
+End Function
+
+' Build a line from p1 to p2 for PropertyTaggingPullTest: added to the active model FIRST (pattern #7 -
+' Level is only assignable once the element is a model member), then put on oLvl (Nothing = leave it on the
+' active level) and in graphic group lGroup (0 = ungrouped), then rewritten.
+Private Function CreatePullTestLine(ByVal lGroup As Long, ByVal oLvl As Level, ByVal p1 As Point3d, ByVal p2 As Point3d) As element
+    Dim oLine As LineElement
+    Set oLine = CreateLineElement2(Nothing, p1, p2)
+    ActiveModelReference.AddElement oLine
+    If Not oLvl Is Nothing Then oLine.Level = oLvl
+    If lGroup <> 0 Then oLine.GraphicGroup = lGroup
+    oLine.Rewrite
+    Set CreatePullTestLine = oLine
+End Function
+
+' Build a text element for PropertyTaggingPullTest, same add-then-symbology order as CreatePullTestLine.
+Private Function CreatePullTestText(ByVal lGroup As Long, ByVal oLvl As Level, ByVal sText As String, ByVal origin As Point3d) As element
+    Dim oText As TextElement
+    Set oText = CreateTextElement1(Nothing, sText, origin, Matrix3dIdentity)
+    ActiveModelReference.AddElement oText
+    If Not oLvl Is Nothing Then oText.Level = oLvl
+    If lGroup <> 0 Then oText.GraphicGroup = lGroup
+    oText.Rewrite
+    Set CreatePullTestText = oText
 End Function
 
 ' Helper: True when ResolvePropertyValue governs P on el (bHasRule) AND yields EXACTLY sExpected.
@@ -2387,6 +2581,8 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidFileDialogs: Result.Passed = FileDialogsTest()
         Case tidPropertyCalculation: Result.Passed = PropertyCalculationTest()
         Case tidPropertyRuleValidation: Result.Passed = PropertyRuleValidationTest()
+        Case tidCalcRuleValidation: Result.Passed = CalcRuleValidationTest()
+        Case tidPropertyTaggingPull: Result.Passed = PropertyTaggingPullTest()
         Case Else
             Result.Passed = False
             Result.Message = "Unknown test ID"

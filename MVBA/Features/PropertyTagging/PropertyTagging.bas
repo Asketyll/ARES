@@ -13,9 +13,14 @@
 '                  [@] condition [& condition]* = prop[|prop]*
 '                - condition = [!] Keyword[name|name|...]  (Lvl / Cell / Type; & = AND; ! = negation;
 '                    */? = wildcards; see the shared RuleGrammar module for the full condition grammar).
-'                - @ = a RULE modifier (leading, normalised): the properties attach to the OTHER members
-'                    of the matching element's graphic group (nothing without a real group). Without @,
-'                    they attach to the matching element itself.
+'                - @ = a RULE modifier (leading, normalised), MEMBERSHIP-CONVERGENT: the properties
+'                    attach to the OTHER members of the matching element's graphic group - never the
+'                    matcher itself, nothing without a real group. Two symmetric passes make it
+'                    order-of-arrival independent: a PUSH at match time (the matching element fans the
+'                    props out to the members present at that instant) and a PULL at each member's own
+'                    processing (an element that joined the group LATER receives the props of every @
+'                    rule matched by another member, at its next Depth-0 pass - the matching element does
+'                    not have to be re-touched). Without @, they attach to the matching element itself.
 '                - Right of "=": "|"-separated property names, everything literal ("@" literal); both
 '                    sides of "=" must be non-empty. A prop containing "=" or ";" is rejected (the
 '                    "|"-instead-of-";" mistake stays caught).
@@ -63,6 +68,10 @@ End Type
 Private mRules() As RuleInfo
 Private mnRuleCount As Long
 Private mbParsed As Boolean
+' True as soon as ONE parsed rule carries the "@" modifier. Cost guard: without it the group work (the
+' shared Link.GetLink fetch, the push fan-out and the pull pass) is never entered, so a config with no "@"
+' rule pays nothing. Recomputed by EnsureRulesParsed, which RefreshRules forces to re-run.
+Private mbHasGroupRules As Boolean
 
 ' Force a re-parse of ARES_Property_Rules on the next match/apply (call after editing the variable).
 Public Sub RefreshRules()
@@ -114,11 +123,17 @@ ErrorHandler:
     ElementMatchesAnyRule = False
 End Function
 
-' Attach the configured properties for every rule the element drives. For each matching rule: a "@"
-' (group) rule fans the props out to each OTHER member of the element's graphic group (nothing without a
-' real group); a plain rule attaches the props to the element itself. All attaches are idempotent
-' (CustomPropertyHandler.AttachItemToElement is HasItems-guarded) -> loop-safe. Level is read once
-' (guarded) and passed to the matcher, so Cell/Type rules still reach a level-less cell header.
+' Attach the configured properties for every rule the element drives, in TWO symmetric directions.
+'   PUSH - for each matching rule: a "@" (group) rule fans the props out to each OTHER member of the
+'          element's graphic group (nothing without a real group); a plain rule attaches the props to the
+'          element itself.
+'   PULL - the element then receives the props of every "@" rule matched by at least one OTHER member of
+'          its group, so an element added to an ALREADY tagged group converges at its own Depth-0 pass
+'          without the matching element being re-touched (membership convergence).
+' Both directions share ONE Link.GetLink fetch, entered only when a "@" rule exists AND the element sits
+' in a real graphic group. All attaches are idempotent (CustomPropertyHandler.AttachItemToElement is
+' HasItems-guarded) -> loop-safe. Nothing is ever detached here. Level is read once (guarded) and passed
+' to the matcher, so Cell/Type rules still reach a level-less cell header.
 Public Sub ApplyPropertyRules(ByVal oElement As element)
     On Error GoTo ErrorHandler
 
@@ -138,11 +153,28 @@ Public Sub ApplyPropertyRules(ByVal oElement As element)
         End If
     End If
 
+    ' ONE member fetch per processed element, shared by the push and the pull. NESTED Ifs, never a single
+    ' "And" chain: VBA does not short-circuit, and .GraphicGroup raises on a non-graphical element (this
+    ' Sub is Public, so the pipeline's graphical guarantee cannot be assumed here). GetLink runs with its
+    ' DEFAULTS - the array EXCLUDES oElement (compared by DLong id inside Link) and filters no type, so a
+    ' member of any type can both receive (push) and deliver (pull).
+    Dim els() As element
+    Dim bHaveEls As Boolean
+    bHaveEls = False
+    If mbHasGroupRules Then
+        If oElement.IsGraphical Then
+            If oElement.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID Then
+                els = Link.GetLink(oElement)
+                bHaveEls = HasElements(els)
+            End If
+        End If
+    End If
+
     Dim i As Long, j As Long
     For i = 0 To mnRuleCount - 1
         If RuleMatches(mRules(i), oElement, sLevel, bHasLevel) Then
             If mRules(i).IsGroup Then
-                AttachGroupMembers oElement, mRules(i)
+                AttachGroupMembers oElement, mRules(i), els, bHaveEls
             Else
                 For j = LBound(mRules(i).Props) To UBound(mRules(i).Props)
                     If Len(mRules(i).Props(j)) > 0 Then
@@ -152,6 +184,9 @@ Public Sub ApplyPropertyRules(ByVal oElement As element)
             End If
         End If
     Next i
+
+    ' PULL pass - runs after the push, on the SAME members array.
+    If bHaveEls Then PullGroupProperties oElement, els
     Exit Sub
 
 ErrorHandler:
@@ -251,6 +286,7 @@ Private Sub EnsureRulesParsed()
     If mbParsed Then Exit Sub
     mbParsed = True
     mnRuleCount = 0
+    mbHasGroupRules = False
 
     Dim sRaw As String
     sRaw = GetRulesRaw()
@@ -269,6 +305,7 @@ Private Sub EnsureRulesParsed()
             If Len(sReason) = 0 Then
                 mRules(mnRuleCount) = r
                 mnRuleCount = mnRuleCount + 1
+                If r.IsGroup Then mbHasGroupRules = True
             End If
         End If
     Next k
@@ -277,6 +314,7 @@ Private Sub EnsureRulesParsed()
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.EnsureRulesParsed"
     mnRuleCount = 0
+    mbHasGroupRules = False
 End Sub
 
 ' The rule shell + bracket-depth-aware "@"/"="/"&" split. Returns "" on success (fills r) or a targeted
@@ -455,16 +493,16 @@ ErrorHandler:
     RuleMatches = False
 End Function
 
-' Fan the rule's props out to each OTHER member of the element's graphic group (idempotent attach).
-' Nothing without a real graphic group.
-Private Sub AttachGroupMembers(ByVal oElement As element, ByRef r As RuleInfo)
+' PUSH - fan the rule's props out to each OTHER member of the element's graphic group (idempotent
+' attach). The members array is fetched ONCE by the caller and shared with the pull pass, so this Sub no
+' longer scans the model itself; bHaveEls tells whether that array holds anything. The bHaveEls guard is
+' what keeps the behavior identical to the old self-fetch: an ungrouped element (queued through a
+' non-"@" rule) or a single-member group leaves els() unallocated, and reaching LBound on it would raise
+' error 9 where the old group guard simply exited.
+Private Sub AttachGroupMembers(ByVal oElement As element, ByRef r As RuleInfo, ByRef els() As element, ByVal bHaveEls As Boolean)
     On Error GoTo ErrorHandler
 
-    If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Sub
-
-    Dim els() As element
-    els = Link.GetLink(oElement)
-    If Not HasElements(els) Then Exit Sub
+    If Not bHaveEls Then Exit Sub
 
     Dim j As Long, k As Long
     Dim s As element
@@ -482,6 +520,75 @@ Private Sub AttachGroupMembers(ByVal oElement As element, ByRef r As RuleInfo)
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.AttachGroupMembers"
+End Sub
+
+' PULL - the exact mirror of AttachGroupMembers: oElement receives the props of every "@" rule matched by
+' at least one OTHER member of its graphic group (union across rules). This is what makes the "@" rules
+' membership-convergent - an element joining an already tagged group is tagged at its own Depth-0 pass,
+' whatever the order the members joined in.
+' Shape: MEMBERS outer, RULES inner, so each member's level is resolved ONCE (guarded exactly like the
+' caller does for oElement: a level-less cell header keeps bHasLevel = False and still evaluates its
+' Cell/Type conditions). delivered() makes each rule deliver at most once and the walk stops as soon as
+' every "@" rule has delivered. Matching is the unchanged RuleMatches, so AND / strict "!" / wildcards
+' behave exactly as in the push. Attaches are idempotent (HasItems-guarded) -> loop-safe. NOTHING is ever
+' detached: an element leaving a group keeps its properties (attach-only convergence).
+Private Sub PullGroupProperties(ByVal oElement As element, ByRef els() As element)
+    On Error GoTo ErrorHandler
+
+    If mnRuleCount = 0 Then Exit Sub
+
+    ' Only "@" rules can deliver; nRemaining drives the early exit.
+    Dim i As Long
+    Dim nRemaining As Long
+    nRemaining = 0
+    For i = 0 To mnRuleCount - 1
+        If mRules(i).IsGroup Then nRemaining = nRemaining + 1
+    Next i
+    If nRemaining = 0 Then Exit Sub
+
+    Dim delivered() As Boolean
+    ReDim delivered(0 To mnRuleCount - 1)
+
+    Dim j As Long, k As Long
+    Dim el As element
+    Dim sLevel As String
+    Dim bHasLevel As Boolean
+
+    For j = LBound(els) To UBound(els)
+        Set el = els(j)
+        If Not el Is Nothing Then
+            sLevel = ""
+            bHasLevel = False
+            If el.IsGraphical Then
+                If Not el.Level Is Nothing Then
+                    sLevel = el.Level.Name
+                    bHasLevel = True
+                End If
+            End If
+
+            For i = 0 To mnRuleCount - 1
+                If mRules(i).IsGroup Then
+                    If Not delivered(i) Then
+                        If RuleMatches(mRules(i), el, sLevel, bHasLevel) Then
+                            For k = LBound(mRules(i).Props) To UBound(mRules(i).Props)
+                                If Len(mRules(i).Props(k)) > 0 Then
+                                    CustomPropertyHandler.AttachItemToElement oElement, mRules(i).Props(k)
+                                End If
+                            Next k
+                            delivered(i) = True
+                            nRemaining = nRemaining - 1
+                        End If
+                    End If
+                End If
+            Next i
+
+            If nRemaining = 0 Then Exit For
+        End If
+    Next j
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.PullGroupProperties"
 End Sub
 
 '######################################################################################################################

@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyTagging_GUI_Options 
    Caption         =   "PropertyTagging_GUI_Options"
-   ClientHeight    =   2175
+   ClientHeight    =   1935
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   5310
@@ -323,6 +323,3 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.UserForm_QueryClose"
 End Sub
-
-
-

@@ -16,9 +16,20 @@
 '                    &, !, */? wildcards), delegated verbatim to the shared RuleGrammar module.
 '                - Source (right of "="), keyword + optional [arg], arity-checked, unknown rejected:
 '                    * CellText[pattern] - the full text (StringsInEl.GetConcatenatedText) of a cell in the
-'                        element's graphic group whose name matches pattern (wildcards OK). INCLUDES the
+'                        element's graphic group whose name matches pattern (wildcards OK; pattern may be
+'                        several ARES_VAR_DELIMITER ("|") - separated alternatives, e.g. "ASUF*|SP0*|Bois*" -
+'                        the SAME alternation as a tag/calc CONDITION's Cell[name|name|...]). INCLUDES the
 '                        bearing element itself (a matching cell yields its own text; an ungrouped matching
 '                        cell is a group of one). A GROUP source (driven by the matching cell).
+'                    * CellCoord[pattern] - the "X;Y" coordinates (same anchor cascade as Coord, ARES_Round
+'                        decimals, no [n] override; same pattern/alternation grammar as CellText) of that
+'                        SAME matching cell (self-included, same scan as CellText). A GROUP source: reads the
+'                        MATCHING CELL's position, not the bearing element's own - use this to get the
+'                        tagging cell's coordinates on a member it pushed properties to (e.g.
+'                        Prop[Coordonnee]=CellCoord[ASUF*|SP0*|Bois*|BO *|APO*|AH6*] where Coord alone would
+'                        only ever yield the bearing element's own position).
+'                    * CellId[pattern] - the DLongToString ID of that same matching cell (same pattern
+'                        grammar). A GROUP source, stable (never re-pushed: an element's ID cannot change).
 '                    * Value[text] - a fixed literal value (Value[] empty = invalid). A SELF source.
 '                    * Coord / Coord[n] - the "X;Y" coordinates of the bearing element (n = decimals,
 '                        default = ARES_Round), via a deterministic anchor cascade. A SELF source
@@ -27,7 +38,8 @@
 '                        source (stable).
 '                - Several rules for the SAME property: the FIRST rule that MATCHES wins (order = priority;
 '                    put specific rules before general ones).
-'              Example:  Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord
+'              Example:  Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ;
+'                        Prop[Coordonnee]=CellCoord[ASUF*|SP0*]
 '
 '              ONE bracket-depth-aware parser (ParseCalcRule) is the single source of truth: it splits on
 '              the depth-0 "=" (RuleGrammar.FindTopLevelChar), the LEFT side on the depth-0 "&"
@@ -48,10 +60,12 @@
 '                    and "reconcile on a neighbour's delete" (the surviving matching cell's text, or "" ->
 '                    transition-guarded clear/detach when none survives). A property with no matching rule
 '                    is LEFT UNTOUCHED (the engine only governs what a rule matches).
-'                - TRIGGER-CELL pass: when oEl is a trigger cell (its name matches some CellText[pattern]),
-'                    push its text to the OTHER group members carrying that rule's target - the members
-'                    MicroStation did NOT re-queue when only the cell's text changed. First-match guarded
-'                    (a member whose P is governed by an earlier Value/Coord rule is left alone).
+'                - TRIGGER-CELL pass: when oEl is a trigger cell (its name matches some CellText[pattern] or
+'                    CellCoord[pattern]), push its text/coordinate to the OTHER group members carrying that
+'                    rule's target - the members MicroStation did NOT re-queue when only the cell's text or
+'                    position changed. First-match guarded (a member whose P is governed by an earlier
+'                    Value/Coord rule is left alone). CellId never needs a push (an ID cannot change, so the
+'                    bearing pass's own computation on the member stays correct forever).
 '
 '              Deletion is reconciled by the BEARING pass on the members ShouldQueueForDeletion already
 '              re-queues (Link.GetLink(BeforeChange)) - no pending-clear machinery (retired in 14-2).
@@ -81,14 +95,16 @@ Private Const COORD_ROUND_CLAMP As Long = 15
 ' Source vocabulary of a calc rule's right-hand side (canonicalised, case-insensitive on input).
 Public Enum CalcSource
     csCellText
+    csCellCoord
+    csCellId
     csValue
     csCoord
     csId
 End Enum
 
 ' One parsed calc rule: Prop[TargetProp] [& conditions]* = Source. Conditions() (RuleGrammar.RuleCondition)
-' is bounded by nCond. SourceArg holds the pattern (CellText), the fixed text (Value), the decimals string
-' (Coord[n]) - empty for Id and bare Coord.
+' is bounded by nCond. SourceArg holds the pattern (CellText/CellCoord/CellId), the fixed text (Value), the
+' decimals string (Coord[n]) - empty for Id and bare Coord.
 Private Type CalcRuleInfo
     TargetProp As String
     Conditions() As RuleGrammar.RuleCondition
@@ -191,10 +207,12 @@ ErrorHandler:
     segments(0) = ""
 End Function
 
-' Trigger test (re-wired AWAKE, epic 14). A trigger cell is a CELL, in a REAL graphic group, whose name
-' matches the CellText[pattern] of at least one calc rule. Drives the trigger-cell pass (pushing a changed
-' cell's text to the members MicroStation did not re-queue). An ungrouped matching cell is NOT a trigger
-' (it has no other members; its own text is handled by the bearing pass via CellText's self-inclusion).
+' Trigger test (re-wired AWAKE, epic 14; extended for CellCoord). A trigger cell is a CELL, in a REAL
+' graphic group, whose name matches the CellText[pattern] or CellCoord[pattern] of at least one calc rule.
+' Drives the trigger-cell pass (pushing a changed cell's text/coordinate to the members MicroStation did
+' not re-queue). CellId is excluded (an ID never changes, so it never needs a push). An ungrouped matching
+' cell is NOT a trigger (it has no other members; its own value is handled by the bearing pass via each
+' GROUP source's self-inclusion).
 Public Function IsTriggerCell(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -206,7 +224,7 @@ Public Function IsTriggerCell(ByVal oEl As element) As Boolean
     EnsureCalcRulesParsed
     If mnCalcCount = 0 Then Exit Function
 
-    IsTriggerCell = AnyCellTextPatternMatches(oEl.AsCellElement.Name)
+    IsTriggerCell = AnyPushableSourcePatternMatches(oEl.AsCellElement.Name)
     Exit Function
 
 ErrorHandler:
@@ -234,7 +252,7 @@ Public Sub ProcessElement(ByVal oEl As element)
 
     BearingPass oEl
 
-    If IsTriggerCell(oEl) Then PushCellTextToMembers oEl
+    If IsTriggerCell(oEl) Then PushCellDerivedValuesToMembers oEl
     Exit Sub
 
 ErrorHandler:
@@ -515,6 +533,32 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
             r.SourceKind = csCellText
             r.SourceArg = pat
+        Case "CELLCOORD"
+            Dim patCoord As String
+            patCoord = Trim(arg)
+            If Not bHasArg Then
+                ParseSource = "CellCoord needs a [pattern]"
+                Exit Function
+            End If
+            If Len(patCoord) = 0 Then
+                ParseSource = "empty CellCoord[...] pattern"
+                Exit Function
+            End If
+            r.SourceKind = csCellCoord
+            r.SourceArg = patCoord
+        Case "CELLID"
+            Dim patId As String
+            patId = Trim(arg)
+            If Not bHasArg Then
+                ParseSource = "CellId needs a [pattern]"
+                Exit Function
+            End If
+            If Len(patId) = 0 Then
+                ParseSource = "empty CellId[...] pattern"
+                Exit Function
+            End If
+            r.SourceKind = csCellId
+            r.SourceArg = patId
         Case "VALUE"
             If Not bHasArg Then
                 ParseSource = "Value needs a [text]"
@@ -548,9 +592,9 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             r.SourceArg = ""
         Case Else
             If Len(kw) = 0 Then
-                ParseSource = "empty source (expected CellText/Value/Coord/Id)"
+                ParseSource = "empty source (expected CellText/CellCoord/CellId/Value/Coord/Id)"
             Else
-                ParseSource = "unknown source '" & kw & "' (expected CellText/Value/Coord/Id)"
+                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/Value/Coord/Id)"
             End If
             Exit Function
     End Select
@@ -611,6 +655,10 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
     Select Case r.SourceKind
         Case csCellText
             SourceToCanonical = "CellText" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csCellCoord
+            SourceToCanonical = "CellCoord" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csCellId
+            SourceToCanonical = "CellId" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csValue
             SourceToCanonical = "Value" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCoord
@@ -745,6 +793,10 @@ Private Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) A
     Select Case r.SourceKind
         Case csCellText
             EvaluateSource = EvaluateCellText(oEl, r.SourceArg)
+        Case csCellCoord
+            EvaluateSource = EvaluateCellCoord(oEl, r.SourceArg)
+        Case csCellId
+            EvaluateSource = EvaluateCellId(oEl, r.SourceArg)
         Case csValue
             EvaluateSource = r.SourceArg
         Case csCoord
@@ -774,45 +826,58 @@ ErrorHandler:
     EvaluateSource = ""
 End Function
 
-' CellText evaluation: scan the bearing element's graphic group INCLUDING itself (Link.GetLink ReturnMe:=
-' True) and return GetConcatenatedText of the FIRST cell (scan order) whose name matches sPattern; none ->
-' "". For an UNGROUPED bearing element Link.GetLink returns nothing, so the element is its own sole
-' candidate (a group of one). >= 2 matches -> the multi-trigger warning (one-shot).
-Private Function EvaluateCellText(ByVal oEl As element, ByVal sPattern As String) As String
+' Shared GROUP scan for CellText/CellCoord/CellId: scan the bearing element's graphic group INCLUDING
+' itself (Link.GetLink ReturnMe:=True) and return the FIRST cell (scan order) whose name matches sPattern
+' via foundCell (Nothing when none); nMatch = total matching-cell count, left to each caller to act on
+' (>= 2 drives the one-shot multi-trigger warning). For an UNGROUPED bearing element Link.GetLink returns
+' nothing, so the element is its own sole candidate (a group of one).
+Private Function FindFirstMatchingCellInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundCell As element, ByRef nMatch As Long) As Boolean
     On Error GoTo ErrorHandler
 
-    EvaluateCellText = ""
+    FindFirstMatchingCellInGroup = False
+    Set foundCell = Nothing
+    nMatch = 0
 
     Dim cands() As element
     cands = Link.GetLink(oEl, True)
-
-    Dim nMatch As Long
-    Dim sFirst As String
-    Dim bFound As Boolean
-    nMatch = 0
-    bFound = False
 
     If HasElements(cands) Then
         Dim i As Long
         For i = LBound(cands) To UBound(cands)
             If IsMatchingCell(cands(i), sPattern) Then
                 nMatch = nMatch + 1
-                If Not bFound Then
-                    sFirst = StringsInEl.GetConcatenatedText(cands(i))
-                    bFound = True
-                End If
+                If foundCell Is Nothing Then Set foundCell = cands(i)
             End If
         Next i
     Else
         ' Ungrouped bearing element: it is its own (single) candidate.
         If IsMatchingCell(oEl, sPattern) Then
             nMatch = 1
-            sFirst = StringsInEl.GetConcatenatedText(oEl)
-            bFound = True
+            Set foundCell = oEl
         End If
     End If
 
-    If bFound Then EvaluateCellText = sFirst
+    FindFirstMatchingCellInGroup = Not (foundCell Is Nothing)
+    Exit Function
+
+ErrorHandler:
+    FindFirstMatchingCellInGroup = False
+    Set foundCell = Nothing
+    nMatch = 0
+End Function
+
+' CellText evaluation: GetConcatenatedText of the FIRST group cell matching sPattern (self-included); ""
+' when none. >= 2 matches -> the multi-trigger warning (one-shot).
+Private Function EvaluateCellText(ByVal oEl As element, ByVal sPattern As String) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateCellText = ""
+
+    Dim foundCell As element
+    Dim nMatch As Long
+    If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
+        EvaluateCellText = StringsInEl.GetConcatenatedText(foundCell)
+    End If
     If nMatch >= 2 Then ReportMultipleTriggers
     Exit Function
 
@@ -820,14 +885,91 @@ ErrorHandler:
     EvaluateCellText = ""
 End Function
 
-' True when el is a cell whose name matches sPattern (case-insensitive, wildcards via RuleGrammar.LikeCI).
+' CellCoord evaluation: the "X;Y" coordinates (same anchor cascade + default ARES_Round decimals as the
+' bare Coord source - no [n] override, the bracket already carries the pattern) of the FIRST group cell
+' matching sPattern (self-included); "" when none, or when the matching cell itself has no valid anchor
+' (logged, never a fabricated coordinate - mirrors Coord's own fault handling). >= 2 matches -> the
+' multi-trigger warning (one-shot).
+Private Function EvaluateCellCoord(ByVal oEl As element, ByVal sPattern As String) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateCellCoord = ""
+
+    Dim foundCell As element
+    Dim nMatch As Long
+    If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
+        Dim pt As Point3d
+        If GetElementAnchorPoint(foundCell, pt) Then
+            EvaluateCellCoord = FormatCoord(pt, GetCoordDefaultDecimals())
+        Else
+            ErrorHandler.HandleError "Property calculation: no anchor point for CellCoord source", 0, "", "PropertyCalculation.EvaluateCellCoord"
+        End If
+    End If
+    If nMatch >= 2 Then ReportMultipleTriggers
+    Exit Function
+
+ErrorHandler:
+    EvaluateCellCoord = ""
+End Function
+
+' CellId evaluation: the DLongToString ID of the FIRST group cell matching sPattern (self-included); ""
+' when none. Stable (an element's ID never changes), so unlike CellText/CellCoord it never needs the
+' trigger-cell push. >= 2 matches -> the multi-trigger warning (one-shot).
+Private Function EvaluateCellId(ByVal oEl As element, ByVal sPattern As String) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateCellId = ""
+
+    Dim foundCell As element
+    Dim nMatch As Long
+    If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
+        EvaluateCellId = DLongToString(foundCell.ID)
+    End If
+    If nMatch >= 2 Then ReportMultipleTriggers
+    Exit Function
+
+ErrorHandler:
+    EvaluateCellId = ""
+End Function
+
+' True when sName matches at least one of sPattern's ARES_VAR_DELIMITER ("|") - separated parts
+' (case-insensitive, wildcards via RuleGrammar.LikeCI) - the SAME multi-prefix alternation as the tag/calc
+' CONDITION grammar (Cell[ASUF*|SP0*|...]), so a CellText/CellCoord/CellId[pattern] source can feed off the
+' same cell-name families a Property Tagging @ rule already groups. A single pattern with no "|" is just a
+' one-element split (behavior-identical to the pre-alternation scalar match). Shared by every cell-name-vs-
+' pattern comparison in this module (IsMatchingCell, the trigger-cell detector, the push loop) so the
+' alternation is honoured consistently everywhere, not just on the initial bearing-pass computation.
+Private Function MatchesAnyPattern(ByVal sName As String, ByVal sPattern As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    MatchesAnyPattern = False
+
+    Dim parts() As String
+    parts = Split(sPattern, ARESConstants.ARES_VAR_DELIMITER)
+
+    Dim i As Long
+    For i = LBound(parts) To UBound(parts)
+        If Len(parts(i)) > 0 Then
+            If RuleGrammar.LikeCI(sName, parts(i)) Then
+                MatchesAnyPattern = True
+                Exit Function
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    MatchesAnyPattern = False
+End Function
+
+' True when el is a cell whose name matches sPattern (MatchesAnyPattern - wildcards + "|" alternation).
 Private Function IsMatchingCell(ByVal el As element, ByVal sPattern As String) As Boolean
     On Error GoTo ErrorHandler
 
     IsMatchingCell = False
     If el Is Nothing Then Exit Function
     If Not el.IsCellElement Then Exit Function
-    IsMatchingCell = RuleGrammar.LikeCI(el.AsCellElement.Name, sPattern)
+    IsMatchingCell = MatchesAnyPattern(el.AsCellElement.Name, sPattern)
     Exit Function
 
 ErrorHandler:
@@ -838,13 +980,16 @@ End Function
 '                                          ENGINE - TRIGGER-CELL PASS
 '######################################################################################################################
 
-' Trigger-cell pass: oCell is a trigger cell whose text may have changed while its group members were NOT
-' re-queued. For each OTHER group member M carrying a property P fed by a CellText rule matching oCell, and
-' where THIS rule is M's first-match for P (AC3 - a member governed by an earlier Value/Coord rule for P is
-' left alone), push oCell's text (compare-guarded via ApplyValueToSibling). Discoverability: matching
-' members exist but none carry a fed target -> one-shot CalculationNoTarget. Two competing cells for one P
-' -> one-shot CalculationMultipleTriggers (last-processed wins).
-Private Sub PushCellTextToMembers(ByVal oCell As element)
+' Trigger-cell pass: oCell is a trigger cell whose text and/or position may have changed while its group
+' members were NOT re-queued. For each OTHER group member M carrying a property P fed by a CellText or
+' CellCoord rule matching oCell's name, and where THIS rule is M's first-match for P (AC3 - a member
+' governed by an earlier Value/Coord rule for P is left alone), push the rule-appropriate value (compare-
+' guarded via ApplyValueToSibling): oCell's text for CellText, oCell's own anchor coordinates for
+' CellCoord. Both are computed at most ONCE per call (lazy, shared across every matching rule/member).
+' CellId is never pushed here (stable - see IsTriggerCell). Discoverability: matching members exist but
+' none carry a fed target -> one-shot CalculationNoTarget. Two competing cells for one P -> one-shot
+' CalculationMultipleTriggers (last-processed wins).
+Private Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
     On Error GoTo ErrorHandler
 
     Dim members() As element
@@ -853,26 +998,47 @@ Private Sub PushCellTextToMembers(ByVal oCell As element)
 
     Dim sName As String
     sName = oCell.AsCellElement.Name
-    Dim sText As String
-    sText = StringsInEl.GetConcatenatedText(oCell)
+
+    Dim sText As String, bTextReady As Boolean
+    Dim sCoord As String, bCoordReady As Boolean
+    bTextReady = False
+    bCoordReady = False
 
     Dim i As Long, ri As Long
     Dim m As element
-    Dim P As String
+    Dim P As String, sVal As String
     Dim nCarried As Long
     nCarried = 0
     For i = LBound(members) To UBound(members)
         Set m = members(i)
         If Not m Is Nothing Then
             For ri = 0 To mnCalcCount - 1
-                If mCalcRules(ri).SourceKind = csCellText Then
-                    If RuleGrammar.LikeCI(sName, mCalcRules(ri).SourceArg) Then
+                If mCalcRules(ri).SourceKind = csCellText Or mCalcRules(ri).SourceKind = csCellCoord Then
+                    If MatchesAnyPattern(sName, mCalcRules(ri).SourceArg) Then
                         P = mCalcRules(ri).TargetProp
                         If CustomPropertyHandler.IsItemAttachedToElement(m, P) Then
                             nCarried = nCarried + 1
-                            ' First-match guard (AC3): push only where THIS CellText rule governs m's P.
+                            ' First-match guard (AC3): push only where THIS rule governs m's P.
                             If FindCalcRuleForProperty(P, m) = ri Then
-                                ApplyValueToSibling m, P, sText
+                                If mCalcRules(ri).SourceKind = csCellText Then
+                                    If Not bTextReady Then
+                                        sText = StringsInEl.GetConcatenatedText(oCell)
+                                        bTextReady = True
+                                    End If
+                                    sVal = sText
+                                Else
+                                    If Not bCoordReady Then
+                                        Dim pt As Point3d
+                                        If GetElementAnchorPoint(oCell, pt) Then
+                                            sCoord = FormatCoord(pt, GetCoordDefaultDecimals())
+                                        Else
+                                            sCoord = ""
+                                        End If
+                                        bCoordReady = True
+                                    End If
+                                    sVal = sCoord
+                                End If
+                                ApplyValueToSibling m, P, sVal
                             End If
                         End If
                     End If
@@ -881,7 +1047,7 @@ Private Sub PushCellTextToMembers(ByVal oCell As element)
         End If
     Next i
 
-    ' Discoverability: siblings match a CellText rule but NONE carry its target -> attach never happened.
+    ' Discoverability: siblings match a rule but NONE carry its target -> attach never happened.
     If nCarried = 0 Then ReportNoTarget
 
     ' Multi-trigger: another cell in the group also feeds one of the pushed targets (last-processed wins).
@@ -889,11 +1055,12 @@ Private Sub PushCellTextToMembers(ByVal oCell As element)
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.PushCellTextToMembers"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.PushCellDerivedValuesToMembers"
 End Sub
 
-' True when oCell's graphic group holds at least one OTHER cell that also matches some CellText[pattern]
-' (i.e. two label cells could feed the same target) - the multi-trigger condition. Read-only.
+' True when oCell's graphic group holds at least one OTHER cell that also matches some CellText[pattern] or
+' CellCoord[pattern] (i.e. two label/anchor cells could feed the same target) - the multi-trigger
+' condition. Read-only.
 Private Function GroupHasCompetingTrigger(ByVal oCell As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -907,7 +1074,7 @@ Private Function GroupHasCompetingTrigger(ByVal oCell As element) As Boolean
     For i = LBound(members) To UBound(members)
         If Not members(i) Is Nothing Then
             If members(i).IsCellElement Then
-                If AnyCellTextPatternMatches(members(i).AsCellElement.Name) Then
+                If AnyPushableSourcePatternMatches(members(i).AsCellElement.Name) Then
                     GroupHasCompetingTrigger = True
                     Exit Function
                 End If
@@ -920,16 +1087,18 @@ ErrorHandler:
     GroupHasCompetingTrigger = False
 End Function
 
-' True when sName matches the CellText[pattern] of at least one calc rule (assumes the cache is parsed).
-Private Function AnyCellTextPatternMatches(ByVal sName As String) As Boolean
+' True when sName matches the CellText[pattern] or CellCoord[pattern] of at least one calc rule (assumes
+' the cache is parsed). CellId is excluded - it is never pushed (see IsTriggerCell), so a cell that only
+' feeds a CellId rule must not be treated as a trigger.
+Private Function AnyPushableSourcePatternMatches(ByVal sName As String) As Boolean
     On Error GoTo ErrorHandler
 
-    AnyCellTextPatternMatches = False
+    AnyPushableSourcePatternMatches = False
     Dim i As Long
     For i = 0 To mnCalcCount - 1
-        If mCalcRules(i).SourceKind = csCellText Then
-            If RuleGrammar.LikeCI(sName, mCalcRules(i).SourceArg) Then
-                AnyCellTextPatternMatches = True
+        If mCalcRules(i).SourceKind = csCellText Or mCalcRules(i).SourceKind = csCellCoord Then
+            If MatchesAnyPattern(sName, mCalcRules(i).SourceArg) Then
+                AnyPushableSourcePatternMatches = True
                 Exit Function
             End If
         End If
@@ -937,16 +1106,17 @@ Private Function AnyCellTextPatternMatches(ByVal sName As String) As Boolean
     Exit Function
 
 ErrorHandler:
-    AnyCellTextPatternMatches = False
+    AnyPushableSourcePatternMatches = False
 End Function
 
 '######################################################################################################################
 '                                          GEOMETRY - Coord ANCHOR CASCADE
 '######################################################################################################################
 
-' Deterministic anchor point of an element, for the Coord source. Returns True and fills pt when an anchor
-' is available; returns False ONLY when even the universal Range-centre seed cannot be computed (a
-' non-graphical bearing element, or a Range fault) - the caller then yields "" + logs, NEVER a fabricated
+' Deterministic anchor point of an element, for the Coord/CellCoord sources (the latter passes the MATCHING
+' CELL, not the bearing element). Returns True and fills pt when an anchor is available; returns False ONLY
+' when even the universal Range-centre seed cannot be computed (a non-graphical element, or a Range fault) -
+' the caller then yields "" + logs, NEVER a fabricated
 ' coordinate. It NEVER returns a fabricated (0,0,0): the Range centre ((Low+High)/2) is seeded first, and a
 ' type-specific anchor OVERRIDES it only on success, so a per-branch geometry fault (e.g. the
 ' applicability-unverified AsClosedElement.Centroid raising on a closed element) degrades to the Range
