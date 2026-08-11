@@ -303,7 +303,7 @@ End Function
 
 ' Rule-agnostic contradiction over a conditions array: True (with the two conflicting condition segments,
 ' canonical text) when the conditions can never be satisfied together. Callable by both the tag
-' RuleHasNoEffect and the coming calc detector. Needs >= 2 conditions.
+' RuleHasNoEffect and the calc detector (PropertyCalculation.CalcRuleHasNoEffect). Needs >= 2 conditions.
 Public Function ConditionsHaveContradiction(ByRef conds() As RuleCondition, ByVal nCond As Long, ByRef segments() As String) As Boolean
     On Error GoTo ErrorHandler
 

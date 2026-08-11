@@ -1,8 +1,9 @@
 ' Module: PropertyTagging
 ' Description: The SOLE attach/detach engine for ARES custom properties. Auto-attaches ARES custom
 '              properties to elements as they are created / modified, driven by configurable rules
-'              (ARES_Property_Rules). Attach-only on match: the property appears (empty) on the element
-'              for the user to fill / pick from its native value-list dropdown.
+'              (ARES_Property_Rules). Attach-only on match: the property appears (empty) on the element,
+'              to be filled by the user (native value-list dropdown) or by the Calculation engine when a
+'              calc rule targets it.
 '
 '              Called from ElementChangeHandler.ProcessElement (deferred, on idle) when
 '              ARES_Auto_Properties is True. Rules are parsed once and cached - call RefreshRules
@@ -33,8 +34,8 @@
 '              on an invalid one. RuleHasNoEffect(sRule, segments) is a read-only contradiction detector
 '              (a syntactically valid rule that can never match) feeding the coloured preview.
 '
-'              DetachRuleProperty(El, P) is the public detach service used by the (phase-1 DORMANT)
-'              calculation engine's value-write scaffolding.
+'              DetachRuleProperty(El, P) is the public detach service used by the AWAKE calculation
+'              engine (epic 14) when a calculated value is emptied with ARES_Calc_Detach_Empty ON.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), CustomPropertyHandler, Link, RuleGrammar, ErrorHandlerClass (global ErrorHandler)
 
@@ -157,8 +158,8 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.ApplyPropertyRules"
 End Sub
 
-' Public detach service: remove a single property P from El. Called by the (phase-1 dormant) calculation
-' engine's value-write scaffolding when it empties a value with ARES_Calc_Detach_Empty ON - detach is
+' Public detach service: remove a single property P from El. Called by the calculation engine's
+' value-write path when it empties a value with ARES_Calc_Detach_Empty ON - detach is
 ' delegated here so ALL attach/detach stays inside PropertyTagging. Thin wrapper over
 ' CustomPropertyHandler.RemoveItemFromElement (itself HasItems-guarded, idempotent). Does NOT consult the
 ' parsed rules.

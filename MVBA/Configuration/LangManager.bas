@@ -175,7 +175,7 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelTip", "Attach ARES custom properties automatically when elements are created or modified."
     moTranslations.Add "EN_PropertyTaggingGUIOptionsEditList_CommandTip", "Pipe-separated (|) list of custom-property names. Example: Commune|Coupe_Type"
     moTranslations.Add "EN_PropertyTaggingGUIOptionsEditRules_CommandTip", "Rules: Lvl[level], Cell[name], Type[type]; & = AND; ! negates; * / ? wildcards; a leading @ attaches to the OTHER group members. Example: Type[Cell]&!Cell[A]=Repere ; @Cell[ETI0*]=Repere"
-    moTranslations.Add "EN_PropertyRuleInvalid", "ARES: Property rules - invalid rule ignored (check selector=prop|prop; separate rules with ';', not '|')"
+    moTranslations.Add "EN_PropertyRuleInvalid", "ARES: Property rules - invalid rule ignored (check [@]Lvl/Cell/Type[name]&...=prop|prop; separate rules with ';', not '|')"
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "EN_CalculationGUIOptionsCaption", "Property Calculation options"
     moTranslations.Add "EN_CalculationGUIOptionsMain_LabelCaption", "Enable property calculation"
@@ -187,6 +187,8 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_CalculationMultipleTriggers", "ARES: Property calculation - several trigger cells in this group; the last-modified one sets the value"
     moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rules - invalid rule ignored (Prop[name]=CellText/Value/Coord/Id; separate rules with ';', not '|')"
     moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText[pattern] | Value[text] | Coord[n] | Id. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord"
+    ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
+    moTranslations.Add "EN_PropertyLibraryNotFound", "ARES: Custom properties - the ARES DGNLib was not found (check MS_DGNLIBLIST)"
     ' Tooltips - Zoning
     moTranslations.Add "EN_ZoningGUIOptionsEditLevels_CommandTip", "Source levels to process (pipe-separated |)."
     moTranslations.Add "EN_ZoningGUIOptionsDistance_LabelTip", "Buffer distance in master units. Must be a positive number."
@@ -376,7 +378,7 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelTip", "Attache automatiquement les propriétés ARES à la création ou à la modification d'éléments."
     moTranslations.Add "FR_PropertyTaggingGUIOptionsEditList_CommandTip", "Liste de noms de propriétés séparés par | . Exemple : Commune|Coupe_Type"
     moTranslations.Add "FR_PropertyTaggingGUIOptionsEditRules_CommandTip", "Règles : Lvl[niveau], Cell[nom], Type[type] ; & = ET ; ! nie ; * / ? jokers ; un @ en tête attache aux AUTRES membres du groupe. Exemple : Type[Cell]&!Cell[A]=Repere ; @Cell[ETI0*]=Repere"
-    moTranslations.Add "FR_PropertyRuleInvalid", "ARES : Règles de propriété - règle invalide ignorée (vérifiez sélecteur=prop|prop ; séparez les règles par ';', pas '|')"
+    moTranslations.Add "FR_PropertyRuleInvalid", "ARES : Règles de propriété - règle invalide ignorée (vérifiez [@]Lvl/Cell/Type[nom]&...=prop|prop ; séparez les règles par ';', pas '|')"
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "FR_CalculationGUIOptionsCaption", "Options de calcul de propriété"
     moTranslations.Add "FR_CalculationGUIOptionsMain_LabelCaption", "Activer le calcul de propriété"
@@ -388,6 +390,8 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_CalculationMultipleTriggers", "ARES : Calcul de propriété - plusieurs cellules déclencheuses dans ce groupe ; la dernière modifiée impose la valeur"
     moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règles de calcul - règle invalide ignorée (Prop[nom]=CellText/Value/Coord/Id ; séparez les règles par ';', pas '|')"
     moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText[motif] | Value[texte] | Coord[n] | Id. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord"
+    ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
+    moTranslations.Add "FR_PropertyLibraryNotFound", "ARES : Propriétés personnalisées - DGNLib ARES introuvable (vérifiez MS_DGNLIBLIST)"
     ' Tooltips - Zoning
     moTranslations.Add "FR_ZoningGUIOptionsEditLevels_CommandTip", "Niveaux sources à traiter (séparés par |)."
     moTranslations.Add "FR_ZoningGUIOptionsDistance_LabelTip", "Distance de la zone tampon en unités maître. Doit être un nombre positif."

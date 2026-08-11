@@ -1,7 +1,7 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, ConfigurationUI, Zoning, ExportLengthInRegion
+' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler
 Option Explicit
 
 Private moAutoLengthsGUI     As AutoLengths_GUI_Options
@@ -491,7 +491,7 @@ Public Sub OnPropertyTaggingGUIClosed()
     Set moPropertyTaggingGUI = Nothing
 End Sub
 
-' Open the Property Calculation (label-cell text -> group custom property) options GUI
+' Open the Property Calculation (calc rules -> custom-property values) options GUI
 Sub EditPropertyCalculationOptions()
     On Error GoTo ErrorHandler
     ErrorHandler.ClearErrorFlag
@@ -516,6 +516,34 @@ End Sub
 
 Public Sub OnPropertyCalculationGUIClosed()
     Set moPropertyCalculationGUI = Nothing
+End Sub
+
+' Key-in: open the DGNLib holding the ARES custom-property ItemTypes, then its Item Types dialog, so the
+' definitions (ItemTypes, value lists) can be edited straight away. MicroStation closes the working file
+' to do so; re-opening it afterwards refreshes the Item Type state on its own (DGNOpenClose ->
+' CustomPropertyHandler.RefreshItemTypes), which closes the edit loop without a restart.
+Sub OpenPropertyLibrary()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    ' Library not found (not in MS_DGNLIBLIST, not deployed): an expected user-facing situation, so it is
+    ' reported on the status bar only - the technical detail, if any, already went to the log downstream.
+    If Not CustomPropertyHandler.OpenCustomPropertyLibrary() Then
+        ShowStatusT "PropertyLibraryNotFound"
+        Exit Sub
+    End If
+
+    ReportIfLogged "OpenPropertyLibrary"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "OpenPropertyLibrary", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Persist the position of every option form still open (best-effort; called at project unload).

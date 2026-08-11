@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyCalculation_GUI_Options 
-   Caption         =   "PropertyPropagation_GUI_Options"
+   Caption         =   "PropertyCalculation_GUI_Options"
    ClientHeight    =   2175
    ClientLeft      =   120
    ClientTop       =   465
@@ -27,7 +27,7 @@ Attribute VB_Exposed = False
 '              + validity + red segments + the bold-keyword list (the target/condition keywords Prop/Lvl/
 '              Cell/Type AND the four source keywords CellText/Value/Coord/Id).
 '
-'              DESIGNER (manual, Asketyll) - controls required with EXACTLY these names:
+'              DESIGNER (manual) - controls required with EXACTLY these names:
 '                Main_CheckBox (CheckBox, value master), DetachEmpty_CheckBox (CheckBox, detach-empty
 '                option; caption set in code), ComboBox_CalcRules (ComboBox, Style = 0 fmStyleDropDownCombo
 '                EDITABLE - the sole per-rule editor), Frame_CalcPreview (Frame, render surface directly

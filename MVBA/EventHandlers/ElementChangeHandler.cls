@@ -1,5 +1,6 @@
 ' Class Module: ElementChangeHandler
-' Description: Handles element change events for automatic length and color updates.
+' Description: Handles element change events for automatic length/color updates, property tagging and
+'              property calculation (capture + deferred idle processing).
 '              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
 '              Includes automatic detection of bulk operations using frequency-based detection.
 ' License: This project is licensed under the AGPL-3.0.
@@ -238,9 +239,9 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     TriggerFinded = False
     ONLY_COLOR = ARESConfig.ARES_ONLY_COLOR.Value
 
-    ' Auto-attach configured custom properties (PropertyTagging). Level rules attach to the changed
-    ' element itself; a cell-group rule (@CellName) additionally fans out and attaches to the OTHER
-    ' members of the element's graphic group when it is the named cell. Runs BEFORE the graphic-group
+    ' Auto-attach configured custom properties (PropertyTagging, grammar v2). A plain rule attaches to the
+    ' changed element itself; a rule carrying the leading "@" modifier instead fans the properties out to
+    ' the OTHER members of the matched element's graphic group. Runs BEFORE the graphic-group
     ' filter so it also reaches ungrouped elements, and only at the top level (Depth 0) so linked
     ' descendants are not tagged. Attach is idempotent.
     If Depth = 0 Then
@@ -622,7 +623,7 @@ End Sub
 ' Checks if any ARES feature is enabled
 ' Used for early exit to avoid unnecessary processing
 ' Returns:
-'   True if at least one feature (auto lengths or color sync) is enabled
+'   True if at least one feature (auto lengths, color sync, property tagging or property calculation) is enabled
 Private Function IsAnyFeatureEnabled() As Boolean
     Dim autoLengthEnabled As Boolean
     Dim onlyColorEnabled As Boolean
@@ -641,7 +642,7 @@ End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)
 ' Filters by: graphical + graphic group (AutoLengths fast path), OR a matching PropertyTagging rule
-' for ungrouped elements (so level-based auto-attach reaches elements not in a graphic group).
+' for ungrouped elements (so rule-based auto-attach reaches elements not in a graphic group).
 ' Note: Link validation is deferred to ProcessElement for performance
 ' Parameters:
 '   oElement - The element to evaluate

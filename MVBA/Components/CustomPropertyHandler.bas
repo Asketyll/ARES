@@ -17,14 +17,28 @@
 '
 '              It also owns the MicroStation-side Item Type STATE refresh (RefreshItemTypes):
 '              MicroStation reads MS_DGNLIBLIST only at boot, so a DGNLib deployed or edited
-'              afterwards needs an explicit refresh to become visible.
+'              afterwards needs an explicit refresh to become visible - and the round trip to the
+'              library itself (OpenCustomPropertyLibrary), which opens the DGNLib FILE and raises the
+'              Item Types dialog on it so the definitions can be edited.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), ErrorHandlerClass (global ErrorHandler)
+' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), Config, ErrorHandlerClass (global ErrorHandler)
 
 Option Explicit
 
 ' Default managed property names when ARES_Custom_Property_List is unset (name = ItemType = property).
 Private Const DEFAULT_CUSTOM_PROPERTIES As String = "Commune|Coupe_Type"
+
+' The DGNLib FILE that ships the ARES ItemTypes. NOT the same thing as the ItemTypeLibrary NAME
+' (ARESConstants.ARES_NAME_LIBRARY_TYPE = "ARES"): this is the file on disk, that is the library
+' authored inside it. Change this const if the file is ever renamed.
+Private Const DGNLIB_FILE_NAME As String = "ARES_Custom_Properties.dgnlib"
+' Where the ARES installer deploys it (it also writes "MS_DGNLIBLIST > c:/ares/rsc/*.dgnlib"). Used only
+' as a last resort, when MS_DGNLIBLIST is undefined or points somewhere the file is not.
+Private Const DGNLIB_FALLBACK_DIR As String = "C:\ARES\Rsc"
+' MicroStation's own search list for DGN libraries: ";"-separated entries, each a file, a folder or a
+' wildcard pattern.
+Private Const MS_DGNLIBLIST_VAR As String = "MS_DGNLIBLIST"
+Private Const DGNLIBLIST_SEPARATOR As String = ";"
 
 '######################################################################################################################
 '                              CONFIGURED PROPERTY NAMES (user-editable list)
@@ -94,6 +108,150 @@ Public Sub RefreshItemTypes()
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.RefreshItemTypes"
 End Sub
+
+'######################################################################################################################
+'                              DGNLIB ROUND TRIP (edit the definitions)
+'######################################################################################################################
+
+' Open the DGNLib that holds the ARES ItemTypes, then raise the Item Types dialog on it, so the user can
+' edit the custom-property definitions (add an ItemType, extend a value list) without navigating there by
+' hand. Returns False when the library file cannot be located - the caller owns the user message.
+'
+' MicroStation supports ONE open design file, so OpenDesignFile closes the working file first
+' (mvba-docs/03-methods/OpenDesignFile_Method.md; on error the original file is left open). Read-write,
+' since editing is the whole point. When the user re-opens the working file afterwards, DGNOpenClose's
+' OnDesignFileOpened already calls RefreshItemTypes - so the edits are picked up without a restart and
+' the edit loop closes itself.
+'
+' Unlike RefreshItemTypes' open/update/close sandwich, the dialog is left OPEN here: the user edits in it.
+Public Function OpenCustomPropertyLibrary() As Boolean
+    On Error GoTo ErrorHandler
+
+    OpenCustomPropertyLibrary = False
+
+    Dim sPath As String
+    sPath = FindCustomPropertyLibraryPath()
+    If Len(sPath) = 0 Then Exit Function
+
+    ' Already sitting in the library: re-opening it would be a pointless round trip - just raise the dialog.
+    If Not IsActiveDesignFile(sPath) Then OpenDesignFile sPath, False
+
+    CadInputQueue.SendKeyin "DIALOG ITEMTYPE OPEN"
+    ' Restore the default command state after the key-in (the documented SendKeyin pattern, as in
+    ' RefreshItemTypes - it does not close the dialog).
+    CommandState.StartDefaultCommand
+
+    OpenCustomPropertyLibrary = True
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.OpenCustomPropertyLibrary"
+    OpenCustomPropertyLibrary = False
+End Function
+
+' Full path of the ARES DGNLib, or "" when it cannot be found.
+'
+' Resolved through MS_DGNLIBLIST - the list MicroStation itself scans - rather than from the resolved
+' ItemTypeLibrary: the MVBA ItemTypeLibrary object exposes no source file at all (LibName / Write /
+' AddItemType / Find / GetItemTypeByName / GetSchemaAccessString / RemoveItemType / DeleteLib / Refresh -
+' mvba-docs/02-objects/ItemTypeLibrary_Object.md), so there is no path to read back from it.
+' Each MS_DGNLIBLIST entry may be a file, a folder or a wildcard pattern, so every entry is probed both as
+' a folder and as a path whose parent folder holds the library. Falls back to the installer's own
+' deployment folder when the list yields nothing.
+Public Function FindCustomPropertyLibraryPath() As String
+    On Error GoTo ErrorHandler
+
+    FindCustomPropertyLibraryPath = ""
+
+    Dim sList As String
+    Dim entries() As String
+    Dim sHit As String
+    Dim i As Long
+
+    sList = Config.GetVar(MS_DGNLIBLIST_VAR)          ' expanded value; ARES_NAVD when undefined
+
+    If sList <> ARESConstants.ARES_NAVD Then
+        entries = Split(sList, DGNLIBLIST_SEPARATOR)
+        For i = LBound(entries) To UBound(entries)
+            sHit = ResolveDgnLibEntry(entries(i))
+            If Len(sHit) > 0 Then
+                FindCustomPropertyLibraryPath = sHit
+                Exit Function
+            End If
+        Next i
+    End If
+
+    FindCustomPropertyLibraryPath = LibraryFileIn(DGNLIB_FALLBACK_DIR)
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.FindCustomPropertyLibraryPath"
+    FindCustomPropertyLibraryPath = ""
+End Function
+
+' Probe ONE MS_DGNLIBLIST entry for the ARES DGNLib. The entry is tried as a folder first, then as a file
+' or wildcard pattern (in which case its parent folder is the one to look in) - which also covers an entry
+' naming the library file itself. Returns the full path or "".
+Private Function ResolveDgnLibEntry(ByVal sEntry As String) As String
+    On Error GoTo ErrorHandler
+
+    ResolveDgnLibEntry = ""
+
+    ' MS_DGNLIBLIST entries commonly use forward slashes (the ARES installer writes "c:/ares/rsc/*.dgnlib").
+    Dim s As String
+    s = Trim(Replace(sEntry, "/", "\"))
+    Do While Len(s) > 0
+        If Right(s, 1) <> "\" Then Exit Do
+        s = Left(s, Len(s) - 1)
+    Loop
+    If Len(s) = 0 Then Exit Function
+
+    ResolveDgnLibEntry = LibraryFileIn(s)
+    If Len(ResolveDgnLibEntry) > 0 Then Exit Function
+
+    Dim nSep As Long
+    nSep = InStrRev(s, "\")
+    If nSep > 1 Then ResolveDgnLibEntry = LibraryFileIn(Left(s, nSep - 1))
+    Exit Function
+
+ErrorHandler:
+    ' Silent fail-closed: an unreachable path (offline network share) just means "not here".
+    ResolveDgnLibEntry = ""
+End Function
+
+' Full path of the ARES DGNLib inside sFolder, or "" when it is not there. Dir is always called WITH an
+' argument, so it starts a fresh search and cannot disturb an enumeration running elsewhere.
+Private Function LibraryFileIn(ByVal sFolder As String) As String
+    On Error GoTo ErrorHandler
+
+    LibraryFileIn = ""
+    If Len(Trim(sFolder)) = 0 Then Exit Function
+
+    Dim sPath As String
+    sPath = sFolder & "\" & DGNLIB_FILE_NAME
+    If Len(Dir(sPath)) > 0 Then LibraryFileIn = sPath
+    Exit Function
+
+ErrorHandler:
+    ' Silent fail-closed (like ResolveDgnLibEntry): a path Dir cannot even probe is simply not a hit.
+    LibraryFileIn = ""
+End Function
+
+' True when sPath is the design file currently open (case-insensitive full-path compare - FullName is
+' path + name + extension, mvba-docs/04-properties/FullName_Property.md).
+Private Function IsActiveDesignFile(ByVal sPath As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsActiveDesignFile = False
+    If ActiveDesignFile Is Nothing Then Exit Function
+
+    IsActiveDesignFile = (StrComp(ActiveDesignFile.FullName, sPath, vbTextCompare) = 0)
+    Exit Function
+
+ErrorHandler:
+    ' Silent fail-closed: "cannot tell" means "not the active file", so the caller opens it - harmless.
+    IsActiveDesignFile = False
+End Function
 
 '######################################################################################################################
 '                              GENERIC LIBRARY HELPERS (reusable, schema-agnostic)
