@@ -10,10 +10,11 @@
 '              The library is resolved with FindForDesignFile(..., includeDgnLibs:=True), so the
 '              definitions are found whether they live in the active file or in a referenced DGNLib.
 '
-'              The managed property names are user-editable via the ARES_Custom_Property_List config
-'              var (default "Commune|Coupe_Type") - each name is BOTH the ItemType name and the
-'              property name. A user adds a custom property by authoring it in the DGNLib (ItemType +
-'              value list) and adding its name to that list; no code change needed.
+'              The managed property names are ENUMERATED FROM THE DGNLIB ITSELF (GetCustomPropertyNames)
+'              - each ItemType in the "ARES" library is one custom property, its name being BOTH the
+'              ItemType name and the property name. The library IS the list: authoring an ItemType (+ its
+'              value list) in the DGNLib is all it takes for ARES to know about it - no config var to
+'              keep in sync, no code change.
 '
 '              It also owns the MicroStation-side Item Type STATE refresh (RefreshItemTypes):
 '              MicroStation reads MS_DGNLIBLIST only at boot, so a DGNLib deployed or edited
@@ -21,12 +22,9 @@
 '              library itself (OpenCustomPropertyLibrary), which opens the DGNLib FILE and raises the
 '              Item Types dialog on it so the definitions can be edited.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), Config, ErrorHandlerClass (global ErrorHandler)
+' Dependencies: ARESConstants, Config, ErrorHandlerClass (global ErrorHandler)
 
 Option Explicit
-
-' Default managed property names when ARES_Custom_Property_List is unset (name = ItemType = property).
-Private Const DEFAULT_CUSTOM_PROPERTIES As String = "Commune|Coupe_Type"
 
 ' The DGNLib FILE that ships the ARES ItemTypes. NOT the same thing as the ItemTypeLibrary NAME
 ' (ARESConstants.ARES_NAME_LIBRARY_TYPE = "ARES"): this is the file on disk, that is the library
@@ -41,42 +39,68 @@ Private Const MS_DGNLIBLIST_VAR As String = "MS_DGNLIBLIST"
 Private Const DGNLIBLIST_SEPARATOR As String = ";"
 
 '######################################################################################################################
-'                              CONFIGURED PROPERTY NAMES (user-editable list)
+'                              MANAGED PROPERTY NAMES (enumerated from the DGNLib)
 '######################################################################################################################
 
-' The ARES custom-property names ARES manages, from the ARES_Custom_Property_List config var
-' (| -delimited). Each entry is both the ItemType name and the property name. A user can add their
-' own after authoring the matching ItemType + value list in the "ARES" DGNLib. 0-based array; use
-' the standard safe bounds-check before reading it.
+' The ARES custom-property names ARES manages: every ItemType of the "ARES" ItemTypeLibrary, read from
+' the library itself (one ItemType per property, so the ItemType name IS the property name). The DGNLib
+' is the single source of truth - authoring an ItemType there is enough; nothing to declare elsewhere.
+'
+' Enumerated with the documented successive-Find idiom - ItemTypeLibrary.Find(NamePattern[, previous])
+' returns the next ItemType, and "*" walks them all (mvba-docs/03-methods/Find_Method.md: "You can
+' successively find all ItemTypes by giving the name pattern, '*'"); each name comes from
+' ItemType.ItemTypeName (mvba-docs/04-properties/ItemTypeName_Property.md).
+'
+' ORDER is the library's own enumeration order (authoring order in the DGNLib) - NOT sorted, and not
+' guaranteed stable across edits. No consumer depends on it: Zone Export uses the array as a membership
+' set and as combo content.
+'
+' 0-based array, ALWAYS allocated. Library missing (no DGNLib deployed / not yet refreshed) or holding no
+' ItemType -> the one-empty-entry array [""], the same shape an empty list used to produce, which both
+' consumers already absorb (combo skips empty names; membership test simply fails -> "Zone <n>" labels).
 Public Function GetCustomPropertyNames() As String()
     On Error GoTo ErrorHandler
 
-    GetCustomPropertyNames = Split(GetCustomPropertyListRaw(), ARESConstants.ARES_VAR_DELIMITER)
+    Dim names() As String
+    Dim ITL As ItemTypeLibrary
+    Dim oItem As ItemType
+    Dim n As Long
+
+    ReDim names(0 To 0)
+    names(0) = ""
+    n = 0
+
+    Set ITL = FindItemTypeLibrary()
+    If ITL Is Nothing Then
+        GetCustomPropertyNames = names
+        Exit Function
+    End If
+
+    ' Pick up ItemTypes authored since this cache was built (Refresh takes no argument on an
+    ' ItemTypeLibrary - mvba-docs/03-methods/Refresh_Method.md). Best-effort: a refresh fault must not
+    ' cost us the enumeration that follows.
+    On Error Resume Next
+    ITL.Refresh
+    On Error GoTo ErrorHandler
+
+    Do
+        Set oItem = ITL.Find("*", oItem)
+        If oItem Is Nothing Then Exit Do
+        If Len(Trim(oItem.ItemTypeName)) > 0 Then
+            ReDim Preserve names(0 To n)
+            names(n) = oItem.ItemTypeName
+            n = n + 1
+        End If
+    Loop
+
+    GetCustomPropertyNames = names
     Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetCustomPropertyNames"
-    GetCustomPropertyNames = Split(DEFAULT_CUSTOM_PROPERTIES, ARESConstants.ARES_VAR_DELIMITER)
-End Function
-
-' Raw | -delimited list from configuration; falls back to the default when config is unavailable or
-' the variable is empty. Lazily initialises ARESConfig like the other modules.
-Private Function GetCustomPropertyListRaw() As String
-    On Error GoTo ErrorHandler
-
-    GetCustomPropertyListRaw = DEFAULT_CUSTOM_PROPERTIES
-
-    If ARESConfig Is Nothing Then Exit Function
-    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_CUSTOM_PROPERTY_LIST Is Nothing Then Exit Function
-
-    Dim s As String
-    s = ARESConfig.ARES_CUSTOM_PROPERTY_LIST.Value
-    If Len(Trim(s)) > 0 Then GetCustomPropertyListRaw = s
-    Exit Function
-
-ErrorHandler:
-    GetCustomPropertyListRaw = DEFAULT_CUSTOM_PROPERTIES
+    ReDim names(0 To 0)
+    names(0) = ""
+    GetCustomPropertyNames = names
 End Function
 
 '######################################################################################################################

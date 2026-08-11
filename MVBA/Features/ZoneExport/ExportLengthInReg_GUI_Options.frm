@@ -207,7 +207,7 @@ End Sub
 
 ' ============================================================
 ' ZONE PROPERTY - ComboBox (custom-property read ON EACH ZONE for its label)
-' Populated from ARES_Custom_Property_List so only valid names are selectable.
+' Populated from the ARES DGNLib's ItemTypes so only valid names are selectable.
 ' ============================================================
 
 Private Sub ComboBox_ZoneProperty_Change()

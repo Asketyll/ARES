@@ -130,7 +130,6 @@ Sub InitializeTranslations()
     ' --- Property Tagging (custom-property) options GUI ---
     moTranslations.Add "EN_PropertyTaggingGUIOptionsCaption", "Edit custom-property options:"
     moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelCaption", "Auto-attach on create / modify"
-    moTranslations.Add "EN_PropertyTaggingGUIOptionsEditList_CommandCaption", "Edit property list"
     moTranslations.Add "EN_ZoningNoBufferCreated", "No buffer could be created for any of the {0} element(s) found."
     moTranslations.Add "EN_ZoningSomeBuffersFailed", "{0} of {1} element(s) could not be buffered and were skipped."
     moTranslations.Add "EN_ZoneExportGUIOptionsCaption", "Edit zone export options:"
@@ -173,7 +172,6 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_AutoLengthsGUISelectElementsCancel_CommandCaption", "Cancel"
     ' Tooltips (ControlTipText) - Property Tagging
     moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelTip", "Attach ARES custom properties automatically when elements are created or modified."
-    moTranslations.Add "EN_PropertyTaggingGUIOptionsEditList_CommandTip", "Pipe-separated (|) list of custom-property names. Example: Commune|Coupe_Type"
     moTranslations.Add "EN_PropertyTaggingGUIOptionsEditRules_CommandTip", "Rules: Lvl[level], Cell[name], Type[type]; & = AND; ! negates; * / ? wildcards; a leading @ attaches to the OTHER group members. Example: Type[Cell]&!Cell[A]=Repere ; @Cell[ETI0*]=Repere"
     moTranslations.Add "EN_PropertyRuleInvalid", "ARES: Property rules - invalid rule ignored (check [@]Lvl/Cell/Type[name]&...=prop|prop; separate rules with ';', not '|')"
     ' --- Property Calculation options GUI + statuses ---
@@ -333,7 +331,6 @@ Sub InitializeTranslations()
     ' --- Property Tagging (custom-property) options GUI ---
     moTranslations.Add "FR_PropertyTaggingGUIOptionsCaption", "Modifier les options de propriétés personnalisées :"
     moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelCaption", "Attache auto à la création / modification"
-    moTranslations.Add "FR_PropertyTaggingGUIOptionsEditList_CommandCaption", "Modifier la liste des propriétés"
     moTranslations.Add "FR_ZoningNoBufferCreated", "Aucun buffer n'a pu être créé pour les {0} élément(s) trouvé(s)."
     moTranslations.Add "FR_ZoningSomeBuffersFailed", "{0} des {1} élément(s) n'ont pas pu être bufférisés et ont été ignorés."
     moTranslations.Add "FR_ZoneExportGUIOptionsCaption", "Modifier les options d'export de zone :"
@@ -376,7 +373,6 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_AutoLengthsGUISelectElementsCancel_CommandCaption", "Annuler"
     ' Tooltips (ControlTipText) - Property Tagging
     moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelTip", "Attache automatiquement les propriétés ARES à la création ou à la modification d'éléments."
-    moTranslations.Add "FR_PropertyTaggingGUIOptionsEditList_CommandTip", "Liste de noms de propriétés séparés par | . Exemple : Commune|Coupe_Type"
     moTranslations.Add "FR_PropertyTaggingGUIOptionsEditRules_CommandTip", "Règles : Lvl[niveau], Cell[nom], Type[type] ; & = ET ; ! nie ; * / ? jokers ; un @ en tête attache aux AUTRES membres du groupe. Exemple : Type[Cell]&!Cell[A]=Repere ; @Cell[ETI0*]=Repere"
     moTranslations.Add "FR_PropertyRuleInvalid", "ARES : Règles de propriété - règle invalide ignorée (vérifiez [@]Lvl/Cell/Type[nom]&...=prop|prop ; séparez les règles par ';', pas '|')"
     ' --- Property Calculation options GUI + statuses ---

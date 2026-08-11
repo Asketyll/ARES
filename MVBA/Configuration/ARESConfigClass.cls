@@ -83,18 +83,14 @@ Public ARES_ZONE_EXPORT_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)   |-d
 ' Used in ExportLengthInRegion module — True = additionally split every group by zone (long format: Zone | group | length); False = classic global export.
 Public ARES_ZONE_EXPORT_PER_ZONE As ARES_MS_VAR_Class 'Default Value: False                       True or False (Boolean)
 ' Used in ExportLengthInRegion module — custom-property NAME whose value labels each zone (read on the ZONE element) when per-zone split is on.
-' Member of ARES_Custom_Property_List. Empty/invalid = zones labeled "Zone <n>" (scan order).
-Public ARES_ZONE_EXPORT_ZONE_PROPERTY As ARES_MS_VAR_Class 'Default Value: (empty)   custom-property name; must be a member of ARES_Custom_Property_List
+' Must be an ItemType of the "ARES" DGNLib. Empty/invalid = zones labeled "Zone <n>" (scan order).
+Public ARES_ZONE_EXPORT_ZONE_PROPERTY As ARES_MS_VAR_Class 'Default Value: (empty)   custom-property name; must be an ItemType of the "ARES" DGNLib
 ' Used in RegionSplit module — geometric epsilon: degenerate-segment / zero-parameter / coincident-point threshold; also drives the cut-knife half-width
 Public ARES_REGIONSPLIT_COLLINEAR_TOL As ARES_MS_VAR_Class 'Default Value: 0.000001               Geometric epsilon in master units (Double)
 ' Used in RegionSplit module — False = original region is deleted after the two halves are written; True = original is kept alongside the two halves
 Public ARES_REGIONSPLIT_KEEP_ORIGINAL As ARES_MS_VAR_Class 'Default Value: False                  True or False (Boolean)
 ' Used in RegionSplit module — max chordal deviation (master units) when densifying an arc boundary side into a polyline; smaller => more chords => closer-to-radial perpendicular and tighter entry foot
 Public ARES_REGIONSPLIT_STROKE_TOL As ARES_MS_VAR_Class 'Default Value: 0.01                       Stroke chordal tolerance in master units (Double, > 0)
-' Used in CustomPropertyHandler module — | -delimited list of ARES custom-property names managed by ARES.
-' Each name is both the ItemType name and the property name in the "ARES" DGNLib (one property per type).
-' Add your own after authoring the matching ItemType + value list in the DGNLib.
-Public ARES_CUSTOM_PROPERTY_LIST As ARES_MS_VAR_Class 'Default Value: Commune|Coupe_Type    list delimited by | (ARES_VAR_DELIMITER)
 ' Used in PropertyTagging module — master switch for auto-attaching custom properties on element add/modify.
 Public ARES_AUTO_PROPERTIES As ARES_MS_VAR_Class 'Default Value: True                       True or False (Boolean)
 ' Used in PropertyTagging module — grammar v2 rules "[@]cond[&cond]*=prop|prop ; …" mapping elements to properties to attach
@@ -175,7 +171,6 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
     Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
     Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")
-    Set ARES_CUSTOM_PROPERTY_LIST = CreateConfigVar("ARES_Custom_Property_List", "Commune|Coupe_Type")
     Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
     Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
     Set ARES_CALC_RULES = CreateConfigVar("ARES_Calc_Rules", "")

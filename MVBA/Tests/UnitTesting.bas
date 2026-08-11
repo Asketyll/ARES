@@ -368,6 +368,7 @@ Private Function CustomPropertyHandlerTest() As Boolean
     Dim TotalTests As Integer
     Dim ITL As ItemTypeLibrary
     Dim oItem As ItemType
+    Dim oAnyProp As ItemTypeProperty
     Dim names() As String
     Dim name1 As String
     Dim name2 As String
@@ -388,25 +389,39 @@ Private Function CustomPropertyHandlerTest() As Boolean
         Exit Function
     End If
 
-    ' The managed property names are user-configurable (ARES_Custom_Property_List).
+    ' The managed property names are ENUMERATED from the library above (one ItemType = one property), so
+    ' this part of the test runs against whatever the deployed DGNLib actually defines. An empty library
+    ' yields the [""] convention array - not-applicable (pass), like a missing library.
     names = CustomPropertyHandler.GetCustomPropertyNames()
     If UBound(names) < LBound(names) Then
-        CustomPropertyHandlerTest = True   ' nothing configured -> nothing to test
+        CustomPropertyHandlerTest = True   ' nothing to test
         Exit Function
     End If
     name1 = Trim(names(LBound(names)))
-    hasSecond = (UBound(names) > LBound(names))
-    If hasSecond Then name2 = Trim(names(LBound(names) + 1))
+    If Len(name1) = 0 Then
+        CustomPropertyHandlerTest = True   ' library holds no ItemType -> nothing to test
+        Exit Function
+    End If
+    hasSecond = False
+    If UBound(names) > LBound(names) Then
+        name2 = Trim(names(LBound(names) + 1))
+        hasSecond = (Len(name2) > 0)
+    End If
 
     ' Start from a clean element (a previous run may have left items attached)
     CustomPropertyHandler.RemoveItemFromElement TestElement, name1
     If hasSecond Then CustomPropertyHandler.RemoveItemFromElement TestElement, name2
 
-    ' Test 5.1: the first configured item type and its property exist in the library
+    ' Test 5.1: the first enumerated item type exists and carries at least ONE property.
+    ' Deliberately NOT asserting property-name == ItemType-name: production reads and writes tolerate a
+    ' hand-authored DGNLib whose property is named differently (the GetFirstPropertyValue /
+    ' SetFirstPropertyValue fallback), so requiring the convention here would turn the suite red with no
+    ' defect behind it. Any property found via the documented Find("*") walk satisfies the contract.
     TotalTests = TotalTests + 1
     Set oItem = ITL.GetItemTypeByName(name1)
     If Not oItem Is Nothing Then
-        If Not oItem.GetPropertyByName(name1) Is Nothing Then TestsPassed = TestsPassed + 1
+        Set oAnyProp = oItem.Find("*", oAnyProp)
+        If Not oAnyProp Is Nothing Then TestsPassed = TestsPassed + 1
     End If
 
     ' Test 5.2: attach the first property to the element

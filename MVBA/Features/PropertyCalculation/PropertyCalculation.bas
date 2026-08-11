@@ -9,8 +9,8 @@
 '              CALC GRAMMAR (ARES_Calc_Rules, epic 14):  "rule ; rule ; ..."  where each rule is
 '                  Prop[name] [& condition]* = Source
 '                - Prop[name] = the TARGET property (left-most). One name, NO wildcard (a target is named,
-'                    not matched). Syntactic-only validation; membership in ARES_Custom_Property_List is
-'                    NOT hard-checked (the runtime frontier is the guard - the engine only writes where
+'                    not matched). Syntactic-only validation; membership in the ARES DGNLib is NOT
+'                    hard-checked (the runtime frontier is the guard - the engine only writes where
 '                    the property is actually attached).
 '                - [& condition]* = OPTIONAL conditions, the SAME grammar as the tag rules (Lvl/Cell/Type,
 '                    &, !, */? wildcards), delegated verbatim to the shared RuleGrammar module.

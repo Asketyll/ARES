@@ -39,8 +39,8 @@ Public Const ARES_CELL_INDEX_ERROR_VALUE As Integer = -1
 ' Used in CustomPropertyHandler module.
 ' ARES stores ONE ItemType per custom property inside the "ARES" ItemTypeLibrary; each ItemType
 ' carries exactly one property, hence ItemType name == property name (what the Properties dialog
-' shows). The library name is fixed below; the managed property names are user-editable via the
-' ARES_Custom_Property_List config var (see CustomPropertyHandler.GetCustomPropertyNames).
+' shows). The library name is fixed below; the managed property names are enumerated from the library
+' itself (see CustomPropertyHandler.GetCustomPropertyNames) - the DGNLib is the list.
 Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"          ' ItemTypeLibrary name (namespace)
 
 ' === FILE DIALOG FILTER CONSTANTS ===

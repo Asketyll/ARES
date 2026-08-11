@@ -13,11 +13,13 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' UserForm: PropertyTagging_GUI_Options
-' Description: Options panel for Property Tagging - the master switch (ARES_Auto_Properties), the
-'              custom-property list (ARES_Custom_Property_List, hidden reveal), and the attach rules
-'              (ARES_Property_Rules). Rules are edited one at a time through an editable ComboBox
+' Description: Options panel for Property Tagging - the master switch (ARES_Auto_Properties) and the
+'              attach rules (ARES_Property_Rules). The managed property names are NOT edited here any
+'              more: they are enumerated from the "ARES" DGNLib itself (CustomPropertyHandler.
+'              GetCustomPropertyNames), so authoring an ItemType there is the only step needed.
+'              Rules are edited one at a time through an editable ComboBox
 '              (split on ";"): pick a rule -> edit -> commit replaces it; free-type + commit appends;
-'              empty + commit removes it. The ComboBox is the SOLE rules editor (the raw reveal was
+'              empty + commit removes it. The ComboBox is the SOLE rules editor (the raw rules reveal was
 '              removed - bulk config travels via .cfg import/export). Every commit is validated by
 '              PropertyTagging.ValidateAndNormalizeRule, so a malformed rule (chiefly the "|"-instead-of-";"
 '              mistake) is refused instead of saved.
@@ -29,16 +31,15 @@ Attribute VB_Exposed = False
 '              validity + red segments + bold-keyword list {Lvl,Cell,Type}; RuleEditorUX renders the runs.
 '
 '              DESIGNER (manual, Asketyll) - controls required with EXACTLY these names:
-'                Main_CheckBox (CheckBox, master), Edit_PropertyList_Command (CommandButton) +
-'                TextBox_PropertyList (TextBox, hidden reveal - property list), ComboBox_Rules (ComboBox,
+'                Main_CheckBox (CheckBox, master), ComboBox_Rules (ComboBox,
 '                Style = 0 fmStyleDropDownCombo EDITABLE - the sole per-rule editor),
 '                Frame_RulePreview (Frame, render surface directly BELOW ComboBox_Rules for the runtime
 '                coloured preview - the coloured Labels are created at runtime, NONE in the designer),
 '                Reset_Command (CommandButton).
-'              StartUpPosition = 0 Manual. Tab order: master -> property-list -> rules-combo -> reset
+'              StartUpPosition = 0 Manual. Tab order: master -> rules-combo -> reset
 '              (Frame_RulePreview is a non-focusable container, not in the tab order).
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyTagging, RuleEditorUX, FormUXHelper, FormPlacement, CustomPropertyHandler, Command
+' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyTagging, RuleEditorUX, FormUXHelper, FormPlacement, Command
 Option Explicit
 
 Private mbLocked As Boolean
@@ -75,72 +76,6 @@ Private Sub Main_CheckBox_Change()
 ErrorHandler:
     SetLocked False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.Main_CheckBox_Change"
-End Sub
-
-' ============================================================
-' CUSTOM PROPERTY LIST - Edit button + hidden TextBox -> ARES_Custom_Property_List
-' ============================================================
-
-Private Sub Edit_PropertyList_Command_Click()
-    On Error GoTo ErrorHandler
-    If Not mbLocked Then
-        SetLocked True
-        TextBox_PropertyList.value = ARESConfig.ARES_CUSTOM_PROPERTY_LIST.value
-        TextBox_PropertyList.Visible = True
-        Edit_PropertyList_Command.Visible = False
-        TextBox_PropertyList.SetFocus
-    End If
-    Exit Sub
-
-ErrorHandler:
-    SetLocked False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.Edit_PropertyList_Command_Click"
-End Sub
-
-Private Sub TextBox_PropertyList_Exit(ByVal Cancel As MSForms.ReturnBoolean)
-    On Error GoTo ErrorHandler
-    ' The list decides which ItemTypes ARES manages, so a real change refreshes MicroStation's Item Type
-    ' state. CommitInlineEdit returns True ONLY when it actually wrote, which is exactly the "once per
-    ' real commit" seam: Enter/Esc call this sub manually and the ensuing focus change can fire the real
-    ' _Exit a second time, but that pass sees box = stored value and returns False; Esc reverts before
-    ' committing, so a cancel returns False too. Sent directly rather than deferred to idle - a form event
-    ' is user-driven, with MicroStation between operations, unlike the DGN-open path.
-    If FormUXHelper.CommitInlineEdit(TextBox_PropertyList, Edit_PropertyList_Command, ARESConfig.ARES_CUSTOM_PROPERTY_LIST) Then
-        CustomPropertyHandler.RefreshItemTypes
-    End If
-    SetLocked False
-    Exit Sub
-
-ErrorHandler:
-    SetLocked False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.TextBox_PropertyList_Exit"
-End Sub
-
-Private Sub TextBox_PropertyList_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
-    On Error GoTo ErrorHandler
-    FormUXHelper.NoteInlineKeyDown KeyCode, Shift
-    Exit Sub
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.TextBox_PropertyList_KeyDown"
-End Sub
-
-Private Sub TextBox_PropertyList_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
-    On Error GoTo ErrorHandler
-    Dim returnB As MSForms.ReturnBoolean
-    Select Case FormUXHelper.InlineEditKey(KeyCode, Shift)
-        Case FormUXKeyCommit
-            TextBox_PropertyList_Exit returnB
-            Edit_PropertyList_Command.SetFocus
-        Case FormUXKeyCancel
-            FormUXHelper.RevertInlineEdit TextBox_PropertyList, ARESConfig.ARES_CUSTOM_PROPERTY_LIST
-            TextBox_PropertyList_Exit returnB
-            Edit_PropertyList_Command.SetFocus
-    End Select
-    Exit Sub
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.TextBox_PropertyList_KeyUp"
 End Sub
 
 ' ============================================================
@@ -307,12 +242,9 @@ Private Sub UserForm_Initialize()
     Me.Caption = GetTranslation("PropertyTaggingGUIOptionsCaption")
     ' Checkbox caption lives on the checkbox: Tab-focus visible + the text toggles the box
     Main_CheckBox.Caption = GetTranslation("PropertyTaggingGUIOptionsMain_LabelCaption")
-    Edit_PropertyList_Command.Caption = GetTranslation("PropertyTaggingGUIOptionsEditList_CommandCaption")
 
     ' Tooltips
     FormUXHelper.SetTip Main_CheckBox, "PropertyTaggingGUIOptionsMain_LabelTip"
-    FormUXHelper.SetTip Edit_PropertyList_Command, "PropertyTaggingGUIOptionsEditList_CommandTip"
-    FormUXHelper.SetTip TextBox_PropertyList, "PropertyTaggingGUIOptionsEditList_CommandTip"
     FormUXHelper.SetTip ComboBox_Rules, "PropertyTaggingGUIOptionsEditRules_CommandTip"
 
     ' Match ComboBox_Rules' font to the coloured preview (fixed-pitch), so the combo text and the preview
@@ -339,7 +271,6 @@ Private Sub SeedControls()
     Else
         Main_CheckBox.value = "False"
     End If
-    TextBox_PropertyList.Visible = False
     SeedRulesCombo
     Exit Sub
 
@@ -351,7 +282,6 @@ End Sub
 Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
     FormUXHelper.PersistDefault ARESConfig.ARES_AUTO_PROPERTIES
-    FormUXHelper.PersistDefault ARESConfig.ARES_CUSTOM_PROPERTY_LIST
     FormUXHelper.PersistDefault ARESConfig.ARES_PROPERTY_RULES
     PropertyTagging.RefreshRules
     SeedControls
@@ -379,7 +309,6 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 
     If mbLocked Then
         Cancel = True
-        If TextBox_PropertyList.Visible Then FormUXHelper.NudgeActiveEdit TextBox_PropertyList
     Else
         ' The ComboBox is the sole rules editor, so flush a pending combo edit on click-X (MSForms does
         ' not guarantee the combo's _Exit fires on teardown). CommitRuleEdit is re-entrance-guarded and

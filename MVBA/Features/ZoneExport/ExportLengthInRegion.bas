@@ -404,7 +404,7 @@ End Sub
 
 ' NameInList
 ' Case-insensitive membership test over a 0-based names array (GetCustomPropertyNames output).
-' Split() always returns an allocated array, so LBound/UBound are safe here.
+' That function always returns an allocated array, so LBound/UBound are safe here.
 Private Function NameInList(ByVal sName As String, ByRef names() As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -426,8 +426,9 @@ End Function
 ' ResolveZoneLabelProperty
 ' Resolves ARES_ZONE_EXPORT_ZONE_PROPERTY once (per-zone split only):
 '   empty                          → "" (silent; zones fall back to "Zone <n>")
-'   non-empty, member of the list  → the name (zones labeled by its value on each zone element)
-'   non-empty, NOT a member        → log (English) + one-shot ZoneExportZonePropertyInvalid
+'   no ItemType enumerable at all  → "" + informational log, NO status (silent "Zone <n>")
+'   non-empty, an ARES ItemType    → the name (zones labeled by its value on each zone element)
+'   non-empty, NOT an ItemType     → log (English) + one-shot ZoneExportZonePropertyInvalid
 '                                    status + "" (zones fall back to "Zone <n>"). Never aborts.
 Private Function ResolveZoneLabelProperty() As String
     On Error GoTo ErrorHandler
@@ -439,18 +440,53 @@ Private Function ResolveZoneLabelProperty() As String
     If Len(sName) = 0 Then Exit Function          ' unconfigured → silent "Zone <n>"
 
     names = CustomPropertyHandler.GetCustomPropertyNames()
+
+    ' The ARES DGNLib is not loaded in this session, or holds no ItemType (the [""] convention). The
+    ' configured name cannot be judged wrong on that evidence, so degrade SILENTLY to "Zone <n>" - the
+    ' behaviour before the names came from the library - instead of blaming the user's name with
+    ' ZoneExportZonePropertyInvalid. Logged informationally (Number = 0, so it neither formats as an
+    ' error nor trips HadError): the cause is diagnosable but otherwise invisible, since all the user
+    ' sees is numbered zones.
+    If IsEmptyNameList(names) Then
+        ErrorHandler.HandleError "Zone property '" & sName & "' left unresolved: no ARES ItemType could be enumerated (DGNLib absent or empty)", 0, "", "ExportLengthInRegion.ResolveZoneLabelProperty"
+        Exit Function
+    End If
+
     If NameInList(sName, names) Then
         ResolveZoneLabelProperty = sName
         Exit Function
     End If
 
-    ErrorHandler.HandleError "Zone property set but not a member of ARES_Custom_Property_List: '" & sName & "'", 0, "", "ExportLengthInRegion.ResolveZoneLabelProperty"
+    ErrorHandler.HandleError "Zone property set but not an ItemType of the ARES DGNLib: '" & sName & "'", 0, "", "ExportLengthInRegion.ResolveZoneLabelProperty"
     ShowStatusT "ZoneExportZonePropertyInvalid"          ' non-fatal — zones fall back to "Zone <n>"
     Exit Function
 
 ErrorHandler:
     ResolveZoneLabelProperty = ""
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ResolveZoneLabelProperty"
+End Function
+
+' IsEmptyNameList
+' True when the names array carries no usable name - the [""] convention GetCustomPropertyNames returns
+' when the ARES DGNLib is absent or defines no ItemType (documented on that function). Distinguishing
+' this from "the configured name is not a member" is what keeps the two diagnostics apart.
+Private Function IsEmptyNameList(ByRef names() As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsEmptyNameList = True
+    Dim i As Long
+    For i = LBound(names) To UBound(names)
+        If Len(Trim(names(i))) > 0 Then
+            IsEmptyNameList = False
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    ' Fail-closed: an unreadable array degrades silently rather than blaming the configured name.
+    IsEmptyNameList = True
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.IsEmptyNameList"
 End Function
 
 ' BuildZoneLabels
