@@ -14,32 +14,53 @@
 '                    the property is actually attached).
 '                - [& condition]* = OPTIONAL conditions, the SAME grammar as the tag rules (Lvl/Cell/Type,
 '                    &, !, */? wildcards), delegated verbatim to the shared RuleGrammar module.
-'                - Source (right of "="), keyword + optional [arg], arity-checked, unknown rejected:
+'                - Source (right of "="), keyword + optional [arg], arity-checked, unknown rejected. Two
+'                    families: a GROUP source (keyword prefixed "Cell"/"Group") scans the element's graphic
+'                    group INCLUDING itself for a matching member and reads off THAT member; a SELF source
+'                    reads the bearing element's own attribute.
 '                    * CellText[pattern] - the full text (StringsInEl.GetConcatenatedText) of a cell in the
 '                        element's graphic group whose name matches pattern (wildcards OK; pattern may be
 '                        several ARES_VAR_DELIMITER ("|") - separated alternatives, e.g. "ASUF*|SP0*|Bois*" -
 '                        the SAME alternation as a tag/calc CONDITION's Cell[name|name|...]). INCLUDES the
 '                        bearing element itself (a matching cell yields its own text; an ungrouped matching
 '                        cell is a group of one). A GROUP source (driven by the matching cell).
-'                    * CellCoord[pattern] - the "X;Y" coordinates (same anchor cascade as Coord, ARES_Round
-'                        decimals, no [n] override; same pattern/alternation grammar as CellText) of that
-'                        SAME matching cell (self-included, same scan as CellText). A GROUP source: reads the
-'                        MATCHING CELL's position, not the bearing element's own - use this to get the
-'                        tagging cell's coordinates on a member it pushed properties to (e.g.
+'                    * CellCoord[pattern] / CellId[pattern] / CellLvl[pattern] / CellColor[pattern] /
+'                        CellStyle[pattern] / CellWeight[pattern] - same matching-cell scan as CellText
+'                        (self-included, same pattern/alternation grammar), reading that SAME cell's "X;Y"
+'                        coordinates (anchor cascade, ARES_Round decimals, no [n] override) / DLongToString
+'                        ID / level name / color index / line-style name / line-weight of that MATCHING
+'                        CELL, not the bearing element's own - use these to read the tagging cell's own
+'                        attributes on a member it pushed properties to (e.g.
 '                        Prop[Coordonnee]=CellCoord[ASUF*|SP0*|Bois*|BO *|APO*|AH6*] where Coord alone would
-'                        only ever yield the bearing element's own position).
-'                    * CellId[pattern] - the DLongToString ID of that same matching cell (same pattern
-'                        grammar). A GROUP source, stable (never re-pushed: an element's ID cannot change).
+'                        only ever yield the bearing element's own position). All GROUP sources except
+'                        CellId are stable-pushed: a change on the matching cell (text/coord/level/color/
+'                        style/weight) is re-pushed to the OTHER members by the trigger-cell pass (see
+'                        below); CellId never needs a push (an ID cannot change).
 '                    * Value[text] - a fixed literal value (Value[] empty = invalid). A SELF source.
 '                    * Coord / Coord[n] - the "X;Y" coordinates of the bearing element (n = decimals,
 '                        default = ARES_Round), via a deterministic anchor cascade. A SELF source
 '                        (recomputes on Modify). Coordinates are ALREADY master units - no UOR scaling.
 '                    * Id - the bearing element's ID via DLongToString (mandatory DLong helper). A SELF
 '                        source (stable).
+'                    * Lvl / Color / Style / Weight - the bearing element's OWN level name / color index /
+'                        line-style name / line-weight (guarded by IsGraphical; "" when not graphical or
+'                        when the specific attribute is unavailable - e.g. a level-less cell header - never
+'                        a fabricated value). SELF sources (recompute on Modify).
+'                    * Length / Length[n] - the bearing element's OWN geometry length (Length.GetLength; n =
+'                        decimals, default = ARES_Length_Round), ONLY when the bearing element itself is a
+'                        length-capable type (Line/Arc/Shape/ComplexShape/ComplexString); "" otherwise (no
+'                        silent 0). A SELF source - use this when the calc-target property is attached
+'                        directly to the geometry.
+'                    * GroupLength / GroupLength[n] - same decimals as Length, but reads the FIRST length-
+'                        capable element found scanning the graphic group INCLUDING itself (scan order, no
+'                        name pattern - geometry has no name to match against, unlike Cell* sources); "" when
+'                        the group (or the ungrouped bearing element itself) holds no length-capable member.
+'                        A GROUP source - the common case: the calc-target property sits on a TEXT/CELL and
+'                        the length comes from the linked line/arc/shape (mirrors the Auto Lengths pattern).
 '                - Several rules for the SAME property: the FIRST rule that MATCHES wins (order = priority;
 '                    put specific rules before general ones).
 '              Example:  Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ;
-'                        Prop[Coordonnee]=CellCoord[ASUF*|SP0*]
+'                        Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]
 '
 '              ONE bracket-depth-aware parser (ParseCalcRule) is the single source of truth: it splits on
 '              the depth-0 "=" (RuleGrammar.FindTopLevelChar), the LEFT side on the depth-0 "&"
@@ -60,12 +81,23 @@
 '                    and "reconcile on a neighbour's delete" (the surviving matching cell's text, or "" ->
 '                    transition-guarded clear/detach when none survives). A property with no matching rule
 '                    is LEFT UNTOUCHED (the engine only governs what a rule matches).
-'                - TRIGGER-CELL pass: when oEl is a trigger cell (its name matches some CellText[pattern] or
-'                    CellCoord[pattern]), push its text/coordinate to the OTHER group members carrying that
-'                    rule's target - the members MicroStation did NOT re-queue when only the cell's text or
-'                    position changed. First-match guarded (a member whose P is governed by an earlier
-'                    Value/Coord rule is left alone). CellId never needs a push (an ID cannot change, so the
-'                    bearing pass's own computation on the member stays correct forever).
+'                - TRIGGER-CELL pass: when oEl is a trigger cell (its name matches ANY pushable GROUP
+'                    source's pattern - CellText/CellCoord/CellLvl/CellColor/CellStyle/CellWeight), push the
+'                    freshly-read attribute to the OTHER group members carrying that rule's target - the
+'                    members MicroStation did NOT re-queue when only the cell's own attribute changed (a cell
+'                    is a Branch-1/text-cell element in ElementChangeHandler; only a Branch-2/geometric change
+'                    auto-re-queues every group member). First-match guarded (a member whose P is governed by
+'                    an earlier rule is left alone). CellId never needs a push (an ID cannot change, so the
+'                    bearing pass's own computation on the member stays correct forever). GroupLength needs NO
+'                    push of its own: its source is a GEOMETRY element, and ElementChangeHandler's Branch 2
+'                    reacts when that geometry changes - gated on ARES_Update_Lengths OR
+'                    PropertyCalculation.HasGroupLengthRules (a GroupLength rule pulls its own trigger into
+'                    that gate so it works even with Auto Lengths OFF). Branch 2's own recursive walk runs at
+'                    Depth > 0, which SKIPS this module's Depth-0-only hook, and its queue-add is wiped by
+'                    IdleEventHandler.CleanupHandler before a fresh Depth-0 pass ever reaches the sibling - so
+'                    Branch 2 also calls PropertyCalculation.ProcessElement on each linked sibling DIRECTLY
+'                    (inline, not via the queue), exactly mirroring how Auto Lengths' own trigger-text work
+'                    already runs inline there regardless of Depth.
 '
 '              Deletion is reconciled by the BEARING pass on the members ShouldQueueForDeletion already
 '              re-queues (Link.GetLink(BeforeChange)) - no pending-clear machinery (retired in 14-2).
@@ -77,7 +109,7 @@
 '              re-attaching rule cannot oscillate it (termination).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, CustomPropertyHandler,
-'               PropertyTagging, StringsInEl, Link, LangManager, ErrorHandlerClass (global ErrorHandler)
+'               PropertyTagging, StringsInEl, Link, Length, LangManager, ErrorHandlerClass (global ErrorHandler)
 
 Option Explicit
 
@@ -87,12 +119,16 @@ Private Const SELECTOR_SEPARATOR As String = "="
 Private Const BRK_OPEN As String = "["
 Private Const BRK_CLOSE As String = "]"
 Private Const PROP_KEYWORD As String = "PROP"
-' Upper bound accepted for Coord[n] decimal counts (syntactic; runtime formatting clamps to a sane max).
-Private Const COORD_MAX_DECIMALS As Long = 254
-' Runtime clamp so VBA Round never faults on an absurd decimal count (a Coord never needs > 15 places).
-Private Const COORD_ROUND_CLAMP As Long = 15
+' Upper bound accepted for Coord[n]/Length[n]/GroupLength[n] decimal counts (syntactic; runtime formatting
+' clamps to a sane max). Also within Length.GetLength's Byte RND range (255 is its reserved error sentinel).
+Private Const SOURCE_MAX_DECIMALS As Long = 254
+' Runtime clamp so VBA Round never faults on an absurd decimal count (no coordinate/length ever needs > 15
+' places).
+Private Const SOURCE_ROUND_CLAMP As Long = 15
 
-' Source vocabulary of a calc rule's right-hand side (canonicalised, case-insensitive on input).
+' Source vocabulary of a calc rule's right-hand side (canonicalised, case-insensitive on input). csCell*
+' are GROUP sources (matching-cell scan, self-included); the rest are SELF sources (the bearing element's
+' own attribute) except csGroupLength (GROUP, scanned by TYPE not name pattern).
 Public Enum CalcSource
     csCellText
     csCellCoord
@@ -100,6 +136,16 @@ Public Enum CalcSource
     csValue
     csCoord
     csId
+    csLvl
+    csCellLvl
+    csColor
+    csCellColor
+    csStyle
+    csCellStyle
+    csWeight
+    csCellWeight
+    csLength
+    csGroupLength
 End Enum
 
 ' One parsed calc rule: Prop[TargetProp] [& conditions]* = Source. Conditions() (RuleGrammar.RuleCondition)
@@ -207,12 +253,12 @@ ErrorHandler:
     segments(0) = ""
 End Function
 
-' Trigger test (re-wired AWAKE, epic 14; extended for CellCoord). A trigger cell is a CELL, in a REAL
-' graphic group, whose name matches the CellText[pattern] or CellCoord[pattern] of at least one calc rule.
-' Drives the trigger-cell pass (pushing a changed cell's text/coordinate to the members MicroStation did
-' not re-queue). CellId is excluded (an ID never changes, so it never needs a push). An ungrouped matching
-' cell is NOT a trigger (it has no other members; its own value is handled by the bearing pass via each
-' GROUP source's self-inclusion).
+' Trigger test (re-wired AWAKE, epic 14; extended for CellCoord/CellLvl/CellColor/CellStyle/CellWeight). A
+' trigger cell is a CELL, in a REAL graphic group, whose name matches a PUSHABLE Cell* source's pattern
+' (IsPushableCellSourceKind) of at least one calc rule. Drives the trigger-cell pass (pushing a changed
+' cell's attribute to the members MicroStation did not re-queue). CellId is excluded (an ID never changes,
+' so it never needs a push). An ungrouped matching cell is NOT a trigger (it has no other members; its own
+' value is handled by the bearing pass via each GROUP source's self-inclusion).
 Public Function IsTriggerCell(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -519,46 +565,59 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
         End If
     End If
 
+    Dim pat As String
+    Dim sPatReason As String
+
     Select Case UCase(kw)
         Case "CELLTEXT"
-            Dim pat As String
-            pat = Trim(arg)
-            If Not bHasArg Then
-                ParseSource = "CellText needs a [pattern]"
-                Exit Function
-            End If
-            If Len(pat) = 0 Then
-                ParseSource = "empty CellText[...] pattern"
+            If Not RequirePatternArg("CellText", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellText
             r.SourceArg = pat
         Case "CELLCOORD"
-            Dim patCoord As String
-            patCoord = Trim(arg)
-            If Not bHasArg Then
-                ParseSource = "CellCoord needs a [pattern]"
-                Exit Function
-            End If
-            If Len(patCoord) = 0 Then
-                ParseSource = "empty CellCoord[...] pattern"
+            If Not RequirePatternArg("CellCoord", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellCoord
-            r.SourceArg = patCoord
+            r.SourceArg = pat
         Case "CELLID"
-            Dim patId As String
-            patId = Trim(arg)
-            If Not bHasArg Then
-                ParseSource = "CellId needs a [pattern]"
-                Exit Function
-            End If
-            If Len(patId) = 0 Then
-                ParseSource = "empty CellId[...] pattern"
+            If Not RequirePatternArg("CellId", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellId
-            r.SourceArg = patId
+            r.SourceArg = pat
+        Case "CELLLVL"
+            If Not RequirePatternArg("CellLvl", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csCellLvl
+            r.SourceArg = pat
+        Case "CELLCOLOR"
+            If Not RequirePatternArg("CellColor", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csCellColor
+            r.SourceArg = pat
+        Case "CELLSTYLE"
+            If Not RequirePatternArg("CellStyle", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csCellStyle
+            r.SourceArg = pat
+        Case "CELLWEIGHT"
+            If Not RequirePatternArg("CellWeight", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csCellWeight
+            r.SourceArg = pat
         Case "VALUE"
             If Not bHasArg Then
                 ParseSource = "Value needs a [text]"
@@ -571,18 +630,17 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             r.SourceKind = csValue
             r.SourceArg = arg                    ' verbatim: a fixed value keeps its content exactly
         Case "COORD"
+            r.SourceKind = csCoord
+            r.SourceArg = ""
             If bHasArg Then
                 Dim sN As String
                 sN = Trim(arg)
-                If Not IsNonNegIntInRange(sN, 0, COORD_MAX_DECIMALS) Then
+                If Not IsNonNegIntInRange(sN, 0, SOURCE_MAX_DECIMALS) Then
                     ParseSource = "Coord[n] needs an integer decimal count"
                     Exit Function
                 End If
                 r.SourceArg = sN
-            Else
-                r.SourceArg = ""
             End If
-            r.SourceKind = csCoord
         Case "ID"
             If bHasArg Then
                 ParseSource = "Id takes no argument"
@@ -590,11 +648,63 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
             r.SourceKind = csId
             r.SourceArg = ""
+        Case "LVL"
+            If bHasArg Then
+                ParseSource = "Lvl takes no argument"
+                Exit Function
+            End If
+            r.SourceKind = csLvl
+            r.SourceArg = ""
+        Case "COLOR"
+            If bHasArg Then
+                ParseSource = "Color takes no argument"
+                Exit Function
+            End If
+            r.SourceKind = csColor
+            r.SourceArg = ""
+        Case "STYLE"
+            If bHasArg Then
+                ParseSource = "Style takes no argument"
+                Exit Function
+            End If
+            r.SourceKind = csStyle
+            r.SourceArg = ""
+        Case "WEIGHT"
+            If bHasArg Then
+                ParseSource = "Weight takes no argument"
+                Exit Function
+            End If
+            r.SourceKind = csWeight
+            r.SourceArg = ""
+        Case "LENGTH"
+            r.SourceKind = csLength
+            r.SourceArg = ""
+            If bHasArg Then
+                Dim sNLen As String
+                sNLen = Trim(arg)
+                If Not IsNonNegIntInRange(sNLen, 0, SOURCE_MAX_DECIMALS) Then
+                    ParseSource = "Length[n] needs an integer decimal count"
+                    Exit Function
+                End If
+                r.SourceArg = sNLen
+            End If
+        Case "GROUPLENGTH"
+            r.SourceKind = csGroupLength
+            r.SourceArg = ""
+            If bHasArg Then
+                Dim sNGrp As String
+                sNGrp = Trim(arg)
+                If Not IsNonNegIntInRange(sNGrp, 0, SOURCE_MAX_DECIMALS) Then
+                    ParseSource = "GroupLength[n] needs an integer decimal count"
+                    Exit Function
+                End If
+                r.SourceArg = sNGrp
+            End If
         Case Else
             If Len(kw) = 0 Then
-                ParseSource = "empty source (expected CellText/CellCoord/CellId/Value/Coord/Id)"
+                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             Else
-                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/Value/Coord/Id)"
+                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             End If
             Exit Function
     End Select
@@ -602,6 +712,23 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
 
 ErrorHandler:
     ParseSource = "invalid source"
+End Function
+
+' Shared arity check for every GROUP source that takes a mandatory non-empty [pattern] (CellText/CellCoord/
+' CellId/CellLvl/CellColor/CellStyle/CellWeight). Returns False + sReason on a missing/empty pattern, True
+' + outPat (trimmed) on success.
+Private Function RequirePatternArg(ByVal sKeyword As String, ByVal bHasArg As Boolean, ByVal arg As String, ByRef outPat As String, ByRef sReason As String) As Boolean
+    RequirePatternArg = False
+    outPat = Trim(arg)
+    If Not bHasArg Then
+        sReason = sKeyword & " needs a [pattern]"
+        Exit Function
+    End If
+    If Len(outPat) = 0 Then
+        sReason = "empty " & sKeyword & "[...] pattern"
+        Exit Function
+    End If
+    RequirePatternArg = True
 End Function
 
 ' True when s is a non-negative integer (all digits, at least one) whose value is in [lo, hi].
@@ -650,7 +777,8 @@ Private Function CalcRuleToCanonical(ByRef r As CalcRuleInfo) As String
     CalcRuleToCanonical = sOut
 End Function
 
-' Canonical text of a rule's Source (keyword canonical, arg verbatim).
+' Canonical text of a rule's Source (keyword canonical, arg verbatim). Bracketed-arg kinds (Cell* and the
+' optional-decimals Coord/Length/GroupLength) share one bracket-wrap helper.
 Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
     Select Case r.SourceKind
         Case csCellText
@@ -659,19 +787,45 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
             SourceToCanonical = "CellCoord" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellId
             SourceToCanonical = "CellId" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csCellLvl
+            SourceToCanonical = "CellLvl" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csCellColor
+            SourceToCanonical = "CellColor" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csCellStyle
+            SourceToCanonical = "CellStyle" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csCellWeight
+            SourceToCanonical = "CellWeight" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csValue
             SourceToCanonical = "Value" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCoord
-            If Len(r.SourceArg) > 0 Then
-                SourceToCanonical = "Coord" & BRK_OPEN & r.SourceArg & BRK_CLOSE
-            Else
-                SourceToCanonical = "Coord"
-            End If
+            SourceToCanonical = OptionalArgKeywordToCanonical("Coord", r.SourceArg)
         Case csId
             SourceToCanonical = "Id"
+        Case csLvl
+            SourceToCanonical = "Lvl"
+        Case csColor
+            SourceToCanonical = "Color"
+        Case csStyle
+            SourceToCanonical = "Style"
+        Case csWeight
+            SourceToCanonical = "Weight"
+        Case csLength
+            SourceToCanonical = OptionalArgKeywordToCanonical("Length", r.SourceArg)
+        Case csGroupLength
+            SourceToCanonical = OptionalArgKeywordToCanonical("GroupLength", r.SourceArg)
         Case Else
             SourceToCanonical = ""
     End Select
+End Function
+
+' sKeyword bare, or sKeyword[arg] when arg is non-empty - shared by Coord/Length/GroupLength (all take an
+' OPTIONAL decimals arg, unlike the mandatory-pattern Cell* sources).
+Private Function OptionalArgKeywordToCanonical(ByVal sKeyword As String, ByVal sArg As String) As String
+    If Len(sArg) > 0 Then
+        OptionalArgKeywordToCanonical = sKeyword & BRK_OPEN & sArg & BRK_CLOSE
+    Else
+        OptionalArgKeywordToCanonical = sKeyword
+    End If
 End Function
 
 '######################################################################################################################
@@ -785,30 +939,21 @@ ErrorHandler:
 End Function
 
 ' Evaluate a calc rule's Source against the bearing element. Returns the computed/fixed string ("" when a
-' CellText source finds no matching cell). Coordinates are ALREADY master units (mvba-docs) - no scaling.
+' CellText/GroupLength source finds no matching member, or a SELF attribute is unavailable). Coordinates are
+' ALREADY master units (mvba-docs) - no scaling.
 Private Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As String
     On Error GoTo ErrorHandler
 
     EvaluateSource = ""
     Select Case r.SourceKind
-        Case csCellText
-            EvaluateSource = EvaluateCellText(oEl, r.SourceArg)
-        Case csCellCoord
-            EvaluateSource = EvaluateCellCoord(oEl, r.SourceArg)
-        Case csCellId
-            EvaluateSource = EvaluateCellId(oEl, r.SourceArg)
+        Case csCellText, csCellCoord, csCellId, csCellLvl, csCellColor, csCellStyle, csCellWeight
+            EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind)
         Case csValue
             EvaluateSource = r.SourceArg
         Case csCoord
-            Dim dec As Long
-            If Len(r.SourceArg) > 0 Then
-                dec = CLng(r.SourceArg)
-            Else
-                dec = GetCoordDefaultDecimals()
-            End If
             Dim pt As Point3d
             If GetElementAnchorPoint(oEl, pt) Then
-                EvaluateSource = FormatCoord(pt, dec)
+                EvaluateSource = FormatCoord(pt, ResolveDecimals(r.SourceArg, GetCoordDefaultDecimals()))
             Else
                 ' No valid anchor (a geometry fault, or a non-graphical bearing element) -> yield NO value
                 ' (never a fabricated "0;0"), the same "no value rather than a wrong value" philosophy as a
@@ -819,6 +964,22 @@ Private Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) A
             End If
         Case csId
             EvaluateSource = DLongToString(oEl.ID)
+        Case csLvl
+            If oEl.IsGraphical Then
+                If Not oEl.Level Is Nothing Then EvaluateSource = oEl.Level.Name
+            End If
+        Case csColor
+            If oEl.IsGraphical Then EvaluateSource = CStr(oEl.Color)
+        Case csStyle
+            If oEl.IsGraphical Then
+                If Not oEl.LineStyle Is Nothing Then EvaluateSource = oEl.LineStyle.Name
+            End If
+        Case csWeight
+            If oEl.IsGraphical Then EvaluateSource = CStr(oEl.LineWeight)
+        Case csLength
+            EvaluateSource = EvaluateOwnLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
+        Case csGroupLength
+            EvaluateSource = EvaluateGroupLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
     End Select
     Exit Function
 
@@ -826,11 +987,20 @@ ErrorHandler:
     EvaluateSource = ""
 End Function
 
-' Shared GROUP scan for CellText/CellCoord/CellId: scan the bearing element's graphic group INCLUDING
-' itself (Link.GetLink ReturnMe:=True) and return the FIRST cell (scan order) whose name matches sPattern
-' via foundCell (Nothing when none); nMatch = total matching-cell count, left to each caller to act on
-' (>= 2 drives the one-shot multi-trigger warning). For an UNGROUPED bearing element Link.GetLink returns
-' nothing, so the element is its own sole candidate (a group of one).
+' n from a Coord[n]/Length[n]/GroupLength[n] SourceArg ("" -> defaultDec).
+Private Function ResolveDecimals(ByVal sArg As String, ByVal defaultDec As Long) As Long
+    If Len(sArg) > 0 Then
+        ResolveDecimals = CLng(sArg)
+    Else
+        ResolveDecimals = defaultDec
+    End If
+End Function
+
+' Shared GROUP scan for every Cell* source: scan the bearing element's graphic group INCLUDING itself
+' (Link.GetLink ReturnMe:=True) and return the FIRST cell (scan order) whose name matches sPattern via
+' foundCell (Nothing when none); nMatch = total matching-cell count, left to each caller to act on (>= 2
+' drives the one-shot multi-trigger warning). For an UNGROUPED bearing element Link.GetLink returns nothing,
+' so the element is its own sole candidate (a group of one).
 Private Function FindFirstMatchingCellInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundCell As element, ByRef nMatch As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -866,70 +1036,60 @@ ErrorHandler:
     nMatch = 0
 End Function
 
-' CellText evaluation: GetConcatenatedText of the FIRST group cell matching sPattern (self-included); ""
-' when none. >= 2 matches -> the multi-trigger warning (one-shot).
-Private Function EvaluateCellText(ByVal oEl As element, ByVal sPattern As String) As String
+' Every Cell* source evaluation, unified: find the FIRST group cell matching sPattern (self-included via
+' FindFirstMatchingCellInGroup) and read the attribute named by kind off THAT cell (ReadCellSourceValue); ""
+' when no cell matches. >= 2 matches -> the multi-trigger warning (one-shot) - the same ambiguity regardless
+' of WHICH attribute is being read off the matching cell.
+Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource) As String
     On Error GoTo ErrorHandler
 
-    EvaluateCellText = ""
+    EvaluateGroupCellSource = ""
 
     Dim foundCell As element
     Dim nMatch As Long
     If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
-        EvaluateCellText = StringsInEl.GetConcatenatedText(foundCell)
+        EvaluateGroupCellSource = ReadCellSourceValue(foundCell, kind)
     End If
     If nMatch >= 2 Then ReportMultipleTriggers
     Exit Function
 
 ErrorHandler:
-    EvaluateCellText = ""
+    EvaluateGroupCellSource = ""
 End Function
 
-' CellCoord evaluation: the "X;Y" coordinates (same anchor cascade + default ARES_Round decimals as the
-' bare Coord source - no [n] override, the bracket already carries the pattern) of the FIRST group cell
-' matching sPattern (self-included); "" when none, or when the matching cell itself has no valid anchor
-' (logged, never a fabricated coordinate - mirrors Coord's own fault handling). >= 2 matches -> the
-' multi-trigger warning (one-shot).
-Private Function EvaluateCellCoord(ByVal oEl As element, ByVal sPattern As String) As String
+' Read ONE attribute off a SPECIFIC cell element (already located - either by FindFirstMatchingCellInGroup
+' during the bearing pass, or as the trigger cell itself during the push pass). Never fabricates a value:
+' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/CellCoord philosophy). Coordinates use
+' the default decimals (no [n] override on a Cell* source - the bracket already carries the pattern).
+Private Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSource) As String
     On Error GoTo ErrorHandler
 
-    EvaluateCellCoord = ""
-
-    Dim foundCell As element
-    Dim nMatch As Long
-    If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
-        Dim pt As Point3d
-        If GetElementAnchorPoint(foundCell, pt) Then
-            EvaluateCellCoord = FormatCoord(pt, GetCoordDefaultDecimals())
-        Else
-            ErrorHandler.HandleError "Property calculation: no anchor point for CellCoord source", 0, "", "PropertyCalculation.EvaluateCellCoord"
-        End If
-    End If
-    If nMatch >= 2 Then ReportMultipleTriggers
+    ReadCellSourceValue = ""
+    Select Case kind
+        Case csCellText
+            ReadCellSourceValue = StringsInEl.GetConcatenatedText(oCell)
+        Case csCellCoord
+            Dim pt As Point3d
+            If GetElementAnchorPoint(oCell, pt) Then
+                ReadCellSourceValue = FormatCoord(pt, GetCoordDefaultDecimals())
+            Else
+                ErrorHandler.HandleError "Property calculation: no anchor point for CellCoord source", 0, "", "PropertyCalculation.ReadCellSourceValue"
+            End If
+        Case csCellId
+            ReadCellSourceValue = DLongToString(oCell.ID)
+        Case csCellLvl
+            If Not oCell.Level Is Nothing Then ReadCellSourceValue = oCell.Level.Name
+        Case csCellColor
+            ReadCellSourceValue = CStr(oCell.Color)
+        Case csCellStyle
+            If Not oCell.LineStyle Is Nothing Then ReadCellSourceValue = oCell.LineStyle.Name
+        Case csCellWeight
+            ReadCellSourceValue = CStr(oCell.LineWeight)
+    End Select
     Exit Function
 
 ErrorHandler:
-    EvaluateCellCoord = ""
-End Function
-
-' CellId evaluation: the DLongToString ID of the FIRST group cell matching sPattern (self-included); ""
-' when none. Stable (an element's ID never changes), so unlike CellText/CellCoord it never needs the
-' trigger-cell push. >= 2 matches -> the multi-trigger warning (one-shot).
-Private Function EvaluateCellId(ByVal oEl As element, ByVal sPattern As String) As String
-    On Error GoTo ErrorHandler
-
-    EvaluateCellId = ""
-
-    Dim foundCell As element
-    Dim nMatch As Long
-    If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
-        EvaluateCellId = DLongToString(foundCell.ID)
-    End If
-    If nMatch >= 2 Then ReportMultipleTriggers
-    Exit Function
-
-ErrorHandler:
-    EvaluateCellId = ""
+    ReadCellSourceValue = ""
 End Function
 
 ' True when sName matches at least one of sPattern's ARES_VAR_DELIMITER ("|") - separated parts
@@ -980,15 +1140,23 @@ End Function
 '                                          ENGINE - TRIGGER-CELL PASS
 '######################################################################################################################
 
-' Trigger-cell pass: oCell is a trigger cell whose text and/or position may have changed while its group
-' members were NOT re-queued. For each OTHER group member M carrying a property P fed by a CellText or
-' CellCoord rule matching oCell's name, and where THIS rule is M's first-match for P (AC3 - a member
-' governed by an earlier Value/Coord rule for P is left alone), push the rule-appropriate value (compare-
-' guarded via ApplyValueToSibling): oCell's text for CellText, oCell's own anchor coordinates for
-' CellCoord. Both are computed at most ONCE per call (lazy, shared across every matching rule/member).
-' CellId is never pushed here (stable - see IsTriggerCell). Discoverability: matching members exist but
-' none carry a fed target -> one-shot CalculationNoTarget. Two competing cells for one P -> one-shot
-' CalculationMultipleTriggers (last-processed wins).
+' True for the Cell* source kinds that are STABLE-PUSHED (CellText/CellCoord/CellLvl/CellColor/CellStyle/
+' CellWeight): a change on the matching cell can leave its group siblings un-re-queued (a cell is a
+' Branch-1/text-cell element in ElementChangeHandler; no automatic group-wide re-queue), so the trigger-cell
+' pass must push. CellId is excluded - an ID can never change, so it never needs a push (see IsTriggerCell).
+Private Function IsPushableCellSourceKind(ByVal kind As CalcSource) As Boolean
+    IsPushableCellSourceKind = (kind = csCellText Or kind = csCellCoord Or kind = csCellLvl Or _
+                                 kind = csCellColor Or kind = csCellStyle Or kind = csCellWeight)
+End Function
+
+' Trigger-cell pass: oCell is a trigger cell whose text/coordinates/level/color/style/weight may have
+' changed while its group members were NOT re-queued. For each OTHER group member M carrying a property P
+' fed by a pushable Cell* rule matching oCell's name, and where THIS rule is M's first-match for P (AC3 - a
+' member governed by an earlier rule for P is left alone), push the rule-appropriate attribute (compare-
+' guarded via ApplyValueToSibling) read off oCell via ReadCellSourceValue - each SourceKind computed at most
+' ONCE per call (lazy, cached by enum ordinal, shared across every matching rule/member). Discoverability:
+' matching members exist but none carry a fed target -> one-shot CalculationNoTarget. Two competing cells
+' for one P -> one-shot CalculationMultipleTriggers (last-processed wins).
 Private Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
     On Error GoTo ErrorHandler
 
@@ -999,46 +1167,32 @@ Private Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
     Dim sName As String
     sName = oCell.AsCellElement.Name
 
-    Dim sText As String, bTextReady As Boolean
-    Dim sCoord As String, bCoordReady As Boolean
-    bTextReady = False
-    bCoordReady = False
+    ' Lazy per-SourceKind cache, indexed by the CalcSource enum ordinal (csGroupLength is the highest).
+    Dim cacheVal(0 To csGroupLength) As String
+    Dim cacheReady(0 To csGroupLength) As Boolean
 
-    Dim i As Long, ri As Long
+    Dim i As Long, ri As Long, kIdx As Long
     Dim m As element
-    Dim P As String, sVal As String
+    Dim P As String
     Dim nCarried As Long
     nCarried = 0
     For i = LBound(members) To UBound(members)
         Set m = members(i)
         If Not m Is Nothing Then
             For ri = 0 To mnCalcCount - 1
-                If mCalcRules(ri).SourceKind = csCellText Or mCalcRules(ri).SourceKind = csCellCoord Then
+                If IsPushableCellSourceKind(mCalcRules(ri).SourceKind) Then
                     If MatchesAnyPattern(sName, mCalcRules(ri).SourceArg) Then
                         P = mCalcRules(ri).TargetProp
                         If CustomPropertyHandler.IsItemAttachedToElement(m, P) Then
                             nCarried = nCarried + 1
                             ' First-match guard (AC3): push only where THIS rule governs m's P.
                             If FindCalcRuleForProperty(P, m) = ri Then
-                                If mCalcRules(ri).SourceKind = csCellText Then
-                                    If Not bTextReady Then
-                                        sText = StringsInEl.GetConcatenatedText(oCell)
-                                        bTextReady = True
-                                    End If
-                                    sVal = sText
-                                Else
-                                    If Not bCoordReady Then
-                                        Dim pt As Point3d
-                                        If GetElementAnchorPoint(oCell, pt) Then
-                                            sCoord = FormatCoord(pt, GetCoordDefaultDecimals())
-                                        Else
-                                            sCoord = ""
-                                        End If
-                                        bCoordReady = True
-                                    End If
-                                    sVal = sCoord
+                                kIdx = CLng(mCalcRules(ri).SourceKind)
+                                If Not cacheReady(kIdx) Then
+                                    cacheVal(kIdx) = ReadCellSourceValue(oCell, mCalcRules(ri).SourceKind)
+                                    cacheReady(kIdx) = True
                                 End If
-                                ApplyValueToSibling m, P, sVal
+                                ApplyValueToSibling m, P, cacheVal(kIdx)
                             End If
                         End If
                     End If
@@ -1058,9 +1212,9 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.PushCellDerivedValuesToMembers"
 End Sub
 
-' True when oCell's graphic group holds at least one OTHER cell that also matches some CellText[pattern] or
-' CellCoord[pattern] (i.e. two label/anchor cells could feed the same target) - the multi-trigger
-' condition. Read-only.
+' True when oCell's graphic group holds at least one OTHER cell that also matches some pushable Cell*
+' source's pattern (i.e. two label/anchor cells could feed the same target) - the multi-trigger condition.
+' Read-only.
 Private Function GroupHasCompetingTrigger(ByVal oCell As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1087,16 +1241,16 @@ ErrorHandler:
     GroupHasCompetingTrigger = False
 End Function
 
-' True when sName matches the CellText[pattern] or CellCoord[pattern] of at least one calc rule (assumes
-' the cache is parsed). CellId is excluded - it is never pushed (see IsTriggerCell), so a cell that only
-' feeds a CellId rule must not be treated as a trigger.
+' True when sName matches a pushable Cell* source's pattern of at least one calc rule (assumes the cache is
+' parsed). CellId is excluded - it is never pushed (see IsPushableCellSourceKind/IsTriggerCell), so a cell
+' that only feeds a CellId rule must not be treated as a trigger.
 Private Function AnyPushableSourcePatternMatches(ByVal sName As String) As Boolean
     On Error GoTo ErrorHandler
 
     AnyPushableSourcePatternMatches = False
     Dim i As Long
     For i = 0 To mnCalcCount - 1
-        If mCalcRules(i).SourceKind = csCellText Or mCalcRules(i).SourceKind = csCellCoord Then
+        If IsPushableCellSourceKind(mCalcRules(i).SourceKind) Then
             If MatchesAnyPattern(sName, mCalcRules(i).SourceArg) Then
                 AnyPushableSourcePatternMatches = True
                 Exit Function
@@ -1198,13 +1352,156 @@ Private Function FormatCoord(ByRef pt As Point3d, ByVal dec As Long) As String
     Dim d As Long
     d = dec
     If d < 0 Then d = 0
-    If d > COORD_ROUND_CLAMP Then d = COORD_ROUND_CLAMP
+    If d > SOURCE_ROUND_CLAMP Then d = SOURCE_ROUND_CLAMP
 
     FormatCoord = CStr(Round(pt.X, d)) & ";" & CStr(Round(pt.Y, d))
     Exit Function
 
 ErrorHandler:
     FormatCoord = ""
+End Function
+
+'######################################################################################################################
+'                                          GEOMETRY - LENGTH SOURCES (Length / GroupLength)
+'######################################################################################################################
+
+' True when oEl is one of the types Length.GetLength actually measures (Line/Arc/Shape/ComplexShape/
+' ComplexString - the same set Auto_Lengths.GetLinkedElements filters for). A cell/text/other element is
+' NOT length-capable - never call Length.GetLength on it (it would yield 0 + a noisy status line).
+Private Function IsLengthCapableType(ByVal oEl As element) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsLengthCapableType = False
+    If oEl Is Nothing Then Exit Function
+    IsLengthCapableType = oEl.IsLineElement Or oEl.IsArcElement Or oEl.IsShapeElement Or _
+                           oEl.IsComplexShapeElement Or oEl.IsComplexStringElement
+    Exit Function
+
+ErrorHandler:
+    IsLengthCapableType = False
+End Function
+
+' Length evaluation: the bearing element's OWN geometry length (Length.GetLength), ONLY when it is itself
+' length-capable; "" otherwise (never a fabricated 0 - the same "no value rather than a wrong value"
+' philosophy as Coord). dec is clamped so VBA Round never faults on an absurd count (mirrors FormatCoord).
+Private Function EvaluateOwnLength(ByVal oEl As element, ByVal dec As Long) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateOwnLength = ""
+    If oEl Is Nothing Then Exit Function
+    If Not IsLengthCapableType(oEl) Then Exit Function
+
+    Dim d As Long
+    d = dec
+    If d < 0 Then d = 0
+    If d > SOURCE_ROUND_CLAMP Then d = SOURCE_ROUND_CLAMP
+
+    EvaluateOwnLength = CStr(Length.GetLength(oEl, CByte(d)))
+    Exit Function
+
+ErrorHandler:
+    EvaluateOwnLength = ""
+End Function
+
+' Shared GROUP scan for GroupLength: scan the bearing element's graphic group INCLUDING itself (Link.GetLink
+' ReturnMe:=True) and return the FIRST length-capable member (scan order, NOT a name pattern - geometry has
+' no name to match, unlike a Cell* source) via foundGeo (Nothing when none); nMatch = total length-capable
+' member count. For an UNGROUPED bearing element Link.GetLink returns nothing, so the element is its own sole
+' candidate (a group of one) - mirrors FindFirstMatchingCellInGroup.
+Private Function FindFirstLengthCapableInGroup(ByVal oEl As element, ByRef foundGeo As element, ByRef nMatch As Long) As Boolean
+    On Error GoTo ErrorHandler
+
+    FindFirstLengthCapableInGroup = False
+    Set foundGeo = Nothing
+    nMatch = 0
+
+    Dim cands() As element
+    cands = Link.GetLink(oEl, True)
+
+    If HasElements(cands) Then
+        Dim i As Long
+        For i = LBound(cands) To UBound(cands)
+            If IsLengthCapableType(cands(i)) Then
+                nMatch = nMatch + 1
+                If foundGeo Is Nothing Then Set foundGeo = cands(i)
+            End If
+        Next i
+    Else
+        If IsLengthCapableType(oEl) Then
+            nMatch = 1
+            Set foundGeo = oEl
+        End If
+    End If
+
+    FindFirstLengthCapableInGroup = Not (foundGeo Is Nothing)
+    Exit Function
+
+ErrorHandler:
+    FindFirstLengthCapableInGroup = False
+    Set foundGeo = Nothing
+    nMatch = 0
+End Function
+
+' GroupLength evaluation: the length of the FIRST length-capable element found scanning the group
+' (self-included, deterministic scan order - the same first-match philosophy as calc rules themselves); ""
+' when neither the group nor the ungrouped bearing element itself holds one. Unlike the Cell* sources this
+' never warns on multiple candidates (a group commonly holds several geometric members - e.g. an outline
+' plus inner detail - without that being a misconfiguration the way two competing label cells would be).
+Private Function EvaluateGroupLength(ByVal oEl As element, ByVal dec As Long) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateGroupLength = ""
+
+    Dim foundGeo As element
+    Dim nMatch As Long
+    If FindFirstLengthCapableInGroup(oEl, foundGeo, nMatch) Then
+        EvaluateGroupLength = EvaluateOwnLength(foundGeo, dec)
+    End If
+    Exit Function
+
+ErrorHandler:
+    EvaluateGroupLength = ""
+End Function
+
+' Default decimals for a bare Length/GroupLength source = the Auto Lengths rounding convention
+' ARES_Length_Round (distinct from ARES_Round, used by Coord). Fail-closed to 2 on any nil; lazy ARESConfig
+' init like the other readers.
+Private Function GetLengthDefaultDecimals() As Long
+    On Error GoTo ErrorHandler
+
+    GetLengthDefaultDecimals = 2
+    If ARESConfig Is Nothing Then Exit Function
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+    If ARESConfig.ARES_LENGTH_ROUND Is Nothing Then Exit Function
+    GetLengthDefaultDecimals = CLng(ARESConfig.ARES_LENGTH_ROUND.Value)
+    Exit Function
+
+ErrorHandler:
+    GetLengthDefaultDecimals = 2
+End Function
+
+' True when at least one parsed calc rule uses GroupLength. Consulted by ElementChangeHandler's geometric
+' Branch 2 gate: a GroupLength rule needs every OTHER group member re-queued when the linked geometry itself
+' changes, same as Auto Lengths' own ARES_Update_Lengths gate - but must work even with Auto Lengths OFF.
+' Public so ElementChangeHandler can short-circuit without duplicating the calc-rules cache.
+Public Function HasGroupLengthRules() As Boolean
+    On Error GoTo ErrorHandler
+
+    HasGroupLengthRules = False
+    If Not IsEnabled Then Exit Function
+
+    EnsureCalcRulesParsed
+    Dim i As Long
+    For i = 0 To mnCalcCount - 1
+        If mCalcRules(i).SourceKind = csGroupLength Then
+            HasGroupLengthRules = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    HasGroupLengthRules = False
 End Function
 
 '######################################################################################################################

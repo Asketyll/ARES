@@ -152,6 +152,7 @@ Sub InitializeTranslations()
     ' --- Story 8-1: shared form-UX baseline (FormUXHelper) ---
     moTranslations.Add "EN_FormFinishEditFirst", "Finish the current edit, or press Esc to cancel."
     moTranslations.Add "EN_FormResetDefaultsCaption", "Restore defaults"
+    moTranslations.Add "EN_FormDefaultsRestoreConfirm", "Restore every option on this form to its default value?"
     moTranslations.Add "EN_FormDefaultsRestored", "Default options restored."
     moTranslations.Add "EN_FormPositionsReset", "Window positions reset."
     moTranslations.Add "EN_UpdateBtnSkipVersion", "Skip this version"
@@ -168,12 +169,13 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoneExportGUIOptionsOpenAfter_LabelCaption", "Open once exported"
     ' --- Story 8-2: restore-defaults tooltip + element-picker OK/Cancel ---
     moTranslations.Add "EN_FormResetDefaultsTip", "Reset every option on this panel to its default value."
+    moTranslations.Add "EN_FormHelpTip", "Open the online wiki page for this feature's full syntax reference."
     moTranslations.Add "EN_AutoLengthsGUISelectElementsOK_CommandCaption", "Select"
     moTranslations.Add "EN_AutoLengthsGUISelectElementsCancel_CommandCaption", "Cancel"
     ' Tooltips (ControlTipText) - Property Tagging
     moTranslations.Add "EN_PropertyTaggingGUIOptionsMain_LabelTip", "Attach ARES custom properties automatically when elements are created or modified."
     moTranslations.Add "EN_PropertyTaggingGUIOptionsEditRules_CommandTip", "Rules: Lvl[level], Cell[name], Type[type]; & = AND; ! negates; * / ? wildcards; a leading @ attaches to the OTHER group members. Example: Type[Cell]&!Cell[A]=Repere ; @Cell[ETI0*]=Repere"
-    moTranslations.Add "EN_PropertyRuleInvalid", "ARES: Property rules - invalid rule ignored (check [@]Lvl/Cell/Type[name]&...=prop|prop; separate rules with ';', not '|')"
+    moTranslations.Add "EN_PropertyRuleInvalid", "ARES: Property rule invalid, not saved (expected [@]Lvl/Cell/Type[name]&...=prop|prop)"
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "EN_CalculationGUIOptionsCaption", "Property Calculation options"
     moTranslations.Add "EN_CalculationGUIOptionsMain_LabelCaption", "Enable property calculation"
@@ -183,8 +185,8 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_CalculationValueRejected", "ARES: Property calculation - value rejected by the target property"
     moTranslations.Add "EN_CalculationNoTarget", "ARES: Property calculation - no group member carries the target property; enable Property Tagging and check the property is attached (DGNLib)"
     moTranslations.Add "EN_CalculationMultipleTriggers", "ARES: Property calculation - several trigger cells in this group; the last-modified one sets the value"
-    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rules - invalid rule ignored (Prop[name]=CellText/CellCoord/CellId/Value/Coord/Id; separate rules with ';', not '|')"
-    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText[pattern] | CellCoord[pattern] | CellId[pattern] | Value[text] | Coord[n] | Id. pattern may use '|' for several name alternatives, e.g. ASUF*|SP0*. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*]"
+    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rule invalid, not saved (expected Prop[name][&...]=Source; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[pattern] / Value[text] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
+    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[pattern] | Value[text] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. pattern may use '|' for several name alternatives, e.g. ASUF*|SP0*. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "EN_PropertyLibraryNotFound", "ARES: Custom properties - the ARES DGNLib was not found (check MS_DGNLIBLIST)"
     ' Tooltips - Zoning
@@ -353,6 +355,7 @@ Sub InitializeTranslations()
     ' --- Story 8-1: shared form-UX baseline (FormUXHelper) ---
     moTranslations.Add "FR_FormFinishEditFirst", "Terminez la saisie en cours, ou appuyez sur Échap pour annuler."
     moTranslations.Add "FR_FormResetDefaultsCaption", "Réinitialiser"
+    moTranslations.Add "FR_FormDefaultsRestoreConfirm", "Réinitialiser toutes les options de ce formulaire à leur valeur par défaut ?"
     moTranslations.Add "FR_FormDefaultsRestored", "Options par défaut restaurées."
     moTranslations.Add "FR_FormPositionsReset", "Positions des fenêtres réinitialisées."
     moTranslations.Add "FR_UpdateBtnSkipVersion", "Ignorer cette version"
@@ -369,12 +372,13 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoneExportGUIOptionsOpenAfter_LabelCaption", "Ouvrir une fois exportée"
     ' --- Story 8-2 : info-bulle reinitialisation + OK/Annuler du selecteur d'elements ---
     moTranslations.Add "FR_FormResetDefaultsTip", "Réinitialise chaque option de ce panneau à sa valeur par défaut."
+    moTranslations.Add "FR_FormHelpTip", "Ouvre la page wiki en ligne de référence complète pour cette fonctionnalité."
     moTranslations.Add "FR_AutoLengthsGUISelectElementsOK_CommandCaption", "Sélectionner"
     moTranslations.Add "FR_AutoLengthsGUISelectElementsCancel_CommandCaption", "Annuler"
     ' Tooltips (ControlTipText) - Property Tagging
     moTranslations.Add "FR_PropertyTaggingGUIOptionsMain_LabelTip", "Attache automatiquement les propriétés ARES à la création ou à la modification d'éléments."
     moTranslations.Add "FR_PropertyTaggingGUIOptionsEditRules_CommandTip", "Règles : Lvl[niveau], Cell[nom], Type[type] ; & = ET ; ! nie ; * / ? jokers ; un @ en tête attache aux AUTRES membres du groupe. Exemple : Type[Cell]&!Cell[A]=Repere ; @Cell[ETI0*]=Repere"
-    moTranslations.Add "FR_PropertyRuleInvalid", "ARES : Règles de propriété - règle invalide ignorée (vérifiez [@]Lvl/Cell/Type[nom]&...=prop|prop ; séparez les règles par ';', pas '|')"
+    moTranslations.Add "FR_PropertyRuleInvalid", "ARES : Règle de propriété invalide, non enregistrée (attendu [@]Lvl/Cell/Type[nom]&...=prop|prop)"
     ' --- Property Calculation options GUI + statuses ---
     moTranslations.Add "FR_CalculationGUIOptionsCaption", "Options de calcul de propriété"
     moTranslations.Add "FR_CalculationGUIOptionsMain_LabelCaption", "Activer le calcul de propriété"
@@ -384,8 +388,8 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_CalculationValueRejected", "ARES : Calcul de propriété - valeur refusée par la propriété cible"
     moTranslations.Add "FR_CalculationNoTarget", "ARES : Calcul de propriété - aucun membre du groupe ne porte la propriété cible ; activez l'étiquetage de propriété et vérifiez que la propriété est attachée (DGNLib)"
     moTranslations.Add "FR_CalculationMultipleTriggers", "ARES : Calcul de propriété - plusieurs cellules déclencheuses dans ce groupe ; la dernière modifiée impose la valeur"
-    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règles de calcul - règle invalide ignorée (Prop[nom]=CellText/CellCoord/CellId/Value/Coord/Id ; séparez les règles par ';', pas '|')"
-    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText[motif] | CellCoord[motif] | CellId[motif] | Value[texte] | Coord[n] | Id. Le motif peut utiliser '|' pour plusieurs alternatives de nom, ex. ASUF*|SP0*. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*]"
+    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règle de calcul invalide, non enregistrée (attendu Prop[nom][&...]=Source ; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[motif] / Value[texte] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
+    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[motif] | Value[texte] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. Le motif peut utiliser '|' pour plusieurs alternatives de nom, ex. ASUF*|SP0*. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "FR_PropertyLibraryNotFound", "ARES : Propriétés personnalisées - DGNLib ARES introuvable (vérifiez MS_DGNLIBLIST)"
     ' Tooltips - Zoning

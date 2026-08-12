@@ -151,3 +151,19 @@ Public Sub PersistDefault(ByVal oVar As ARES_MS_VAR_Class)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FormUXHelper.PersistDefault"
 End Sub
+
+' Yes/No confirmation before a Restore-defaults action wipes every option on a form back to default (a
+' one-click, irreversible-in-the-UI action - the allowed MsgBox use for "interactive confirmations", not
+' normal feedback). Call from every *_GUI_Options form's Reset_Command_Click as the FIRST line:
+'   If Not FormUXHelper.ConfirmReset() Then Exit Sub
+' Shared so all six option forms ask the same way instead of six copy-pasted MsgBox calls.
+Public Function ConfirmReset() As Boolean
+    On Error GoTo ErrorHandler
+    ConfirmReset = (MsgBox(GetTranslation("FormDefaultsRestoreConfirm"), vbYesNo + vbQuestion, "ARES") = vbYes)
+    Exit Function
+
+ErrorHandler:
+    ' Fail-closed: a fault here must not silently proceed with an unconfirmed reset.
+    ConfirmReset = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FormUXHelper.ConfirmReset"
+End Function

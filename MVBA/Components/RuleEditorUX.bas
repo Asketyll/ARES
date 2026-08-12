@@ -43,6 +43,12 @@ Private Const PREVIEW_CHARH  As Single = PREVIEW_SIZE * 1.7            ' line he
 ' The caller keeps its own edit-index (reset to -1 after this) and triggers the preview.
 Public Sub SeedRulesCombo(ByVal combo As MSForms.ComboBox, ByVal sRawValue As String)
     On Error GoTo ErrorHandler
+    ' Kill the ComboBox's default type-ahead autocomplete (fmMatchEntryComplete): as the user types a NEW
+    ' rule that shares a prefix with an EXISTING one, it silently completes .Text to that existing item AND
+    ' moves .ListIndex onto it - CaptureEditIndex then reads that as a "clean pick" of the existing rule
+    ' (Text = List(ListIndex)) and RebuildRules REPLACES it instead of appending the new rule. Explicit
+    ' dropdown selection (mouse click / arrow+Enter while the list is open) is unaffected by this setting.
+    combo.MatchEntry = fmMatchEntryNone
     combo.Clear
     Dim vRules As Variant, i As Long
     vRules = Split(sRawValue, RULE_SEP)
@@ -329,7 +335,7 @@ Private Function BuildBoldMap(ByVal s As String, ByRef boldKeywords() As String)
             depth = depth - 1
         ElseIf depth > 0 Then
             ' inside [...] - not a depth-0 keyword token
-        ElseIf IsLetter(ch) Then
+        ElseIf IsBoldTokenChar(ch) Then
             If runStart = 0 Then runStart = i
         Else
             If runStart > 0 Then MarkTokenBold s, runStart, i - 1, boldKeywords, bold
@@ -381,15 +387,17 @@ Private Sub MarkTokenBold(ByVal s As String, ByVal startPos As Long, ByVal endPo
 ErrorHandler:
 End Sub
 
-' True when ch is an ASCII letter A-Z / a-z (nested Ifs, no And; module is Option Compare Binary).
-Private Function IsLetter(ByVal ch As String) As Boolean
-    IsLetter = False
-    If Len(ch) = 0 Then Exit Function
-    Dim u As String
-    u = UCase(ch)
-    If u >= "A" Then
-        If u <= "Z" Then IsLetter = True
-    End If
+' True when ch can be part of a depth-0 keyword token for bolding purposes - i.e. everything that is NOT one
+' of the grammars' structural/metachar separators. Digits/underscore/hyphen etc. must stay INSIDE a token
+' (an ASCII-letters-only test split "Coupe_Type" into "Coupe"+"Type", and the bare "Type" run then
+' false-positive matched the Type[...] condition keyword - a name is not tokenised the way the real parsers
+' see it otherwise).
+Private Function IsBoldTokenChar(ByVal ch As String) As Boolean
+    IsBoldTokenChar = True
+    Select Case ch
+        Case "[", "]", "&", "!", "*", "?", "=", ";", "|", "@", " ", vbTab
+            IsBoldTokenChar = False
+    End Select
 End Function
 
 ' Create one Label for a coloured (optionally bold) run, size it EXPLICITLY (deterministic fixed-pitch

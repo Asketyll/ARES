@@ -4,7 +4,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyTagging_GUI_Options
    ClientHeight    =   1935
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   5310
+   ClientWidth     =   5565
    OleObjectBlob   =   "PropertyTagging_GUI_Options.frx":0000
 End
 Attribute VB_Name = "PropertyTagging_GUI_Options"
@@ -35,8 +35,12 @@ Attribute VB_Exposed = False
 '                Style = 0 fmStyleDropDownCombo EDITABLE - the sole per-rule editor),
 '                Frame_RulePreview (Frame, render surface directly BELOW ComboBox_Rules for the runtime
 '                coloured preview - the coloured Labels are created at runtime, NONE in the designer),
-'                Reset_Command (CommandButton).
-'              StartUpPosition = 0 Manual. Tab order: master -> rules-combo -> reset
+'                Reset_Command (CommandButton), Help_Command (CommandButton, opens the wiki page - placed
+'                beside Reset_Command). Help_Command's Picture (a "?" icon) and MousePointer (14 =
+'                fmMousePointerHelp) are set HERE IN THE DESIGNER, not in code - a Win32 icon-load from code
+'                was rejected as too risky for a cosmetic icon (see the comment beside
+'                FormUXHelper.SetTip Help_Command in UserForm_Initialize).
+'              StartUpPosition = 0 Manual. Tab order: master -> rules-combo -> reset -> help
 '              (Frame_RulePreview is a non-focusable container, not in the tab order).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyTagging, RuleEditorUX, FormUXHelper, FormPlacement, Command
@@ -143,10 +147,12 @@ ErrorHandler:
 End Sub
 
 ' Apply the current edit to the rules list and write it back. This form keeps the GRAMMAR-SPECIFIC lines:
-' read the edited text, validate + normalise via PropertyTagging (reason -> status + re-seed, no write;
-' canonical otherwise), then delegate the rebuild to RuleEditorUX.RebuildRules, write ARES_Property_Rules,
-' RefreshRules, re-seed. A refusal shows PropertyRuleInvalid (status only - never logged). Both Enter
-' (KeyUp) and focus-out (Exit) route here - one commit path.
+' read the edited text, validate + normalise via PropertyTagging (reason -> status, LEAVE the typed text
+' as-is, no write; canonical otherwise), then delegate the rebuild to RuleEditorUX.RebuildRules, write
+' ARES_Property_Rules, RefreshRules, re-seed. A refusal shows PropertyRuleInvalid (status only - never
+' logged) and does NOT re-seed the combo: wiping the box back to "" on an invalid edit reads as "my rule got
+' deleted" (it wasn't - nothing is written on a refusal) when it was really just the user's typo bounced back
+' blank with no way to fix it in place. Both Enter (KeyUp) and focus-out (Exit) route here - one commit path.
 Private Sub CommitRuleEdit()
     On Error GoTo ErrorHandler
     If mbLocked Then Exit Sub                   ' re-entrance guard (a commit already running)
@@ -174,7 +180,7 @@ Private Sub CommitRuleEdit()
         sReason = PropertyTagging.ValidateAndNormalizeRule(sEdited, sCanonical)
         If Len(sReason) > 0 Then
             LangManager.ShowStatusT "PropertyRuleInvalid"
-            SeedRulesCombo                       ' revert to the last-good list
+            RenderCurrentPreview                 ' re-assert the invalid marker; the typed text stays put so the user can fix it
             Exit Sub
         End If
     End If
@@ -255,6 +261,13 @@ Private Sub UserForm_Initialize()
     Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
     FormUXHelper.SetTip Reset_Command, "FormResetDefaultsTip"
 
+    ' Help button: the ComboBox tooltip has no room for the full attach-rules grammar reference - this opens
+    ' the wiki page instead. Its Picture (a "?" icon) is set in the DESIGNER, not here - owned the same way
+    ' as MousePointer/tab order (a Win32 API icon load was considered and rejected: the PICTDESC struct
+    ' layout differs 32/64-bit and a mistake there is an unrecoverable access violation, not a catchable
+    ' VBA error - not worth the risk for a cosmetic icon that the designer sets safely in one click).
+    FormUXHelper.SetTip Help_Command, "FormHelpTip"
+
     SeedControls
     FormPlacement.RestoreFormPosition Me, Me.Name
     Exit Sub
@@ -279,8 +292,20 @@ ErrorHandler:
 End Sub
 
 ' Restore every option this form edits to its default value, persist, then re-seed.
+' Open the wiki page with the full attach-rules syntax reference (EN/FR resolved by ARES_Language) - the
+' ComboBox tooltip alone cannot hold the full grammar legibly.
+Private Sub Help_Command_Click()
+    On Error GoTo ErrorHandler
+    command.OpenARESWikiPage "Custom-Properties", "Proprietes-Personnalisees"
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.Help_Command_Click"
+End Sub
+
 Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
+    If Not FormUXHelper.ConfirmReset() Then Exit Sub
     FormUXHelper.PersistDefault ARESConfig.ARES_AUTO_PROPERTIES
     FormUXHelper.PersistDefault ARESConfig.ARES_PROPERTY_RULES
     PropertyTagging.RefreshRules
@@ -323,3 +348,4 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.UserForm_QueryClose"
 End Sub
+

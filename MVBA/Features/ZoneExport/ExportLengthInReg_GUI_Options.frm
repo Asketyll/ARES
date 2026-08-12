@@ -455,6 +455,7 @@ End Sub
 ' NOTE: ARES_Zoning_Output_Level is the region output level shown here and is shared with the Zoning form.
 Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
+    If Not FormUXHelper.ConfirmReset() Then Exit Sub
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONING_OUTPUT_LEVEL
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_LEVEL
     FormUXHelper.PersistDefault ARESConfig.ARES_ZONE_EXPORT_GROUP_BY

@@ -419,9 +419,30 @@ Sub OpenARESWiki()
     ReportIfLogged "OpenARESWiki"
     
     Exit Sub
-    
+
 ErrorHandler:
     ReportFailure "OpenARESWiki", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Open a SPECIFIC ARES wiki page in the default browser, resolving EN/FR by the user's ARES language - the
+' Property Tagging / Property Calculation options forms' help button uses this (their ComboBox tooltip has
+' no room for the full grammar reference; the wiki page is the authoritative source). NOT a key-in itself
+' (no ClearErrorFlag/ReportIfLogged ritual - it is called from a form button's own error-handled Click).
+Public Sub OpenARESWikiPage(ByVal sEnPage As String, ByVal sFrPage As String)
+    On Error GoTo ErrorHandler
+
+    Dim WikiURL As String
+    If UCase(Left(LangManager.UserLanguage, 2)) = "FR" Then
+        WikiURL = "https://github.com/Asketyll/ARES/wiki/" & sFrPage
+    Else
+        WikiURL = "https://github.com/Asketyll/ARES/wiki/" & sEnPage
+    End If
+
+    Shell "rundll32.exe url.dll,FileProtocolHandler " & WikiURL, vbNormalFocus
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Command.OpenARESWikiPage"
 End Sub
 
 ' Called from UserForm_QueryClose when form closes

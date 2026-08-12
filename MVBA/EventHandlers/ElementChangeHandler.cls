@@ -417,8 +417,12 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     ' ========================================
     Else
         ' Process geometric elements (line, arc, shape, etc.)
-        ' Find linked text elements and trigger their update
-        If Not UPDATE_LENGTH Then Exit Sub
+        ' Find linked text elements and trigger their update. Also fires when Property Calculation holds a
+        ' GroupLength rule: that source needs every OTHER group member re-queued when the linked geometry
+        ' itself changes, exactly like Auto Lengths - but must work even with Auto Lengths OFF.
+        Dim bCalcEnabled As Boolean
+        bCalcEnabled = PropertyCalculation.IsEnabled
+        If Not UPDATE_LENGTH And Not (bCalcEnabled And PropertyCalculation.HasGroupLengthRules) Then Exit Sub
 
         ' Get all elements linked to this geometry
         els = Link.GetLink(oElement)
@@ -433,6 +437,14 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
                     ' Recursive call to process the linked text element
                     ProcessElement linkedElement, Depth + 1
                 End If
+                ' The recursive call above is Depth > 0, so it SKIPS the Depth-0-only Property Calculation
+                ' hook (line ~249) - and the queue-add just above is wiped wholesale by
+                ' IdleEventHandler.CleanupHandler before a fresh Depth-0 pass ever reaches this sibling (that
+                ' queuing exists for Auto Lengths, whose own trigger-text work runs INLINE here regardless of
+                ' Depth). A GroupLength-fed sibling needs the same inline treatment to recompute when the
+                ' geometry itself changes - not just once, on its own attach. Idempotent/loop-safe via
+                ' ApplyValueToSibling's compare-before-write (a redundant call here is a cheap no-op).
+                If bCalcEnabled Then PropertyCalculation.ProcessElement linkedElement
             End If
         Next i
     End If

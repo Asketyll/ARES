@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyCalculation_GUI_Options 
-   Caption         =   "PropertyCalculation_GUI_Options"
+   Caption         =   "PropertyPropagation_GUI_Options"
    ClientHeight    =   2175
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   5295
+   ClientWidth     =   5550
    OleObjectBlob   =   "PropertyCalculation_GUI_Options.frx":0000
 End
 Attribute VB_Name = "PropertyCalculation_GUI_Options"
@@ -25,16 +25,21 @@ Attribute VB_Exposed = False
 '              editor uses - no divergence). This form stays a thin consumer: it runs the calc grammar
 '              (ValidateAndNormalizeCalcRule + CalcRuleHasNoEffect) and hands RuleEditorUX the render string
 '              + validity + red segments + the bold-keyword list (the target/condition keywords Prop/Lvl/
-'              Cell/Type AND the six source keywords CellText/CellCoord/CellId/Value/Coord/Id).
+'              Cell/Type AND the sixteen source keywords CellText/CellCoord/CellId/CellLvl/CellColor/
+'              CellStyle/CellWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength).
 '
 '              DESIGNER (manual) - controls required with EXACTLY these names:
 '                Main_CheckBox (CheckBox, value master), DetachEmpty_CheckBox (CheckBox, detach-empty
 '                option; caption set in code), ComboBox_CalcRules (ComboBox, Style = 0 fmStyleDropDownCombo
 '                EDITABLE - the sole per-rule editor), Frame_CalcPreview (Frame, render surface directly
 '                BELOW ComboBox_CalcRules - the coloured Labels are created at runtime, NONE in the
-'                designer), Reset_Command (CommandButton).
-'              StartUpPosition = 0 Manual. Tab order: master -> detach-empty -> calc-rules-combo -> reset
-'              (Frame_CalcPreview is a non-focusable container, not in the tab order).
+'                designer), Reset_Command (CommandButton), Help_Command (CommandButton, opens the wiki page
+'                - placed beside Reset_Command). Help_Command's Picture (a "?" icon) and MousePointer (14 =
+'                fmMousePointerHelp) are set HERE IN THE DESIGNER, not in code - a Win32 icon-load from code
+'                was rejected as too risky for a cosmetic icon (see the comment beside
+'                FormUXHelper.SetTip Help_Command in UserForm_Initialize).
+'              StartUpPosition = 0 Manual. Tab order: master -> detach-empty -> calc-rules-combo -> reset ->
+'              help (Frame_CalcPreview is a non-focusable container, not in the tab order).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyCalculation, RuleEditorUX, FormUXHelper, FormPlacement, Command
 Option Explicit
@@ -173,10 +178,12 @@ ErrorHandler:
 End Sub
 
 ' Apply the current edit to the calc-rules list and write it back. This form keeps the GRAMMAR-SPECIFIC
-' lines: read the edited text, validate + normalise via PropertyCalculation (reason -> status + re-seed, no
-' write; canonical otherwise), then delegate the rebuild to RuleEditorUX.RebuildRules, write ARES_Calc_Rules,
-' RefreshCalcRules, re-seed. A refusal shows CalcRuleInvalid (status only - never logged). Both Enter (KeyUp)
-' and focus-out (Exit) route here - one commit path.
+' lines: read the edited text, validate + normalise via PropertyCalculation (reason -> status, LEAVE the
+' typed text as-is, no write; canonical otherwise), then delegate the rebuild to RuleEditorUX.RebuildRules,
+' write ARES_Calc_Rules, RefreshCalcRules, re-seed. A refusal shows CalcRuleInvalid (status only - never
+' logged) and does NOT re-seed the combo: wiping the box back to "" on an invalid edit reads as "my rule got
+' deleted" (it wasn't - nothing is written on a refusal) when it was really just the user's typo bounced back
+' blank with no way to fix it in place. Both Enter (KeyUp) and focus-out (Exit) route here - one commit path.
 Private Sub CommitCalcRuleEdit()
     On Error GoTo ErrorHandler
     If mbLocked Then Exit Sub                   ' re-entrance guard (a commit already running)
@@ -204,7 +211,7 @@ Private Sub CommitCalcRuleEdit()
         sReason = PropertyCalculation.ValidateAndNormalizeCalcRule(sEdited, sCanonical)
         If Len(sReason) > 0 Then
             LangManager.ShowStatusT "CalcRuleInvalid"
-            SeedCalcRulesCombo                   ' revert to the last-good list
+            RenderCurrentCalcPreview             ' re-assert the invalid marker; the typed text stays put so the user can fix it
             Exit Sub
         End If
     End If
@@ -227,16 +234,17 @@ End Sub
 
 ' Compute this grammar's preview data for the text currently in ComboBox_CalcRules and hand it to
 ' RuleEditorUX: validate + normalise -> canonical (valid) or raw (invalid); when valid, CalcRuleHasNoEffect
-' -> the red segments; the calc bold-keywords are the target/condition keywords AND the six sources
-' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id bold alongside
-' CellText[..]/CellCoord[..]/CellId[..]/Value[..]). RuleEditorUX renders the coloured runs (read-only).
+' -> the red segments; the calc bold-keywords are the target/condition keywords AND the sixteen sources
+' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id/Lvl/Color/Style/Weight/Length bold
+' alongside CellText[..]/CellCoord[..]/CellId[..]/CellLvl[..]/CellColor[..]/CellStyle[..]/CellWeight[..]/
+' Value[..]/GroupLength[..]). RuleEditorUX renders the coloured runs (read-only).
 Private Sub RenderCurrentCalcPreview()
     On Error GoTo ErrorHandler
 
     Dim sText As String, sCanonical As String, sReason As String, sRender As String
     Dim bValid As Boolean
     Dim segs() As String
-    Dim kw(9) As String
+    Dim kw(18) As String
 
     ReDim segs(0 To 0)
     segs(0) = ""
@@ -264,6 +272,15 @@ Private Sub RenderCurrentCalcPreview()
     kw(7) = "Id"
     kw(8) = "CellCoord"
     kw(9) = "CellId"
+    kw(10) = "CellLvl"
+    kw(11) = "Color"
+    kw(12) = "CellColor"
+    kw(13) = "Style"
+    kw(14) = "CellStyle"
+    kw(15) = "Weight"
+    kw(16) = "CellWeight"
+    kw(17) = "Length"
+    kw(18) = "GroupLength"
     RuleEditorUX.RenderPreview Frame_CalcPreview, sRender, bValid, segs, kw
     Exit Sub
 
@@ -296,6 +313,13 @@ Private Sub UserForm_Initialize()
     Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
     FormUXHelper.SetTip Reset_Command, "FormResetDefaultsTip"
 
+    ' Help button: the ComboBox tooltip has no room for the full calc-rules grammar reference - this opens
+    ' the wiki page instead. Its Picture (a "?" icon) is set in the DESIGNER, not here - owned the same way
+    ' as MousePointer/tab order (a Win32 API icon load was considered and rejected: the PICTDESC struct
+    ' layout differs 32/64-bit and a mistake there is an unrecoverable access violation, not a catchable
+    ' VBA error - not worth the risk for a cosmetic icon that the designer sets safely in one click).
+    FormUXHelper.SetTip Help_Command, "FormHelpTip"
+
     SeedControls
     FormPlacement.RestoreFormPosition Me, Me.Name
     Exit Sub
@@ -318,9 +342,21 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.SeedControls"
 End Sub
 
+' Open the wiki page with the full calc-rules syntax reference (EN/FR resolved by ARES_Language) - the
+' ComboBox tooltip alone cannot hold the full grammar + all sixteen source keywords legibly.
+Private Sub Help_Command_Click()
+    On Error GoTo ErrorHandler
+    command.OpenARESWikiPage "Property-Calculation", "Calcul-de-Propriete"
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.Help_Command_Click"
+End Sub
+
 ' Restore every option this form edits to its default value, persist, then re-seed.
 Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
+    If Not FormUXHelper.ConfirmReset() Then Exit Sub
     FormUXHelper.PersistDefault ARESConfig.ARES_PROPERTY_CALC
     FormUXHelper.PersistDefault ARESConfig.ARES_CALC_DETACH_EMPTY
     FormUXHelper.PersistDefault ARESConfig.ARES_CALC_RULES
@@ -364,4 +400,5 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_GUI_Options.UserForm_QueryClose"
 End Sub
+
 

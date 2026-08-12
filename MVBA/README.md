@@ -52,7 +52,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | | `ZoneExport/ExportLengthInRegion.bas` | sum element length inside zones → Excel (`ExportLength`) |
 | | `RegionSplit/RegionSplit.bas` + `RegionSplitLocate.cls` | knife-cut a region in two (`SplitRegion`) |
 | | `PropertyTagging/PropertyTagging.bas` (+ `PropertyTagging_GUI_Options`) | auto-attach custom properties on add/modify per rules (`ARES_Property_Rules`, v2 grammar); condition grammar → `RuleGrammar`, editor/preview → `RuleEditorUX`; options via `EditPropertyTaggingOptions` |
-| | `PropertyCalculation/PropertyCalculation.bas` (+ `PropertyCalculation_GUI_Options`) | value-calculation engine for custom properties (AWAKE phase 2): per-property calc rules `Prop[name][&cond]=Source` (`ARES_Calc_Rules`); sources `CellText`/`CellCoord`/`CellId`/`Value`/`Coord`/`Id` (the `Cell*` sources read the MATCHING CELL, not the bearing element); first-match wins; options via `EditPropertyCalculationOptions` |
+| | `PropertyCalculation/PropertyCalculation.bas` (+ `PropertyCalculation_GUI_Options`) | value-calculation engine for custom properties (AWAKE phase 2): per-property calc rules `Prop[name][&cond]=Source` (`ARES_Calc_Rules`); GROUP sources `CellText`/`CellCoord`/`CellId`/`CellLvl`/`CellColor`/`CellStyle`/`CellWeight`/`GroupLength` (read off the MATCHING CELL/geometry, not the bearing element) and SELF sources `Value`/`Coord`/`Id`/`Lvl`/`Color`/`Style`/`Weight`/`Length` (the bearing element's own attribute); first-match wins; options via `EditPropertyCalculationOptions` |
 | **Command/** | `Command.bas` | the key-in surface; each key-in inits config/lang, delegates |
 | **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs`, `FormUXHelper`, `FormPlacement`, `RuleGrammar`, `RuleEditorUX` | shared helpers (see [Shared components](#shared-components-key-apis)) |
 | **Update/** | `UpdateChecker.bas` | GitHub-releases self-update of every release asset (`.mvba` → C:\ARES, others → C:\ARES\Rsc) via elevated PowerShell + per-asset SHA-256 verify |
@@ -133,7 +133,7 @@ Developer-relevant / automatic vars (not all are surfaced by a key-in):
 | `ARES_Bulk_Threshold` / `ARES_Bulk_Interval` | 10 / 1000 ms | bulk-operation detection |
 | `ARES_Round` | 2 | default rounding for length computations |
 | `ARES_Auto_Properties` / `ARES_Property_Rules` | True / (empty) | PropertyTagging switch + v2 rules `[@]cond[&cond]*=prop\|prop ; …` (cond = `[!]Lvl\|Cell\|Type[name\|name]`) |
-| `ARES_Property_Calc` / `ARES_Calc_Rules` | False / (empty) | PropertyCalculation switch + calc rules `Prop[name][&cond]*=Source ; …` (Source = `CellText[pattern]`/`CellCoord[pattern]`/`CellId[pattern]`/`Value[text]`/`Coord[n]`/`Id`; a group-source `pattern` may be several `\|`-separated alternatives; first-match wins) |
+| `ARES_Property_Calc` / `ARES_Calc_Rules` | False / (empty) | PropertyCalculation switch + calc rules `Prop[name][&cond]*=Source ; …` (Source = `CellText\|CellCoord\|CellId\|CellLvl\|CellColor\|CellStyle\|CellWeight[pattern]` / `Value[text]` / `Coord\|Length\|GroupLength[n]` / `Id\|Lvl\|Color\|Style\|Weight`; a group-source `pattern` may be several `\|`-separated alternatives; first-match wins) |
 
 The full user-facing list is in the wiki: [Configuration Variables](https://github.com/Asketyll/ARES/wiki/Configuration-Variables).
 

@@ -288,6 +288,7 @@ End Sub
 ' Restore every option this form edits to its default value, persist, then re-seed.
 Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
+    If Not FormUXHelper.ConfirmReset() Then Exit Sub
     FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_LEVEL
     FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_DISTANCE
     FormUXHelper.PersistDefault ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL

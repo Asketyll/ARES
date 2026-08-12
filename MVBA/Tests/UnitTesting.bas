@@ -1819,6 +1819,94 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If bSmoke Then TestsPassed = TestsPassed + 1
 
+    ' --- Lvl / Color / Style / Weight: SELF sources read the bearing element's OWN attribute (compared
+    '     against the real runtime value - env-independent, e.g. no assumption on the active level's name) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Lv]=Lvl ; Prop[Col]=Color ; Prop[Sty]=Style ; Prop[Wgt]=Weight"
+    PropertyCalculation.RefreshCalcRules
+    Dim lSym As element
+    Set lSym = CreateGroupedTestLine(0, Point3dFromXYZ(7000, 0, 0), Point3dFromXYZ(7100, 0, 0))
+    Dim sExpLvl As String, sExpSty As String
+    sExpLvl = "" : If Not lSym.Level Is Nothing Then sExpLvl = lSym.Level.Name
+    sExpSty = "" : If Not lSym.LineStyle Is Nothing Then sExpSty = lSym.LineStyle.Name
+    TotalTests = TotalTests + 1
+    If RVEq("Lv", lSym, sExpLvl) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If RVEq("Col", lSym, CStr(lSym.Color)) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If RVEq("Sty", lSym, sExpSty) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If RVEq("Wgt", lSym, CStr(lSym.LineWeight)) Then TestsPassed = TestsPassed + 1
+
+    ' --- CellLvl / CellColor / CellStyle / CellWeight: GROUP sources - a member resolves to the MATCHING
+    '     CELL's own attributes, not its own (same "tagging cell wins" story as CellCoord/CellId) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[CLv]=CellLvl[SYM*] ; Prop[CCol]=CellColor[SYM*] ; Prop[CSty]=CellStyle[SYM*] ; Prop[CWgt]=CellWeight[SYM*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cSym As element, lSymGrp As element
+    Set cSym = CreateCalculationTestCell("SYM01", 7440, "t", Point3dFromXYZ(7200, 0, 0))
+    Set lSymGrp = CreateGroupedTestLine(7440, Point3dFromXYZ(7300, 0, 0), Point3dFromXYZ(7400, 0, 0))
+    Dim sCExpLvl As String, sCExpSty As String
+    sCExpLvl = "" : If Not cSym.Level Is Nothing Then sCExpLvl = cSym.Level.Name
+    sCExpSty = "" : If Not cSym.LineStyle Is Nothing Then sCExpSty = cSym.LineStyle.Name
+    TotalTests = TotalTests + 1
+    If RVEq("CLv", lSymGrp, sCExpLvl) Then TestsPassed = TestsPassed + 1      ' member gets the CELL's level
+    TotalTests = TotalTests + 1
+    If RVEq("CCol", lSymGrp, CStr(cSym.Color)) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If RVEq("CSty", lSymGrp, sCExpSty) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If RVEq("CWgt", lSymGrp, CStr(cSym.LineWeight)) Then TestsPassed = TestsPassed + 1
+
+    ' --- IsTriggerCell extended: a cell matching a CellColor pattern IS a trigger (pushable); one matching
+    '     ONLY a CellId pattern is still NOT (stable, never pushed) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[CCol]=CellColor[SYMB*] ; Prop[TagRef]=CellId[SYMC*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cColorTrig As element, cIdOnly2 As element
+    Set cColorTrig = CreateCalculationTestCell("SYMB1", 7441, "t", Point3dFromXYZ(7500, 0, 0))
+    Set cIdOnly2 = CreateCalculationTestCell("SYMC1", 7442, "t", Point3dFromXYZ(7550, 0, 0))
+    TotalTests = TotalTests + 1
+    If PropertyCalculation.IsTriggerCell(cColorTrig) Then TestsPassed = TestsPassed + 1      ' CellColor pattern -> trigger
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.IsTriggerCell(cIdOnly2) Then TestsPassed = TestsPassed + 1    ' CellId-only -> not a trigger
+
+    ' --- Length: SELF source, ONLY when the bearing element is itself length-capable (a 100-unit line);
+    '     "" (never a fabricated 0) on a non-length-capable bearing element (a cell) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length"
+    PropertyCalculation.RefreshCalcRules
+    Dim lLen As element
+    Set lLen = CreateGroupedTestLine(0, Point3dFromXYZ(7600, 0, 0), Point3dFromXYZ(7700, 0, 0))
+    TotalTests = TotalTests + 1
+    If RVContains("Len", lLen, "100") Then TestsPassed = TestsPassed + 1     ' own length
+    Dim cLenNo As element
+    Set cLenNo = CreateCalculationTestCell("LENNO", 0, "t", Point3dFromXYZ(7800, 0, 0))
+    TotalTests = TotalTests + 1
+    If RVHasEmpty("Len", cLenNo) Then TestsPassed = TestsPassed + 1          ' a cell is not length-capable
+
+    ' --- GroupLength: GROUP source, scanned by TYPE (no name pattern) - the property sits on a CELL, the
+    '     length comes from the linked 100.5-unit line elsewhere in the group ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[GLen]=GroupLength[1]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cGLen As element, lGLen As element
+    Set cGLen = CreateCalculationTestCell("GLENC", 7450, "t", Point3dFromXYZ(7900, 0, 0))
+    Set lGLen = CreateGroupedTestLine(7450, Point3dFromXYZ(8000, 0, 0), Point3dFromXYZ(8100.5, 0, 0))
+    TotalTests = TotalTests + 1
+    If RVContains("GLen", cGLen, "100.5") Then TestsPassed = TestsPassed + 1
+
+    ' --- HasGroupLengthRules: True only while a GroupLength rule is configured (drives the
+    '     ElementChangeHandler Branch-2 re-queue gate independently of ARES_Update_Lengths) ---
+    TotalTests = TotalTests + 1
+    If PropertyCalculation.HasGroupLengthRules Then TestsPassed = TestsPassed + 1
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length"
+    PropertyCalculation.RefreshCalcRules
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.HasGroupLengthRules Then TestsPassed = TestsPassed + 1
+
+    ' --- ProcessElement smoke on the new source kinds: no crash, including the CellColor trigger push
+    '     (cColorTrig, group 7441) and a GroupLength bearing recompute (cGLen, group 7450) ---
+    PropertyCalculation.ProcessElement cColorTrig
+    PropertyCalculation.ProcessElement cGLen
+    TotalTests = TotalTests + 1
+    If bSmoke Then TestsPassed = TestsPassed + 1
+
     ' Restore config
     ARESConfig.ARES_PROPERTY_CALC.Value = sOldEnabled
     ARESConfig.ARES_CALC_RULES.Value = sOldCalcRules
