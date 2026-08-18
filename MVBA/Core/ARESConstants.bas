@@ -43,6 +43,20 @@ Public Const ARES_CELL_INDEX_ERROR_VALUE As Integer = -1
 ' itself (see CustomPropertyHandler.GetCustomPropertyNames) - the DGNLib is the list.
 Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"          ' ItemTypeLibrary name (namespace)
 
+' === INTERNAL (SYSTEM) ITEM TYPE CONSTANTS ===
+' A SECOND ItemTypeLibrary, authored in the SAME ARES_Custom_Properties.dgnlib, holding ARES's own
+' metadata - never a user-facing custom property. It must NEVER surface in GetCustomPropertyNames()
+' (which stays bound to ARES_NAME_LIBRARY_TYPE above), in the Zone Export property picker, or in any
+' options form. Used by PropertyRendering to store the text-render binding on the bearing element.
+Public Const ARES_NAME_LIBRARY_SYS As String = "ARES_SYS"       ' internal ItemTypeLibrary name (metadata)
+' The single ItemType of ARES_SYS: the render binding. TWO String properties, SchemaVersion + Entries -
+' which is why every access to it must name BOTH its ItemName and its LibraryName, and must suppress
+' CustomPropertyHandler's single-property fallback (bNoFallback).
+Public Const ARES_ITEM_RENDER As String = "ARES_Render"
+' Written into ARES_Render.SchemaVersion on every metadata write. A file carrying any other value is
+' refused fail-closed and never rewritten (a newer ARES may have written a shape this build cannot read).
+Public Const ARES_RENDER_SCHEMA As String = "1"
+
 ' === FILE DIALOG FILTER CONSTANTS ===
 ' Used in FileDialogs module — pipe-delimited Windows Forms filter strings
 Public Const DIALOG_FILTER_CFG  As String = "ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*"

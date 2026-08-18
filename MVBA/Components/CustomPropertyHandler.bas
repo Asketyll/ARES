@@ -70,6 +70,10 @@ Public Function GetCustomPropertyNames() As String()
     names(0) = ""
     n = 0
 
+    ' LOAD-BEARING: FindItemTypeLibrary is called with NO argument, so it resolves the USER-facing library
+    ' (ARES_NAME_LIBRARY_TYPE) only. This is what keeps the internal ARES_SYS library out of every
+    ' user-facing enumeration (Zone Export's property picker, the tag/calc editors, the render token
+    ' validation). Do NOT parameterise this call.
     Set ITL = FindItemTypeLibrary()
     If ITL Is Nothing Then
         GetCustomPropertyNames = names
@@ -481,7 +485,13 @@ End Function
 ' returns Null SILENTLY (the normal "no value" case) — no parasitic log.
 ' ItemName omitted defaults to PropertyName (ARES convention: the ItemType name IS the property name),
 ' so the read addresses the property's OWN item — never "the first attached item" of a multi-item element.
-Public Function GetPropertyValueFromElement(ByVal El As element, ByVal PropertyName As String, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Variant
+'
+' bNoFallback = True suppresses that single-property fallback and returns Null instead. Required by any
+' MULTI-property ItemType (ARES_SYS/ARES_Render carries SchemaVersion + Entries): the fallback returns
+' "the first property that yields a value", so reading an EMPTY SchemaVersion would silently hand back
+' Entries. It is the LAST parameter on purpose — the hot call sites are positional
+' (PropertyCalculation.bas:1620), so inserting it before LibraryName would land the item name in it.
+Public Function GetPropertyValueFromElement(ByVal El As element, ByVal PropertyName As String, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ByVal bNoFallback As Boolean = False) As Variant
     On Error GoTo ErrorHandler
 
     GetPropertyValueFromElement = Null
@@ -506,6 +516,9 @@ Public Function GetPropertyValueFromElement(ByVal El As element, ByVal PropertyN
         GetPropertyValueFromElement = vVal
         Exit Function
     End If
+
+    ' Strict mode: no fallback, the absent/empty property reads as Null (never another property's value).
+    If bNoFallback Then Exit Function
 
     ' Fallback: resolve the real property name from the ItemType definition and retry.
     GetPropertyValueFromElement = GetFirstPropertyValue(oHandler, LibraryName)
@@ -565,7 +578,12 @@ End Function
 ' ItemName omitted defaults to PropertyName (ARES convention: the ItemType name IS the property name),
 ' so the write addresses the property's OWN item — never "the first attached item" of a multi-item
 ' element, where the fallback would land the value in the WRONG property.
-Public Function SetPropertyValueToElement(ByVal El As element, ByVal PropertyName As String, ByVal PropertyValue As Variant, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
+'
+' bNoFallback = True suppresses that fallback and returns False instead — mandatory on a MULTI-property
+' ItemType (ARES_SYS/ARES_Render), where "the first property that accepts the write" can silently land
+' the value in the wrong field AND still report success. LAST parameter on purpose: the hot call sites
+' are positional (PropertyCalculation.bas:1626/:1638), so any earlier position would break them.
+Public Function SetPropertyValueToElement(ByVal El As element, ByVal PropertyName As String, ByVal PropertyValue As Variant, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ByVal bNoFallback As Boolean = False) As Boolean
     On Error GoTo ErrorHandler
 
     SetPropertyValueToElement = False
@@ -589,6 +607,9 @@ Public Function SetPropertyValueToElement(ByVal El As element, ByVal PropertyNam
         SetPropertyValueToElement = True
         Exit Function
     End If
+
+    ' Strict mode: no fallback, a refused write stays refused (never redirected to another property).
+    If bNoFallback Then Exit Function
 
     ' Fallback: resolve the real property name from the ItemType definition and retry.
     SetPropertyValueToElement = SetFirstPropertyValue(oHandler, LibraryName, PropertyValue)

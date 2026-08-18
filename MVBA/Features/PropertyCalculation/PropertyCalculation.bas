@@ -102,6 +102,12 @@
 '              Deletion is reconciled by the BEARING pass on the members ShouldQueueForDeletion already
 '              re-queues (Link.GetLink(BeforeChange)) - no pending-clear machinery (retired in 14-2).
 '
+'              PropertyRendering (epic 15) is a READER of this module, in three narrow places: a value
+'              STATE CHANGE notes the sibling for the renderer's bounded repaint hop; the CellText source
+'              asks the renderer which sub-texts to EXCLUDE, so a rendered value can never feed the value
+'              that governs it; and GetCalcRuleForProperty answers "where does this value come from" at
+'              bind time. This module still writes values only - it knows nothing about text.
+'
 '              Emptying semantics: when a CellText source has no surviving matching cell it yields "";
 '              ApplyValueToSibling then CLEARS the value (property stays attached) by default, or with
 '              ARES_Calc_Detach_Empty ON DELEGATES the detach to the tagger (PropertyTagging.
@@ -109,7 +115,8 @@
 '              re-attaching rule cannot oscillate it (termination).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, CustomPropertyHandler,
-'               PropertyTagging, StringsInEl, Link, Length, LangManager, ErrorHandlerClass (global ErrorHandler)
+'               PropertyTagging, PropertyRendering, StringsInEl, Link, Length, LangManager,
+'               ErrorHandlerClass (global ErrorHandler)
 
 Option Explicit
 
@@ -885,6 +892,36 @@ ErrorHandler:
     bHasRule = False
 End Function
 
+' Read-only "where does P's value come from on this element" seam. Returns False when no calc rule
+' governs P here; otherwise True with the source kind, its bracket argument and a canonical
+' "Source[arg]" string. Public because PropertyRendering needs it at BIND time to tell the user which
+' engine owns the value they are about to display, and to spot the one static cycle v1 can detect (a
+' token rendered inside the very cell whose text feeds the property). Same ByRef-out shape as
+' ResolvePropertyValue's bHasRule. CalcRuleInfo stays a Private Type - only scalars cross the boundary.
+Public Function GetCalcRuleForProperty(ByVal P As String, ByVal oEl As element, ByRef SourceKind As CalcSource, ByRef SourceArg As String, ByRef sCanonical As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    GetCalcRuleForProperty = False
+    SourceArg = ""
+    sCanonical = ""
+
+    EnsureCalcRulesParsed
+    If mnCalcCount = 0 Then Exit Function
+
+    Dim idx As Long
+    idx = FindCalcRuleForProperty(P, oEl)
+    If idx < 0 Then Exit Function
+
+    SourceKind = mCalcRules(idx).SourceKind
+    SourceArg = mCalcRules(idx).SourceArg
+    sCanonical = SourceToCanonical(mCalcRules(idx))
+    GetCalcRuleForProperty = True
+    Exit Function
+
+ErrorHandler:
+    GetCalcRuleForProperty = False
+End Function
+
 ' First-match resolution: index of the first calc rule whose TargetProp = P (case-insensitive) AND whose
 ' conditions match oEl; -1 if none. Order in the config = priority (specific rules first).
 Private Function FindCalcRuleForProperty(ByVal P As String, ByVal oEl As element) As Long
@@ -1067,7 +1104,20 @@ Private Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcS
     ReadCellSourceValue = ""
     Select Case kind
         Case csCellText
-            ReadCellSourceValue = StringsInEl.GetConcatenatedText(oCell)
+            ' Containment (epic 15): a sub-text the RENDERER writes must not feed the value that governs
+            ' it, or the value would ratchet on its own output. The exclusion is a function of the SOURCE
+            ' CELL, not of the rule, so it is resolved HERE rather than threaded through six signatures -
+            ' and that is also what keeps PushCellDerivedValuesToMembers' lazy cache correct: the cache is
+            ' keyed on the CalcSource ordinal alone, which stays sound only because within one push pass
+            ' there is exactly ONE source cell and therefore exactly one exclusion set. A future
+            ' RULE-dependent exclusion would break that cache and must re-key it.
+            Dim exIds() As Long
+            Dim nEx As Long
+            If PropertyRendering.GetExcludedSubIds(oCell, exIds, nEx) Then
+                ReadCellSourceValue = StringsInEl.GetConcatenatedTextExcluding(oCell, exIds, nEx)
+            Else
+                ReadCellSourceValue = StringsInEl.GetConcatenatedText(oCell)
+            End If
         Case csCellCoord
             Dim pt As Point3d
             If GetElementAnchorPoint(oCell, pt) Then
@@ -1623,20 +1673,40 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
     If Len(value) > 0 Then
         ' Non-empty value: set only when different (compare-guarded).
         If sCurrent <> value Then
-            If Not CustomPropertyHandler.SetPropertyValueToElement(s, P, value, P) Then ReportRejected
+            If CustomPropertyHandler.SetPropertyValueToElement(s, P, value, P) Then
+                ' Value STATE CHANGE: note the sibling for the renderer's bounded repaint hop. The
+                ' pipeline does not re-queue a member whose value we just pushed, so without this its
+                ' displayed text would stay stale until the element is touched again. A REJECTED write
+                ' warrants no repaint. The element is passed as-is: the renderer resolves the graphic
+                ' group itself behind its own IsGraphical guard, because reading .GraphicGroup here would
+                ' RAISE on a non-graphical element and pollute this handler on every write.
+                PropertyRendering.NoteDirtyGroup s
+            Else
+                ReportRejected
+            End If
         End If
         ' already equal -> no-op (loop-safety)
     Else
         ' Empty value: act ONLY on a real non-empty -> empty TRANSITION (an already-empty property is a
         ' no-op, so a rule that re-attaches P empty does not re-trigger a detach - this makes ON terminate).
         If Len(sCurrent) > 0 Then
+            Dim bEmptied As Boolean
+            bEmptied = True
             If IsDetachEmptyEnabled() Then
                 ' Option ON: delegate the detach to the tagger (the only permitted detach path).
                 PropertyTagging.DetachRuleProperty s, P
             Else
                 ' Option OFF: clear the value; the property stays attached.
-                If Not CustomPropertyHandler.SetPropertyValueToElement(s, P, "", P) Then ReportRejected
+                bEmptied = CustomPropertyHandler.SetPropertyValueToElement(s, P, "", P)
+                If Not bEmptied Then ReportRejected
             End If
+            ' The EMPTYING transition is noted too, whichever branch handled it: it is precisely what must
+            ' re-materialise the literal token in a rendered text, on a sibling nothing else re-queues.
+            ' Gated on the clear having been ACCEPTED, exactly like the non-empty branch above: a picklist
+            ' or otherwise constrained property that rejects the clear leaves the value where it was, and a
+            ' rejected write warrants no repaint. The detach branch has no return to test (DetachRuleProperty
+            ' is a Sub), so it stays a transition.
+            If bEmptied Then PropertyRendering.NoteDirtyGroup s
         End If
     End If
     Exit Function

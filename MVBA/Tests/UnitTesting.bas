@@ -28,6 +28,7 @@ Private Enum TestID
     tidPropertyRuleValidation = 19
     tidCalcRuleValidation = 20
     tidPropertyTaggingPull = 21
+    tidPropertyRendering = 22
 End Enum
 
 ' Test result structure
@@ -94,6 +95,7 @@ Public Sub RunAllTests()
     RunTest "Property Rule Validation", tidPropertyRuleValidation
     RunTest "Calc Rule Validation", tidCalcRuleValidation
     RunTest "Property Tagging Pull", tidPropertyTaggingPull
+    RunTest "Property Rendering", tidPropertyRendering
 
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -175,8 +177,11 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidPropertyTaggingPull
             TestName = "Property Tagging Pull"
             Result = PropertyTaggingPullTest()
+        Case tidPropertyRendering
+            TestName = "Property Rendering"
+            Result = PropertyRenderingTest()
         Case Else
-            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-21", vbCritical, "Test Error"
+            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-22", vbCritical, "Test Error"
             Exit Sub
     End Select
     
@@ -2281,6 +2286,36 @@ Private Function CreatePullTestText(ByVal lGroup As Long, ByVal oLvl As Level, B
     Set CreatePullTestText = oText
 End Function
 
+' A cell carrying TWO plain text sub-elements, which is what the renderer's multi-entry case needs: the
+' cell header is the bearer (RA1) and both sub-texts pack into one ARES_Render item on it. Same shape as
+' CreateCalculationTestCell, with a second text so SubId 0 and SubId 1 both exist.
+Private Function CreateRenderTestCell(ByVal sName As String, ByVal sText0 As String, ByVal sText1 As String, ByVal origin As Point3d) As CellElement
+    Dim arr(1) As element
+    Dim second As Point3d
+    second = Point3dFromXYZ(origin.X, origin.Y - 100, origin.Z)
+    Set arr(0) = CreateTextElement1(Nothing, sText0, origin, Matrix3dIdentity)
+    Set arr(1) = CreateTextElement1(Nothing, sText1, second, Matrix3dIdentity)
+    Dim oCell As CellElement
+    Set oCell = CreateCellElement1(sName, arr, origin)
+    ActiveModelReference.AddElement oCell
+    Set CreateRenderTestCell = oCell
+End Function
+
+' Read a rendered sub-text through a FRESHLY re-fetched handle, and leave the caller holding that fresh
+' handle. An MVBA element handle is a COPY of the element data - that is why .Rewrite exists at all, why
+' StringsInEl.UpdateTextLines re-fetches after every sub-write, and why ElementInProcesse stores ids
+' rather than elements - so a handle the test still holds keeps serving the text it was created with.
+' Asserting through it would read the PRE-render text and fail a render that actually worked.
+Private Function RenderedTextOf(ByRef El As element, ByVal SubId As Long) As String
+    On Error Resume Next
+    Dim oFresh As element
+    RenderedTextOf = ""
+    If El Is Nothing Then Exit Function
+    Set oFresh = ActiveModelReference.GetElementById(El.ID)
+    If Not oFresh Is Nothing Then Set El = oFresh
+    RenderedTextOf = StringsInEl.GetTextAtSubId(El, SubId)
+End Function
+
 ' Helper: True when ResolvePropertyValue governs P on el (bHasRule) AND yields EXACTLY sExpected.
 Private Function RVEq(ByVal P As String, ByVal el As element, ByVal sExpected As String) As Boolean
     Dim bHas As Boolean
@@ -2309,6 +2344,843 @@ Private Function RVNoRule(ByVal P As String, ByVal el As element) As Boolean
     Dim v As String
     v = PropertyCalculation.ResolvePropertyValue(P, el, bHas)
     RVNoRule = (Not bHas)
+End Function
+
+' Property Rendering (epic 15, tid 22).
+' Two halves. The FIRST asserts the Template pure logic - Expand, Align and the well-formedness rules -
+' through the module's read-only Public seams, with name validation OFF so it needs no DGNLib at all. The SECOND drives real elements and therefore N/A-skips (returns
+' True) when the ARES DGNLib or the internal ARES_SYS library is absent, per the
+' CustomPropertyHandlerTest convention.
+' Every config variable it touches is restored on the nominal path AND in ErrorHandler (no Finally in
+' VBA), guarded by bSaved so a fault occurring before the save cannot blank the user's configuration.
+Private Function PropertyRenderingTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    Dim names(0 To 1) As String
+    Dim values(0 To 1) As String
+    Dim newNames() As String
+    Dim newValues() As String
+    Dim nNew As Long
+    Dim sNewT As String
+    Dim sT As String
+    Dim bSaved As Boolean
+    Dim sOldRender As String, sOldAuto As String, sOldUpdate As String
+    Dim sOldTrig As String, sOldTrigID As String
+    Dim sErrDesc As String, lErrNum As Long, sErrSrc As String
+
+    bSaved = False
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+
+    ' ---------- PURE TEMPLATE LOGIC (no DGNLib needed: bValidateNames = False) ----------
+
+    ' AC1 - a token is FULLY replaced, the static text is untouched.
+    names(0) = "Len": values(0) = "13,3"
+    sT = "Ligne Prop[Len] m"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.ExpandTemplate(sT, names, values, 1, False) = "Ligne 13,3 m" Then TestsPassed = TestsPassed + 1
+
+    ' AC1 - whole-value mode is just a Template that IS one token.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.ExpandTemplate("Prop[Len]", names, values, 1, False) = "13,3" Then TestsPassed = TestsPassed + 1
+
+    ' AC3 / edge #8 - an EMPTY value renders the token's own literal text (the "unset" cue).
+    values(0) = ""
+    TotalTests = TotalTests + 1
+    If PropertyRendering.ExpandTemplate(sT, names, values, 1, False) = "Ligne Prop[Len] m" Then TestsPassed = TestsPassed + 1
+
+    ' AC3 / edge #8b - unset and set expand DIFFERENTLY, which is what puts an unset->reset round trip in
+    ' branch 2 (values moved) instead of branch 3 (user edit).
+    values(0) = "13,3"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.ExpandTemplate(sT, names, values, 1, False) <> "Ligne Prop[Len] m" Then TestsPassed = TestsPassed + 1
+
+    ' AC2 branch 3 - an untouched rendering aligns and the token SURVIVES.
+    values(0) = "13,3"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Ligne Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' AC2 / edge #5 - the user retyped the value: the token is RELEASED and its span becomes static text.
+    ' nNew = 0 means NOTHING survived, and the re-authored Template carries no token at all. That string
+    ' must never be stored as a live entry (it would keep ARES_Render attached for ever and make Branch 1
+    ' skip the text permanently) - the state machine releases the entry instead, which the element-level
+    ' half asserts end to end in RunRenderElementChecks.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 99 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Ligne 99 m" And nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' P8 - a value that CONTAINS the closing literal (" m" inside "1 m 2") must not misalign the span: the
+    ' last rendering is anchored at the cursor, so a purely static edit cannot release the token. Searching
+    ' the literal by first occurrence returns "1" here and destroys the binding.
+    names(0) = "Len": values(0) = "1 m 2"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 1 m 2 m!", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Ligne Prop[Len] m!" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+    names(0) = "Len": values(0) = "13,3"
+
+    ' AC2 / edge #6 - PER-TOKEN release: the wiped one drops, the intact one keeps updating.
+    names(0) = "Rep": values(0) = "R1"
+    names(1) = "Len": values(1) = "13,3"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("R1 - 99 m", "Prop[Rep] - Prop[Len] m", names, values, 2, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Prop[Rep] - 99 m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' AC3 / edge #8c - while a value is unset, the token's literal text counts as SURVIVED, so a static
+    ' edit elsewhere cannot release it.
+    names(0) = "Len": values(0) = ""
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Prop[Len] m", "Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' AC2 / edge #7 - the STATIC part was edited, so the LITERAL WALK cannot follow it. This assertion is
+    ' unchanged and still correct, but it no longer means what it used to: since D8 it says "AlignVisible
+    ' declines", not "the binding is released". The caller now hands this exact case to AlignByValues, which
+    ' keeps it - see the D8 block below and the element-level check. Asketyll arbitrated the flip on
+    ' 2026-08-18: editing static text must NOT cost the binding.
+    names(0) = "Len": values(0) = "13,3"
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignVisible("Cable 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' AC11 / edge #12 - the same property twice in one text is refused.
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.TemplateIsWellFormed("Prop[Len] et Prop[Len]", False) Then TestsPassed = TestsPassed + 1
+
+    ' AC11 / edge #13 - two adjacent tokens are refused (the span boundary would be undefined).
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.TemplateIsWellFormed("Prop[Rep]Prop[Len]", False) Then TestsPassed = TestsPassed + 1
+
+    ' A single token, and a Template opening/closing on a token, are all legal.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.TemplateIsWellFormed("Prop[Rep] - Prop[Len]", False) Then TestsPassed = TestsPassed + 1
+
+    ' ---------- D6: an addition BESIDE the value of a boundary token ----------
+    ' A token with no literal on one side has no anchor for that edge of its span, so anything typed there
+    ' used to fall INSIDE the span and release the binding. D6 keeps the binding when the addition provably
+    ' cannot weld itself onto a number - see SAFE_BOUNDARY_SYMBOLS for the admission criterion.
+    ' The two halves live in two different places (SpanAnchorsAt for the trailing edge, AlignVisible's
+    ' leading-token block for the other), so BOTH are exercised here, and each one is asserted both ways:
+    ' what it must keep AND what it must still release. The releases are the load-bearing half - they are
+    ' the "no forged number" guarantee, one named fusion mechanism each.
+
+    ' --- Trailing edge (terminal token) ---
+    names(0) = "Len": values(0) = "13,3"
+    sT = "Ligne Prop[Len]"
+
+    ' Kept: a letter cannot be read as part of a number, glued or spaced.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Ligne Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Ligne Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - the value itself was edited. Indistinguishable from an append by construction, which is
+    ' why the whitelist decides on the boundary character instead of on the intent.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,35", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Ligne 13,35" And nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - NON-BREAKING SPACE, the French thousands separator (Excel emits it in fr-FR, and ARES
+    ' exports to Excel). VBA's LTrim strips Chr(32) ONLY, so it reaches the whitelist intact and is refused
+    ' for not being on it. Keeping it would render a future value of 20 as "20 500" - twenty thousand five
+    ' hundred. This is the check that a blacklist would have failed.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3" & ChrW(160) & "500", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - Swiss thousands separator ("20'500") and scientific notation ("20e5"). The second is
+    ' refused by the exponent guard, not by the list: "e" IS an admitted letter, a digit behind it is not.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3'500", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3e5", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+    ' ...and the same letter IS kept when no digit follows it, so the guard costs nothing in normal French.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3 euros", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Ligne Prop[Len] euros" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - a whitespace-only addition. IsNumericText("") is True, so an empty stripped addition must
+    ' be refused explicitly: a trailing space fuses with whatever comes next.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne 13,3 ", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - a TEXTUAL value is outside D6 entirely. There is no IsNumericText equivalent to bound the
+    ' damage on that domain, so it keeps today's behaviour and gains no new risk.
+    names(0) = "Rep": values(0) = "R1"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("Ligne R1m", "Ligne Prop[Rep]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' --- Leading edge (token opening the Template) - the OTHER site, AlignVisible's own block ---
+    names(0) = "Len": values(0) = "13,3"
+    sT = "Prop[Len] m"
+
+    ' Kept: the prefix ends on a letter. The user's text goes back into the Template as static content.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("N 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "N Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - the mirror trap. A prefix of "1 " ends on a SPACE, so a naive last-character test would
+    ' keep it and a future value of 20 would render "1 20", one plausible number. RTrim is what exposes the
+    ' digit underneath. "1e" is the same trap through the exponent guard.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("1 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("1e13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - a MINUS sign. It is admitted nowhere, precisely because a prefix of "-" turns a future 20
+    ' into -20: a number that is plausible, readable, and wrong.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("-13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Whole-value mode - the fully degenerate Template, BOTH edges unanchored at once. One addition on one
+    ' side is decided by the matching half; the two halves do not have to agree on anything.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("N 13,3", "Prop[Len]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "N Prop[Len]" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("13,3 m", "Prop[Len]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' ---------- D7: an insertion BETWEEN the value and a literal glued to it ----------
+    ' Distinct from D6: here a literal sits on BOTH sides of the token, so neither edge is unanchored -
+    ' and the binding still died, because the span starts immediately after the opening literal, leaving
+    ' no neutral ground between them. Anything typed there falls inside the span by construction.
+    ' What decides these is the CONTEXT, not the typed text: the same single space is kept after "t" and
+    ' refused after "T70". Each keep is therefore paired with the same addition in a context that forbids it.
+    names(0) = "Len": values(0) = "39,6"
+
+    ' Kept - Asketyll's case: a space between the "t" and the value. The "t" is what cuts any numeric
+    ' reading, and it is only visible to the rule because the literal is passed along with the addition.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("t 39,6m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "t Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Kept - the mirror: a space between the value and the closing literal. The addition goes back on the
+    ' RIGHT side of the token, which is what makes the next value render where the user put it.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("t39,6 m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "tProp[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - SAME space, context that forbids it: "T70 " ends on a digit, so a future value of 20 would
+    ' render "T70 20m" and "70 20" welds into one number.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("T70 39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - the hexadecimal the typed text alone cannot see: "x" is a perfectly safe boundary letter,
+    ' but the literal in front of it ends on a digit, so the whole reads "T70x20". Caught by the same
+    ' digit-letter-digit guard, only because the literal travels with the addition.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("T70x39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - the closing literal starts with a digit, so a space before it welds ("20 5m").
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("t39,6 5m", "tProp[Len]5m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - BOTH sides at once. The value is matched against one END of the span, never searched for
+    ' inside it (a value of "1" in a span of " 1 1 " has no defensible position), so this satisfies neither
+    ' test and releases. Deliberate: it is today's behaviour, and it costs nothing.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignVisible("t 39,6 m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "t 39,6 m" And nNew = 0 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' ---------- D8: alignment by VALUE RECOGNITION (the fallback) ----------
+    ' AlignVisible locates a value by IMPOSING positions; D8 inverts the search - find the value, and
+    ' whatever lies around it BECOMES the new literal. That is what makes static text editable anywhere.
+    ' Every case here reaches AlignByValues only because AlignVisible declined first.
+    names(0) = "Len": values(0) = "26,6"
+
+    ' The field case: a "b" typed at the very START, far from the value. Released before D8.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("bHTAS 3x240 AL (26,6m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "bHTAS 3x240 AL (Prop[Len]m)" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Static text edited in the MIDDLE, and at BOTH ends at once - neither was ever covered.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("HTAS 3x240 ALU (26,6m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "HTAS 3x240 ALU (Prop[Len]m)" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("bHTAS (26,6m)!", "HTAS (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "bHTAS (Prop[Len]m)!" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' The frontier test must be RAW. Authored "Zone 70" already welds 70 to the value, and typing far away
+    ' changes nothing about that - the binding must survive. Judging the trimmed literal would refuse the
+    ' very gesture D8 exists to support, because the frontier reads as a digit either way.
+    names(0) = "Len": values(0) = "13,3"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("bZone 7013,3m", "Zone 70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "bZone 70Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' ...and the SAME frontier, when the user actually touches it, is still refused: "T70" + a typed space
+    ' would render "T70 20m", welding 70 and 20.
+    names(0) = "Len": values(0) = "39,6"
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignByValues("T70 39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' AC2 / edge #7, FLIPPED (Asketyll, 2026-08-18): editing the static text keeps the binding.
+    names(0) = "Len": values(0) = "13,3"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("Cable 13,3 m", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Cable Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Released - the value itself was retyped. D8 changes nothing here: the last value is simply not in the
+    ' text any more, and that remains the ONE deliberate way to break a binding.
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignByValues("Ligne 99 m", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' Released - AMBIGUOUS. A short value that also occurs in the static text has no defensible occurrence,
+    ' and picking one would MOVE the token: a silent corruption, far worse than releasing. This is the known
+    ' limitation of value recognition, and the reason AlignVisible's literal anchoring is kept in front.
+    names(0) = "Len": values(0) = "3"
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignByValues("bHTAS 3x240 AL (3m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' Released - the forge guards still apply on this wider surface: "1" typed in front of a LEADING value
+    ' would render "120m".
+    names(0) = "Len": values(0) = "26,6"
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignByValues("126,6m", "Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' Released - the FIXED POINT check. The user typed a second token into the text, so the re-authored
+    ' Template would carry a token its LastValues does not know: exactly the round-8/10 wedge, where
+    ' EntryIsConsistent refuses the entry for ever. Caught by ReauthoredTemplateIsSound, not by luck.
+    names(0) = "Len": values(0) = "13,3"
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignByValues("Ligne 13,3 m Prop[Autre]", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' Released - THE NON-LOCAL FORGE. "0x" typed at the far start of a literal ending in "A1" spells
+    ' "0xA1", so a future 20 would render "0xA120" - hexadecimal. Neither D6's guard nor the raw-frontier
+    ' test can see it: the forge is four characters away and the last two are UNCHANGED. Closed by
+    ' NumericTailIsPossible, on one sentence rather than a list of base prefixes: a number starts with a
+    ' digit. This is the check that fails if that rule is ever weakened back to a fixed lookback.
+    names(0) = "Len": values(0) = "13,3"
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignByValues("0xA113,3m", "A1Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' ...and the SAME literal keeps its binding when the edit does not make a base literal possible: "b" is
+    ' a hex character, so a naive "did the trailing run change" test would refuse this one.
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("bA113,3m", "A1Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "bA1Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' Kept - a border literal deleted ENTIRELY. Empty is the one context that provably cannot weld: there
+    ' is no character to weld with. The shared D6/D7 predicates refuse an empty argument, because THERE it
+    ' means "no addition was made"; here it means "the value now starts (or ends) the text", so the two
+    ' D8 helpers answer it themselves. Partial deletion already worked ("Ligne" -> "Lign" above); this is
+    ' the total case, and deleting the word in front of a value is an ordinary gesture.
+    names(0) = "Len": values(0) = "39,6"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("39,6m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("t39,6", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "tProp[Len]" And nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' ...and deleting a literal does NOT become a way to smuggle a release: retyping the value still is the
+    ' only one. This pins the distinction the empty case must not blur.
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering.AlignByValues("40,2m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+
+    ' Two tokens, both still present, with static text edited around them.
+    names(0) = "Rep": values(0) = "R1"
+    names(1) = "Len": values(1) = "13,3"
+    TotalTests = TotalTests + 1
+    If PropertyRendering.AlignByValues("bRep R1 - 13,3 m", "Rep Prop[Rep] - Prop[Len] m", names, values, 2, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = "bRep Prop[Rep] - Prop[Len] m" And nNew = 2 Then TestsPassed = TestsPassed + 1
+    End If
+
+    names(0) = "Len": values(0) = "13,3"
+    sT = "Ligne Prop[Len] m"
+
+    ' ---------- LEGACY FLAGS FORCED ACTIVE (AC4 / edge #18) - setup, not assertions ----------
+    ' There is no collision assertion HERE by design: the renderer no longer refuses anything on this
+    ' account. What this block does is put AutoLengths in its ACTIVE configuration so the element-level
+    ' checks below run under it - see the trigger-shaped expansion check in RunRenderElementChecks.
+
+    sOldRender = ARESConfig.ARES_TEXT_RENDER.Value
+    sOldAuto = ARESConfig.ARES_AUTO_LENGTHS.Value
+    sOldUpdate = ARESConfig.ARES_UPDATE_LENGTHS.Value
+    sOldTrig = ARESConfig.ARES_LENGTH_TRIGGER.Value
+    sOldTrigID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
+    bSaved = True
+
+    ARESConfig.ARES_AUTO_LENGTHS.Value = "True"
+    ARESConfig.ARES_UPDATE_LENGTHS.Value = "True"
+    ARESConfig.ARES_LENGTH_TRIGGER.Value = "(Xx_m)"
+    ARESConfig.ARES_LENGTH_TRIGGER_ID.Value = "Xx_"
+
+    ' The legacy flags above are set ACTIVE on purpose and left that way for the element-level checks: the
+    ' renderer must now write an expansion shaped like a legacy trigger - "(12.3m)" - even while Auto
+    ' Lengths is running. Coexistence is Branch 1's IsRenderBound skip, not a refusal on this side.
+
+    ' ---------- ELEMENT LEVEL (needs the ARES DGNLib AND the internal ARES_SYS library) ----------
+
+    If RenderElementLevelApplicable() Then
+        TotalTests = TotalTests + RunRenderElementChecks(TestsPassed)
+    End If
+
+    ' Restore (nominal path)
+    ARESConfig.ARES_TEXT_RENDER.Value = sOldRender
+    ARESConfig.ARES_AUTO_LENGTHS.Value = sOldAuto
+    ARESConfig.ARES_UPDATE_LENGTHS.Value = sOldUpdate
+    ARESConfig.ARES_LENGTH_TRIGGER.Value = sOldTrig
+    ARESConfig.ARES_LENGTH_TRIGGER_ID.Value = sOldTrigID
+    PropertyRendering.RefreshRenderCaches
+
+    PropertyRenderingTest = (TestsPassed = TotalTests)
+    Exit Function
+
+ErrorHandler:
+    ' Capture the error BEFORE any On Error statement (which resets the Err object).
+    sErrDesc = Err.Description
+    lErrNum = Err.Number
+    sErrSrc = Err.Source
+    On Error Resume Next
+    If bSaved Then
+        ARESConfig.ARES_TEXT_RENDER.Value = sOldRender
+        ARESConfig.ARES_AUTO_LENGTHS.Value = sOldAuto
+        ARESConfig.ARES_UPDATE_LENGTHS.Value = sOldUpdate
+        ARESConfig.ARES_LENGTH_TRIGGER.Value = sOldTrig
+        ARESConfig.ARES_LENGTH_TRIGGER_ID.Value = sOldTrigID
+        PropertyRendering.RefreshRenderCaches
+    End If
+    On Error GoTo 0
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError sErrDesc, lErrNum, sErrSrc, "PropertyRenderingTest"
+    End If
+    PropertyRenderingTest = False
+End Function
+
+' True when the element-level half of PropertyRenderingTest can run at all: BOTH ItemTypeLibraries must
+' be deployed and the user library must declare at least one property. Otherwise that half N/A-skips.
+Private Function RenderElementLevelApplicable() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim names() As String
+
+    RenderElementLevelApplicable = False
+    If CustomPropertyHandler.FindItemTypeLibrary(ARESConstants.ARES_NAME_LIBRARY_TYPE) Is Nothing Then Exit Function
+    If CustomPropertyHandler.FindItemTypeLibrary(ARESConstants.ARES_NAME_LIBRARY_SYS) Is Nothing Then Exit Function
+
+    names = CustomPropertyHandler.GetCustomPropertyNames()
+    If UBound(names) < LBound(names) Then Exit Function
+    If Len(Trim(names(LBound(names)))) = 0 Then Exit Function
+
+    RenderElementLevelApplicable = True
+    Exit Function
+
+ErrorHandler:
+    RenderElementLevelApplicable = False
+End Function
+
+' The element-level half: bind, idempotence, value change, unset. Returns the number of checks it ran and
+' increments TestsPassed for each one that held. The caller has already saved and will restore every
+' config variable touched here.
+Private Function RunRenderElementChecks(ByRef TestsPassed As Integer) As Integer
+    On Error GoTo ErrorHandler
+
+    Dim names() As String
+    Dim sProp As String
+    Dim elText As element
+    Dim elStale As element
+    Dim elA As element
+    Dim elB As element
+    Dim elCell As element
+    Dim elTrig As element
+    Dim elLag As element
+    Dim elEnd As element
+    Dim elHead As element
+    Dim elMid As element
+    Dim elFar As element
+    Dim nRun As Integer
+    Dim vProbe As Variant
+
+    RunRenderElementChecks = 0
+    names = CustomPropertyHandler.GetCustomPropertyNames()
+    sProp = Trim(names(LBound(names)))
+
+    ARESConfig.ARES_TEXT_RENDER.Value = "True"
+    PropertyRendering.RefreshRenderCaches
+
+    Set elText = CreatePullTestText(0, Nothing, "RenderTest Prop[" & sProp & "] m", Point3dFromXYZ(6600, 0, 0))
+    CustomPropertyHandler.AttachItemToElement elText, sProp
+
+    ' A DGNLib property may be a constrained picklist that refuses a free value; that is a property of the
+    ' deployed resource, not a defect, so the value-driven checks are skipped rather than failed.
+    If Not CustomPropertyHandler.SetPropertyValueToElement(elText, sProp, "13,3", sProp) Then
+        PropertyTagging.DetachRenderMetadata elText
+        Exit Function
+    End If
+
+    ' Applicability, second half: the value must come BACK as a String. A DGNLib whose first ItemType
+    ' declares a Double, Integer or Date property ACCEPTS the write (so the picklist escape hatch above
+    ' does not fire), but the renderer then reads a non-string, renders the literal token by design, and
+    ' every value-driven assertion below would FAIL on a perfectly valid deployment. N/A-skip instead.
+    ' The probe lives here rather than in RenderElementLevelApplicable because only a real element with a
+    ' real write can settle a property's type.
+    vProbe = CustomPropertyHandler.GetPropertyValueFromElement(elText, sProp, sProp)
+    If VarType(vProbe) <> vbString Then
+        PropertyTagging.DetachRenderMetadata elText
+        Exit Function
+    End If
+
+    ' Edge #1 (the headline case): the property is already attached, so the hybrid policy binds and the
+    ' token is fully replaced.
+    PropertyRendering.BindElement elText
+    nRun = nRun + 1
+    If RenderedTextOf(elText, 0) = "RenderTest 13,3 m" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elText) Then TestsPassed = TestsPassed + 1
+
+    ' Edge #4 (AC2, the loop terminator): re-processing an unchanged bound element changes nothing.
+    PropertyRendering.ProcessElement elText
+    nRun = nRun + 1
+    If RenderedTextOf(elText, 0) = "RenderTest 13,3 m" Then TestsPassed = TestsPassed + 1
+
+    ' Edge #3 (AC2 branch 2): the value moved, so the text re-renders.
+    CustomPropertyHandler.SetPropertyValueToElement elText, sProp, "14,1", sProp
+    PropertyRendering.ProcessElement elText
+    nRun = nRun + 1
+    If RenderedTextOf(elText, 0) = "RenderTest 14,1 m" Then TestsPassed = TestsPassed + 1
+
+    ' Edge #8 (AC3): an emptied value re-materialises the LITERAL token.
+    CustomPropertyHandler.SetPropertyValueToElement elText, sProp, "", sProp
+    PropertyRendering.ProcessElement elText
+    nRun = nRun + 1
+    If RenderedTextOf(elText, 0) = "RenderTest Prop[" & sProp & "] m" Then TestsPassed = TestsPassed + 1
+
+    ' Edge #8b (AC3), the REAL round trip: the value comes back, and because the unset render stored an
+    ' EMPTY LastValues entry the visible still equals Expand(Template, LastValues) - so this lands in
+    ' branch 2 (values moved) and NOT in branch 3 (user edit). The binding must survive intact. Asserting
+    ' this through the state machine is the point: the pure-logic half can only show that the two
+    ' expansions differ, which is a proxy, not the failure mode #8b exists to guard.
+    CustomPropertyHandler.SetPropertyValueToElement elText, sProp, "13,3", sProp
+    PropertyRendering.ProcessElement elText
+    nRun = nRun + 1
+    If RenderedTextOf(elText, 0) = "RenderTest 13,3 m" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elText) Then TestsPassed = TestsPassed + 1
+
+    ' ---------- Round-5 regression: a STALE handle must not read as a user edit ----------
+    ' The reported failures (a calc-driven Repere losing its binding, and all three survivors losing
+    ' theirs on a partial delete) both come down to this: IdleEventHandler materialises the WHOLE batch
+    ' before processing any of it, so an element rendered while an EARLIER batch entry was being handled
+    ' is then re-processed through a handle that still serves the PRE-render text - while its values and
+    ' metadata are re-read from the file on every access. Stale visible + fresh values matches neither
+    ' expansion, and branch 3 releases a binding nobody touched. Two handles on one element reproduce it
+    ' exactly, with no event pipeline needed.
+    Set elStale = ActiveModelReference.GetElementById(elText.ID)
+    CustomPropertyHandler.SetPropertyValueToElement elText, sProp, "21,0", sProp
+    PropertyRendering.ProcessElement elText
+    ' elStale now holds "RenderTest 13,3 m" while the file holds "RenderTest 21,0 m".
+    PropertyRendering.ProcessElement elStale
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elText) Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If RenderedTextOf(elText, 0) = "RenderTest 21,0 m" Then TestsPassed = TestsPassed + 1
+
+    ' Put the element back where the next block expects it.
+    CustomPropertyHandler.SetPropertyValueToElement elText, sProp, "13,3", sProp
+    PropertyRendering.ProcessElement elText
+
+    ' Edge #5 (AC2 branch 3), end to end: the user retypes the whole text, so the ONLY token is released
+    ' and nothing survives. The re-authored Template would carry no token at all, and storing THAT as a
+    ' live entry is the zombie binding - ARES_Render attached for ever, IsRenderBound stuck True,
+    ' AutoLengths skipping a text that no longer has a token. The entry is released instead, and with it
+    ' the last one, so the metadata is detached. The user's own text is left exactly as typed.
+    StringsInEl.SetTextAtSubId elText, 0, "RenderTest 99 m"
+    PropertyRendering.ProcessElement elText
+    nRun = nRun + 1
+    If RenderedTextOf(elText, 0) = "RenderTest 99 m" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If Not PropertyRendering.IsRenderBound(elText) Then TestsPassed = TestsPassed + 1
+
+    ' Leave no binding behind for the next run.
+    PropertyTagging.DetachRenderMetadata elText
+
+    ' ---------- Round-4 regression: TWO bound texts in ONE graphic group ----------
+    ' The reported failure: one geometry change pushes a value to two members of the same group, calc
+    ' notes BOTH for the repaint hop, and the drain reaches the second one twice - once as the first
+    ' one's Link.GetLink sibling, once as its own noted source. The second run read it through a handle
+    ' captured before its own render, saw the pre-render text, matched neither expansion and released the
+    ' binding as if the user had retyped it. One text never shows this, however fast it is edited,
+    ' because it is only ever reached once.
+    Set elA = CreatePullTestText(7601, Nothing, "RenderA Prop[" & sProp & "] m", Point3dFromXYZ(6600, 200, 0))
+    Set elB = CreatePullTestText(7601, Nothing, "RenderB Prop[" & sProp & "] m", Point3dFromXYZ(6600, 400, 0))
+    CustomPropertyHandler.AttachItemToElement elA, sProp
+    CustomPropertyHandler.AttachItemToElement elB, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elA, sProp, "5,0", sProp
+    CustomPropertyHandler.SetPropertyValueToElement elB, sProp, "5,0", sProp
+    PropertyRendering.BindElement elA
+    PropertyRendering.BindElement elB
+
+    ' The value moves on both, both are noted, one drain - exactly the pipeline's shape.
+    CustomPropertyHandler.SetPropertyValueToElement elA, sProp, "6,0", sProp
+    CustomPropertyHandler.SetPropertyValueToElement elB, sProp, "6,0", sProp
+    PropertyRendering.NoteDirtyGroup elA
+    PropertyRendering.NoteDirtyGroup elB
+    PropertyRendering.DrainRepaintHop
+
+    nRun = nRun + 1
+    If RenderedTextOf(elA, 0) = "RenderA 6,0 m" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If RenderedTextOf(elB, 0) = "RenderB 6,0 m" Then TestsPassed = TestsPassed + 1
+    ' The binding of BOTH must survive the drain - this is the assertion the bug fails.
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elA) Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elB) Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elA
+    PropertyTagging.DetachRenderMetadata elB
+
+    ' ---------- Round-7 regression: a SECOND sub-text of an already-bound cell ----------
+    ' The reported failure: binding is decided per ELEMENT ("is ARES_Render attached?") while the unit of
+    ' binding is the SUB-TEXT. The first qualifying sub-text attaches the item to the cell header, and
+    ' from then on every pass takes the bound branch, which only loops the entries already stored - so a
+    ' token appearing later on ANOTHER sub-text of the same cell is never authored by any path, including
+    ' the key-in, and stays inert for ever.
+    ' This cell carries NO graphic group, so IsTriggerCell is False and round 8's last-source guard is a
+    ' strict no-op here. That is deliberate, not incidental: it is what makes this block double as the
+    ' check that round 8 did not regress round 7 on every bearer that feeds no Cell* source.
+    Set elCell = CreateRenderTestCell("RTC01", "COORD Prop[" & sProp & "]", "N", Point3dFromXYZ(6600, 600, 0))
+    CustomPropertyHandler.AttachItemToElement elCell, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elCell, sProp, "13,3", sProp
+
+    ' Only sub-text 0 carries a token, so only it is authored.
+    PropertyRendering.BindElement elCell
+    nRun = nRun + 1
+    If RenderedTextOf(elCell, 0) = "COORD 13,3" Then TestsPassed = TestsPassed + 1
+
+    ' NOW the second sub-text gains a token, on a cell that is already bound.
+    StringsInEl.SetTextAtSubId elCell, 1, "N Prop[" & sProp & "]"
+    PropertyRendering.ProcessElement elCell
+    nRun = nRun + 1
+    If RenderedTextOf(elCell, 1) = "N 13,3" Then TestsPassed = TestsPassed + 1
+    ' ...and the first one must be untouched by the top-up.
+    nRun = nRun + 1
+    If RenderedTextOf(elCell, 0) = "COORD 13,3" Then TestsPassed = TestsPassed + 1
+
+    ' Both entries now live in the ONE item on the header, so a value change must move BOTH.
+    CustomPropertyHandler.SetPropertyValueToElement elCell, sProp, "14,1", sProp
+    PropertyRendering.ProcessElement elCell
+    nRun = nRun + 1
+    If RenderedTextOf(elCell, 0) = "COORD 14,1" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If RenderedTextOf(elCell, 1) = "N 14,1" Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elCell
+
+    ' ---------- Round-31 regression: an expansion SHAPED LIKE an ACTIVE legacy trigger ----------
+    ' The renderer used to refuse a rendering that matched an active legacy trigger, which left the
+    ' flagship "(Prop[Len]m)" case completely inert - nothing written, nothing attached. That guard is
+    ' gone: on a token-bearing text the RENDERER WINS, and the expansion must land even while AutoLengths
+    ' is running. The caller has forced ARES_AUTO_LENGTHS / ARES_UPDATE_LENGTHS True with the trigger pair
+    ' "(Xx_m)" / "Xx_", so "(13,3m)" splits exactly the way the removed guard tested for: "(" + numeric +
+    ' "m)". No other check here can show this - "RenderTest 13,3 m" carries no "(" and would not have
+    ' matched the trigger even before the removal, so the regression had zero coverage.
+    ' Only THIS direction is assertable: the other half (Branch 1 standing down on the bound text) lives in
+    ' ElementChangeHandler, which the tests never enter - it is covered by the field test.
+    Set elTrig = CreatePullTestText(0, Nothing, "(Prop[" & sProp & "]m)", Point3dFromXYZ(6600, 800, 0))
+    CustomPropertyHandler.AttachItemToElement elTrig, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elTrig, sProp, "13,3", sProp
+    PropertyRendering.BindElement elTrig
+    nRun = nRun + 1
+    If RenderedTextOf(elTrig, 0) = "(13,3m)" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elTrig) Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elTrig
+
+    ' ---------- Round-37 regression: branch 3 must not leave the text UNRENDERED for a whole pass ----------
+    ' Reported: retyping the literal token over a rendered value ("RenderLag Prop[x] m!" over
+    ' "RenderLag 13,3 m") left the text showing the token, and only a SECOND manual edit rendered it.
+    ' Nothing is detached there - branch 3 returns ENTRY_UPDATED because the retyped text still parses a
+    ' token - but branch 3 deliberately writes NO text (the user's own text IS the new Template), and the
+    ' "next pass" the state machine relies on never arrives on its own. The likely chain - no text write,
+    ' so no Rewrite, so no change event, so no re-queue - is OBSERVED, NOT PROVEN (story 15-2, Task 0(b)).
+    ' The assertion below is deliberately written against the OBSERVABLE (one pass must suffice) rather
+    ' than against that explanation, so it stays valid even if the real culprit turns out to be elsewhere.
+    ' The assertion is therefore about ONE ProcessElement being enough. It is what makes this test
+    ' discriminating: it fails before the fix and passes after, whereas IsRenderBound holds either way
+    ' (the binding was never the thing at risk - it is asserted below only to prove the fix does not
+    ' break it).
+    Set elLag = CreatePullTestText(0, Nothing, "RenderLag Prop[" & sProp & "] m", Point3dFromXYZ(6600, 1000, 0))
+    CustomPropertyHandler.AttachItemToElement elLag, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elLag, sProp, "13,3", sProp
+    PropertyRendering.BindElement elLag
+
+    ' The user retypes the token, in a NEW context (a trailing "!"), over the rendered value.
+    StringsInEl.SetTextAtSubId elLag, 0, "RenderLag Prop[" & sProp & "] m!"
+    PropertyRendering.ProcessElement elLag
+    nRun = nRun + 1
+    If RenderedTextOf(elLag, 0) = "RenderLag 13,3 m!" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elLag) Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elLag
+
+    ' ---------- BOUNDARY TOKENS (D6): the two unanchored-edge paths, end to end ----------
+    ' Every other element-level check uses a Template with a non-empty trailing literal
+    ' ("RenderTest Prop[x] m"), so they all take SpanAnchorsAt's closing-literal branch and the
+    ' empty-literal one was never exercised at element level in either direction. The pure half above
+    ' asserts the D6 decision table; these checks assert that the decision SURVIVES the round trip through
+    ' the metadata - Template rewritten, entry kept live, binding still there on the next pass.
+    Set elEnd = CreatePullTestText(0, Nothing, "RenderEnd Prop[" & sProp & "]", Point3dFromXYZ(6600, 1200, 0))
+    CustomPropertyHandler.AttachItemToElement elEnd, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elEnd, sProp, "13,3", sProp
+    PropertyRendering.BindElement elEnd
+
+    ' Direction 1 - the anchor DOES reach end-of-string: a terminal token renders and stays put.
+    PropertyRendering.ProcessElement elEnd
+    nRun = nRun + 1
+    If RenderedTextOf(elEnd, 0) = "RenderEnd 13,3" Then TestsPassed = TestsPassed + 1
+
+    ' Direction 2 - the user appends "m" after the value of a TERMINAL token. Before D6 this released the
+    ' binding (nothing bounded the end of the span); "m" is on the whitelist, so the addition is now kept
+    ' as static text and the token keeps updating. The text must read exactly as typed - D6 preserves the
+    ' binding, it never rewrites what the user wrote.
+    StringsInEl.SetTextAtSubId elEnd, 0, "RenderEnd 13,3m"
+    PropertyRendering.ProcessElement elEnd
+    nRun = nRun + 1
+    If RenderedTextOf(elEnd, 0) = "RenderEnd 13,3m" Then TestsPassed = TestsPassed + 1
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elEnd) Then TestsPassed = TestsPassed + 1
+
+    ' ...and the binding is LIVE, not merely still attached: move the value and the new one must render
+    ' inside the text the user re-authored. This is the assertion the whole rule exists for.
+    CustomPropertyHandler.SetPropertyValueToElement elEnd, sProp, "20", sProp
+    PropertyRendering.ProcessElement elEnd
+    nRun = nRun + 1
+    If RenderedTextOf(elEnd, 0) = "RenderEnd 20m" Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elEnd
+
+    ' Direction 3 - the OTHER site (AlignVisible's leading-token block, not SpanAnchorsAt): a token opening
+    ' the Template, with the user typing in FRONT of the value. Same round trip, same live-binding proof.
+    Set elHead = CreatePullTestText(0, Nothing, "Prop[" & sProp & "] mm", Point3dFromXYZ(6600, 1400, 0))
+    CustomPropertyHandler.AttachItemToElement elHead, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elHead, sProp, "13,3", sProp
+    PropertyRendering.BindElement elHead
+
+    PropertyRendering.ProcessElement elHead
+    nRun = nRun + 1
+    If RenderedTextOf(elHead, 0) = "13,3 mm" Then TestsPassed = TestsPassed + 1
+
+    StringsInEl.SetTextAtSubId elHead, 0, "L 13,3 mm"
+    PropertyRendering.ProcessElement elHead
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elHead) Then TestsPassed = TestsPassed + 1
+
+    CustomPropertyHandler.SetPropertyValueToElement elHead, sProp, "20", sProp
+    PropertyRendering.ProcessElement elHead
+    nRun = nRun + 1
+    If RenderedTextOf(elHead, 0) = "L 20 mm" Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elHead
+
+    ' Direction 4 (D7) - literals on BOTH sides, glued to the token, and the user inserts a space between
+    ' the opening literal and the value. Neither edge is unanchored here, so this is neither of the two
+    ' cases above: it is the span having no neutral ground at its start. Asketyll's field case, end to end.
+    Set elMid = CreatePullTestText(0, Nothing, "t Prop[" & sProp & "]m", Point3dFromXYZ(6600, 1600, 0))
+    CustomPropertyHandler.AttachItemToElement elMid, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elMid, sProp, "39,6", sProp
+    PropertyRendering.BindElement elMid
+
+    ' Authored WITH the space, so the first render already proves the Template round-trips; the edit below
+    ' is what would previously have released it.
+    PropertyRendering.ProcessElement elMid
+    nRun = nRun + 1
+    If RenderedTextOf(elMid, 0) = "t 39,6m" Then TestsPassed = TestsPassed + 1
+
+    StringsInEl.SetTextAtSubId elMid, 0, "t  39,6m"
+    PropertyRendering.ProcessElement elMid
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elMid) Then TestsPassed = TestsPassed + 1
+
+    CustomPropertyHandler.SetPropertyValueToElement elMid, sProp, "20", sProp
+    PropertyRendering.ProcessElement elMid
+    nRun = nRun + 1
+    If RenderedTextOf(elMid, 0) = "t  20m" Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elMid
+
+    ' Direction 5 (D8) - the field case: static text edited FAR from the value, before the leading literal.
+    ' AlignVisible cannot follow it (the leading literal is no longer at offset 1), so this exercises the
+    ' fallback end to end - and, with the value moved afterwards, proves the binding is LIVE, not merely
+    ' still attached. Also the edge #7 flip in its element form: editing static text keeps the binding.
+    Set elFar = CreatePullTestText(0, Nothing, "HTAS AL (Prop[" & sProp & "]m)", Point3dFromXYZ(6600, 1800, 0))
+    CustomPropertyHandler.AttachItemToElement elFar, sProp
+    CustomPropertyHandler.SetPropertyValueToElement elFar, sProp, "26,6", sProp
+    PropertyRendering.BindElement elFar
+
+    PropertyRendering.ProcessElement elFar
+    nRun = nRun + 1
+    If RenderedTextOf(elFar, 0) = "HTAS AL (26,6m)" Then TestsPassed = TestsPassed + 1
+
+    StringsInEl.SetTextAtSubId elFar, 0, "bHTAS ALU (26,6m)"
+    PropertyRendering.ProcessElement elFar
+    nRun = nRun + 1
+    If PropertyRendering.IsRenderBound(elFar) Then TestsPassed = TestsPassed + 1
+
+    CustomPropertyHandler.SetPropertyValueToElement elFar, sProp, "31,8", sProp
+    PropertyRendering.ProcessElement elFar
+    nRun = nRun + 1
+    If RenderedTextOf(elFar, 0) = "bHTAS ALU (31,8m)" Then TestsPassed = TestsPassed + 1
+
+    PropertyTagging.DetachRenderMetadata elFar
+
+    RunRenderElementChecks = nRun
+    Exit Function
+
+ErrorHandler:
+    ' The checks already counted stay counted, so a fault here fails the test rather than hiding it.
+    RunRenderElementChecks = nRun
 End Function
 
 ' Helper: True when P is governed (bHasRule) AND yields the EMPTY string (a CellText with no surviving cell).
@@ -2671,6 +3543,7 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidPropertyRuleValidation: Result.Passed = PropertyRuleValidationTest()
         Case tidCalcRuleValidation: Result.Passed = CalcRuleValidationTest()
         Case tidPropertyTaggingPull: Result.Passed = PropertyTaggingPullTest()
+        Case tidPropertyRendering: Result.Passed = PropertyRenderingTest()
         Case Else
             Result.Passed = False
             Result.Message = "Unknown test ID"

@@ -1,7 +1,7 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler
+' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering
 Option Explicit
 
 Private moAutoLengthsGUI     As AutoLengths_GUI_Options
@@ -565,6 +565,49 @@ Sub OpenPropertyLibrary()
 
 ErrorHandler:
     ReportFailure "OpenPropertyLibrary", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Key-in: link the SELECTED text(s) to the custom properties their "Prop[Name]" tokens name, and render
+' them once. This is the manual entry point the hybrid auto-bind deliberately leaves open: automatic
+' binding only happens when the token's property is ALREADY attached to the element, so an ungrouped text
+' matching no tagging rule - or a text authored before its property was attached - is bound from here.
+' Operates on the current selection; an empty selection or a disabled feature is status-only.
+Sub BindPropertyRender()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If Not PropertyRendering.IsEnabled Then
+        ShowStatusT "RenderDisabled"
+        Exit Sub
+    End If
+
+    If Not ActiveModelReference.AnyElementsSelected Then
+        ShowStatusT "RenderNoSelection"
+        Exit Sub
+    End If
+
+    Dim oEnum As ElementEnumerator
+    Dim oEl As element
+
+    Set oEnum = ActiveModelReference.GetSelectedElements
+    Do While oEnum.MoveNext
+        Set oEl = oEnum.Current
+        PropertyRendering.BindElement oEl
+    Loop
+
+    ' BindElement already reports every refusal on the status bar (and the success of a real bind), so a
+    ' zero count needs no extra message here.
+    ReportIfLogged "BindPropertyRender"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "BindPropertyRender", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Persist the position of every option form still open (best-effort; called at project unload).

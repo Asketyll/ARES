@@ -41,6 +41,9 @@
 '
 '              DetachRuleProperty(El, P) is the public detach service used by the AWAKE calculation
 '              engine (epic 14) when a calculated value is emptied with ARES_Calc_Detach_Empty ON.
+'              AttachRenderMetadata / DetachRenderMetadata (epic 15) are the same service for the
+'              RENDERER's internal ARES_SYS/ARES_Render metadata: PropertyRendering writes text, never
+'              attachments, so this module stays the SOLE attach/detach choke point for both libraries.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), CustomPropertyHandler, Link, RuleGrammar, ErrorHandlerClass (global ErrorHandler)
 
@@ -209,6 +212,38 @@ Public Sub DetachRuleProperty(ByVal El As element, ByVal P As String)
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.DetachRuleProperty"
+End Sub
+
+' Public attach service for the RENDERER's internal metadata (epic 15). PropertyRendering never attaches
+' anything itself: the attach choke point stays unique, exactly as the value engine's detach does above.
+' The LibraryName is passed EXPLICITLY - CustomPropertyHandler defaults it to the user-facing "ARES"
+' library, which does not hold this ItemType. Idempotent (HasItems-guarded downstream).
+Public Function AttachRenderMetadata(ByVal El As element) As Boolean
+    On Error GoTo ErrorHandler
+
+    AttachRenderMetadata = False
+    If El Is Nothing Then Exit Function
+
+    AttachRenderMetadata = CustomPropertyHandler.AttachItemToElement(El, ARES_ITEM_RENDER, ARES_NAME_LIBRARY_SYS)
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.AttachRenderMetadata"
+    AttachRenderMetadata = False
+End Function
+
+' Public detach service for the renderer's internal metadata - the mirror of AttachRenderMetadata.
+' Same explicit-library rule. Idempotent (RemoveItemFromElement is HasItems-guarded).
+Public Sub DetachRenderMetadata(ByVal El As element)
+    On Error GoTo ErrorHandler
+
+    If El Is Nothing Then Exit Sub
+
+    CustomPropertyHandler.RemoveItemFromElement El, ARES_ITEM_RENDER, ARES_NAME_LIBRARY_SYS
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.DetachRenderMetadata"
 End Sub
 
 ' Read-only validate-AND-normalise for ONE rule (the seam the editor writes through). Returns:

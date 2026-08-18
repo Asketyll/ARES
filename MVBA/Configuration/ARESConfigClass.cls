@@ -102,6 +102,8 @@ Public ARES_CALC_RULES As ARES_MS_VAR_Class 'Default Value: (empty)             
 Public ARES_PROPERTY_CALC As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in PropertyCalculation module — when True, an emptied value detaches the property (via the tagger, PropertyTagging.DetachRuleProperty) instead of clearing it; a rule that still mandates the property re-attaches it empty.
 Public ARES_CALC_DETACH_EMPTY As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
+' Used in PropertyRendering module — master switch for the text-render engine: a "Prop[Name]" token typed in a text is FULLY REPLACED by that custom property's value, the binding living in hidden ARES_SYS/ARES_Render metadata.
+Public ARES_TEXT_RENDER As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in FormPlacement module — remembers each option form's last on-screen position. INTERNAL, managed automatically (do not edit by hand).
 Public ARES_FORM_LAYOUT As ARES_MS_VAR_Class 'Default Value: (empty)   <FormName>=<xPct>:<yPct> entries delimited by | (ARES_VAR_DELIMITER)
 
@@ -176,6 +178,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CALC_RULES = CreateConfigVar("ARES_Calc_Rules", "")
     Set ARES_PROPERTY_CALC = CreateConfigVar("ARES_Property_Calc", "False")
     Set ARES_CALC_DETACH_EMPTY = CreateConfigVar("ARES_Calc_Detach_Empty", "False")
+    Set ARES_TEXT_RENDER = CreateConfigVar("ARES_Text_Render", "False")
     Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
     CreateConfigVariables = True
     Exit Function

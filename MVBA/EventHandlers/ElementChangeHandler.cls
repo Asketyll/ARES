@@ -1,12 +1,12 @@
 ' Class Module: ElementChangeHandler
-' Description: Handles element change events for automatic length/color updates, property tagging and
-'              property calculation (capture + deferred idle processing).
+' Description: Handles element change events for automatic length/color updates, property tagging,
+'              property calculation and property rendering (capture + deferred idle processing).
 '              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
 '              Includes automatic detection of bulk operations using frequency-based detection.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
-'               PropertyCalculation
+'               PropertyCalculation, PropertyRendering
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -259,6 +259,19 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         If PropertyCalculation.IsEnabled Then
             PropertyCalculation.ProcessElement oElement
         End If
+        ' Property Rendering closes the Depth-0 sequence: tagging attaches, calculation fills, rendering
+        ' writes the text - so an element added to a labelled group is attached, valued AND displayed in
+        ' ONE pass, reading values that are fresh from this very pass. It runs at Depth 0 only (Branch 2
+        ' recurses at Depth > 0 and would skip this hook, which is exactly why the renderer keeps its own
+        ' bounded repaint hop instead of a second call site), and BEFORE the graphic-group filter below,
+        ' so an UNGROUPED bound text is still rendered on its own pass - the renderer's binding is the item
+        ' attachment, not the graphic group. Note the accepted v1 limit that goes with it: ShouldQueueElement
+        ' is untouched (capture hot path), so a bound text only refreshes from a value pushed by ANOTHER
+        ' element when it belongs to a REAL graphic group, which both the calc transport and the repaint
+        ' hop need. Ungrouped, only direct contact with that text brings it back through here.
+        If PropertyRendering.IsEnabled Then
+            PropertyRendering.ProcessElement oElement
+        End If
     End If
 
     ' Validate element - skip if it has the default graphic group (not part of ARES workflow)
@@ -275,63 +288,70 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         ' Both AUTO_LENGTH and UPDATE_LENGTH must be True to enable automatic length processing
         ' This AND condition ensures that disabling either option will disable the feature
         If (AUTO_LENGTH And UPDATE_LENGTH) Then
-            ' Extract all text strings from the element
-            txts = StringsInEl.GetSetTextsInEl(oElement)
-            If txts(0) = "" Then Exit Sub
+            ' Coexistence with Property Rendering (the two text engines must never fight over the same
+            ' string): Auto Lengths skips any element the renderer owns. A NESTED If, never an "And"
+            ' chain - VBA evaluates both operands, so an "And" would pay IsRenderBound's COM probe even
+            ' with the length feature off, and would also run it before the cheap flags. The ONLY_COLOR
+            ' block below stays reachable, so a rendered text in a group still syncs its color.
+            If Not PropertyRendering.IsRenderBound(oElement) Then
+                ' Extract all text strings from the element
+                txts = StringsInEl.GetSetTextsInEl(oElement)
+                If txts(0) = "" Then Exit Sub
 
-            ' Load trigger patterns from configuration (e.g., "(Xx_m)" where Xx_ is replaced by length)
-            Triggers = Split(ARESConfig.ARES_LENGTH_TRIGGER.Value, ARES_VAR_DELIMITER)
+                ' Load trigger patterns from configuration (e.g., "(Xx_m)" where Xx_ is replaced by length)
+                Triggers = Split(ARESConfig.ARES_LENGTH_TRIGGER.Value, ARES_VAR_DELIMITER)
 
-            ' Cache trigger ID once — avoids repeated config access inside nested loop
-            Dim sTriggerID As String
-            sTriggerID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
+                ' Cache trigger ID once — avoids repeated config access inside nested loop
+                Dim sTriggerID As String
+                sTriggerID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
 
-            ' RECALCULATE MODE: Clean up existing numeric values between trigger parts
-            ' This allows updating lengths when the linked geometry changes
-            For i = LBound(txts) To UBound(txts)
-                For j = LBound(Triggers) To UBound(Triggers)
-                    ' Split trigger by the ID placeholder (e.g., "(" and "_m)" for "(Xx_m)")
-                    SplitedTrigger = Split(Triggers(j), sTriggerID)
-                    If UBound(SplitedTrigger) = 1 Then
-                        ' Find positions of trigger parts in the text
-                        FirstPartIndex = InStr(1, txts(i), SplitedTrigger(0))
-                        SecondPartIndex = InStr(1, txts(i), SplitedTrigger(1))
-                        If FirstPartIndex > 0 And SecondPartIndex > FirstPartIndex Then
-                            ' Extract the text between trigger parts (should be the length value)
-                            MiddleText = Mid(txts(i), FirstPartIndex + Len(SplitedTrigger(0)), SecondPartIndex - FirstPartIndex - Len(SplitedTrigger(0)))
-                            ' If it's numeric, remove it to allow recalculation
-                            If IsNumericText(MiddleText) Then
-                                txts(i) = Left(txts(i), FirstPartIndex + Len(SplitedTrigger(0)) - 1) & Mid(txts(i), SecondPartIndex)
-                                StringsInEl.GetSetTextsInEl oElement, Join(txts, ARES_VAR_DELIMITER)
-                                TriggerFinded = True
-                            End If
-                        End If
-                    End If
-                Next j
-            Next i
-
-            ' SEARCH MODE: Look for trigger patterns without existing length values
-            If Not TriggerFinded Then
+                ' RECALCULATE MODE: Clean up existing numeric values between trigger parts
+                ' This allows updating lengths when the linked geometry changes
                 For i = LBound(txts) To UBound(txts)
                     For j = LBound(Triggers) To UBound(Triggers)
-                        ' Check if text contains the trigger pattern (without the ID placeholder)
-                        If InStr(1, txts(i), StringsInEl.RemovePattern(Triggers(j), sTriggerID)) > 0 Then
-                            TriggerFinded = True
-                            Exit For
+                        ' Split trigger by the ID placeholder (e.g., "(" and "_m)" for "(Xx_m)")
+                        SplitedTrigger = Split(Triggers(j), sTriggerID)
+                        If UBound(SplitedTrigger) = 1 Then
+                            ' Find positions of trigger parts in the text
+                            FirstPartIndex = InStr(1, txts(i), SplitedTrigger(0))
+                            SecondPartIndex = InStr(1, txts(i), SplitedTrigger(1))
+                            If FirstPartIndex > 0 And SecondPartIndex > FirstPartIndex Then
+                                ' Extract the text between trigger parts (should be the length value)
+                                MiddleText = Mid(txts(i), FirstPartIndex + Len(SplitedTrigger(0)), SecondPartIndex - FirstPartIndex - Len(SplitedTrigger(0)))
+                                ' If it's numeric, remove it to allow recalculation
+                                If StringsInEl.IsNumericText(MiddleText) Then
+                                    txts(i) = Left(txts(i), FirstPartIndex + Len(SplitedTrigger(0)) - 1) & Mid(txts(i), SecondPartIndex)
+                                    StringsInEl.GetSetTextsInEl oElement, Join(txts, ARES_VAR_DELIMITER)
+                                    TriggerFinded = True
+                                End If
+                            End If
                         End If
                     Next j
-                    If TriggerFinded Then Exit For
                 Next i
-            End If
 
-            ' If a trigger was found, delegate to AutoLengths class for length calculation and update
-            If TriggerFinded Then
-                Dim oAutoLengths As AutoLengths
-                Set oAutoLengths = New AutoLengths
-                oAutoLengths.Initialize oElement
-                oAutoLengths.UpdateLengths
-                Set oAutoLengths = Nothing
-                Exit Sub
+                ' SEARCH MODE: Look for trigger patterns without existing length values
+                If Not TriggerFinded Then
+                    For i = LBound(txts) To UBound(txts)
+                        For j = LBound(Triggers) To UBound(Triggers)
+                            ' Check if text contains the trigger pattern (without the ID placeholder)
+                            If InStr(1, txts(i), StringsInEl.RemovePattern(Triggers(j), sTriggerID)) > 0 Then
+                                TriggerFinded = True
+                                Exit For
+                            End If
+                        Next j
+                        If TriggerFinded Then Exit For
+                    Next i
+                End If
+
+                ' If a trigger was found, delegate to AutoLengths class for length calculation and update
+                If TriggerFinded Then
+                    Dim oAutoLengths As AutoLengths
+                    Set oAutoLengths = New AutoLengths
+                    oAutoLengths.Initialize oElement
+                    oAutoLengths.UpdateLengths
+                    Set oAutoLengths = Nothing
+                    Exit Sub
+                End If
             End If
         End If
 
@@ -447,6 +467,13 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
                 If bCalcEnabled Then PropertyCalculation.ProcessElement linkedElement
             End If
         Next i
+
+        ' Drain the renderer's repaint hop AFTER the inline calc loop above. That loop can reach
+        ' ApplyValueToSibling -> PropertyRendering.NoteDirtyGroup, while this element's own Depth-0 render
+        ' hook has ALREADY run earlier in this very call. Without the drain, a geometric element sitting
+        ' last in the queue leaves its notes behind and the sibling's text stays stale until something
+        ' else happens to touch it - and the list must not leak across batches at all.
+        If PropertyRendering.IsEnabled Then PropertyRendering.DrainRepaintHop
     End If
 
     Exit Sub
@@ -495,22 +522,10 @@ InvalidElement:
     IsElementValid = False
 End Function
 
-' Validates if a string contains only numeric characters
-' Used to identify length values between trigger patterns
-' Allowed characters: digits (0-9), spaces, commas, and decimal points
-' Parameters:
-'   text - The string to validate
-' Returns:
-'   True if the string contains only numeric characters
-Private Function IsNumericText(ByVal text As String) As Boolean
-    Dim k As Long
-    For k = 1 To Len(text)
-        If Not (Mid(text, k, 1) Like "[0-9 ,.]") Then
-            Exit For
-        End If
-    Next k
-    IsNumericText = (k > Len(text))
-End Function
+' NOTE: IsNumericText moved to StringsInEl (epic 15) and is called from Branch 1 above. Branch 1 is now its
+' only caller - PropertyRendering deliberately does not test its own expansions against the legacy trigger
+' (the renderer wins on a token-bearing text; see :296). Keep it in StringsInEl and do not reintroduce a
+' local copy: it is the shared definition of what AutoLengths owns.
 
 ' ========================================
 ' PRIVATE HELPER FUNCTIONS - Bulk Operation Detection
@@ -643,6 +658,7 @@ Private Function IsAnyFeatureEnabled() As Boolean
     Dim onlyColorEnabled As Boolean
     Dim autoPropertiesEnabled As Boolean
     Dim calcEnabled As Boolean
+    Dim renderEnabled As Boolean
 
     ' Config values are stored as Strings, convert to Boolean with CBool
     ' Auto lengths requires both flags to be True
@@ -650,8 +666,10 @@ Private Function IsAnyFeatureEnabled() As Boolean
     onlyColorEnabled = CBool(ARESConfig.ARES_ONLY_COLOR.Value)
     autoPropertiesEnabled = CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value)
     calcEnabled = CBool(ARESConfig.ARES_PROPERTY_CALC.Value)
+    ' Without this term a render-ONLY configuration never reaches ProcessElement and the feature is inert.
+    renderEnabled = CBool(ARESConfig.ARES_TEXT_RENDER.Value)
 
-    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled
+    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled Or renderEnabled
 End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)
