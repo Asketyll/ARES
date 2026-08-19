@@ -14,16 +14,19 @@ Private mbInitialized As Boolean
 
 ' Used in Length module for default rounding
 Public ARES_ROUNDS As ARES_MS_VAR_Class 'Default Value: 2  Range 0 to 254 (Byte -1)    #255 it reserved for error (ARES_RND_ERROR_VALUE)
-' Used in ElementChangeHandler ClassModule for automatically enable adding length to a text if the conditions are met.
-Public ARES_AUTO_LENGTHS As ARES_MS_VAR_Class 'Dafault Value: True          True or False (Boolean)
-Public ARES_UPDATE_LENGTHS As ARES_MS_VAR_Class 'Dafault Value: True        True or False (Boolean)
-' User in Auto_Lengths module for color updating
-Public ARES_UPDATE_COLOR_WITH_LENGTH As ARES_MS_VAR_Class 'Dafault Value: True          True or False (Boolean)
-' Used in Auto_Lengths module For length-specific rounding in text.
+' Length-specific rounding, distinct from the general-purpose ARES_ROUNDS. Sole reader:
+' PropertyCalculation.GetLengthDefaultDecimals - the default decimals of the Length/GroupLength calc
+' sources. (It predates Property Calculation and was originally an Auto Lengths setting; it outlived that
+' feature's removal because the calc sources inherited the rounding convention.)
 Public ARES_LENGTH_ROUND As ARES_MS_VAR_Class 'Default Value: 1             Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
-' Used in Auto_Lengths and StringsInEl module For Triggers in text.
+' RETIRED, KEPT ON PURPOSE - no code reads these two any more (their last readers were StringsInEl's
+' TRIGGER mode, which lost its callers with Auto Lengths). They survive as a DOCUMENTARY TRACE for the
+' manual conversion of old-format drawings: they record the pattern a site used to mark an Auto Lengths
+' text, and that value is per-site configuration which cannot be reconstructed from source once deleted.
+' DO NOT delete them as dead - they are, and that is not the point. DO NOT expose them in any options
+' form either: a control editing them would show a setting with no effect.
+' They go when Asketyll declares the manual conversion finished, not before.
 Public ARES_LENGTH_TRIGGER As ARES_MS_VAR_Class 'Default Value: (Xx_m)      can a array use | (ARES_VAR_DELIMITER) like (Xx_m)|(Xx_cm)|(Xx_km)
-' Used in AutoLengths and StringsInEl module for replace this triger with the length of element
 Public ARES_LENGTH_TRIGGER_ID As ARES_MS_VAR_Class 'Default Value: Xx_      Must be present in triggers
 ' Used in LangManager module to force language if CONNECTUSER_LANGUAGE configuration variable is not set
 Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
@@ -135,14 +138,11 @@ Private Function CreateConfigVariables() As Boolean
 
     ' Create each configuration variable
     Set ARES_ROUNDS = CreateConfigVar("ARES_Round", "2")
-    Set ARES_AUTO_LENGTHS = CreateConfigVar("ARES_Auto_Lengths", "True")
-    Set ARES_UPDATE_LENGTHS = CreateConfigVar("ARES_Update_Lengths", "True")
     Set ARES_LENGTH_ROUND = CreateConfigVar("ARES_Length_Round", "1")
     Set ARES_LENGTH_TRIGGER = CreateConfigVar("ARES_Length_Triggers", "(Xx_m)")
     Set ARES_LENGTH_TRIGGER_ID = CreateConfigVar("ARES_Length_Trigger_ID", "Xx_")
     Set ARES_LANGUAGE = CreateConfigVar("ARES_Language", "")
     Set ARES_UnitTesting = CreateConfigVar("ARES_Unit_testing", "I'm a ARES test unit variable")
-    Set ARES_UPDATE_COLOR_WITH_LENGTH = CreateConfigVar("ARES_Update_Color_With_Length", "True")
     Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True")
     Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O")
     Set ARES_ONLY_COLOR = CreateConfigVar("ARES_Only_Color_Update", "True")
@@ -176,9 +176,9 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
     Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
     Set ARES_CALC_RULES = CreateConfigVar("ARES_Calc_Rules", "")
-    Set ARES_PROPERTY_CALC = CreateConfigVar("ARES_Property_Calc", "False")
+    Set ARES_PROPERTY_CALC = CreateConfigVar("ARES_Property_Calc", "True")
     Set ARES_CALC_DETACH_EMPTY = CreateConfigVar("ARES_Calc_Detach_Empty", "False")
-    Set ARES_TEXT_RENDER = CreateConfigVar("ARES_Text_Render", "False")
+    Set ARES_TEXT_RENDER = CreateConfigVar("ARES_Text_Render", "True")
     Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
     CreateConfigVariables = True
     Exit Function

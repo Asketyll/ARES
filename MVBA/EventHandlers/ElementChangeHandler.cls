@@ -1,10 +1,10 @@
 ' Class Module: ElementChangeHandler
-' Description: Handles element change events for automatic length/color updates, property tagging,
-'              property calculation and property rendering (capture + deferred idle processing).
+' Description: Handles element change events for colour synchronisation, property tagging, property
+'              calculation and property rendering (capture + deferred idle processing).
 '              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
 '              Includes automatic detection of bulk operations using frequency-based detection.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, AutoLengths, ARESConstants, LangManager, StringsInEl,
+' Dependencies: ARESConfigClass, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
 '               PropertyCalculation, PropertyRendering
 
@@ -198,12 +198,12 @@ End Function
 ' ========================================
 
 ' Unified handler for element processing (called by IdleEventHandler)
-' Processes a single element for automatic length updates and/or color synchronization
 ' Parameters:
 '   oElement - The element to process
 ' Processing logic:
-'   1. For text/cell elements: Update lengths if triggers are found, or sync colors
-'   2. For geometric elements: Find linked text elements and process them recursively
+'   0. At Depth 0, ahead of both branches: property tagging, then calculation, then rendering
+'   1. For text/cell elements: sync colour with the linked geometry
+'   2. For geometric elements: find linked text elements and process them recursively
 Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Integer = 0)
     On Error GoTo ErrorHandler
 
@@ -211,17 +211,8 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     If Depth > MAX_DEPTH Then Exit Sub
 
     ' === LOCAL VARIABLES ===
-    Dim AUTO_LENGTH As Boolean      ' Flag: automatic length addition enabled
-    Dim UPDATE_LENGTH As Boolean    ' Flag: automatic length update enabled
     Dim ONLY_COLOR As Boolean       ' Flag: only color synchronization mode
-    Dim TriggerFinded As Boolean    ' Flag: trigger pattern found in text
-    Dim txts() As String            ' Array of text strings in the element
-    Dim Triggers() As String        ' Array of trigger patterns from config
-    Dim i As Long, j As Long        ' Loop counters
-    Dim SplitedTrigger() As String  ' Trigger split by trigger ID
-    Dim FirstPartIndex As Long      ' Position of first part of trigger
-    Dim SecondPartIndex As Long     ' Position of second part of trigger
-    Dim MiddleText As String        ' Text between trigger parts (the length value)
+    Dim i As Long                   ' Loop counter (Branch 2)
     Dim els() As element            ' Array of linked elements
     Dim linkedElement As element    ' Current linked element being processed
     Dim subEl As element            ' Sub-element within a cell
@@ -234,9 +225,6 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     If Not IsElementValid(oElement) Then Exit Sub
 
     ' Load configuration flags
-    AUTO_LENGTH = ARESConfig.ARES_AUTO_LENGTHS.Value
-    UPDATE_LENGTH = ARESConfig.ARES_UPDATE_LENGTHS.Value
-    TriggerFinded = False
     ONLY_COLOR = ARESConfig.ARES_ONLY_COLOR.Value
 
     ' Auto-attach configured custom properties (PropertyTagging, grammar v2). A plain rule attaches to the
@@ -284,79 +272,18 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     ' ========================================
     If IsTextOrCellElement(oElement) Then
 
-        ' --- Automatic Length Processing ---
-        ' Both AUTO_LENGTH and UPDATE_LENGTH must be True to enable automatic length processing
-        ' This AND condition ensures that disabling either option will disable the feature
-        If (AUTO_LENGTH And UPDATE_LENGTH) Then
-            ' Coexistence with Property Rendering (the two text engines must never fight over the same
-            ' string): Auto Lengths skips any element the renderer owns. A NESTED If, never an "And"
-            ' chain - VBA evaluates both operands, so an "And" would pay IsRenderBound's COM probe even
-            ' with the length feature off, and would also run it before the cheap flags. The ONLY_COLOR
-            ' block below stays reachable, so a rendered text in a group still syncs its color.
-            If Not PropertyRendering.IsRenderBound(oElement) Then
-                ' Extract all text strings from the element
-                txts = StringsInEl.GetSetTextsInEl(oElement)
-                If txts(0) = "" Then Exit Sub
-
-                ' Load trigger patterns from configuration (e.g., "(Xx_m)" where Xx_ is replaced by length)
-                Triggers = Split(ARESConfig.ARES_LENGTH_TRIGGER.Value, ARES_VAR_DELIMITER)
-
-                ' Cache trigger ID once — avoids repeated config access inside nested loop
-                Dim sTriggerID As String
-                sTriggerID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
-
-                ' RECALCULATE MODE: Clean up existing numeric values between trigger parts
-                ' This allows updating lengths when the linked geometry changes
-                For i = LBound(txts) To UBound(txts)
-                    For j = LBound(Triggers) To UBound(Triggers)
-                        ' Split trigger by the ID placeholder (e.g., "(" and "_m)" for "(Xx_m)")
-                        SplitedTrigger = Split(Triggers(j), sTriggerID)
-                        If UBound(SplitedTrigger) = 1 Then
-                            ' Find positions of trigger parts in the text
-                            FirstPartIndex = InStr(1, txts(i), SplitedTrigger(0))
-                            SecondPartIndex = InStr(1, txts(i), SplitedTrigger(1))
-                            If FirstPartIndex > 0 And SecondPartIndex > FirstPartIndex Then
-                                ' Extract the text between trigger parts (should be the length value)
-                                MiddleText = Mid(txts(i), FirstPartIndex + Len(SplitedTrigger(0)), SecondPartIndex - FirstPartIndex - Len(SplitedTrigger(0)))
-                                ' If it's numeric, remove it to allow recalculation
-                                If StringsInEl.IsNumericText(MiddleText) Then
-                                    txts(i) = Left(txts(i), FirstPartIndex + Len(SplitedTrigger(0)) - 1) & Mid(txts(i), SecondPartIndex)
-                                    StringsInEl.GetSetTextsInEl oElement, Join(txts, ARES_VAR_DELIMITER)
-                                    TriggerFinded = True
-                                End If
-                            End If
-                        End If
-                    Next j
-                Next i
-
-                ' SEARCH MODE: Look for trigger patterns without existing length values
-                If Not TriggerFinded Then
-                    For i = LBound(txts) To UBound(txts)
-                        For j = LBound(Triggers) To UBound(Triggers)
-                            ' Check if text contains the trigger pattern (without the ID placeholder)
-                            If InStr(1, txts(i), StringsInEl.RemovePattern(Triggers(j), sTriggerID)) > 0 Then
-                                TriggerFinded = True
-                                Exit For
-                            End If
-                        Next j
-                        If TriggerFinded Then Exit For
-                    Next i
-                End If
-
-                ' If a trigger was found, delegate to AutoLengths class for length calculation and update
-                If TriggerFinded Then
-                    Dim oAutoLengths As AutoLengths
-                    Set oAutoLengths = New AutoLengths
-                    oAutoLengths.Initialize oElement
-                    oAutoLengths.UpdateLengths
-                    Set oAutoLengths = Nothing
-                    Exit Sub
-                End If
-            End If
-        End If
-
         ' --- Color-Only Synchronization Mode ---
-        ' Synchronizes the color of text/cell elements with their linked geometry
+        ' Synchronizes the color of text/cell elements with their linked geometry.
+        '
+        ' NOT carried over from the removed Auto Lengths branch: its "no readable text -> Exit Sub" early-out,
+        ' which incidentally also skipped this block. Reproducing it was considered and rejected. It never had
+        ' one consistent meaning (it was skipped entirely when Auto Lengths was off, and on any render-bound
+        ' element), so there was no single behaviour to preserve; and reinstating it would have given
+        ' StringsInEl.GetSetTextsInEl a production caller again - on EVERY text/cell element, before the
+        ' ONLY_COLOR test, i.e. a full recursive text walk paid by configurations that never use the result.
+        ' That is the very cost the deleted comment here refused to pay for a disabled feature, and it would
+        ' have kept the whole legacy text engine alive after the removal whose point was to retire it.
+        ' Net effect: colour sync now also reaches a text/cell element yielding no readable text. Accepted.
         If ONLY_COLOR Then
             ' Get the linked geometric element
             els = Link.GetLink(oElement)
@@ -440,9 +367,13 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         ' Find linked text elements and trigger their update. Also fires when Property Calculation holds a
         ' GroupLength rule: that source needs every OTHER group member re-queued when the linked geometry
         ' itself changes, exactly like Auto Lengths - but must work even with Auto Lengths OFF.
+        '
+        ' ONLY_COLOR is a term in its OWN right. Colour sync's real use case is "the line's colour changes,
+        ' the linked text follows", and that propagation only happens by reaching this branch - so without
+        ' this term colour tracking would degrade to direct-contact-with-the-text only.
         Dim bCalcEnabled As Boolean
         bCalcEnabled = PropertyCalculation.IsEnabled
-        If Not UPDATE_LENGTH And Not (bCalcEnabled And PropertyCalculation.HasGroupLengthRules) Then Exit Sub
+        If Not ONLY_COLOR And Not (bCalcEnabled And PropertyCalculation.HasGroupLengthRules) Then Exit Sub
 
         ' Get all elements linked to this geometry
         els = Link.GetLink(oElement)
@@ -459,9 +390,8 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
                 End If
                 ' The recursive call above is Depth > 0, so it SKIPS the Depth-0-only Property Calculation
                 ' hook (line ~249) - and the queue-add just above is wiped wholesale by
-                ' IdleEventHandler.CleanupHandler before a fresh Depth-0 pass ever reaches this sibling (that
-                ' queuing exists for Auto Lengths, whose own trigger-text work runs INLINE here regardless of
-                ' Depth). A GroupLength-fed sibling needs the same inline treatment to recompute when the
+                ' IdleEventHandler.CleanupHandler before a fresh Depth-0 pass ever reaches this sibling.
+                ' A GroupLength-fed sibling therefore needs INLINE treatment to recompute when the
                 ' geometry itself changes - not just once, on its own attach. Idempotent/loop-safe via
                 ' ApplyValueToSibling's compare-before-write (a redundant call here is a cheap no-op).
                 If bCalcEnabled Then PropertyCalculation.ProcessElement linkedElement
@@ -522,10 +452,10 @@ InvalidElement:
     IsElementValid = False
 End Function
 
-' NOTE: IsNumericText moved to StringsInEl (epic 15) and is called from Branch 1 above. Branch 1 is now its
-' only caller - PropertyRendering deliberately does not test its own expansions against the legacy trigger
-' (the renderer wins on a token-bearing text; see :296). Keep it in StringsInEl and do not reintroduce a
-' local copy: it is the shared definition of what AutoLengths owns.
+' NOTE: IsNumericText lives in StringsInEl (epic 15) and this module no longer calls it - its caller here
+' was the Auto Lengths branch, now removed. The note stays because the helper's OWNERSHIP was long
+' mis-documented as Auto Lengths': it is the NUMERIC GATE of PropertyRendering's D6/D7/D8 forge protection,
+' the first condition of every one of those guards, and PropertyRendering is now its only caller.
 
 ' ========================================
 ' PRIVATE HELPER FUNCTIONS - Bulk Operation Detection
@@ -652,29 +582,26 @@ End Sub
 ' Checks if any ARES feature is enabled
 ' Used for early exit to avoid unnecessary processing
 ' Returns:
-'   True if at least one feature (auto lengths, color sync, property tagging or property calculation) is enabled
+'   True if at least one feature (color sync, property tagging, calculation or rendering) is enabled
 Private Function IsAnyFeatureEnabled() As Boolean
-    Dim autoLengthEnabled As Boolean
     Dim onlyColorEnabled As Boolean
     Dim autoPropertiesEnabled As Boolean
     Dim calcEnabled As Boolean
     Dim renderEnabled As Boolean
 
     ' Config values are stored as Strings, convert to Boolean with CBool
-    ' Auto lengths requires both flags to be True
-    autoLengthEnabled = CBool(ARESConfig.ARES_AUTO_LENGTHS.Value) And CBool(ARESConfig.ARES_UPDATE_LENGTHS.Value)
     onlyColorEnabled = CBool(ARESConfig.ARES_ONLY_COLOR.Value)
     autoPropertiesEnabled = CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value)
     calcEnabled = CBool(ARESConfig.ARES_PROPERTY_CALC.Value)
     ' Without this term a render-ONLY configuration never reaches ProcessElement and the feature is inert.
     renderEnabled = CBool(ARESConfig.ARES_TEXT_RENDER.Value)
 
-    IsAnyFeatureEnabled = autoLengthEnabled Or onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled Or renderEnabled
+    IsAnyFeatureEnabled = onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled Or renderEnabled
 End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)
-' Filters by: graphical + graphic group (AutoLengths fast path), OR a matching PropertyTagging rule
-' for ungrouped elements (so rule-based auto-attach reaches elements not in a graphic group).
+' Filters by: graphical + graphic group, OR a matching PropertyTagging rule for ungrouped elements (so
+' rule-based auto-attach reaches elements not in a graphic group).
 ' Note: Link validation is deferred to ProcessElement for performance
 ' Parameters:
 '   oElement - The element to evaluate
@@ -686,19 +613,49 @@ Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
     ' Must be graphical
     If Not oElement.IsGraphical Then Exit Function
 
-    ' Grouped elements drive the AutoLengths workflow (linked via graphic groups)
+    ' The graphic group is what links a label to its geometry, so a grouped element is the cheap
+    ' pre-filter for colour sync, GroupLength calculation and the renderer's group-driven refresh alike.
+    ' The filter is NOT specific to any one feature - do not narrow or remove it when one of them changes.
     If oElement.GraphicGroup <> ARES_DEFAULT_GRAPHIC_GROUP_ID Then
         ShouldQueueElement = True
         Exit Function
     End If
 
-    ' Ungrouped element: queue it only if PropertyTagging is on and a rule matches it.
-    ' Documented limitation (epic 14, RA7): an UNGROUPED element already bearing a calc-target property
-    ' but matching NO tag rule is not re-queued on its own Modify, so a self-source calc rule (e.g.
-    ' Prop[XY]=Coord) does not auto-recompute on a pure move. Handling it would cost a per-distinct-target
-    ' IsItemAttachedToElement on every ungrouped add/modify (a hot-path cost) - declined for parsimony.
+    ' Ungrouped element: queue it if a tag rule matches it NOW, OR if it already carries an ARES
+    ' property from an earlier pass (attached by hand through MicroStation's native UI, or by a tag rule
+    ' since disabled/edited). Fixes RA7 (epic 14, widened + closed 2026-08-19): an ungrouped element in
+    ' that second case used to never be re-queued on Modify, so NONE of Depth-0's work (Tagging,
+    ' Calculation, Rendering) ran for it again - not just the narrow self-source case (e.g. Prop[XY]=Coord
+    ' not recomputing on a pure move) RA7 originally named. The fallback is O(1) - HasItems(..., "*"),
+    ' same cost as the existing CustomPropertyHandler.IsItemAttachedToElement, no per-target loop, no
+    ' ItemType scan - and independent of ARES_AUTO_PROPERTIES: Calculation/Rendering act on an
+    ' already-attached property whether or not auto-tagging itself is on.
     If CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value) Then
-        ShouldQueueElement = PropertyTagging.ElementMatchesAnyRule(oElement)
+        If PropertyTagging.ElementMatchesAnyRule(oElement) Then
+            ShouldQueueElement = True
+            Exit Function
+        End If
+    End If
+
+    ' Gated on having a real DOWNSTREAM CONSUMER (Calculation or Rendering enabled), NOT on the tagging
+    ' switch above: a colour-sync-only / tagging-only configuration has nothing that would ever act on
+    ' this fallback's result, so paying its COM cost on every ungrouped Modify would be pure waste -
+    ' exactly the hot-path cost this file avoids everywhere else. Fail-closed on error, mirroring
+    ' CustomPropertyHandler.IsItemAttachedToElement (which wraps the identical Refresh+HasItems pair).
+    ' SCOPE, ACCEPTED AS-IS (Asketyll, 2026-08-19): HasItems(..., "*") matches ANY attached ARES property,
+    ' not just one Calculation/Rendering would actually act on - including a residual/orphaned one left
+    ' by a since-disabled or since-edited rule. On a real working DGN (not a clean test file) this can
+    ' re-queue more ungrouped elements than the narrow RA7 case strictly needs, paying a full Depth-0 pass
+    ' each Modify for elements whose fallback match will lead nowhere. Idempotent (no data corruption),
+    ' but not free. A narrower check (limit to properties Calc/Render actually target) was considered and
+    ' explicitly declined - the O(1) simplicity of "*" was judged worth the wider net. This is a DELIBERATE
+    ' choice, not an oversight - do not narrow it without Asketyll's sign-off.
+    If PropertyCalculation.IsEnabled Or PropertyRendering.IsEnabled Then
+        On Error Resume Next
+        oElement.Items.Refresh ARESConstants.ARES_NAME_LIBRARY_TYPE
+        ShouldQueueElement = oElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, "*")
+        If Err.Number <> 0 Then ShouldQueueElement = False
+        On Error GoTo 0
     End If
 End Function
 

@@ -18,7 +18,7 @@ Public Const ARES_DEFAULT_GRAPHIC_GROUP_ID As Long = 0
 Public Const ARES_MSDETYPE_ERROR As Long = 44
 
 ' === STRING DELIMITER CONSTANTS ===
-' Used in StringsInEl and AutoLengths module for separating lists in environment variables
+' Separates list entries inside environment variables (StringsInEl, config lists, calc/tag rules)
 Public Const ARES_VAR_DELIMITER As String = "|"
 
 ' === CONFIGURATION CONSTANTS ===

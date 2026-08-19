@@ -445,8 +445,9 @@ End Function
 ' NOTE: this deliberately does NOT reuse GetSetTextsInEl. That function, in GET mode, returns only
 ' the LAST text-bearing sub-element of a cell, wrapped in a ONE-element array (Split(s, "") on a
 ' zero-length delimiter yields the whole string in a single entry, NOT one entry per character) - it
-' does not aggregate a cell's text. AutoLengths depends on GetSetTextsInEl's current behavior, so a
-' fresh read-only extractor is used instead of modifying it.
+' does not aggregate a cell's text. A fresh read-only extractor is used instead of changing that.
+' (The constraint that froze GetSetTextsInEl's GET semantics was Auto Lengths, now removed - so changing
+' it is no longer forbidden, merely unnecessary here. Do not read this note as a standing prohibition.)
 ' Thin delegator since epic 15: "exclude nothing" is the nIds = 0 case of GetConcatenatedTextExcluding.
 Public Function GetConcatenatedText(ByRef El As element, Optional ByVal Separator As String = " ") As String
     On Error GoTo ErrorHandler
@@ -643,10 +644,11 @@ End Sub
 ' Validates if a string contains only numeric characters
 ' Used to identify length values between trigger patterns
 ' Allowed characters: digits (0-9), spaces, commas, and decimal points. An EMPTY string passes.
-' Moved here from ElementChangeHandler (epic 15) with the rest of the string helpers. AutoLengths'
-' Branch-1 stale-value strip test is its ONLY caller - the renderer deliberately does not test its own
-' expansions against the legacy trigger. It stays here regardless: this is the single definition of which
-' strings AutoLengths owns, and a local copy would drift the moment either side changed.
+' Moved here from ElementChangeHandler (epic 15) with the rest of the string helpers. It was long
+' documented as an Auto Lengths-owned helper; that was wrong even then, and Auto Lengths is now gone.
+' This is the NUMERIC GATE of PropertyRendering's D6/D7/D8 forge protection - the first condition of every
+' one of those guards. Sole callers: PropertyRendering.SuffixIsSafeAddition and PrefixIsSafeAddition.
+' Never reintroduce a local copy: the "no forged number" guarantee rests on ONE definition of numeric.
 ' Parameters:
 '   text - The string to validate
 ' Returns:

@@ -38,15 +38,10 @@
 '              Values are copied VERBATIM (decision: convert once at value-write, never at render) - no
 '              CStr, no Format, no locale-dependent transform, so two stations never rewrite each other's
 '              decimal separator. All dressing is static template text: "(Prop[Len]m)" renders "(12.3m)",
-'              byte-identical to legacy AutoLengths output.
-'
-'              Coexistence with AutoLengths: on a text carrying a token, THE RENDERER WINS. It is enforced
-'              in ONE direction only - ElementChangeHandler's Branch 1 skips any render-bound element via
-'              IsRenderBound. The renderer does NOT check whether its own expansion looks like a legacy
-'              trigger: it deliberately writes "(12.3m)" when that is what the template says, which is the
-'              flagship "(Prop[Len]m)" case and the whole point of superseding AutoLengths. A text the
-'              renderer does not own is untouched and stays legacy territory - including one whose binding
-'              is later RELEASED, which hands it back to AutoLengths, as it should.
+'              byte-identical to what the retired Auto Lengths feature used to write - the renderer
+'              SUPERSEDED it, and reproducing that exact output is why the migration is a text edit rather
+'              than a re-draw. The renderer never inspects the SHAPE of its own expansion: it writes
+'              "(12.3m)" whenever the template says so, which is the flagship "(Prop[Len]m)" case.
 '
 '              Every user-facing refusal is status-bar only, translated and one-shot; only the
 '              schema/library self-disable conditions also log ONE English line.
@@ -314,9 +309,12 @@ ErrorHandler:
     DrainRepaintHop
 End Sub
 
-' Coexistence predicate consumed by ElementChangeHandler's Branch 1: AutoLengths must never write into a
-' text this engine owns. IsEnabled FIRST so a render-free configuration pays no COM cost at all on the
-' default AUTO_LENGTH And UPDATE_LENGTH = True/True path.
+' "Does this engine own that text?" - True when ARES_Render is attached. IsEnabled is tested FIRST so a
+' render-free configuration pays no COM cost at all.
+' NO PRODUCTION CALLER since the Auto Lengths removal: its only one was ElementChangeHandler's Branch 1,
+' which existed to stand down on a text the renderer owned. KEEP IT ANYWAY - it is a meaningful state
+' query and the seam 12 assertions in PropertyRenderingTest are written against. Do not delete it as
+' unused.
 Public Function IsRenderBound(ByVal El As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1539,9 +1537,9 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
             ' so it cannot be the only gate. Edge #5 (the user retypes the whole text) releases the last
             ' token and lands here with ZERO tokens left, and storing THAT as a live entry would be a
             ' one-way trap: ARES_Render would stay attached for ever, CountLiveEntries would never reach
-            ' 0 so the detach would never fire, IsRenderBound would stay True, and AutoLengths' Branch 1
-            ' would skip a text that no longer carries a single token - with no unbind key-in in Phase 1
-            ' to recover it. Release the entry instead, the same nTok = 0 test ApplyConservativeFallback
+            ' 0 so the detach would never fire and IsRenderBound would stay True on a text that no longer
+            ' carries a single token - with no unbind key-in in Phase 1 to recover it.
+            ' Release the entry instead, the same nTok = 0 test ApplyConservativeFallback
             ' already makes.
             If ParseTemplate(sNewTemplate, newLits, newToks, nNewTok, True) Then
                 If nNewTok > 0 Then
@@ -1933,8 +1931,8 @@ Private Sub RestoreWrittenTexts(ByRef oEl As element, ByRef ids() As Long, ByRef
 End Sub
 
 ' The ONE place visible text is written. Refuses a reserved serialisation delimiter (and a stray CR) before
-' it can reach the file. It does NOT refuse an expansion shaped like an ACTIVE legacy trigger - writing
-' "(12.3m)" is the flagship case, and AutoLengths stands down via Branch 1's IsRenderBound skip instead.
+' it can reach the file. It does NOT refuse an expansion shaped like a legacy Auto Lengths trigger -
+' writing "(12.3m)" is the flagship case, and nothing competes for the text any more.
 ' Returns True only when the sub-text now reads sNew.
 '
 ' oEl is ByRef, and the WHOLE chain above it (RenderBoundElement / TryFirstAuthor / RenderEntryOnElement)

@@ -1,15 +1,15 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: AutoLengths, BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering
+' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering
 Option Explicit
 
-Private moAutoLengthsGUI     As AutoLengths_GUI_Options
 Private moZoningGUI          As Zoning_GUI_Options
 Private moOutlineGUI         As Outline_GUI_Options
 Private moZoneExportGUI      As ExportLengthInReg_GUI_Options
 Private moPropertyTaggingGUI As PropertyTagging_GUI_Options
 Private moPropertyCalculationGUI     As PropertyCalculation_GUI_Options
+Private moPropertyRenderingGUI       As PropertyRendering_GUI_Options
 
 ' Report a trapped fault from a key-in entry point (messaging rules): log the technical detail
 ' to the .log (English, via HandleError), then show the user a translated, GENERIC failure line.
@@ -30,18 +30,6 @@ Private Sub ReportIfLogged(ByVal sOp As String)
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
         ShowStatus GetTranslation("CommandFailed", sOp)
     End If
-End Sub
-
-' === AUTO LENGTHS COMMANDS ===
-
-' Sub to call CommandState for manual update length in string
-Sub ForceUpdateLength()
-    On Error GoTo ErrorHandler
-    CommandState.StartLocate New AutoLengths
-    Exit Sub
-
-ErrorHandler:
-    ReportFailure "ForceUpdateLength", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === UPDATE COMMANDS ===
@@ -149,32 +137,6 @@ ErrorHandler:
 End Sub
 
 ' === GUI COMMANDS ===
-
-' Sub to call GUI Options of AutoLengths
-Sub EditAutoLengthsOptions()
-    On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
-    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
-        Set BootLoader.ARESConfig = New ARESConfigClass
-        ARESConfig.Initialize
-    End If
-    
-    If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    
-    ' Create form only if it doesn't exist
-    If moAutoLengthsGUI Is Nothing Then
-        Set moAutoLengthsGUI = New AutoLengths_GUI_Options
-    End If
-    
-    ' Show will bring to front if already visible
-    moAutoLengthsGUI.Show vbModeless
-    ReportIfLogged "EditAutoLengthsOptions"
-    
-    Exit Sub
-    
-ErrorHandler:
-    ReportFailure "EditAutoLengthsOptions", Err.Description, Err.Number, Err.Source
-End Sub
 
 ' === ZONING COMMANDS ===
 
@@ -446,10 +408,6 @@ ErrorHandler:
 End Sub
 
 ' Called from UserForm_QueryClose when form closes
-Public Sub OnAutoLengthsGUIClosed()
-    Set moAutoLengthsGUI = Nothing
-End Sub
-
 Public Sub OnZoningGUIClosed()
     Set moZoningGUI = Nothing
 End Sub
@@ -539,6 +497,34 @@ Public Sub OnPropertyCalculationGUIClosed()
     Set moPropertyCalculationGUI = Nothing
 End Sub
 
+' Key-in: options panel for Property Rendering - the render master switch plus the three display settings
+' that outlive Auto Lengths (colour sync and the two ATLAS label-cell options).
+Sub EditPropertyRenderingOptions()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moPropertyRenderingGUI Is Nothing Then
+        Set moPropertyRenderingGUI = New PropertyRendering_GUI_Options
+    End If
+
+    moPropertyRenderingGUI.Show vbModeless
+    ReportIfLogged "EditPropertyRenderingOptions"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "EditPropertyRenderingOptions", Err.Description, Err.Number, Err.Source
+End Sub
+
+Public Sub OnPropertyRenderingGUIClosed()
+    Set moPropertyRenderingGUI = Nothing
+End Sub
+
 ' Key-in: open the DGNLib holding the ARES custom-property ItemTypes, then its Item Types dialog, so the
 ' definitions (ItemTypes, value lists) can be edited straight away. MicroStation closes the working file
 ' to do so; re-opening it afterwards refreshes the Item Type state on its own (DGNOpenClose ->
@@ -613,12 +599,12 @@ End Sub
 ' Persist the position of every option form still open (best-effort; called at project unload).
 Public Sub SaveAllOpenFormPositions()
     On Error Resume Next
-    If Not moAutoLengthsGUI Is Nothing Then FormPlacement.SaveFormPosition moAutoLengthsGUI, moAutoLengthsGUI.Name
     If Not moZoningGUI Is Nothing Then FormPlacement.SaveFormPosition moZoningGUI, moZoningGUI.Name
     If Not moOutlineGUI Is Nothing Then FormPlacement.SaveFormPosition moOutlineGUI, moOutlineGUI.Name
     If Not moZoneExportGUI Is Nothing Then FormPlacement.SaveFormPosition moZoneExportGUI, moZoneExportGUI.Name
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyTaggingGUI, moPropertyTaggingGUI.Name
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyCalculationGUI, moPropertyCalculationGUI.Name
+    If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyRenderingGUI, moPropertyRenderingGUI.Name
 End Sub
 
 ' Key-in: forget all saved form positions and re-center any option form currently open.
@@ -632,12 +618,12 @@ Sub ResetFormPositions()
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
 
     FormPlacement.ClearFormPositions
-    If Not moAutoLengthsGUI Is Nothing Then FormPlacement.CenterForm moAutoLengthsGUI
     If Not moZoningGUI Is Nothing Then FormPlacement.CenterForm moZoningGUI
     If Not moOutlineGUI Is Nothing Then FormPlacement.CenterForm moOutlineGUI
     If Not moZoneExportGUI Is Nothing Then FormPlacement.CenterForm moZoneExportGUI
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.CenterForm moPropertyTaggingGUI
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.CenterForm moPropertyCalculationGUI
+    If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.CenterForm moPropertyRenderingGUI
 
     ShowStatusT "FormPositionsReset"
     ReportIfLogged "ResetFormPositions"

@@ -1,6 +1,6 @@
 # ARES - MicroStation Productivity Add-in
 
-Automatic length calculation and graphical linking tools for MicroStation VBA.
+Custom-property automation and graphical linking tools for MicroStation VBA.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-yellow.svg)](LICENSE) &nbsp;&nbsp; [![GitHub release](https://img.shields.io/github/release/Asketyll/ARES.svg)](https://github.com/Asketyll/ARES/releases/latest) &nbsp;&nbsp; [![Wiki](https://img.shields.io/badge/docs-wiki-brightgreen.svg)](https://github.com/Asketyll/ARES/wiki)
 
@@ -30,7 +30,6 @@ User features — full key-in reference and configuration variables live in the 
 
 | Feature | Description | Docs |
 |:-------:|:------------|:----:|
-| Auto Lengths | Automatic length calculation for linked graphical elements (+ color sync) | [EN](https://github.com/Asketyll/ARES/wiki/Auto-Lengths)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Longueurs-Auto) |
 | Zoning | Buffer zone generation around elements (configurable distance, level, style, color, weight) | [EN](https://github.com/Asketyll/ARES/wiki/Zoning)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Zonage) |
 | Zone Export | Element lengths (partial or full) inside zone polygons, exported per group to Excel | [EN](https://github.com/Asketyll/ARES/wiki/Zone-Export)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Export-de-Zone) |
 | Region Split | Split a closed region into two with a single datapoint on its boundary | [EN](https://github.com/Asketyll/ARES/wiki/Region-Split)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Decoupe-de-Region) |

@@ -171,16 +171,32 @@ Private mnCalcCount As Long
 Private mbCalcParsed As Boolean
 
 ' One-shot guards so the calculation statuses (CalculationValueRejected / CalculationNoTarget /
-' CalculationMultipleTriggers) each surface only once per PROCESSED ELEMENT. Reset at the start of each
-' ProcessElement; the fault one (Rejected) also keeps its English log on every occurrence; NoTarget and
-' Multiple are user feedback (status-only, no log).
+' CalculationMultipleTriggers / CalculationMultipleGeometries) each surface only once per PROCESSED ELEMENT.
+' Reset at the start of each ProcessElement; the fault one (Rejected) also keeps its English log on every
+' occurrence; NoTarget and the two Multiple ones are user feedback (status-only, no log).
+'
+' The two ambiguity guards are DELIBERATELY SEPARATE, not one shared flag: a group can hold competing
+' trigger CELLS and competing measurable GEOMETRIES at the same time, and those are two distinct
+' misconfigurations with two distinct answers. Sharing one flag would silently swallow whichever fired
+' second.
 Private mbRejectedShown As Boolean
 Private mbNoTargetShown As Boolean
 Private mbMultiShown As Boolean
+Private mbMultiGeoShown As Boolean
 
 '######################################################################################################################
 '                                          PUBLIC SURFACE
 '######################################################################################################################
+
+' True once CalculationMultipleGeometries has been surfaced for the element currently being processed
+' (cleared by ProcessElement like every other one-shot).
+' Public (read-only) as a test seam, like ResolvePropertyValue and HasGroupLengthRules: disclosing an
+' ambiguous group is an ACCEPTANCE CRITERION - it is the whole of what the GroupLength warning decision
+' bought - and VBA cannot call a Private proc from UnitTesting. Without it the only observable is "a value
+' still lands", which was already true before the warning existed and so cannot detect it.
+Public Function MultipleGeometriesReported() As Boolean
+    MultipleGeometriesReported = mbMultiGeoShown
+End Function
 
 ' Master switch. Lazily initialises ARESConfig like the other feature modules.
 Public Function IsEnabled() As Boolean
@@ -297,6 +313,7 @@ Public Sub ProcessElement(ByVal oEl As element)
     mbRejectedShown = False
     mbNoTargetShown = False
     mbMultiShown = False
+    mbMultiGeoShown = False
 
     If oEl Is Nothing Then Exit Sub
 
@@ -1494,9 +1511,19 @@ End Function
 
 ' GroupLength evaluation: the length of the FIRST length-capable element found scanning the group
 ' (self-included, deterministic scan order - the same first-match philosophy as calc rules themselves); ""
-' when neither the group nor the ungrouped bearing element itself holds one. Unlike the Cell* sources this
-' never warns on multiple candidates (a group commonly holds several geometric members - e.g. an outline
-' plus inner detail - without that being a misconfiguration the way two competing label cells would be).
+' when neither the group nor the ungrouped bearing element itself holds one.
+'
+' WARNS on multiple candidates, like the Cell* sources. This REVERSES an earlier decision, and the reason
+' the reversal was needed is worth keeping: the old rationale ("a group commonly holds several geometric
+' members - e.g. an outline plus inner detail - without that being a misconfiguration") was written for
+' GroupLength as an AUTHORED calc source, where the user asked for "the group's length" and first-match is
+' a chosen, documented semantic. It does not survive GroupLength's promotion to Auto Lengths' replacement:
+' Auto Lengths measured on its OWN initiative and, faced with several measurable geometries, REFUSED to
+' choose and asked the user. Dropping that without a word would silently move the decision from the user to
+' MicroStation's scan order - a plausible, possibly wrong value, with nothing said.
+'
+' The warning does not restore the old behaviour (first-match still lands; nobody is asked). It makes the
+' arbitrary pick VISIBLE instead of silent, which is the whole of what it claims to do.
 Private Function EvaluateGroupLength(ByVal oEl As element, ByVal dec As Long) As String
     On Error GoTo ErrorHandler
 
@@ -1506,6 +1533,7 @@ Private Function EvaluateGroupLength(ByVal oEl As element, ByVal dec As Long) As
     Dim nMatch As Long
     If FindFirstLengthCapableInGroup(oEl, foundGeo, nMatch) Then
         EvaluateGroupLength = EvaluateOwnLength(foundGeo, dec)
+        If nMatch >= 2 Then ReportMultipleGeometries
     End If
     Exit Function
 
@@ -1763,6 +1791,20 @@ Private Sub ReportMultipleTriggers()
     If Not mbMultiShown Then
         LangManager.ShowStatusT "CalculationMultipleTriggers"
         mbMultiShown = True
+    End If
+End Sub
+
+' Surface CalculationMultipleGeometries ONCE per processed element (deduped via its OWN mbMultiGeoShown).
+' Same shape as ReportMultipleTriggers but a DISTINCT key and a DISTINCT flag, because it says something
+' factually different: the ambiguity is between measurable GEOMETRIES, not between trigger cells, and the
+' winner is the FIRST in scan order, not the last-modified one. Reusing CalculationMultipleTriggers here
+' would emit a warning that is wrong on both counts - worse than staying silent, since the whole point of
+' warning is to make the arbitrary pick honest. USER FEEDBACK, status-only, no English .log.
+Private Sub ReportMultipleGeometries()
+    On Error Resume Next
+    If Not mbMultiGeoShown Then
+        LangManager.ShowStatusT "CalculationMultipleGeometries"
+        mbMultiGeoShown = True
     End If
 End Sub
 

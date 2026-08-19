@@ -74,7 +74,8 @@ Private Sub IPrimitiveCommandEvents_Cleanup()
     ' Intentionally empty.
 End Sub
 
-' Explicit cleanup to avoid errors during implicit destruction (Auto_Lengths idiom).
+' Explicit cleanup to avoid errors during implicit destruction. Standard idiom for the ILocateCommandEvents
+' classes; no dependency on any other feature.
 Private Sub Class_Terminate()
     On Error Resume Next
 End Sub

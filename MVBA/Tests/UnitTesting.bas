@@ -21,7 +21,6 @@ Private Enum TestID
     tidMSGraphical = 12
     tidARESMSVar = 13
     tidBootLoader = 14
-    tidAutoLengths = 15
     tidConfigExportImport = 16
     tidFileDialogs = 17
     tidPropertyCalculation = 18
@@ -37,16 +36,6 @@ Private Type TestResult
     Passed As Boolean
     Message As String
     Duration As Double
-End Type
-
-' Helper structure to hold test elements
-Private Type TestElementsCollection
-    TextElement As TextElement
-    LineElement1 As LineElement
-    LineElement2 As LineElement
-    ArcElement As ArcElement
-    ShapeElement As ShapeElement
-    GraphicGroupId As Long
 End Type
 
 Private TestResults() As TestResult
@@ -88,7 +77,6 @@ Public Sub RunAllTests()
     RunTest "MS Graphical", tidMSGraphical
     RunTest "ARES MS Variables", tidARESMSVar
     RunTest "Boot Loader", tidBootLoader
-    RunTest "Auto Lengths", tidAutoLengths
     RunTest "Config Export Import", tidConfigExportImport
     RunTest "File Dialogs", tidFileDialogs
     RunTest "Property Calculation", tidPropertyCalculation
@@ -156,9 +144,6 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidBootLoader
             TestName = "Boot Loader"
             Result = BootLoaderTest()
-        Case tidAutoLengths
-            TestName = "Auto Lengths"
-            Result = AutoLengthsTest()
         Case tidConfigExportImport
             TestName = "Config Export Import"
             Result = ConfigExportImportTest()
@@ -759,6 +744,37 @@ Private Function LengthTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
     
+    ' --- Shape: relocated from the removed AutoLengthsTest, which tested Length.GetLength rather than
+    '     Auto Lengths. Line and Arc are already covered above; the SHAPE case was the only type this
+    '     suite did not exercise. ---
+    TotalTests = TotalTests + 1
+    Dim TestShapeVertices(4) As Point3d
+    TestShapeVertices(0) = Point3dFromXYZ(0, 0, 0)
+    TestShapeVertices(1) = Point3dFromXYZ(100, 0, 0)
+    TestShapeVertices(2) = Point3dFromXYZ(100, 100, 0)
+    TestShapeVertices(3) = Point3dFromXYZ(0, 100, 0)
+    TestShapeVertices(4) = TestShapeVertices(0)
+
+    Dim TestShape As ShapeElement
+    Set TestShape = CreateShapeElement1(Nothing, TestShapeVertices, msdFillModeNotFilled)
+    ActiveModelReference.AddElement TestShape
+    If Length.GetLength(TestShape) > 0 Then TestsPassed = TestsPassed + 1
+
+    ' --- Decimals argument, also relocated. The original set and restored ARES_Length_Round around these
+    '     calls, but passed the rounding EXPLICITLY as the second argument, so the config never drove the
+    '     assertions - the manipulation was decorative and is deliberately NOT carried over.
+    '     NOTE: ARES_Length_Round's real consumer is PropertyCalculation.GetLengthDefaultDecimals, and it
+    '     has NO test anywhere. Do not read this block as covering that variable. ---
+    TotalTests = TotalTests + 1
+    Dim Length0 As Double
+    Length0 = Length.GetLength(TestElement, 0, True)
+    If Length0 = Int(Length0) Then TestsPassed = TestsPassed + 1
+
+    TotalTests = TotalTests + 1
+    Dim Length2 As Double
+    Length2 = Length.GetLength(TestElement, 2, True)
+    If Length2 <> Int(Length2) Then TestsPassed = TestsPassed + 1
+
     LengthTest = (TestsPassed = TotalTests)
     Exit Function
     
@@ -1099,376 +1115,6 @@ Private Function BootLoaderTest() As Boolean
     
 ErrorHandler:
     BootLoaderTest = False
-End Function
-
-' Test 15: AutoLengths
-Private Function AutoLengthsTest() As Boolean
-    On Error GoTo ErrorHandler
-    
-    Dim TestsPassed As Integer
-    Dim TotalTests As Integer
-    Dim TestAutoLengths As New AutoLengths
-    
-    ' Ensure ARESConfig is initialized
-    If Not ARESConfig.IsInitialized Then
-        ARESConfig.Initialize
-    End If
-    
-    ' Create test environment with multiple linked elements
-    Dim TestElements As TestElementsCollection
-    TestElements = CreateTestEnvironmentForAutoLengths()
-    
-    ' Test 15.1: Initialize with valid text element
-    TotalTests = TotalTests + 1
-    If Not TestElements.TextElement Is Nothing Then
-        TestAutoLengths.Initialize TestElements.TextElement
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 15.2: Test with no linked elements (default graphic group)
-    TotalTests = TotalTests + 1
-    Dim IsolatedTextElement As TextElement
-    Set IsolatedTextElement = CreateTextElement1(Nothing, "Isolated (Xx_m) text", Point3dFromXYZ(500, 500, 0), Matrix3dIdentity)
-    ActiveModelReference.AddElement IsolatedTextElement
-    
-    Dim TestAutoLengths3 As New AutoLengths
-    TestAutoLengths3.Initialize IsolatedTextElement
-    ' Should handle gracefully when no linked elements found
-    TestsPassed = TestsPassed + 1
-    
-    ' Test 15.3: Test with single linked element
-    TotalTests = TotalTests + 1
-    If TestSingleLinkedElement(TestElements) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 15.4: Test with multiple linked elements (different lengths)
-    TotalTests = TotalTests + 1
-    If TestMultipleLinkedElements(TestElements) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 15.5: Test trigger replacement in text
-    TotalTests = TotalTests + 1
-    ARESConfig.ARES_LENGTH_TRIGGER.Value = "Xx_cm"
-    If TestTriggerReplacement(TestElements) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    ARESConfig.ARES_LENGTH_TRIGGER.Value = "Xx_m"
-    
-    ' Test 15.6: Test with different element types (Line, Arc, Shape)
-    TotalTests = TotalTests + 1
-    If TestDifferentElementTypes() Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 15.7: Test color update functionality
-    TotalTests = TotalTests + 1
-    If TestColorUpdate(TestElements) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 15.8: Test with TextNodeElement
-    TotalTests = TotalTests + 1
-    If TestWithTextNodeElement() Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 15.9: Test rounding functionality
-    TotalTests = TotalTests + 1
-    If TestRoundingFunctionality() Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    AutoLengthsTest = (TestsPassed >= TotalTests - 2) ' Allow some failures for complex operations
-    Exit Function
-    
-ErrorHandler:
-    If Not BootLoader.ErrorHandler Is Nothing Then
-        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "AutoLengthsTest"
-    End If
-    AutoLengthsTest = False
-End Function
-
-' Create a complete test environment with linked elements
-Private Function CreateTestEnvironmentForAutoLengths() As TestElementsCollection
-    Dim TestElements As TestElementsCollection
-    
-    ' Use a unique graphic group ID
-    TestElements.GraphicGroupId = 10
-    
-    ' Create text element with trigger
-    Set TestElements.TextElement = CreateTextElement1(Nothing, "Length: (m)", Point3dFromXYZ(100, 300, 0), Matrix3dIdentity)
-    TestElements.TextElement.GraphicGroup = TestElements.GraphicGroupId
-    ActiveModelReference.AddElement TestElements.TextElement
-    
-    ' Create linked line element 1
-    Set TestElements.LineElement1 = CreateLineElement2(Nothing, Point3dFromXYZ(100, 100, 0), Point3dFromXYZ(200, 100, 0))
-    TestElements.LineElement1.GraphicGroup = TestElements.GraphicGroupId
-    TestElements.LineElement1.Color = 3 ' Red
-    ActiveModelReference.AddElement TestElements.LineElement1
-    
-    ' Create linked line element 2
-    Set TestElements.LineElement2 = CreateLineElement2(Nothing, Point3dFromXYZ(100, 150, 0), Point3dFromXYZ(250, 150, 0))
-    TestElements.LineElement2.GraphicGroup = TestElements.GraphicGroupId
-    TestElements.LineElement2.Color = 4 ' Blue
-    ActiveModelReference.AddElement TestElements.LineElement2
-    
-    ' Create linked arc element
-    Set TestElements.ArcElement = CreateArcElement2(Nothing, Point3dFromXYZ(100, 200, 0), 50, 50, Matrix3dIdentity, 0, Application.Pi)
-    TestElements.ArcElement.GraphicGroup = TestElements.GraphicGroupId
-    TestElements.ArcElement.Color = 5 ' Green
-    ActiveModelReference.AddElement TestElements.ArcElement
-    
-    ' Create linked shape element (rectangle)
-    Dim ShapeVertices(4) As Point3d
-    ShapeVertices(0) = Point3dFromXYZ(300, 100, 0)
-    ShapeVertices(1) = Point3dFromXYZ(400, 100, 0)
-    ShapeVertices(2) = Point3dFromXYZ(400, 150, 0)
-    ShapeVertices(3) = Point3dFromXYZ(300, 150, 0)
-    ShapeVertices(4) = ShapeVertices(0) ' Close the shape
-    
-    Set TestElements.ShapeElement = CreateShapeElement1(Nothing, ShapeVertices, msdFillModeNotFilled)
-    TestElements.ShapeElement.GraphicGroup = TestElements.GraphicGroupId
-    TestElements.ShapeElement.Color = 6 ' Yellow
-    ActiveModelReference.AddElement TestElements.ShapeElement
-    
-    CreateTestEnvironmentForAutoLengths = TestElements
-End Function
-
-' Test single linked element scenario
-Private Function TestSingleLinkedElement(TestElements As TestElementsCollection) As Boolean
-    Dim TestAutoLengths As New AutoLengths
-    Dim SingleTextElement As TextElement
-    
-    ' Create text element linked only to one line
-    Set SingleTextElement = CreateTextElement1(Nothing, "Single: (m)", Point3dFromXYZ(150, 120, 0), Matrix3dIdentity)
-    SingleTextElement.GraphicGroup = TestElements.GraphicGroupId + 1
-    ActiveModelReference.AddElement SingleTextElement
-    
-    ' Create only one linked line
-    Dim SingleLineElement As LineElement
-    Set SingleLineElement = CreateLineElement2(Nothing, Point3dFromXYZ(150, 80, 0), Point3dFromXYZ(250, 80, 0))
-    SingleLineElement.GraphicGroup = TestElements.GraphicGroupId + 1
-    ActiveModelReference.AddElement SingleLineElement
-    
-    ' Test the auto lengths functionality
-    TestAutoLengths.Initialize SingleTextElement
-    TestAutoLengths.UpdateLengths
-    
-    ' Check if text was updated (approximate length should be 100)
-    Dim UpdatedText As String
-    Dim UpdatedTexts() As String
-    UpdatedTexts = StringsInEl.GetSetTextsInEl(SingleTextElement)
-    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
-        UpdatedText = UpdatedTexts(0)
-        If InStr(UpdatedText, "100") > 0 Or InStr(UpdatedText, "10") > 0 Then
-            TestSingleLinkedElement = True
-        End If
-    End If
-End Function
-
-' Test multiple linked elements scenario
-Private Function TestMultipleLinkedElements(TestElements As TestElementsCollection) As Boolean
-    Dim TestAutoLengths As New AutoLengths
-    
-    ' Initialize with text element that has multiple linked elements
-    TestAutoLengths.Initialize TestElements.TextElement
-    
-    ' This should trigger the selection form or auto-select if only one non-zero length
-    TestAutoLengths.UpdateLengths
-    
-    ' For testing purposes, simulate element selection
-    
-    TestAutoLengths.OnElementSelected TestElements.LineElement1, TestElements.TextElement
-    
-    ' Check if text was updated
-    Dim UpdatedTexts() As String
-    UpdatedTexts = StringsInEl.GetSetTextsInEl(TestElements.TextElement)
-    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
-        Dim UpdatedText As String
-        UpdatedText = UpdatedTexts(0)
-        ' Should contain a numeric value
-        If InStr(UpdatedText, "100") > 0 Or InStr(UpdatedText, "10") > 0 Then
-            TestMultipleLinkedElements = True
-        End If
-    End If
-End Function
-
-' Test trigger replacement functionality
-Private Function TestTriggerReplacement(TestElements As TestElementsCollection) As Boolean
-    ' Create text element with custom trigger
-    Dim TriggerTestElement As TextElement
-    Set TriggerTestElement = CreateTextElement1(Nothing, "Custom (cm) trigger test", Point3dFromXYZ(400, 300, 0), Matrix3dIdentity)
-    TriggerTestElement.GraphicGroup = TestElements.GraphicGroupId
-    ActiveModelReference.AddElement TriggerTestElement
-    
-    ' Test if trigger is properly detected and replaced
-    Dim TestAutoLengths As New AutoLengths
-    TestAutoLengths.Initialize TriggerTestElement
-    TestAutoLengths.OnElementSelected TestElements.LineElement1, TriggerTestElement
-    
-    ' Check if trigger was replaced
-    Dim UpdatedTexts() As String
-    UpdatedTexts = StringsInEl.GetSetTextsInEl(TriggerTestElement)
-    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
-        Dim UpdatedText As String
-        UpdatedText = UpdatedTexts(0)
-        ' Should not contain the original trigger and should have a number
-        If (InStr(UpdatedText, "10") > 0 Or InStr(UpdatedText, "100") > 0) Then
-            TestTriggerReplacement = True
-        End If
-    End If
-End Function
-
-' Test different element types
-Private Function TestDifferentElementTypes() As Boolean
-    Dim TestsPassed As Integer
-    Dim TotalTests As Integer
-    
-    ' Test with Line
-    TotalTests = TotalTests + 1
-    Dim LineLength As Double
-    LineLength = Length.GetLength(TestElement)
-    If LineLength > 0 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test with Arc (create a test arc)
-    TotalTests = TotalTests + 1
-    Dim TestArc As ArcElement
-    Set TestArc = CreateArcElement2(Nothing, Point3dFromXYZ(0, 0, 0), 100, 100, Matrix3dIdentity, 0, Application.Pi / 2)
-    ActiveModelReference.AddElement TestArc
-    
-    Dim ArcLength As Double
-    ArcLength = Length.GetLength(TestArc)
-    If ArcLength > 0 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test with Shape
-    TotalTests = TotalTests + 1
-    Dim TestShapeVertices(4) As Point3d
-    TestShapeVertices(0) = Point3dFromXYZ(0, 0, 0)
-    TestShapeVertices(1) = Point3dFromXYZ(100, 0, 0)
-    TestShapeVertices(2) = Point3dFromXYZ(100, 100, 0)
-    TestShapeVertices(3) = Point3dFromXYZ(0, 100, 0)
-    TestShapeVertices(4) = TestShapeVertices(0)
-    
-    Dim TestShape As ShapeElement
-    Set TestShape = CreateShapeElement1(Nothing, TestShapeVertices, msdFillModeNotFilled)
-    ActiveModelReference.AddElement TestShape
-    
-    Dim ShapeLength As Double
-    ShapeLength = Length.GetLength(TestShape)
-    If ShapeLength > 0 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    TestDifferentElementTypes = (TestsPassed = TotalTests)
-End Function
-
-' Test color update functionality
-Private Function TestColorUpdate(TestElements As TestElementsCollection) As Boolean
-    ' Save original color setting
-    Dim OriginalColorSetting As Boolean
-    OriginalColorSetting = ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value
-    
-    ' Enable color update
-    ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value = True
-    
-    ' Create test elements
-    Dim ColorTestText As TextElement
-    Set ColorTestText = CreateTextElement1(Nothing, "Color: (Xx_m)", Point3dFromXYZ(200, 400, 0), Matrix3dIdentity)
-    ColorTestText.GraphicGroup = TestElements.GraphicGroupId
-    ColorTestText.Color = 1 ' Original color
-    ActiveModelReference.AddElement ColorTestText
-    
-    ' Test color update
-    Dim TestAutoLengths As New AutoLengths
-    TestAutoLengths.Initialize ColorTestText
-    TestAutoLengths.OnElementSelected TestElements.LineElement1, ColorTestText ' Line has color 3 (Red)
-    
-    ' Check if color was updated
-    If ColorTestText.Color = TestElements.LineElement1.Color Then
-        TestColorUpdate = True
-    End If
-    
-    ' Restore original setting
-    ARESConfig.ARES_UPDATE_COLOR_WITH_LENGTH.Value = OriginalColorSetting
-End Function
-
-' Test with TextNodeElement
-Private Function TestWithTextNodeElement() As Boolean
-    ' Create a TextNodeElement with multiple lines
-    Dim TextNodeOrigin As Point3d
-    TextNodeOrigin = Point3dFromXYZ(300, 400, 0)
-    
-    Dim TextNodeElement As TextNodeElement
-    Set TextNodeElement = CreateTextNodeElement2(Nothing, TextNodeOrigin, Matrix3dIdentity)
-    TextNodeElement.AddTextLine "Line 1: (Xx_m)"
-    TextNodeElement.AddTextLine "Line 2: (Xx_cm)"
-    ActiveModelReference.AddElement TextNodeElement
-    
-    ' Set same graphic group
-    TextNodeElement.GraphicGroup = 11
-    
-    ' Create linked element
-    Dim LinkedLine As LineElement
-    Set LinkedLine = CreateLineElement2(Nothing, Point3dFromXYZ(300, 350, 0), Point3dFromXYZ(400, 350, 0))
-    LinkedLine.GraphicGroup = 11
-    ActiveModelReference.AddElement LinkedLine
-    
-    ' Test AutoLengths with TextNodeElement
-    Dim TestAutoLengths As New AutoLengths
-    TestAutoLengths.Initialize TextNodeElement
-    TestAutoLengths.UpdateLengths
-    
-    ' Check if any text line was updated
-    Dim UpdatedTexts() As String
-    UpdatedTexts = StringsInEl.GetSetTextsInEl(TextNodeElement)
-    If IsArray(UpdatedTexts) And UBound(UpdatedTexts) >= 0 Then
-        Dim i As Long
-        For i = 0 To UBound(UpdatedTexts)
-            If InStr(UpdatedTexts(i), "100") > 0 Or InStr(UpdatedTexts(i), "10") > 0 Then
-                TestWithTextNodeElement = True
-                Exit Function
-            End If
-        Next i
-    End If
-End Function
-
-' Test rounding functionality
-Private Function TestRoundingFunctionality() As Boolean
-    ' Test different rounding values
-    Dim TestsPassed As Integer
-    Dim TotalTests As Integer
-    
-    ' Test with rounding = 0
-    TotalTests = TotalTests + 1
-    Dim OriginalRound As String
-    OriginalRound = ARESConfig.ARES_LENGTH_ROUND.Value
-    
-    ARESConfig.ARES_LENGTH_ROUND.Value = "0"
-    Dim Length0 As Double
-    Length0 = Length.GetLength(TestElement, 0, True)
-    If Length0 = Int(Length0) Then ' Should be whole number
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test with rounding = 2
-    TotalTests = TotalTests + 1
-    ARESConfig.ARES_LENGTH_ROUND.Value = "2"
-    Dim Length2 As Double
-    Length2 = Length.GetLength(TestElement, 2, True)
-    If Length2 <> Int(Length2) Then ' Should have decimal places
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Restore original setting
-    ARESConfig.ARES_LENGTH_ROUND.Value = OriginalRound
-    
-    TestRoundingFunctionality = (TestsPassed = TotalTests)
 End Function
 
 ' Test 16: Configuration Export/Import
@@ -1896,6 +1542,50 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVContains("GLen", cGLen, "100.5") Then TestsPassed = TestsPassed + 1
 
+    ' --- GroupLength AMBIGUITY: the warning that the removal decision bought. Asserted THROUGH the
+    '     MultipleGeometriesReported seam, because "a value still lands" was ALREADY true on a 2-geometry
+    '     group before the warning existed - an assertion on the value alone gives the same result on the
+    '     old code and so cannot detect this change at all.
+    '     ProcessElement is used purely to clear the one-shot guards (it resets them on entry); the RV*
+    '     helpers then drive EvaluateGroupLength read-only.
+    '     Deliberately NOT asserting WHICH length wins: the winner is MicroStation's scan order, which is
+    '     exactly what the message exists to disclose. Pinning it would freeze an implementation accident
+    '     into a contract.
+    PropertyCalculation.ProcessElement cLenNo                       ' resets the one-shot guards
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.MultipleGeometriesReported Then TestsPassed = TestsPassed + 1
+
+    ' ONE measurable geometry in group 7450 so far -> value lands, and NO ambiguity is reported.
+    TotalTests = TotalTests + 1
+    If RVHasNonEmpty("GLen", cGLen) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.MultipleGeometriesReported Then TestsPassed = TestsPassed + 1
+
+    ' A SECOND measurable geometry joins the group -> nMatch >= 2. The value still lands (first-match),
+    ' AND the ambiguity is now disclosed. This last assertion is the discriminating one: it fails on the
+    ' pre-change code and passes after.
+    Dim bMultiGeoHard As Boolean
+    bMultiGeoHard = True
+    Dim lGLen2 As element
+    Dim bAmbigValue As Boolean
+    Set lGLen2 = CreateGroupedTestLine(7450, Point3dFromXYZ(8200, 0, 0), Point3dFromXYZ(8250, 0, 0))
+    bAmbigValue = RVHasNonEmpty("GLen", cGLen)
+    TotalTests = TotalTests + 1
+    If bAmbigValue Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If PropertyCalculation.MultipleGeometriesReported Then TestsPassed = TestsPassed + 1
+
+    ' CONDITIONAL HARD GATE on the discriminating assertion. The suite-wide "- 1" tolerance below exists to
+    ' absorb ENVIRONMENT variance, and that rationale does not reach this flag: once the second geometry is
+    ' created AND a value has landed, whether the flag is set is deterministic module code - no COM, no
+    ' geometry, no environment. So exempting it APPLIES the tolerance's reason rather than circumventing it,
+    ' and it needs no judgement about why the other assertions are tolerant.
+    ' Gated on the SET-UP having demonstrably held, so a DGN-level failure to create the lines still falls
+    ' back to the tolerance instead of failing the suite on the environment.
+    If (Not lGLen2 Is Nothing) And bAmbigValue Then
+        bMultiGeoHard = PropertyCalculation.MultipleGeometriesReported()
+    End If
+
     ' --- HasGroupLengthRules: True only while a GroupLength rule is configured (drives the
     '     ElementChangeHandler Branch-2 re-queue gate independently of ARES_Update_Lengths) ---
     TotalTests = TotalTests + 1
@@ -1917,8 +1607,9 @@ Private Function PropertyCalculationTest() As Boolean
     ARESConfig.ARES_CALC_RULES.Value = sOldCalcRules
     PropertyCalculation.RefreshCalcRules
 
-    ' Allow a small margin for environment variance (as CustomPropertyHandlerTest does)
-    PropertyCalculationTest = (TestsPassed >= TotalTests - 1)
+    ' Allow a small margin for environment variance (as CustomPropertyHandlerTest does) - EXCEPT for the
+    ' GroupLength ambiguity disclosure, which is gated hard whenever its set-up held (see bMultiGeoHard).
+    PropertyCalculationTest = (TestsPassed >= TotalTests - 1) And bMultiGeoHard
     Exit Function
 
 ErrorHandler:
@@ -2366,8 +2057,7 @@ Private Function PropertyRenderingTest() As Boolean
     Dim sNewT As String
     Dim sT As String
     Dim bSaved As Boolean
-    Dim sOldRender As String, sOldAuto As String, sOldUpdate As String
-    Dim sOldTrig As String, sOldTrigID As String
+    Dim sOldRender As String
     Dim sErrDesc As String, lErrNum As Long, sErrSrc As String
 
     bSaved = False
@@ -2737,26 +2427,14 @@ Private Function PropertyRenderingTest() As Boolean
     names(0) = "Len": values(0) = "13,3"
     sT = "Ligne Prop[Len] m"
 
-    ' ---------- LEGACY FLAGS FORCED ACTIVE (AC4 / edge #18) - setup, not assertions ----------
-    ' There is no collision assertion HERE by design: the renderer no longer refuses anything on this
-    ' account. What this block does is put AutoLengths in its ACTIVE configuration so the element-level
-    ' checks below run under it - see the trigger-shaped expansion check in RunRenderElementChecks.
-
     sOldRender = ARESConfig.ARES_TEXT_RENDER.Value
-    sOldAuto = ARESConfig.ARES_AUTO_LENGTHS.Value
-    sOldUpdate = ARESConfig.ARES_UPDATE_LENGTHS.Value
-    sOldTrig = ARESConfig.ARES_LENGTH_TRIGGER.Value
-    sOldTrigID = ARESConfig.ARES_LENGTH_TRIGGER_ID.Value
     bSaved = True
 
-    ARESConfig.ARES_AUTO_LENGTHS.Value = "True"
-    ARESConfig.ARES_UPDATE_LENGTHS.Value = "True"
-    ARESConfig.ARES_LENGTH_TRIGGER.Value = "(Xx_m)"
-    ARESConfig.ARES_LENGTH_TRIGGER_ID.Value = "Xx_"
-
-    ' The legacy flags above are set ACTIVE on purpose and left that way for the element-level checks: the
-    ' renderer must now write an expansion shaped like a legacy trigger - "(12.3m)" - even while Auto
-    ' Lengths is running. Coexistence is Branch 1's IsRenderBound skip, not a refusal on this side.
+    ' The Auto Lengths setup that used to sit here is gone with the feature. What it guarded still matters
+    ' and is still asserted below: the renderer must write an expansion SHAPED like a legacy trigger -
+    ' "(12.3m)" - because that parenthesised-numeric form is the flagship "(Prop[Len]m)" case, not because
+    ' anything competes for the text any more. See the trigger-shaped expansion check in
+    ' RunRenderElementChecks: it never asserted anything about Auto Lengths, only about the output form.
 
     ' ---------- ELEMENT LEVEL (needs the ARES DGNLib AND the internal ARES_SYS library) ----------
 
@@ -2766,10 +2444,6 @@ Private Function PropertyRenderingTest() As Boolean
 
     ' Restore (nominal path)
     ARESConfig.ARES_TEXT_RENDER.Value = sOldRender
-    ARESConfig.ARES_AUTO_LENGTHS.Value = sOldAuto
-    ARESConfig.ARES_UPDATE_LENGTHS.Value = sOldUpdate
-    ARESConfig.ARES_LENGTH_TRIGGER.Value = sOldTrig
-    ARESConfig.ARES_LENGTH_TRIGGER_ID.Value = sOldTrigID
     PropertyRendering.RefreshRenderCaches
 
     PropertyRenderingTest = (TestsPassed = TotalTests)
@@ -2783,10 +2457,6 @@ ErrorHandler:
     On Error Resume Next
     If bSaved Then
         ARESConfig.ARES_TEXT_RENDER.Value = sOldRender
-        ARESConfig.ARES_AUTO_LENGTHS.Value = sOldAuto
-        ARESConfig.ARES_UPDATE_LENGTHS.Value = sOldUpdate
-        ARESConfig.ARES_LENGTH_TRIGGER.Value = sOldTrig
-        ARESConfig.ARES_LENGTH_TRIGGER_ID.Value = sOldTrigID
         PropertyRendering.RefreshRenderCaches
     End If
     On Error GoTo 0
@@ -2930,8 +2600,8 @@ Private Function RunRenderElementChecks(ByRef TestsPassed As Integer) As Integer
 
     ' Edge #5 (AC2 branch 3), end to end: the user retypes the whole text, so the ONLY token is released
     ' and nothing survives. The re-authored Template would carry no token at all, and storing THAT as a
-    ' live entry is the zombie binding - ARES_Render attached for ever, IsRenderBound stuck True,
-    ' AutoLengths skipping a text that no longer has a token. The entry is released instead, and with it
+    ' live entry is the zombie binding - ARES_Render attached for ever and IsRenderBound stuck True on a
+    ' text that no longer has a token. The entry is released instead, and with it
     ' the last one, so the metadata is detached. The user's own text is left exactly as typed.
     StringsInEl.SetTextAtSubId elText, 0, "RenderTest 99 m"
     PropertyRendering.ProcessElement elText
@@ -3016,16 +2686,13 @@ Private Function RunRenderElementChecks(ByRef TestsPassed As Integer) As Integer
 
     PropertyTagging.DetachRenderMetadata elCell
 
-    ' ---------- Round-31 regression: an expansion SHAPED LIKE an ACTIVE legacy trigger ----------
-    ' The renderer used to refuse a rendering that matched an active legacy trigger, which left the
-    ' flagship "(Prop[Len]m)" case completely inert - nothing written, nothing attached. That guard is
-    ' gone: on a token-bearing text the RENDERER WINS, and the expansion must land even while AutoLengths
-    ' is running. The caller has forced ARES_AUTO_LENGTHS / ARES_UPDATE_LENGTHS True with the trigger pair
-    ' "(Xx_m)" / "Xx_", so "(13,3m)" splits exactly the way the removed guard tested for: "(" + numeric +
-    ' "m)". No other check here can show this - "RenderTest 13,3 m" carries no "(" and would not have
-    ' matched the trigger even before the removal, so the regression had zero coverage.
-    ' Only THIS direction is assertable: the other half (Branch 1 standing down on the bound text) lives in
-    ' ElementChangeHandler, which the tests never enter - it is covered by the field test.
+    ' ---------- Round-31 regression: a PARENTHESISED NUMERIC expansion ----------
+    ' KEEP. Auto Lengths is gone, but this assertion never asserted anything about it - only about the
+    ' OUTPUT FORM. The renderer once refused any rendering shaped like an active legacy trigger, which left
+    ' the flagship "(Prop[Len]m)" case completely inert: nothing written, nothing attached. "(13,3m)" is
+    ' exactly the shape that guard tripped on - "(" + numeric + "m)" - so this is the check that would catch
+    ' its return. No other check here can: "RenderTest 13,3 m" carries no "(" and never matched that shape,
+    ' so the regression had zero coverage without this case.
     Set elTrig = CreatePullTestText(0, Nothing, "(Prop[" & sProp & "]m)", Point3dFromXYZ(6600, 800, 0))
     CustomPropertyHandler.AttachItemToElement elTrig, sProp
     CustomPropertyHandler.SetPropertyValueToElement elTrig, sProp, "13,3", sProp
@@ -3536,7 +3203,6 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidMSGraphical: Result.Passed = MSGraphicalTest()
         Case tidARESMSVar: Result.Passed = ARESMSVarTest()
         Case tidBootLoader: Result.Passed = BootLoaderTest()
-        Case tidAutoLengths: Result.Passed = AutoLengthsTest()
         Case tidConfigExportImport: Result.Passed = ConfigExportImportTest()
         Case tidFileDialogs: Result.Passed = FileDialogsTest()
         Case tidPropertyCalculation: Result.Passed = PropertyCalculationTest()
