@@ -57,6 +57,15 @@ Public Const ARES_ITEM_RENDER As String = "ARES_Render"
 ' refused fail-closed and never rewritten (a newer ARES may have written a shape this build cannot read).
 Public Const ARES_RENDER_SCHEMA As String = "1"
 
+' === RESERVED ACTUATOR PILOT PROPERTY NAMES ===
+' Two property names reserved inside the ARES_NAME_LIBRARY_TYPE DGNLib for PropertyActuator (epic 16,
+' revised 2026-08-20): fixed, non-configurable pilot properties for Color/Level actuation - not a separate
+' mechanism, ordinary custom properties like any other, attached via PropertyTagging's standard "|"
+' multi-property grammar. Must exist as ItemTypes in the DGNLib (same authoring path as any custom
+' property) for CustomPropertyHandler.IsItemAttachedToElement to ever find them attached.
+Public Const ARES_PROP_COLOR As String = "ARES_Color"
+Public Const ARES_PROP_LVL As String = "ARES_Lvl"
+
 ' === FILE DIALOG FILTER CONSTANTS ===
 ' Used in FileDialogs module — pipe-delimited Windows Forms filter strings
 Public Const DIALOG_FILTER_CFG  As String = "ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*"

@@ -15,9 +15,9 @@
 '                - [& condition]* = OPTIONAL conditions, the SAME grammar as the tag rules (Lvl/Cell/Type,
 '                    &, !, */? wildcards), delegated verbatim to the shared RuleGrammar module.
 '                - Source (right of "="), keyword + optional [arg], arity-checked, unknown rejected. Two
-'                    families: a GROUP source (keyword prefixed "Cell"/"Group") scans the element's graphic
-'                    group INCLUDING itself for a matching member and reads off THAT member; a SELF source
-'                    reads the bearing element's own attribute.
+'                    families: a GROUP source (keyword prefixed "Cell"/"Lvl"/"Group") scans the element's
+'                    graphic group INCLUDING itself for a matching member and reads off THAT member; a SELF
+'                    source reads the bearing element's own attribute.
 '                    * CellText[pattern] - the full text (StringsInEl.GetConcatenatedText) of a cell in the
 '                        element's graphic group whose name matches pattern (wildcards OK; pattern may be
 '                        several ARES_VAR_DELIMITER ("|") - separated alternatives, e.g. "ASUF*|SP0*|Bois*" -
@@ -36,6 +36,23 @@
 '                        CellId are stable-pushed: a change on the matching cell (text/coord/level/color/
 '                        style/weight) is re-pushed to the OTHER members by the trigger-cell pass (see
 '                        below); CellId never needs a push (an ID cannot change).
+'                    * LvlColor[pattern] / LvlStyle[pattern] / LvlWeight[pattern] - same self-included
+'                        matching scan as CellColor/CellStyle/CellWeight, but the pattern matches the LEVEL
+'                        NAME of a group member instead of a cell's name (no element-type restriction - the
+'                        matching member can be ANY graphical element, e.g. a Line/Arc, not just a cell; this
+'                        is the whole point: covers a group whose authority is a plain geometry on a named
+'                        level, with no named cell). LvlColor/LvlWeight resolve MicroStation's own ByLevel
+'                        symbology: if the matching element's Color/LineWeight is the ByLevelColor/
+'                        ByLevelLineWeight sentinel, the value comes from that element's OWN Level
+'                        (Level.ElementColor / Level.ElementLineWeight, the library default); an explicit
+'                        Color/LineWeight is read as-is; the ByCellColor/ByCellLineWeight sentinel (derived
+'                        from an enclosing CELL, unrelated to the Level) has no Level-based answer and
+'                        yields "" rather than propagate the raw sentinel as if it were a real index (never
+'                        fabricate). LvlStyle does NOT attempt the same ByLevel/ByCell resolution
+'                        (ByLevelLineStyle/ByCellLineStyle are LineStyle OBJECTS with no reliable identity
+'                        comparison) - it reads the matching element's own LineStyle name directly, exactly
+'                        like CellStyle. All three are GROUP sources (self-included), stable-pushed like
+'                        their Cell* counterparts.
 '                    * Value[text] - a fixed literal value (Value[] empty = invalid). A SELF source.
 '                    * Coord / Coord[n] - the "X;Y" coordinates of the bearing element (n = decimals,
 '                        default = ARES_Round), via a deterministic anchor cascade. A SELF source
@@ -98,6 +115,19 @@
 '                    Branch 2 also calls PropertyCalculation.ProcessElement on each linked sibling DIRECTLY
 '                    (inline, not via the queue), exactly mirroring how Auto Lengths' own trigger-text work
 '                    already runs inline there regardless of Depth.
+'                - TRIGGER-LEVEL pass: the LvlColor/LvlStyle/LvlWeight mirror of the TRIGGER-CELL pass above,
+'                    DUPLICATED rather than folded in (IsTriggerLevel/PushLvlDerivedValuesToMembers) because
+'                    the trigger predicate differs structurally: a Cell* trigger must be a cell whose NAME
+'                    matches; a Lvl* trigger is ANY graphical element whose LEVEL matches (typically a plain
+'                    geometry - the reason Lvl* exists is precisely to cover a group with no named cell).
+'                    Same "not auto-re-queued" problem as a trigger cell (ElementChangeHandler.ProcessElement
+'                    calls this module unconditionally at Depth 0 on the CHANGED element only, before the
+'                    Branch1/Branch2 split - Branch 2's own re-queue is gated on ONLY_COLOR/HasGroupLengthRules
+'                    and does not fire on a bare color/level change), so the push is needed here too. Known,
+'                    accepted limitation: a Cell*-trigger and a Lvl*-trigger competing for the SAME target in
+'                    the SAME group are not cross-detected by the multi-trigger warning (each family only
+'                    scans its own kind) - the WRITE stays safe regardless (first-match-guarded, deterministic
+'                    by rule order), only the discoverability warning is silo'd per family.
 '
 '              Deletion is reconciled by the BEARING pass on the members ShouldQueueForDeletion already
 '              re-queues (Link.GetLink(BeforeChange)) - no pending-clear machinery (retired in 14-2).
@@ -115,8 +145,17 @@
 '              re-attaching rule cannot oscillate it (termination).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, CustomPropertyHandler,
-'               PropertyTagging, PropertyRendering, StringsInEl, Link, Length, LangManager,
+'               PropertyTagging, PropertyRendering, PropertyActuator, StringsInEl, Link, Length, LangManager,
 '               ErrorHandlerClass (global ErrorHandler)
+'
+' NOTE on the PropertyActuator dependency (added 2026-08-24): ApplyValueToSibling calls
+' PropertyActuator.ProcessElement on a sibling it just pushed a value to (see that function) - a two-way
+' coupling with PropertyActuator (which already depends on THIS module for IsTriggerCell/GetCalcRuleForProperty/
+' the CalcSource enum), mirroring the shape this module already has with PropertyRendering (NoteDirtyGroup
+' here, GetCalcRuleForProperty/GetExcludedSubIds the other way). Not a layering violation of "engines only
+' talk through ElementChangeHandler's sequencing": ApplyValueToSibling is the ONLY code that knows WHICH
+' sibling just received a fresh value, so it is the only viable call site - same reasoning that already
+' justified the Rendering coupling.
 
 Option Explicit
 
@@ -134,8 +173,9 @@ Private Const SOURCE_MAX_DECIMALS As Long = 254
 Private Const SOURCE_ROUND_CLAMP As Long = 15
 
 ' Source vocabulary of a calc rule's right-hand side (canonicalised, case-insensitive on input). csCell*
-' are GROUP sources (matching-cell scan, self-included); the rest are SELF sources (the bearing element's
-' own attribute) except csGroupLength (GROUP, scanned by TYPE not name pattern).
+' are GROUP sources (matching-cell scan, self-included); csLvl* are GROUP sources too (matching-LEVEL scan,
+' self-included, no element-type restriction); the rest are SELF sources (the bearing element's own
+' attribute) except csGroupLength (GROUP, scanned by TYPE not name pattern).
 Public Enum CalcSource
     csCellText
     csCellCoord
@@ -151,6 +191,9 @@ Public Enum CalcSource
     csCellStyle
     csWeight
     csCellWeight
+    csLvlColor
+    csLvlStyle
+    csLvlWeight
     csLength
     csGroupLength
 End Enum
@@ -171,18 +214,23 @@ Private mnCalcCount As Long
 Private mbCalcParsed As Boolean
 
 ' One-shot guards so the calculation statuses (CalculationValueRejected / CalculationNoTarget /
-' CalculationMultipleTriggers / CalculationMultipleGeometries) each surface only once per PROCESSED ELEMENT.
-' Reset at the start of each ProcessElement; the fault one (Rejected) also keeps its English log on every
-' occurrence; NoTarget and the two Multiple ones are user feedback (status-only, no log).
+' CalculationMultipleTriggers / CalculationMultipleLvlTriggers / CalculationMultipleGeometries) each surface
+' only once per PROCESSED ELEMENT. Reset at the start of each ProcessElement; the fault one (Rejected) also
+' keeps its English log on every occurrence; NoTarget and the three Multiple ones are user feedback
+' (status-only, no log).
 '
-' The two ambiguity guards are DELIBERATELY SEPARATE, not one shared flag: a group can hold competing
-' trigger CELLS and competing measurable GEOMETRIES at the same time, and those are two distinct
-' misconfigurations with two distinct answers. Sharing one flag would silently swallow whichever fired
-' second.
+' The ambiguity guards are DELIBERATELY SEPARATE, not one shared flag: a group can hold competing trigger
+' CELLS, competing trigger LEVEL-elements, and competing measurable GEOMETRIES all at the same time, and
+' those are three distinct misconfigurations with three distinct answers. CalculationMultipleTriggers and
+' CalculationMultipleLvlTriggers are also WORDED differently (the former says "cells", the latter does not -
+' a Cell*-trigger and a Lvl*-trigger competing for the SAME target would otherwise surface a message naming
+' cells for a collision that may involve no cell at all). Sharing one flag/message would silently swallow
+' whichever fired second, or say something false about what was actually detected.
 Private mbRejectedShown As Boolean
 Private mbNoTargetShown As Boolean
 Private mbMultiShown As Boolean
 Private mbMultiGeoShown As Boolean
+Private mbMultiLvlShown As Boolean
 
 '######################################################################################################################
 '                                          PUBLIC SURFACE
@@ -301,10 +349,14 @@ ErrorHandler:
 End Function
 
 ' Depth-0 hook, called from ElementChangeHandler.ProcessElement (before the graphic-group filter) when the
-' feature is enabled. Runs the two passes:
+' feature is enabled. Runs three passes:
 '   (1) BEARING pass - fill/recompute each calc-target property oEl carries from its first matching rule.
-'   (2) TRIGGER-CELL pass - if oEl is a trigger cell, push its text to the OTHER members carrying the fed
-'       target (the members not otherwise re-queued when only the cell's text changed).
+'   (2) TRIGGER-CELL pass - if oEl is a trigger cell, push its text/coord/level/color/style/weight to the
+'       OTHER members carrying the fed target (the members not otherwise re-queued when only the cell's own
+'       attribute changed).
+'   (3) TRIGGER-LEVEL pass - if oEl's Level matches a pushable Lvl* pattern, push its color/style/weight to
+'       the OTHER members carrying the fed target - same rationale as (2), for a level-bearing element of
+'       ANY type instead of a named cell.
 ' Every write routes through ApplyValueToSibling (frontier + compare-guard + transition guard + delegated
 ' detach). The one-shot status guards are reset here (per processed element).
 Public Sub ProcessElement(ByVal oEl As element)
@@ -314,6 +366,7 @@ Public Sub ProcessElement(ByVal oEl As element)
     mbNoTargetShown = False
     mbMultiShown = False
     mbMultiGeoShown = False
+    mbMultiLvlShown = False
 
     If oEl Is Nothing Then Exit Sub
 
@@ -323,6 +376,7 @@ Public Sub ProcessElement(ByVal oEl As element)
     BearingPass oEl
 
     If IsTriggerCell(oEl) Then PushCellDerivedValuesToMembers oEl
+    If IsTriggerLevel(oEl) Then PushLvlDerivedValuesToMembers oEl
     Exit Sub
 
 ErrorHandler:
@@ -642,6 +696,27 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
             r.SourceKind = csCellWeight
             r.SourceArg = pat
+        Case "LVLCOLOR"
+            If Not RequirePatternArg("LvlColor", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csLvlColor
+            r.SourceArg = pat
+        Case "LVLSTYLE"
+            If Not RequirePatternArg("LvlStyle", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csLvlStyle
+            r.SourceArg = pat
+        Case "LVLWEIGHT"
+            If Not RequirePatternArg("LvlWeight", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csLvlWeight
+            r.SourceArg = pat
         Case "VALUE"
             If Not bHasArg Then
                 ParseSource = "Value needs a [text]"
@@ -726,9 +801,9 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
         Case Else
             If Len(kw) = 0 Then
-                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             Else
-                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             End If
             Exit Function
     End Select
@@ -739,8 +814,8 @@ ErrorHandler:
 End Function
 
 ' Shared arity check for every GROUP source that takes a mandatory non-empty [pattern] (CellText/CellCoord/
-' CellId/CellLvl/CellColor/CellStyle/CellWeight). Returns False + sReason on a missing/empty pattern, True
-' + outPat (trimmed) on success.
+' CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight). Returns False + sReason on a
+' missing/empty pattern, True + outPat (trimmed) on success.
 Private Function RequirePatternArg(ByVal sKeyword As String, ByVal bHasArg As Boolean, ByVal arg As String, ByRef outPat As String, ByRef sReason As String) As Boolean
     RequirePatternArg = False
     outPat = Trim(arg)
@@ -819,6 +894,12 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
             SourceToCanonical = "CellStyle" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellWeight
             SourceToCanonical = "CellWeight" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csLvlColor
+            SourceToCanonical = "LvlColor" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csLvlStyle
+            SourceToCanonical = "LvlStyle" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+        Case csLvlWeight
+            SourceToCanonical = "LvlWeight" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csValue
             SourceToCanonical = "Value" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCoord
@@ -1002,6 +1083,8 @@ Private Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) A
     Select Case r.SourceKind
         Case csCellText, csCellCoord, csCellId, csCellLvl, csCellColor, csCellStyle, csCellWeight
             EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind)
+        Case csLvlColor, csLvlStyle, csLvlWeight
+            EvaluateSource = EvaluateGroupLvlSource(oEl, r.SourceArg, r.SourceKind)
         Case csValue
             EvaluateSource = r.SourceArg
         Case csCoord
@@ -1203,6 +1286,130 @@ ErrorHandler:
     IsMatchingCell = False
 End Function
 
+' True when el carries a Level whose name matches sPattern (MatchesAnyPattern - wildcards + "|"
+' alternation). Unlike IsMatchingCell, NO element-type restriction: a Level can be carried by any graphical
+' element (Line, Arc, Shape, cell, text...), not just a cell - the whole point of Lvl* sources is to cover
+' the case where the group's authority is a plain geometry on a named level, not a named cell.
+Private Function IsMatchingLevel(ByVal el As element, ByVal sPattern As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsMatchingLevel = False
+    If el Is Nothing Then Exit Function
+    If Not el.IsGraphical Then Exit Function
+    If el.Level Is Nothing Then Exit Function
+    IsMatchingLevel = MatchesAnyPattern(el.Level.Name, sPattern)
+    Exit Function
+
+ErrorHandler:
+    IsMatchingLevel = False
+End Function
+
+' Shared GROUP scan for every Lvl* source: scan the bearing element's graphic group INCLUDING itself
+' (Link.GetLink ReturnMe:=True) and return the FIRST element (scan order) whose LEVEL matches sPattern via
+' foundEl (Nothing when none); nMatch = total matching count, left to the caller (>= 2 drives the same
+' one-shot multi-trigger warning as Cell*). Mirrors FindFirstMatchingCellInGroup exactly, substituting
+' IsMatchingLevel for IsMatchingCell.
+Private Function FindFirstMatchingLevelInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundEl As element, ByRef nMatch As Long) As Boolean
+    On Error GoTo ErrorHandler
+
+    FindFirstMatchingLevelInGroup = False
+    Set foundEl = Nothing
+    nMatch = 0
+
+    Dim cands() As element
+    cands = Link.GetLink(oEl, True)
+
+    If HasElements(cands) Then
+        Dim i As Long
+        For i = LBound(cands) To UBound(cands)
+            If IsMatchingLevel(cands(i), sPattern) Then
+                nMatch = nMatch + 1
+                If foundEl Is Nothing Then Set foundEl = cands(i)
+            End If
+        Next i
+    Else
+        ' Ungrouped bearing element: it is its own (single) candidate.
+        If IsMatchingLevel(oEl, sPattern) Then
+            nMatch = 1
+            Set foundEl = oEl
+        End If
+    End If
+
+    FindFirstMatchingLevelInGroup = Not (foundEl Is Nothing)
+    Exit Function
+
+ErrorHandler:
+    FindFirstMatchingLevelInGroup = False
+    Set foundEl = Nothing
+    nMatch = 0
+End Function
+
+' Every Lvl* source evaluation, unified: find the FIRST group element whose Level matches sPattern
+' (self-included via FindFirstMatchingLevelInGroup) and read the attribute named by kind off THAT element
+' (ReadLvlSourceValue); "" when no element matches. >= 2 matches -> the multi-trigger warning (one-shot),
+' same shape as EvaluateGroupCellSource - but ReportMultipleLvlTriggers (own key), NOT ReportMultipleTriggers:
+' this ambiguity is between LEVEL-matching elements, which may involve no cell at all - the "cells" wording
+' of CalculationMultipleTriggers would be factually wrong here.
+Private Function EvaluateGroupLvlSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateGroupLvlSource = ""
+
+    Dim foundEl As element
+    Dim nMatch As Long
+    If FindFirstMatchingLevelInGroup(oEl, sPattern, foundEl, nMatch) Then
+        EvaluateGroupLvlSource = ReadLvlSourceValue(foundEl, kind)
+    End If
+    If nMatch >= 2 Then ReportMultipleLvlTriggers
+    Exit Function
+
+ErrorHandler:
+    EvaluateGroupLvlSource = ""
+End Function
+
+' Read ONE attribute off a SPECIFIC element (already located by FindFirstMatchingLevelInGroup, or as the
+' trigger element itself during the push pass). Never fabricates a value.
+'   - csLvlColor / csLvlWeight: the found element's Color/LineWeight is a THREE-state value in MicroStation -
+'     an explicit value, the ByLevelColor/ByLevelLineWeight sentinel ("derive from this element's Level"), or
+'     the ByCellColor/ByCellLineWeight sentinel ("derive from the CELL this element resides in", unrelated to
+'     its Level). Only the first two are resolvable here: ByLevel resolves via the found element's OWN Level
+'     (Level.ElementColor / Level.ElementLineWeight - the library default the Level Manager shows for
+'     "ByLevel"); ByCell has no Level-based answer, so it yields "" rather than propagate the raw sentinel
+'     Long as if it were a real colour/weight index (same "never fabricate" philosophy as a missing anchor).
+'   - csLvlStyle: deliberately NOT resolved the same way - ByLevelLineStyle/ByCellLineStyle are LineStyle
+'     OBJECTS, not Long sentinels, and no reliable identity comparison exists via mvba-docs (ByLevelLineStyle
+'     may not return a stable singleton instance). LvlStyle instead reads the found element's OWN LineStyle
+'     name directly, mirroring CellStyle exactly (no ByLevel/ByCell resolution at all).
+Private Function ReadLvlSourceValue(ByVal oFoundEl As element, ByVal kind As CalcSource) As String
+    On Error GoTo ErrorHandler
+
+    ReadLvlSourceValue = ""
+    Select Case kind
+        Case csLvlColor
+            If oFoundEl.Color = ByLevelColor Then
+                If Not oFoundEl.Level Is Nothing Then ReadLvlSourceValue = CStr(oFoundEl.Level.ElementColor)
+            ElseIf oFoundEl.Color = ByCellColor Then
+                ReadLvlSourceValue = ""                ' not resolvable from the Level - never fabricate
+            Else
+                ReadLvlSourceValue = CStr(oFoundEl.Color)
+            End If
+        Case csLvlStyle
+            If Not oFoundEl.LineStyle Is Nothing Then ReadLvlSourceValue = oFoundEl.LineStyle.Name
+        Case csLvlWeight
+            If oFoundEl.LineWeight = ByLevelLineWeight Then
+                If Not oFoundEl.Level Is Nothing Then ReadLvlSourceValue = CStr(oFoundEl.Level.ElementLineWeight)
+            ElseIf oFoundEl.LineWeight = ByCellLineWeight Then
+                ReadLvlSourceValue = ""                ' not resolvable from the Level - never fabricate
+            Else
+                ReadLvlSourceValue = CStr(oFoundEl.LineWeight)
+            End If
+    End Select
+    Exit Function
+
+ErrorHandler:
+    ReadLvlSourceValue = ""
+End Function
+
 '######################################################################################################################
 '                                          ENGINE - TRIGGER-CELL PASS
 '######################################################################################################################
@@ -1328,6 +1535,172 @@ Private Function AnyPushableSourcePatternMatches(ByVal sName As String) As Boole
 
 ErrorHandler:
     AnyPushableSourcePatternMatches = False
+End Function
+
+'######################################################################################################################
+'                                          ENGINE - TRIGGER-LEVEL PASS
+'######################################################################################################################
+
+' Parallel trigger/push pass for Lvl* sources, deliberately DUPLICATED rather than folded into the Cell*
+' functions above: the trigger predicate differs structurally (a Cell* trigger must be a CELL whose NAME
+' matches; a Lvl* trigger is ANY graphical element whose LEVEL matches - typically a plain geometry, since
+' that is the whole reason Lvl* exists). Folding the two would either silently stop pushing for a non-cell
+' trigger (the Lvl* main use case) or silently start firing the cell pass for a matching level - two
+' different, unrelated misconfigurations.
+'
+' KNOWN LIMITATION (accepted, not a safety gap): GroupHasCompetingLvlTrigger below mirrors
+' GroupHasCompetingTrigger and only detects a SECOND LEVEL-trigger competing for the same target - it does
+' NOT cross-check against a competing CELL-trigger (and vice-versa). If a Cell* rule and a Lvl* rule both
+' feed the SAME target property in the SAME group, the first-match guard in both push functions
+' (FindCalcRuleForProperty(P, m) = ri) still makes the WRITE deterministic and safe (governed by rule
+' order, exactly like two competing Cell* rules today) - only the discoverability warning
+' (CalculationMultipleTriggers) is silo'd per trigger family and will not fire for this specific cross-type
+' combination. Accepted for this lot: extending both detectors to scan across families is a real cost for a
+' configuration that is a new combination of two features that did not coexist before.
+
+' True for the Lvl* source kinds (LvlColor/LvlStyle/LvlWeight): a change on the matching LEVEL-bearing
+' element can leave its group siblings un-re-queued (see the parallel Cell* rationale above), so the
+' trigger-level pass must push. Unlike Cell*, there is no LvlId source to exclude - all three Lvl* kinds
+' are pushable.
+Private Function IsPushableLvlSourceKind(ByVal kind As CalcSource) As Boolean
+    IsPushableLvlSourceKind = (kind = csLvlColor Or kind = csLvlStyle Or kind = csLvlWeight)
+End Function
+
+' Trigger test, mirrors IsTriggerCell but for a LEVEL match instead of a CELL-name match: oEl is a trigger
+' when its OWN Level's name matches a pushable Lvl* source's pattern of at least one calc rule. NO element-
+' type restriction (unlike IsTriggerCell's IsCellElement gate) - a Line/Arc on a matching level is a trigger
+' just as much as a cell would be.
+Public Function IsTriggerLevel(ByVal oEl As element) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsTriggerLevel = False
+    If oEl Is Nothing Then Exit Function
+    If Not oEl.IsGraphical Then Exit Function
+    If oEl.Level Is Nothing Then Exit Function
+    If oEl.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
+
+    EnsureCalcRulesParsed
+    If mnCalcCount = 0 Then Exit Function
+
+    IsTriggerLevel = AnyPushableLvlSourcePatternMatches(oEl.Level.Name)
+    Exit Function
+
+ErrorHandler:
+    IsTriggerLevel = False
+End Function
+
+' Trigger-level pass: oTriggerEl is a trigger whose color/style/weight may have changed while its group
+' members were NOT re-queued. Mirrors PushCellDerivedValuesToMembers exactly, substituting the level-name
+' match for the cell-name match and ReadLvlSourceValue for ReadCellSourceValue.
+Private Sub PushLvlDerivedValuesToMembers(ByVal oTriggerEl As element)
+    On Error GoTo ErrorHandler
+
+    Dim members() As element
+    members = Link.GetLink(oTriggerEl)             ' OTHER members (self handled by the bearing pass)
+    If Not HasElements(members) Then Exit Sub
+
+    Dim sLevelName As String
+    sLevelName = oTriggerEl.Level.Name
+
+    ' Lazy per-SourceKind cache, indexed by the CalcSource enum ordinal (csGroupLength is the highest).
+    Dim cacheVal(0 To csGroupLength) As String
+    Dim cacheReady(0 To csGroupLength) As Boolean
+
+    Dim i As Long, ri As Long, kIdx As Long
+    Dim m As element
+    Dim P As String
+    Dim nCarried As Long
+    nCarried = 0
+    For i = LBound(members) To UBound(members)
+        Set m = members(i)
+        If Not m Is Nothing Then
+            For ri = 0 To mnCalcCount - 1
+                If IsPushableLvlSourceKind(mCalcRules(ri).SourceKind) Then
+                    If MatchesAnyPattern(sLevelName, mCalcRules(ri).SourceArg) Then
+                        P = mCalcRules(ri).TargetProp
+                        If CustomPropertyHandler.IsItemAttachedToElement(m, P) Then
+                            nCarried = nCarried + 1
+                            ' First-match guard (AC3): push only where THIS rule governs m's P.
+                            If FindCalcRuleForProperty(P, m) = ri Then
+                                kIdx = CLng(mCalcRules(ri).SourceKind)
+                                If Not cacheReady(kIdx) Then
+                                    cacheVal(kIdx) = ReadLvlSourceValue(oTriggerEl, mCalcRules(ri).SourceKind)
+                                    cacheReady(kIdx) = True
+                                End If
+                                ApplyValueToSibling m, P, cacheVal(kIdx)
+                            End If
+                        End If
+                    End If
+                End If
+            Next ri
+        End If
+    Next i
+
+    ' Discoverability: siblings match a rule but NONE carry its target -> attach never happened.
+    If nCarried = 0 Then ReportNoTarget
+
+    ' Multi-trigger: another LEVEL-matching element in the group also feeds one of the pushed targets
+    ' (last-processed wins). Own DISTINCT status (ReportMultipleLvlTriggers, not ReportMultipleTriggers):
+    ' this collision may be pure Lvl-vs-Lvl, involving no cell at all - the message must not claim "cells".
+    ' See the KNOWN LIMITATION note above the section header - cross-family (Cell-vs-Lvl) competition is
+    ' still not detected here (a distinct, accepted gap, not this wording fix).
+    If GroupHasCompetingLvlTrigger(oTriggerEl) Then ReportMultipleLvlTriggers
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.PushLvlDerivedValuesToMembers"
+End Sub
+
+' True when oTriggerEl's graphic group holds at least one OTHER element whose Level also matches some
+' pushable Lvl* source's pattern - the multi-trigger condition, mirrors GroupHasCompetingTrigger. NO
+' element-type restriction (mirrors IsTriggerLevel).
+Private Function GroupHasCompetingLvlTrigger(ByVal oTriggerEl As element) As Boolean
+    On Error GoTo ErrorHandler
+
+    GroupHasCompetingLvlTrigger = False
+
+    Dim members() As element
+    members = Link.GetLink(oTriggerEl)             ' OTHER members only
+    If Not HasElements(members) Then Exit Function
+
+    Dim i As Long
+    For i = LBound(members) To UBound(members)
+        If Not members(i) Is Nothing Then
+            If members(i).IsGraphical Then
+                If Not members(i).Level Is Nothing Then
+                    If AnyPushableLvlSourcePatternMatches(members(i).Level.Name) Then
+                        GroupHasCompetingLvlTrigger = True
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    GroupHasCompetingLvlTrigger = False
+End Function
+
+' True when sLevelName matches a pushable Lvl* source's pattern of at least one calc rule (assumes the
+' cache is parsed). Mirrors AnyPushableSourcePatternMatches.
+Private Function AnyPushableLvlSourcePatternMatches(ByVal sLevelName As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    AnyPushableLvlSourcePatternMatches = False
+    Dim i As Long
+    For i = 0 To mnCalcCount - 1
+        If IsPushableLvlSourceKind(mCalcRules(i).SourceKind) Then
+            If MatchesAnyPattern(sLevelName, mCalcRules(i).SourceArg) Then
+                AnyPushableLvlSourcePatternMatches = True
+                Exit Function
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    AnyPushableLvlSourcePatternMatches = False
 End Function
 
 '######################################################################################################################
@@ -1709,6 +2082,19 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
                 ' group itself behind its own IsGraphical guard, because reading .GraphicGroup here would
                 ' RAISE on a non-graphical element and pollute this handler on every write.
                 PropertyRendering.NoteDirtyGroup s
+                ' Same problem, for the ACTUATOR (epic 16): s's pilot property (e.g. ARES_Color) is now
+                ' fresh, but s itself was never the element MicroStation queued - only the trigger element
+                ' was - so PropertyActuator.ProcessElement never runs on s this pass, and its Color/Level
+                ' attribute stays stale until s is directly touched (the bug Asketyll hit in real use,
+                ' 2026-08-24). Unlike the renderer's NoteDirtyGroup/DrainRepaintHop, no batching/FreshHandle
+                ' machinery is needed here: the actuator is a pure SELF reaction with no group scan of its
+                ' own (module header), and s is the SAME live handle just written through, not a
+                ' separately-fetched one - so an immediate INLINE call is sufficient and correct, mirroring
+                ' Branch 2's inline PropertyCalculation.ProcessElement call for GroupLength siblings
+                ' (ElementChangeHandler.cls) for the identical underlying reason: the queue-add for s would
+                ' be wiped before a fresh Depth-0 pass ever reached it. Self-guarded (IsEnabled/IsLocked/
+                ' trigger-cell exclusion all re-checked inside ProcessElement), so unconditional here is safe.
+                PropertyActuator.ProcessElement s
             Else
                 ReportRejected
             End If
@@ -1734,7 +2120,14 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
             ' or otherwise constrained property that rejects the clear leaves the value where it was, and a
             ' rejected write warrants no repaint. The detach branch has no return to test (DetachRuleProperty
             ' is a Sub), so it stays a transition.
-            If bEmptied Then PropertyRendering.NoteDirtyGroup s
+            If bEmptied Then
+                PropertyRendering.NoteDirtyGroup s
+                ' Symmetry with the non-empty branch above: ActuateColor/ActuateLevel no-op on an empty
+                ' pilot value (Null/"" -> Exit Sub before any write), so this is harmless: it just lets the
+                ' actuator's OWN state (one-shot status flags) reset for s promptly rather than at its next
+                ' unrelated touch.
+                PropertyActuator.ProcessElement s
+            End If
         End If
     End If
     Exit Function
@@ -1791,6 +2184,20 @@ Private Sub ReportMultipleTriggers()
     If Not mbMultiShown Then
         LangManager.ShowStatusT "CalculationMultipleTriggers"
         mbMultiShown = True
+    End If
+End Sub
+
+' Surface CalculationMultipleLvlTriggers ONCE per processed element (deduped via its OWN mbMultiLvlShown).
+' Own DISTINCT key from ReportMultipleTriggers, not a reuse: CalculationMultipleTriggers' wording names
+' "cells", but a Lvl*-trigger collision (GroupHasCompetingLvlTrigger, the pure Lvl-vs-Lvl case - the MAIN
+' use case of Lvl* sources) may involve no cell at all, so reusing that message would say something false
+' about what was just detected - the same trap CalculationMultipleGeometries below already avoids for
+' geometries. USER FEEDBACK, status-only, no English .log.
+Private Sub ReportMultipleLvlTriggers()
+    On Error Resume Next
+    If Not mbMultiLvlShown Then
+        LangManager.ShowStatusT "CalculationMultipleLvlTriggers"
+        mbMultiLvlShown = True
     End If
 End Sub
 

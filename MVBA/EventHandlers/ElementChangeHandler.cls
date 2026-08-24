@@ -1,12 +1,12 @@
 ' Class Module: ElementChangeHandler
 ' Description: Handles element change events for colour synchronisation, property tagging, property
-'              calculation and property rendering (capture + deferred idle processing).
+'              calculation, property actuation and property rendering (capture + deferred idle processing).
 '              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
 '              Includes automatic detection of bulk operations using frequency-based detection.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
-'               PropertyCalculation, PropertyRendering
+'               PropertyCalculation, PropertyActuator, PropertyRendering
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -246,6 +246,15 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         ' filter. Ordered AFTER PropertyTagging so both features' Depth-0 work runs.
         If PropertyCalculation.IsEnabled Then
             PropertyCalculation.ProcessElement oElement
+        End If
+        ' Property Actuator runs right after Calculation and BEFORE Rendering: it is a pure SELF reaction
+        ' (reads its own pilot property, already fresh from the Calculation pass above via CellColor/CellLvl
+        ' stable-push, and reflects it onto its own Color/Level) - so it needs the value Calculation just
+        ' computed, and Rendering (if a token displays that same property) should see the freshly-actuated
+        ' state in the SAME pass. No group scan of its own: PropertyCalculation already keeps every attached
+        ' member's pilot property current; see epic 16 cahier des charges §3.1/§4.2/§4.3.
+        If PropertyActuator.IsEnabled Then
+            PropertyActuator.ProcessElement oElement
         End If
         ' Property Rendering closes the Depth-0 sequence: tagging attaches, calculation fills, rendering
         ' writes the text - so an element added to a labelled group is attached, valued AND displayed in
@@ -588,6 +597,7 @@ Private Function IsAnyFeatureEnabled() As Boolean
     Dim autoPropertiesEnabled As Boolean
     Dim calcEnabled As Boolean
     Dim renderEnabled As Boolean
+    Dim actuatorEnabled As Boolean
 
     ' Config values are stored as Strings, convert to Boolean with CBool
     onlyColorEnabled = CBool(ARESConfig.ARES_ONLY_COLOR.Value)
@@ -595,8 +605,10 @@ Private Function IsAnyFeatureEnabled() As Boolean
     calcEnabled = CBool(ARESConfig.ARES_PROPERTY_CALC.Value)
     ' Without this term a render-ONLY configuration never reaches ProcessElement and the feature is inert.
     renderEnabled = CBool(ARESConfig.ARES_TEXT_RENDER.Value)
+    ' Without this term an actuator-ONLY configuration never reaches ProcessElement and the feature is inert.
+    actuatorEnabled = CBool(ARESConfig.ARES_ACTUATE_COLOR.Value) Or CBool(ARESConfig.ARES_ACTUATE_LEVEL.Value)
 
-    IsAnyFeatureEnabled = onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled Or renderEnabled
+    IsAnyFeatureEnabled = onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled Or renderEnabled Or actuatorEnabled
 End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)
@@ -650,7 +662,11 @@ Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
     ' but not free. A narrower check (limit to properties Calc/Render actually target) was considered and
     ' explicitly declined - the O(1) simplicity of "*" was judged worth the wider net. This is a DELIBERATE
     ' choice, not an oversight - do not narrow it without Asketyll's sign-off.
-    If PropertyCalculation.IsEnabled Or PropertyRendering.IsEnabled Then
+    ' PropertyActuator (epic 16) is also a real downstream consumer of an already-attached property: an
+    ' UNGROUPED element carrying its pilot property (attached by hand, or by a since-disabled/edited tag
+    ' rule) is a legitimate SELF-actuation target - it needs no graphic group at all, unlike Calculation's
+    ' Cell* sources. Added to the SAME OR term for the SAME reason Calculation/Rendering are, not a new gate.
+    If PropertyCalculation.IsEnabled Or PropertyRendering.IsEnabled Or PropertyActuator.IsEnabled Then
         On Error Resume Next
         oElement.Items.Refresh ARESConstants.ARES_NAME_LIBRARY_TYPE
         ShouldQueueElement = oElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, "*")

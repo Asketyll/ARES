@@ -107,6 +107,10 @@ Public ARES_PROPERTY_CALC As ARES_MS_VAR_Class 'Default Value: False            
 Public ARES_CALC_DETACH_EMPTY As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in PropertyRendering module — master switch for the text-render engine: a "Prop[Name]" token typed in a text is FULLY REPLACED by that custom property's value, the binding living in hidden ARES_SYS/ARES_Render metadata.
 Public ARES_TEXT_RENDER As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
+' Used in PropertyActuator module — master switch for the Color-actuation engine (SELF reaction: reflects the fixed, reserved ARES_Color property's value onto the element's own Color; pilot property is not configurable, see ARESConstants.ARES_PROP_COLOR).
+Public ARES_ACTUATE_COLOR As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
+' Used in PropertyActuator module — master switch for the Level-actuation engine (SELF reaction: reflects the fixed, reserved ARES_Lvl property's value onto the element's own Level; pilot property is not configurable, see ARESConstants.ARES_PROP_LVL).
+Public ARES_ACTUATE_LEVEL As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in FormPlacement module — remembers each option form's last on-screen position. INTERNAL, managed automatically (do not edit by hand).
 Public ARES_FORM_LAYOUT As ARES_MS_VAR_Class 'Default Value: (empty)   <FormName>=<xPct>:<yPct> entries delimited by | (ARES_VAR_DELIMITER)
 
@@ -179,6 +183,8 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_PROPERTY_CALC = CreateConfigVar("ARES_Property_Calc", "True")
     Set ARES_CALC_DETACH_EMPTY = CreateConfigVar("ARES_Calc_Detach_Empty", "False")
     Set ARES_TEXT_RENDER = CreateConfigVar("ARES_Text_Render", "True")
+    Set ARES_ACTUATE_COLOR = CreateConfigVar("ARES_Actuate_Color", "False")
+    Set ARES_ACTUATE_LEVEL = CreateConfigVar("ARES_Actuate_Level", "False")
     Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
     CreateConfigVariables = True
     Exit Function

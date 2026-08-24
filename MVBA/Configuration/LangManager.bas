@@ -160,9 +160,10 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_CalculationValueRejected", "ARES: Property calculation - value rejected by the target property"
     moTranslations.Add "EN_CalculationNoTarget", "ARES: Property calculation - no group member carries the target property; enable Property Tagging and check the property is attached (DGNLib)"
     moTranslations.Add "EN_CalculationMultipleTriggers", "ARES: Property calculation - several trigger cells in this group; the last-modified one sets the value"
+    moTranslations.Add "EN_CalculationMultipleLvlTriggers", "ARES: Property calculation - several level-matching trigger elements in this group; the last-modified one sets the value"
     moTranslations.Add "EN_CalculationMultipleGeometries", "ARES: Property calculation - several measurable geometries in this group; the first one found sets the length"
-    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rule invalid, not saved (expected Prop[name][&...]=Source; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[pattern] / Value[text] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
-    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[pattern] | Value[text] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. pattern may use '|' for several name alternatives, e.g. ASUF*|SP0*. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
+    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rule invalid, not saved (expected Prop[name][&...]=Source; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[pattern] / Value[text] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
+    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[pattern] | Value[text] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. pattern may use '|' for several name alternatives, e.g. ASUF*|SP0*. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "EN_PropertyLibraryNotFound", "ARES: Custom properties - the ARES DGNLib was not found (check MS_DGNLIBLIST)"
     ' Tooltips - Zoning
@@ -213,6 +214,11 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_RenderDisabled", "ARES: Property rendering is disabled (ARES_Text_Render)"
     moTranslations.Add "EN_RenderValueGoverned", "ARES: Property rendering - the value of {0} is set by a calc rule; editing the text will not change it"
 
+    ' --- Property Actuator (epic 16) ---
+    moTranslations.Add "EN_ActuatorColorInvalid", "ARES: Property actuator - the pilot property's value is not a valid color index"
+    moTranslations.Add "EN_ActuatorLevelInvalid", "ARES: Property actuator - the pilot property's value does not name an existing, unlocked level"
+    moTranslations.Add "EN_ActuatorSelfRatchetRefused", "ARES: Property actuator - refused: the pilot property is itself computed from this same attribute"
+
     ' Property Rendering options form (epic 15). The colour-sync and ATLAS label settings moved here from
     ' the Auto Lengths options form: all three serve DISPLAY, and CellRedreaw - the sole consumer of the two
     ' ATLAS settings - is called by the renderer's only text write.
@@ -225,6 +231,11 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_RenderingGUIOptionsCell_LabelTip", "Rebuild the leader-label cell geometry once its text has changed, so the frame follows the new text (ARES_Update_ATLASCellLabel)."
     moTranslations.Add "EN_RenderingGUIOptionsEdit_Cells_List_CommandCaption", "Edit ATLAS cell names"
     moTranslations.Add "EN_RenderingGUIOptionsEdit_Cells_List_CommandTip", "Cell names treated as ATLAS labels, separated by | (ARES_Cell_Is_Label_Name). Enter commits, Esc cancels."
+    moTranslations.Add "EN_RenderingGUIOptionsActuatorSection_LabelCaption", "Property Actuator (paints Color/Level)"
+    moTranslations.Add "EN_RenderingGUIOptionsActuateColor_LabelCaption", "Paint element Color from ARES_Color"
+    moTranslations.Add "EN_RenderingGUIOptionsActuateColor_LabelTip", "An element's own Color follows its ARES_Color property, whenever they differ (ARES_Actuate_Color). Attach ARES_Color to your elements via a PropertyTagging rule (e.g. Lvl[WALLS]=Commune|ARES_Color)."
+    moTranslations.Add "EN_RenderingGUIOptionsActuateLevel_LabelCaption", "Paint element Level from ARES_Lvl"
+    moTranslations.Add "EN_RenderingGUIOptionsActuateLevel_LabelTip", "An element's own Level follows its ARES_Lvl property, whenever they differ (ARES_Actuate_Level). Attach ARES_Lvl to your elements via a PropertyTagging rule (e.g. Lvl[WALLS]=Commune|ARES_Lvl)."
 
     ' Add French translations
     moTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -364,9 +375,10 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_CalculationValueRejected", "ARES : Calcul de propriété - valeur refusée par la propriété cible"
     moTranslations.Add "FR_CalculationNoTarget", "ARES : Calcul de propriété - aucun membre du groupe ne porte la propriété cible ; activez l'étiquetage de propriété et vérifiez que la propriété est attachée (DGNLib)"
     moTranslations.Add "FR_CalculationMultipleTriggers", "ARES : Calcul de propriété - plusieurs cellules déclencheuses dans ce groupe ; la dernière modifiée impose la valeur"
+    moTranslations.Add "FR_CalculationMultipleLvlTriggers", "ARES : Calcul de propriété - plusieurs éléments déclencheurs (niveau correspondant) dans ce groupe ; le dernier modifié impose la valeur"
     moTranslations.Add "FR_CalculationMultipleGeometries", "ARES : Calcul de propriété - plusieurs géométries mesurables dans ce groupe ; la première trouvée impose la longueur"
-    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règle de calcul invalide, non enregistrée (attendu Prop[nom][&...]=Source ; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[motif] / Value[texte] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
-    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight[motif] | Value[texte] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. Le motif peut utiliser '|' pour plusieurs alternatives de nom, ex. ASUF*|SP0*. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
+    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règle de calcul invalide, non enregistrée (attendu Prop[nom][&...]=Source ; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[motif] / Value[texte] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
+    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[motif] | Value[texte] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. Le motif peut utiliser '|' pour plusieurs alternatives de nom, ex. ASUF*|SP0*. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "FR_PropertyLibraryNotFound", "ARES : Propriétés personnalisées - DGNLib ARES introuvable (vérifiez MS_DGNLIBLIST)"
     ' Tooltips - Zoning
@@ -417,6 +429,11 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_RenderDisabled", "ARES : Le rendu de propriété est désactivé (ARES_Text_Render)"
     moTranslations.Add "FR_RenderValueGoverned", "ARES : Rendu de propriété - la valeur de {0} est imposée par une règle de calcul ; modifier le texte ne la changera pas"
 
+    ' --- Actionneur de propriété (epic 16) ---
+    moTranslations.Add "FR_ActuatorColorInvalid", "ARES : Actionneur de propriété - la valeur de la propriété pilote n'est pas un indice de couleur valide"
+    moTranslations.Add "FR_ActuatorLevelInvalid", "ARES : Actionneur de propriété - la valeur de la propriété pilote ne désigne pas un niveau existant et non verrouillé"
+    moTranslations.Add "FR_ActuatorSelfRatchetRefused", "ARES : Actionneur de propriété - refusé : la propriété pilote est elle-même calculée à partir de ce même attribut"
+
     ' Formulaire d'options du Rendu de propriétés (epic 15)
     moTranslations.Add "FR_RenderingGUIOptionsCaption", "Options du Rendu de propriétés"
     moTranslations.Add "FR_RenderingGUIOptionsMain_LabelCaption", "Activer le rendu de propriétés"
@@ -427,6 +444,11 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_RenderingGUIOptionsCell_LabelTip", "Reconstruit la géométrie de la cellule d'étiquette une fois son texte modifié, pour que le cadre suive le nouveau texte (ARES_Update_ATLASCellLabel)."
     moTranslations.Add "FR_RenderingGUIOptionsEdit_Cells_List_CommandCaption", "Modifier les noms de cellules ATLAS"
     moTranslations.Add "FR_RenderingGUIOptionsEdit_Cells_List_CommandTip", "Noms de cellules traitées comme étiquettes ATLAS, séparés par | (ARES_Cell_Is_Label_Name). Entrée valide, Échap annule."
+    moTranslations.Add "FR_RenderingGUIOptionsActuatorSection_LabelCaption", "Actionneur de propriété (peint couleur/niveau)"
+    moTranslations.Add "FR_RenderingGUIOptionsActuateColor_LabelCaption", "Peindre la couleur de l'élément depuis ARES_Color"
+    moTranslations.Add "FR_RenderingGUIOptionsActuateColor_LabelTip", "La couleur propre de l'élément suit sa propriété ARES_Color, dès qu'elles diffèrent (ARES_Actuate_Color). Attachez ARES_Color à vos éléments via une règle PropertyTagging (ex. Lvl[WALLS]=Commune|ARES_Color)."
+    moTranslations.Add "FR_RenderingGUIOptionsActuateLevel_LabelCaption", "Peindre le niveau de l'élément depuis ARES_Lvl"
+    moTranslations.Add "FR_RenderingGUIOptionsActuateLevel_LabelTip", "Le niveau propre de l'élément suit sa propriété ARES_Lvl, dès qu'ils diffèrent (ARES_Actuate_Level). Attachez ARES_Lvl à vos éléments via une règle PropertyTagging (ex. Lvl[WALLS]=Commune|ARES_Lvl)."
 
     IsInit = True
     Exit Sub

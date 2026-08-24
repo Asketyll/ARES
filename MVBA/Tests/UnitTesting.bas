@@ -28,6 +28,7 @@ Private Enum TestID
     tidCalcRuleValidation = 20
     tidPropertyTaggingPull = 21
     tidPropertyRendering = 22
+    tidPropertyActuator = 23
 End Enum
 
 ' Test result structure
@@ -84,6 +85,7 @@ Public Sub RunAllTests()
     RunTest "Calc Rule Validation", tidCalcRuleValidation
     RunTest "Property Tagging Pull", tidPropertyTaggingPull
     RunTest "Property Rendering", tidPropertyRendering
+    RunTest "Property Actuator", tidPropertyActuator
 
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -165,8 +167,11 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidPropertyRendering
             TestName = "Property Rendering"
             Result = PropertyRenderingTest()
+        Case tidPropertyActuator
+            TestName = "Property Actuator"
+            Result = PropertyActuatorTest()
         Case Else
-            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-22", vbCritical, "Test Error"
+            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-23", vbCritical, "Test Error"
             Exit Sub
     End Select
     
@@ -1519,6 +1524,37 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If Not PropertyCalculation.IsTriggerCell(cIdOnly2) Then TestsPassed = TestsPassed + 1    ' CellId-only -> not a trigger
 
+    ' --- LvlColor / LvlStyle / LvlWeight: GROUP sources - a member resolves to the MATCHING-LEVEL element's
+    '     own attributes (Level-NAME scan, NO element-type restriction - the authority here is a plain LINE,
+    '     not a cell). LvlColor/LvlWeight expected values are computed via the SAME ByLevel/ByCell sentinel
+    '     resolution as ReadLvlSourceValue (ExpectedLvlColorValue/ExpectedLvlWeightValue below), mirroring
+    '     the live element rather than assuming its symbology - epic 16 follow-up, LvlColor feasibility.
+    Dim oLvlAuth As Level
+    Set oLvlAuth = GetElements.GetLevel("ARES_LvlCalcTest_Lvl", True)
+    If Not oLvlAuth Is Nothing Then
+        ARESConfig.ARES_CALC_RULES.Value = "Prop[LCol]=LvlColor[ARES_LvlCalcTest_Lvl] ; Prop[LSty]=LvlStyle[ARES_LvlCalcTest_Lvl] ; Prop[LWgt]=LvlWeight[ARES_LvlCalcTest_Lvl]"
+        PropertyCalculation.RefreshCalcRules
+        Dim lLvlAuth As element, lLvlMember As element
+        Set lLvlAuth = CreatePullTestLine(7460, oLvlAuth, Point3dFromXYZ(8300, 0, 0), Point3dFromXYZ(8400, 0, 0))
+        Set lLvlMember = CreateGroupedTestLine(7460, Point3dFromXYZ(8410, 0, 0), Point3dFromXYZ(8500, 0, 0))
+        Dim sExpLvlSty As String
+        sExpLvlSty = "" : If Not lLvlAuth.LineStyle Is Nothing Then sExpLvlSty = lLvlAuth.LineStyle.Name
+        TotalTests = TotalTests + 1
+        If RVEq("LCol", lLvlMember, ExpectedLvlColorValue(lLvlAuth)) Then TestsPassed = TestsPassed + 1
+        TotalTests = TotalTests + 1
+        If RVEq("LSty", lLvlMember, sExpLvlSty) Then TestsPassed = TestsPassed + 1
+        TotalTests = TotalTests + 1
+        If RVEq("LWgt", lLvlMember, ExpectedLvlWeightValue(lLvlAuth)) Then TestsPassed = TestsPassed + 1
+
+        ' --- IsTriggerLevel: an element ON the matching level IS a trigger (pushable), regardless of type
+        '     (a plain line here, unlike IsTriggerCell's cell-only gate); one on an unrelated (active) level
+        '     is not ---
+        TotalTests = TotalTests + 1
+        If PropertyCalculation.IsTriggerLevel(lLvlAuth) Then TestsPassed = TestsPassed + 1
+        TotalTests = TotalTests + 1
+        If Not PropertyCalculation.IsTriggerLevel(lLvlMember) Then TestsPassed = TestsPassed + 1
+    End If
+
     ' --- Length: SELF source, ONLY when the bearing element is itself length-capable (a 100-unit line);
     '     "" (never a fabricated 0) on a non-length-capable bearing element (a cell) ---
     ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length"
@@ -1596,9 +1632,11 @@ Private Function PropertyCalculationTest() As Boolean
     If Not PropertyCalculation.HasGroupLengthRules Then TestsPassed = TestsPassed + 1
 
     ' --- ProcessElement smoke on the new source kinds: no crash, including the CellColor trigger push
-    '     (cColorTrig, group 7441) and a GroupLength bearing recompute (cGLen, group 7450) ---
+    '     (cColorTrig, group 7441), a GroupLength bearing recompute (cGLen, group 7450), and the LvlColor
+    '     trigger push (lLvlAuth, group 7460) ---
     PropertyCalculation.ProcessElement cColorTrig
     PropertyCalculation.ProcessElement cGLen
+    If Not oLvlAuth Is Nothing Then PropertyCalculation.ProcessElement lLvlAuth
     TotalTests = TotalTests + 1
     If bSmoke Then TestsPassed = TestsPassed + 1
 
@@ -2026,6 +2064,32 @@ Private Function RVContains(ByVal P As String, ByVal el As element, ByVal sSub A
     v = PropertyCalculation.ResolvePropertyValue(P, el, bHas)
     If bHas Then
         If InStr(v, sSub) > 0 Then RVContains = True
+    End If
+End Function
+
+' Expected value for LvlColor[pattern] on el, mirroring ReadLvlSourceValue's csLvlColor branch exactly (the
+' SAME ByLevel/ByCell sentinel resolution) so the assertion reflects the live element's actual symbology
+' state rather than assuming it is never ByLevel/ByCell.
+Private Function ExpectedLvlColorValue(ByVal el As element) As String
+    ExpectedLvlColorValue = ""
+    If el.Color = ByLevelColor Then
+        If Not el.Level Is Nothing Then ExpectedLvlColorValue = CStr(el.Level.ElementColor)
+    ElseIf el.Color = ByCellColor Then
+        ExpectedLvlColorValue = ""
+    Else
+        ExpectedLvlColorValue = CStr(el.Color)
+    End If
+End Function
+
+' Expected value for LvlWeight[pattern] on el, mirroring ReadLvlSourceValue's csLvlWeight branch.
+Private Function ExpectedLvlWeightValue(ByVal el As element) As String
+    ExpectedLvlWeightValue = ""
+    If el.LineWeight = ByLevelLineWeight Then
+        If Not el.Level Is Nothing Then ExpectedLvlWeightValue = CStr(el.Level.ElementLineWeight)
+    ElseIf el.LineWeight = ByCellLineWeight Then
+        ExpectedLvlWeightValue = ""
+    Else
+        ExpectedLvlWeightValue = CStr(el.LineWeight)
     End If
 End Function
 
@@ -2464,6 +2528,178 @@ ErrorHandler:
         BootLoader.ErrorHandler.HandleError sErrDesc, lErrNum, sErrSrc, "PropertyRenderingTest"
     End If
     PropertyRenderingTest = False
+End Function
+
+' Test 23: PropertyActuator (epic 16) - SELF reaction, own pilot property -> own Color/Level attribute.
+' Pilot properties are FIXED and RESERVED (ARESConstants.ARES_PROP_COLOR = "ARES_Color", revised
+' 2026-08-20 - see cahier des charges §8), not a name drawn from the deployed DGNLib's property list.
+' N/A-skips (returns True) when the ARES DGNLib is unavailable OR does not define ARES_Color, per the
+' CustomPropertyHandlerTest convention - this test cannot fabricate a reserved ItemType that is not there.
+' Every touched config var is saved/restored on the nominal path AND in ErrorHandler.
+Private Function PropertyActuatorTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+
+    Dim names() As String
+    names = CustomPropertyHandler.GetCustomPropertyNames()
+    If UBound(names) < LBound(names) Then
+        PropertyActuatorTest = True     ' no DGNLib deployed -> nothing to test, N/A pass
+        Exit Function
+    End If
+    Dim name1 As String
+    name1 = ARES_PROP_COLOR
+    Dim bFound As Boolean
+    Dim ni As Long
+    For ni = LBound(names) To UBound(names)
+        If StrComp(Trim(names(ni)), name1, vbTextCompare) = 0 Then
+            bFound = True
+            Exit For
+        End If
+    Next ni
+    If Not bFound Then
+        PropertyActuatorTest = True     ' reserved property not defined in this DGNLib -> N/A pass
+        Exit Function
+    End If
+
+    ' Save config to restore afterwards
+    Dim sOldColorOn As String, sOldLevelOn As String, sOldCalcOn As String, sOldCalcRules As String
+    Dim bSaved As Boolean
+    bSaved = False
+    sOldColorOn = ARESConfig.ARES_ACTUATE_COLOR.Value
+    sOldLevelOn = ARESConfig.ARES_ACTUATE_LEVEL.Value
+    sOldCalcOn = ARESConfig.ARES_PROPERTY_CALC.Value
+    sOldCalcRules = ARESConfig.ARES_CALC_RULES.Value
+    bSaved = True
+
+    ARESConfig.ARES_ACTUATE_COLOR.Value = "True"
+    ARESConfig.ARES_ACTUATE_LEVEL.Value = "False"
+    ARESConfig.ARES_CALC_RULES.Value = ""  ' no calc rule for ARES_Color yet -> not SELF-sourced
+    PropertyCalculation.RefreshCalcRules
+    PropertyActuator.RefreshActuatorState
+
+    ' --- Happy path: pilot attached + valid color index, different from current -> writes ---
+    Dim lA As element
+    Set lA = CreateGroupedTestLine(0, Point3dFromXYZ(9000, 0, 0), Point3dFromXYZ(9100, 0, 0))
+    CustomPropertyHandler.AttachItemToElement lA, name1
+    Dim targetColorA As Long
+    targetColorA = (lA.Color + 3) Mod 255     ' guaranteed different from the element's current color
+    CustomPropertyHandler.SetPropertyValueToElement lA, name1, CStr(targetColorA), name1
+    PropertyActuator.ProcessElement lA
+    TotalTests = TotalTests + 1
+    If lA.Color = targetColorA Then TestsPassed = TestsPassed + 1
+
+    ' --- Compare-before-write no-op: value already equals the current attribute -> no crash, stays equal ---
+    Dim lB As element
+    Set lB = CreateGroupedTestLine(0, Point3dFromXYZ(9000, 100, 0), Point3dFromXYZ(9100, 100, 0))
+    CustomPropertyHandler.AttachItemToElement lB, name1
+    CustomPropertyHandler.SetPropertyValueToElement lB, name1, CStr(lB.Color), name1
+    Dim colorBefore As Long
+    colorBefore = lB.Color
+    PropertyActuator.ProcessElement lB
+    TotalTests = TotalTests + 1
+    If lB.Color = colorBefore Then TestsPassed = TestsPassed + 1
+
+    ' --- Unattached pilot property -> pure no-op, no crash, attribute untouched ---
+    Dim lC As element
+    Set lC = CreateGroupedTestLine(0, Point3dFromXYZ(9000, 200, 0), Point3dFromXYZ(9100, 200, 0))
+    Dim colorC As Long
+    colorC = lC.Color
+    PropertyActuator.ProcessElement lC   ' name1 never attached to lC
+    TotalTests = TotalTests + 1
+    If lC.Color = colorC Then TestsPassed = TestsPassed + 1
+
+    ' --- Trigger-cell exclusion: a cell matching an active CellColor[pattern] rule is never painted, even
+    '     when it also carries the pilot property attached with a differing value ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=CellColor[ACT9*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cTrig As CellElement
+    Set cTrig = CreateCalculationTestCell("ACT9X", 8501, "t", Point3dFromXYZ(9200, 0, 0))
+    CustomPropertyHandler.AttachItemToElement cTrig, name1
+    Dim targetColorD As Long
+    targetColorD = (cTrig.Color + 5) Mod 255
+    CustomPropertyHandler.SetPropertyValueToElement cTrig, name1, CStr(targetColorD), name1
+    Dim colorDBefore As Long
+    colorDBefore = cTrig.Color
+    PropertyActuator.ProcessElement cTrig
+    TotalTests = TotalTests + 1
+    If cTrig.Color = colorDBefore Then TestsPassed = TestsPassed + 1   ' excluded: never painted
+
+    ' --- SELF-ratchet refusal: the pilot property's OWN calc source is Color on THIS element -> the
+    '     actuator must refuse to write, never loop into a stable self-referential fixed point ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=Color"
+    PropertyCalculation.RefreshCalcRules
+    Dim lE As element
+    Set lE = CreateGroupedTestLine(0, Point3dFromXYZ(9000, 300, 0), Point3dFromXYZ(9100, 300, 0))
+    CustomPropertyHandler.AttachItemToElement lE, name1
+    Dim targetColorE As Long
+    targetColorE = (lE.Color + 7) Mod 255
+    CustomPropertyHandler.SetPropertyValueToElement lE, name1, CStr(targetColorE), name1
+    Dim colorEBefore As Long
+    colorEBefore = lE.Color
+    PropertyActuator.ProcessElement lE
+    TotalTests = TotalTests + 1
+    If lE.Color = colorEBefore Then TestsPassed = TestsPassed + 1     ' refused: never painted
+
+    ' --- Regression (2026-08-24, real-world bug): when PropertyCalculation pushes a pilot-property value
+    '     to a group member it did not itself queue (the trigger-cell/trigger-level push pass), the
+    '     actuator must ALSO run on that member inline - not just its PROPERTY, its graphic ATTRIBUTE too.
+    '     Asketyll hit this in real use: ARES_Color updated on the linked text, but the text's own Color
+    '     stayed stale until the text itself was directly touched. This asserts the ATTRIBUTE, not just the
+    '     property value (PropertyCalculationTest's own CellColor coverage already asserts the property and
+    '     would NOT have caught this - it never reads back .Color) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=CellColor[ACTPUSH*]"
+    PropertyCalculation.RefreshCalcRules
+    Dim cPushTrig As CellElement, lPushMember As element
+    Set cPushTrig = CreateCalculationTestCell("ACTPUSH1", 8600, "t", Point3dFromXYZ(9300, 0, 0))
+    Set lPushMember = CreateGroupedTestLine(8600, Point3dFromXYZ(9310, 0, 0), Point3dFromXYZ(9400, 0, 0))
+    CustomPropertyHandler.AttachItemToElement lPushMember, name1
+    Dim targetColorPush As Long
+    targetColorPush = (cPushTrig.Color + 11) Mod 255
+    cPushTrig.Color = targetColorPush
+    cPushTrig.Rewrite
+    PropertyCalculation.ProcessElement cPushTrig   ' the trigger-cell push pass -> ApplyValueToSibling ->
+                                                    ' PropertyActuator.ProcessElement lPushMember (the fix)
+    TotalTests = TotalTests + 1
+    If lPushMember.Color = targetColorPush Then TestsPassed = TestsPassed + 1
+
+    ' --- Master switches: both OFF -> IsEnabled False; either ON -> True ---
+    ARESConfig.ARES_ACTUATE_COLOR.Value = "False"
+    ARESConfig.ARES_ACTUATE_LEVEL.Value = "False"
+    TotalTests = TotalTests + 1
+    If Not PropertyActuator.IsEnabled() Then TestsPassed = TestsPassed + 1
+    ARESConfig.ARES_ACTUATE_COLOR.Value = "True"
+    TotalTests = TotalTests + 1
+    If PropertyActuator.IsEnabled() Then TestsPassed = TestsPassed + 1
+
+    ' Restore config
+    ARESConfig.ARES_ACTUATE_COLOR.Value = sOldColorOn
+    ARESConfig.ARES_ACTUATE_LEVEL.Value = sOldLevelOn
+    ARESConfig.ARES_PROPERTY_CALC.Value = sOldCalcOn
+    ARESConfig.ARES_CALC_RULES.Value = sOldCalcRules
+    PropertyCalculation.RefreshCalcRules
+    PropertyActuator.RefreshActuatorState
+
+    ' Allow a small margin for environment variance (as PropertyCalculationTest does)
+    PropertyActuatorTest = (TestsPassed >= TotalTests - 1)
+    Exit Function
+
+ErrorHandler:
+    If bSaved Then
+        ARESConfig.ARES_ACTUATE_COLOR.Value = sOldColorOn
+        ARESConfig.ARES_ACTUATE_LEVEL.Value = sOldLevelOn
+        ARESConfig.ARES_PROPERTY_CALC.Value = sOldCalcOn
+        ARESConfig.ARES_CALC_RULES.Value = sOldCalcRules
+        PropertyCalculation.RefreshCalcRules
+        PropertyActuator.RefreshActuatorState
+    End If
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyActuatorTest"
+    End If
+    PropertyActuatorTest = False
 End Function
 
 ' True when the element-level half of PropertyRenderingTest can run at all: BOTH ItemTypeLibraries must
@@ -3210,6 +3446,7 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidCalcRuleValidation: Result.Passed = CalcRuleValidationTest()
         Case tidPropertyTaggingPull: Result.Passed = PropertyTaggingPullTest()
         Case tidPropertyRendering: Result.Passed = PropertyRenderingTest()
+        Case tidPropertyActuator: Result.Passed = PropertyActuatorTest()
         Case Else
             Result.Passed = False
             Result.Message = "Unknown test ID"

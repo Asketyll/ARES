@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyRendering_GUI_Options 
    Caption         =   "PropertyRendering_GUI_Options"
-   ClientHeight    =   2175
+   ClientHeight    =   4455
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3015
@@ -13,35 +13,69 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' UserForm: PropertyRendering_GUI_Options
-' Description: Options panel for Property Rendering - the third engine's own options panel, which it did
-'              not have. It carries the render master switch (ARES_Text_Render, previously editable from NO
-'              form at all) and the three text-presentation options that Auto Lengths' options form used to
-'              host and that OUTLIVE it: colour sync (ARES_Only_Color_Update) and the two ATLAS label-cell
-'              settings (ARES_Update_ATLASCellLabel, ARES_Cell_Is_Label_Name).
+' Description: Options panel for EVERYTHING THAT RENDERS A CUSTOM PROPERTY VISIBLE - text or graphic
+'              attribute (Asketyll, 2026-08-19: "dans le formulaire de rendu, ce n'est pas du texte mais
+'              c'est du rendu" - painting a Color/Level FROM a property is conceptually the same family of
+'              visible result as a Prop[Name] text token, even though it is a SEPARATE engine/doctrine).
+'              This panel hosts the controls of TWO independent Depth-0 engines:
+'                1. PropertyRendering (text) - the render master switch (ARES_Text_Render) and the three
+'                   text-presentation options inherited from the removed Auto Lengths form: colour sync
+'                   (ARES_Only_Color_Update) and the two ATLAS label-cell settings
+'                   (ARES_Update_ATLASCellLabel, ARES_Cell_Is_Label_Name).
+'                2. PropertyActuator (attribute, epic 16) - two independent master switches only
+'                   (ARES_Actuate_Color, ARES_Actuate_Level). Pilot properties are FIXED and RESERVED
+'                   (ARES_Color/ARES_Lvl, revised 2026-08-20 after a real-world test exposed a silent-error
+'                   class in an earlier configurable-picker design - see PropertyActuator's own header) -
+'                   no picker, nothing to configure beyond the two switches.
+'              SHARING IS THE PANEL ONLY, NOT THE MODULES: PropertyRendering.bas and PropertyActuator.bas
+'              stay two separate logic modules with two separate doctrines (Rendering writes TEXT only,
+'              Actuator writes ATTRIBUTES only) and two separate Depth-0 pipeline call sites in
+'              ElementChangeHandler.cls (Actuator runs BEFORE Rendering - see PropertyActuator's own header).
+'              Do NOT let this shared panel become a reason to merge the two modules' logic - a future
+'              agent editing THIS FILE is touching UI wiring for two engines at once; a future agent editing
+'              PropertyActuator.bas or PropertyRendering.bas is touching exactly one engine, as before.
 '
-'              WHY HERE AND NOT IN THE CALCULATION FORM: all three serve DISPLAY, not value computation.
-'              CellRedreaw - the sole consumer of the two ATLAS settings - is called by
-'              StringsInEl.SetTextAtSubId, which is the renderer's only text write. Housing them under
-'              Calculation would have put them one engine away from the code that reads them.
-'              ARES_Length_Round stays with PropertyCalculation_GUI_Options: it is the default decimals of
-'              the Length/GroupLength calc SOURCES, which is literally its semantics.
+'              WHY HERE AND NOT IN THE CALCULATION FORM (the three original text-presentation options): all
+'              three serve DISPLAY, not value computation. CellRedreaw - the sole consumer of the two ATLAS
+'              settings - is called by StringsInEl.SetTextAtSubId, which is the renderer's only text write.
+'              Housing them under Calculation would have put them one engine away from the code that reads
+'              them. ARES_Length_Round stays with PropertyCalculation_GUI_Options: it is the default
+'              decimals of the Length/GroupLength calc SOURCES, which is literally its semantics.
 '
-'              The colour-sync option is hosted here as the least-wrong home while the legacy colour hook
-'              lives on in ElementChangeHandler. When the property-driven colour mechanism replaces that
-'              hook, this checkbox moves or dies with it - it is NOT a statement that colour sync belongs
-'              to the renderer.
+'              The colour-sync option (ARES_Only_Color_Update) is hosted here as the least-wrong home while
+'              the legacy colour hook lives on in ElementChangeHandler. When the property-driven colour
+'              mechanism (PropertyActuator) replaces that hook, this checkbox moves or dies with it - it is
+'              NOT a statement that colour sync belongs to the renderer, and this story does NOT retire the
+'              legacy hook (separate, later story per the actuator's own cahier des charges �5).
 '
 '              DESIGNER (manual) - controls required with EXACTLY these names:
 '                Main_CheckBox (CheckBox, render master switch), Color_CheckBox (CheckBox, colour sync),
 '                Cell_CheckBox (CheckBox, ATLAS label rebuild), TextBox_Cells_List (TextBox, Visible = False
 '                in the designer - the inline editor for the cell-name list), Edit_Cells_List_Command
-'                (CommandButton, Visible = True - swaps with the TextBox), Reset_Command (CommandButton).
+'                (CommandButton, Visible = True - swaps with the TextBox),
+'                ActuatorSection_Label (Label, bold/section-header style - "Property Actuator" divider so
+'                the two engines' controls are never visually mistaken for one group; reviewer-4 flagged
+'                this labelling as the one thing to get right about sharing this panel),
+'                ActuateColor_CheckBox (CheckBox, PropertyActuator Color master switch),
+'                ActuateLevel_CheckBox (CheckBox, PropertyActuator Level master switch),
+'                Reset_Command (CommandButton).
+'              REVISED 2026-08-20: the pilot-property picker controls (ActuateColorProp_Label,
+'              ComboBox_ActuateColorProp, ActuateLevelProp_Label, ComboBox_ActuateLevelProp) that an earlier
+'              revision of this panel required are DROPPED - pilot properties are now fixed/reserved
+'              (ARES_Color/ARES_Lvl), nothing to pick. If any of those 4 controls were already added in the
+'              designer, they can be deleted - the code no longer references them.
+'              VISUAL GROUPING (manual, designer): place ActuatorSection_Label + its 2 checkboxes in their
+'              own block, separated from the render/colour-sync/ATLAS controls above by visible whitespace or
+'              a horizontal rule, so the panel reads as two clearly bounded sections under one window, not one
+'              flat list where an Actuator checkbox could be mistaken for a Rendering option or vice versa.
 '              NO help button here, unlike the Tagging and Calculation panels: those exist to open the wiki
-'              because their rule grammars do not fit in a tooltip. This panel has no rules - three
-'              checkboxes and a "|"-separated name list - so every control is explained by its own tooltip.
-'              StartUpPosition = 0 Manual. Tab order: master -> colour -> cell -> edit-cells -> reset.
+'              because their rule grammars do not fit in a tooltip. The actuator has no grammar to explain
+'              beyond its two switches - every control is explained by its own tooltip.
+'              StartUpPosition = 0 Manual. Tab order: master -> colour -> cell -> edit-cells ->
+'              actuate-color -> actuate-level -> reset.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, FormUXHelper, FormPlacement, Command
+' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, FormUXHelper, FormPlacement, Command,
+'               PropertyActuator
 Option Explicit
 
 Private mbLocked As Boolean
@@ -198,6 +232,62 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
+' PROPERTY ACTUATOR (epic 16) - Color/Level attribute painting, hosted here per Asketyll's ruling (see
+' module header). Two independent master switches only - pilot properties are fixed/reserved
+' (ARES_Color/ARES_Lvl), revised 2026-08-20, nothing to pick.
+' ============================================================
+
+Private Sub ActuateColor_CheckBox_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    If Shift = 0 And KeyCode = vbKeyReturn Then ActuateColor_CheckBox.value = Not ActuateColor_CheckBox.value
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.ActuateColor_CheckBox_KeyUp"
+End Sub
+
+Private Sub ActuateColor_CheckBox_Change()
+    On Error GoTo ErrorHandler
+    Dim sVal As String
+    sVal = IIf(ActuateColor_CheckBox.value, "True", "False")
+    If Not mbLocked And ARESConfig.ARES_ACTUATE_COLOR.value <> sVal Then
+        SetLocked True
+        ARESConfig.ARES_ACTUATE_COLOR.value = sVal
+        SetLocked False
+    End If
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.ActuateColor_CheckBox_Change"
+End Sub
+
+Private Sub ActuateLevel_CheckBox_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    If Shift = 0 And KeyCode = vbKeyReturn Then ActuateLevel_CheckBox.value = Not ActuateLevel_CheckBox.value
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.ActuateLevel_CheckBox_KeyUp"
+End Sub
+
+Private Sub ActuateLevel_CheckBox_Change()
+    On Error GoTo ErrorHandler
+    Dim sVal As String
+    sVal = IIf(ActuateLevel_CheckBox.value, "True", "False")
+    If Not mbLocked And ARESConfig.ARES_ACTUATE_LEVEL.value <> sVal Then
+        SetLocked True
+        ARESConfig.ARES_ACTUATE_LEVEL.value = sVal
+        SetLocked False
+    End If
+    Exit Sub
+
+ErrorHandler:
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.ActuateLevel_CheckBox_Change"
+End Sub
+
+' ============================================================
 ' FORM LIFECYCLE
 ' ============================================================
 
@@ -210,12 +300,17 @@ Private Sub UserForm_Initialize()
     Color_CheckBox.Caption = GetTranslation("RenderingGUIOptionsColor_LabelCaption")
     Cell_CheckBox.Caption = GetTranslation("RenderingGUIOptionsCell_LabelCaption")
     Edit_Cells_List_Command.Caption = GetTranslation("RenderingGUIOptionsEdit_Cells_List_CommandCaption")
+    ActuateColor_CheckBox.Caption = GetTranslation("RenderingGUIOptionsActuateColor_LabelCaption")
+    ActuateLevel_CheckBox.Caption = GetTranslation("RenderingGUIOptionsActuateLevel_LabelCaption")
+    ActuatorSection_Label.Caption = GetTranslation("RenderingGUIOptionsActuatorSection_LabelCaption")
 
     ' Tooltips
     FormUXHelper.SetTip Main_CheckBox, "RenderingGUIOptionsMain_LabelTip"
     FormUXHelper.SetTip Color_CheckBox, "RenderingGUIOptionsColor_LabelTip"
     FormUXHelper.SetTip Cell_CheckBox, "RenderingGUIOptionsCell_LabelTip"
     FormUXHelper.SetTip Edit_Cells_List_Command, "RenderingGUIOptionsEdit_Cells_List_CommandTip"
+    FormUXHelper.SetTip ActuateColor_CheckBox, "RenderingGUIOptionsActuateColor_LabelTip"
+    FormUXHelper.SetTip ActuateLevel_CheckBox, "RenderingGUIOptionsActuateLevel_LabelTip"
 
     ' Restore-defaults button
     Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
@@ -237,6 +332,8 @@ Private Sub SeedControls()
     Main_CheckBox.value = (UCase(Trim(ARESConfig.ARES_TEXT_RENDER.value)) = "TRUE")
     Color_CheckBox.value = (UCase(Trim(ARESConfig.ARES_ONLY_COLOR.value)) = "TRUE")
     Cell_CheckBox.value = (UCase(Trim(ARESConfig.ARES_UPDATE_ATLASCELLLABEL.value)) = "TRUE")
+    ActuateColor_CheckBox.value = (UCase(Trim(ARESConfig.ARES_ACTUATE_COLOR.value)) = "TRUE")
+    ActuateLevel_CheckBox.value = (UCase(Trim(ARESConfig.ARES_ACTUATE_LEVEL.value)) = "TRUE")
     Exit Sub
 
 ErrorHandler:
@@ -251,6 +348,9 @@ Private Sub Reset_Command_Click()
     FormUXHelper.PersistDefault ARESConfig.ARES_ONLY_COLOR
     FormUXHelper.PersistDefault ARESConfig.ARES_UPDATE_ATLASCELLLABEL
     FormUXHelper.PersistDefault ARESConfig.ARES_CELL_LIKE_LABEL
+    FormUXHelper.PersistDefault ARESConfig.ARES_ACTUATE_COLOR
+    FormUXHelper.PersistDefault ARESConfig.ARES_ACTUATE_LEVEL
+    PropertyActuator.RefreshActuatorState
     SeedControls
     LangManager.ShowStatusT "FormDefaultsRestored"
     Exit Sub
@@ -285,4 +385,5 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.UserForm_QueryClose"
 End Sub
+
 
