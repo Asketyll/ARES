@@ -25,9 +25,9 @@ Attribute VB_Exposed = False
 '              editor uses - no divergence). This form stays a thin consumer: it runs the calc grammar
 '              (ValidateAndNormalizeCalcRule + CalcRuleHasNoEffect) and hands RuleEditorUX the render string
 '              + validity + red segments + the bold-keyword list (the target/condition keywords Prop/Lvl/
-'              Cell/Type AND the nineteen source keywords CellText/CellCoord/CellId/CellLvl/CellColor/
-'              CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/
-'              GroupLength).
+'              Cell/Type AND the twenty source keywords CellText/CellCoord/CellId/CellLvl/CellColor/
+'              CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/Value/Coord/Id/Lvl/Color/Style/Weight/
+'              GroupColor/Length/GroupLength).
 '
 '              DESIGNER (manual) - controls required with EXACTLY these names:
 '                Main_CheckBox (CheckBox, value master), DetachEmpty_CheckBox (CheckBox, detach-empty
@@ -235,10 +235,10 @@ End Sub
 
 ' Compute this grammar's preview data for the text currently in ComboBox_CalcRules and hand it to
 ' RuleEditorUX: validate + normalise -> canonical (valid) or raw (invalid); when valid, CalcRuleHasNoEffect
-' -> the red segments; the calc bold-keywords are the target/condition keywords AND the nineteen sources
-' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id/Lvl/Color/Style/Weight/Length bold
-' alongside CellText[..]/CellCoord[..]/CellId[..]/CellLvl[..]/CellColor[..]/CellStyle[..]/CellWeight[..]/
-' LvlColor[..]/LvlStyle[..]/LvlWeight[..]/Value[..]/GroupLength[..]). RuleEditorUX renders the coloured
+' -> the red segments; the calc bold-keywords are the target/condition keywords AND the twenty sources
+' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id/Lvl/Color/Style/Weight/GroupColor
+' bold alongside CellText[..]/CellCoord[..]/CellId[..]/CellLvl[..]/CellColor[..]/CellStyle[..]/CellWeight[..]/
+' LvlColor[..]/LvlStyle[..]/LvlWeight[..]/Value[..]/Length[..]/GroupLength[..]). RuleEditorUX renders the coloured
 ' runs (read-only).
 Private Sub RenderCurrentCalcPreview()
     On Error GoTo ErrorHandler
@@ -246,7 +246,7 @@ Private Sub RenderCurrentCalcPreview()
     Dim sText As String, sCanonical As String, sReason As String, sRender As String
     Dim bValid As Boolean
     Dim segs() As String
-    Dim kw(21) As String
+    Dim kw(22) As String
 
     ReDim segs(0 To 0)
     segs(0) = ""
@@ -286,6 +286,7 @@ Private Sub RenderCurrentCalcPreview()
     kw(19) = "LvlColor"
     kw(20) = "LvlStyle"
     kw(21) = "LvlWeight"
+    kw(22) = "GroupColor"
     RuleEditorUX.RenderPreview Frame_CalcPreview, sRender, bValid, segs, kw
     Exit Sub
 

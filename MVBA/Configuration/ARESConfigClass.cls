@@ -36,8 +36,6 @@ Public ARES_CELL_LIKE_LABEL As ARES_MS_VAR_Class 'Default Value:ETI076|ETI01E|ET
 Public ARES_UPDATE_ATLASCELLLABEL As ARES_MS_VAR_Class 'Dafault Value: True          True or False (Boolean)
 ' Used in UnitTesting module
 Public ARES_UnitTesting As ARES_MS_VAR_Class 'Default Value: I'm a ARES test unit variable
-' Used in ElementChangeHandler ClassModule for automatically enable only color update.
-Public ARES_ONLY_COLOR As ARES_MS_VAR_Class 'Dafault Value: True        True or False (Boolean)
 ' Used in ElementChangeHandler for bulk operation detection threshold
 Public ARES_BULK_THRESHOLD As ARES_MS_VAR_Class 'Default Value: 10    Number of calls to trigger bulk mode
 ' Used in ElementChangeHandler for bulk operation detection time window
@@ -149,7 +147,6 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_UnitTesting = CreateConfigVar("ARES_Unit_testing", "I'm a ARES test unit variable")
     Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True")
     Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O")
-    Set ARES_ONLY_COLOR = CreateConfigVar("ARES_Only_Color_Update", "True")
     Set ARES_BULK_THRESHOLD = CreateConfigVar("ARES_Bulk_Threshold", "10")
     Set ARES_BULK_INTERVAL = CreateConfigVar("ARES_Bulk_Interval", "1000")
     Set ARES_UPDATE_MUTE = CreateConfigVar("ARES_Update_Mute", "False")

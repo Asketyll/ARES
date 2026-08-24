@@ -1553,7 +1553,63 @@ Private Function PropertyCalculationTest() As Boolean
         If PropertyCalculation.IsTriggerLevel(lLvlAuth) Then TestsPassed = TestsPassed + 1
         TotalTests = TotalTests + 1
         If Not PropertyCalculation.IsTriggerLevel(lLvlMember) Then TestsPassed = TestsPassed + 1
+
+        ' --- LvlColor FillMode=2 resolution (2026-08-24, ResolveFillAwareColor, retroactive parity
+        '     extension): the level-matching candidate is itself a FILLED shape (not the plain Line used
+        '     above) - LvlColor must read its FILL color, not its outline, mirroring GroupColor/the retired
+        '     ONLY_COLOR hook. Own dedicated group so it doesn't interfere with the IsTriggerLevel assertions
+        '     above (which need lLvlAuth/lLvlMember unchanged). ---
+        Dim shLvlFill As element
+        Set shLvlFill = CreateFillTestShape(7461, 8300, 200, 12)   ' FillMode=2, FillColor=12 (not 0/255)
+        shLvlFill.Level = oLvlAuth
+        shLvlFill.Rewrite
+        Dim lLvlFillMember As element
+        Set lLvlFillMember = CreateGroupedTestLine(7461, Point3dFromXYZ(8410, 200, 0), Point3dFromXYZ(8500, 200, 0))
+        TotalTests = TotalTests + 1
+        If RVEq("LCol", lLvlFillMember, ExpectedLvlColorValue(shLvlFill)) Then TestsPassed = TestsPassed + 1
     End If
+
+    ' --- GroupColor (2026-08-24, retired ONLY_COLOR hook parity, cahier-des-charges-groupcolor-fillmode.md):
+    '     SELF-EXCLUDED scan (unlike every other GROUP source above) - the bearing element reads the color
+    '     of the FIRST OTHER linked element, no name/level pattern. ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[GC]=GroupColor"
+    PropertyCalculation.RefreshCalcRules
+
+    ' Plain candidate (no fill) - reads its outline color as-is.
+    Dim lGCBear As element, lGCCand As element
+    Set lGCBear = CreateGroupedTestLine(8700, Point3dFromXYZ(8600, 300, 0), Point3dFromXYZ(8700, 300, 0))
+    Set lGCCand = CreateGroupedTestLine(8700, Point3dFromXYZ(8710, 300, 0), Point3dFromXYZ(8800, 300, 0))
+    TotalTests = TotalTests + 1
+    If RVEq("GC", lGCBear, CStr(lGCCand.Color)) Then TestsPassed = TestsPassed + 1
+
+    ' FillMode=2 candidate, FillColor not 0/255 -> reads the FILL color.
+    Dim lGCBearFill As element, shGCFill As element
+    Set lGCBearFill = CreateGroupedTestLine(8701, Point3dFromXYZ(8600, 400, 0), Point3dFromXYZ(8700, 400, 0))
+    Set shGCFill = CreateFillTestShape(8701, 8710, 400, 9)
+    TotalTests = TotalTests + 1
+    If RVEq("GC", lGCBearFill, "9") Then TestsPassed = TestsPassed + 1
+
+    ' FillMode=2 candidate, FillColor = 0 (the "black" exception) -> falls back to the OUTLINE color.
+    Dim lGCBearZero As element, shGCZero As element
+    Set lGCBearZero = CreateGroupedTestLine(8702, Point3dFromXYZ(8600, 500, 0), Point3dFromXYZ(8700, 500, 0))
+    Set shGCZero = CreateFillTestShape(8702, 8710, 500, 0)
+    TotalTests = TotalTests + 1
+    If RVEq("GC", lGCBearZero, CStr(shGCZero.Color)) Then TestsPassed = TestsPassed + 1
+
+    ' Ungrouped, no linked element -> "" (never a fabricated value).
+    Dim lGCNone As element
+    Set lGCNone = CreateGroupedTestLine(0, Point3dFromXYZ(8600, 600, 0), Point3dFromXYZ(8700, 600, 0))
+    TotalTests = TotalTests + 1
+    If RVHasEmpty("GC", lGCNone) Then TestsPassed = TestsPassed + 1
+
+    ' --- HasGroupColorRules: True only while a GroupColor rule is configured (drives the
+    '     ElementChangeHandler Branch-2 re-queue gate, mirroring HasGroupLengthRules) ---
+    TotalTests = TotalTests + 1
+    If PropertyCalculation.HasGroupColorRules Then TestsPassed = TestsPassed + 1
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length"
+    PropertyCalculation.RefreshCalcRules
+    TotalTests = TotalTests + 1
+    If Not PropertyCalculation.HasGroupColorRules Then TestsPassed = TestsPassed + 1
 
     ' --- Length: SELF source, ONLY when the bearing element is itself length-capable (a 100-unit line);
     '     "" (never a fabricated 0) on a non-length-capable bearing element (a cell) ---
@@ -2070,14 +2126,36 @@ End Function
 ' Expected value for LvlColor[pattern] on el, mirroring ReadLvlSourceValue's csLvlColor branch exactly (the
 ' SAME ByLevel/ByCell sentinel resolution) so the assertion reflects the live element's actual symbology
 ' state rather than assuming it is never ByLevel/ByCell.
+' Mirrors ReadLvlSourceValue's csLvlColor branch, INCLUDING the FillMode=2 resolution (2026-08-24,
+' ResolveFillAwareColor) it now composes with - the raw color tested against ByLevel/ByCellColor is the
+' FillMode-resolved one, not el.Color directly.
 Private Function ExpectedLvlColorValue(ByVal el As element) As String
+    Dim rawColor As Long
+    rawColor = ExpectedFillAwareColor(el)
     ExpectedLvlColorValue = ""
-    If el.Color = ByLevelColor Then
+    If rawColor = ByLevelColor Then
         If Not el.Level Is Nothing Then ExpectedLvlColorValue = CStr(el.Level.ElementColor)
-    ElseIf el.Color = ByCellColor Then
+    ElseIf rawColor = ByCellColor Then
         ExpectedLvlColorValue = ""
     Else
-        ExpectedLvlColorValue = CStr(el.Color)
+        ExpectedLvlColorValue = CStr(rawColor)
+    End If
+End Function
+
+' Mirrors ResolveFillAwareColor (PropertyCalculation.bas) - test-side duplicate since that function is
+' Private. Used by ExpectedLvlColorValue and directly by the GroupColor/CellColor FillMode=2 tests.
+Private Function ExpectedFillAwareColor(ByVal el As element) As Long
+    ExpectedFillAwareColor = el.Color
+    If el.IsClosedElement Then
+        If el.AsClosedElement.FillMode = 2 Then
+            Dim fc As Long
+            fc = el.AsClosedElement.fillcolor
+            If fc = 0 Or fc = 255 Then
+                ExpectedFillAwareColor = el.Color
+            Else
+                ExpectedFillAwareColor = fc
+            End If
+        End If
     End If
 End Function
 
@@ -2666,6 +2744,37 @@ Private Function PropertyActuatorTest() As Boolean
     TotalTests = TotalTests + 1
     If lPushMember.Color = targetColorPush Then TestsPassed = TestsPassed + 1
 
+    ' --- FillColor preservation on a FillMode=2 cell sub-element (2026-08-24, retired ONLY_COLOR hook parity,
+    '     cahier-des-charges-groupcolor-fillmode.md §4/decision 6): ActuateColor's repaint must leave the
+    '     sub-element's OWN fill color untouched even though its outline Color changes - mirrors the retired
+    '     hook's save/restore precaution, added by Asketyll's decision without waiting for a real-MicroStation
+    '     confirmation that it is strictly necessary (cost judged negligible) ---
+    ARESConfig.ARES_CALC_RULES.Value = ""
+    PropertyCalculation.RefreshCalcRules
+    Dim cFillCell As CellElement
+    Set cFillCell = CreateFillCellTestCell("ACTFILL1", Point3dFromXYZ(9500, 0, 0), 33)
+    CustomPropertyHandler.AttachItemToElement cFillCell, name1
+    Dim targetColorFill As Long
+    targetColorFill = (cFillCell.Color + 13) Mod 255
+    CustomPropertyHandler.SetPropertyValueToElement cFillCell, name1, CStr(targetColorFill), name1
+    Dim subFillBefore As Long
+    Dim ELEnumFill As ElementEnumerator
+    Dim subFillEl As element
+    Set ELEnumFill = cFillCell.AsCellElement.GetSubElements
+    ELEnumFill.MoveNext
+    Set subFillEl = ELEnumFill.Current
+    subFillBefore = subFillEl.AsClosedElement.FillColor
+    PropertyActuator.ProcessElement cFillCell
+    Dim ELEnumFill2 As ElementEnumerator
+    Dim subFillEl2 As element
+    Set ELEnumFill2 = cFillCell.AsCellElement.GetSubElements
+    ELEnumFill2.MoveNext
+    Set subFillEl2 = ELEnumFill2.Current
+    TotalTests = TotalTests + 1
+    If subFillEl2.Color = targetColorFill Then TestsPassed = TestsPassed + 1      ' outline followed
+    TotalTests = TotalTests + 1
+    If subFillEl2.AsClosedElement.FillColor = subFillBefore Then TestsPassed = TestsPassed + 1  ' fill preserved
+
     ' --- Master switches: both OFF -> IsEnabled False; either ON -> True ---
     ARESConfig.ARES_ACTUATE_COLOR.Value = "False"
     ARESConfig.ARES_ACTUATE_LEVEL.Value = "False"
@@ -3134,6 +3243,24 @@ Private Function CreateCalculationTestShape(ByVal lGroup As Long, ByVal baseX As
     Set CreateCalculationTestShape = oShape
 End Function
 
+' Build a FillMode=2 (outlined) shape with a specific FillColor - helper for GroupColor/LvlColor FillMode=2
+' resolution tests (ResolveFillAwareColor, epic 16 follow-up 2026-08-24) and the PropertyActuator FillColor
+' preservation test. Same footprint as CreateCalculationTestShape otherwise.
+Private Function CreateFillTestShape(ByVal lGroup As Long, ByVal baseX As Double, ByVal baseY As Double, ByVal fillColorVal As Long) As element
+    Dim verts(4) As Point3d
+    verts(0) = Point3dFromXYZ(baseX, baseY, 0)
+    verts(1) = Point3dFromXYZ(baseX + 100, baseY, 0)
+    verts(2) = Point3dFromXYZ(baseX + 100, baseY + 50, 0)
+    verts(3) = Point3dFromXYZ(baseX, baseY + 50, 0)
+    verts(4) = verts(0)
+    Dim oShape As ShapeElement
+    Set oShape = CreateShapeElement1(Nothing, verts, msdFillModeOutlined)
+    oShape.AsClosedElement.FillColor = fillColorVal
+    If lGroup <> 0 Then oShape.GraphicGroup = lGroup
+    ActiveModelReference.AddElement oShape
+    Set CreateFillTestShape = oShape
+End Function
+
 ' Build a 2-point point string with corners (baseX, baseY) and (baseX+100, baseY+100) in graphic group
 ' lGroup (0 = ungrouped), added to the active model. Helper for PropertyCalculationTest: a point string has
 ' NO type-specific anchor (not cell/text/line/arc/ellipse/closed), so its Coord exercises the universal
@@ -3151,6 +3278,28 @@ End Function
 
 ' Build a single-TextElement graphic cell named sName, in graphic group lGroup (0 = ungrouped),
 ' added to the active model. Helper for PropertyCalculationTest.
+' A cell whose single sub-element is a FillMode=2 shape with a given FillColor - helper for
+' PropertyActuatorTest's FillColor-preservation check (2026-08-24, cahier-des-charges-groupcolor-fillmode.md
+' §4/decision 6). The sub-shape's outline color is left at the active default, same as the header, so
+' ActuateColor's "subEl.Color = oldColor" repaint condition holds without extra tweaking.
+Private Function CreateFillCellTestCell(ByVal sName As String, ByVal origin As Point3d, ByVal fillColorVal As Long) As CellElement
+    Dim verts(4) As Point3d
+    verts(0) = Point3dFromXYZ(origin.X, origin.Y, 0)
+    verts(1) = Point3dFromXYZ(origin.X + 20, origin.Y, 0)
+    verts(2) = Point3dFromXYZ(origin.X + 20, origin.Y + 10, 0)
+    verts(3) = Point3dFromXYZ(origin.X, origin.Y + 10, 0)
+    verts(4) = verts(0)
+    Dim arr(0) As element
+    Dim oShape As ShapeElement
+    Set oShape = CreateShapeElement1(Nothing, verts, msdFillModeOutlined)
+    oShape.AsClosedElement.FillColor = fillColorVal
+    Set arr(0) = oShape
+    Dim oCell As CellElement
+    Set oCell = CreateCellElement1(sName, arr, origin)
+    ActiveModelReference.AddElement oCell
+    Set CreateFillCellTestCell = oCell
+End Function
+
 Private Function CreateCalculationTestCell(ByVal sName As String, ByVal lGroup As Long, ByVal sText As String, ByVal origin As Point3d) As CellElement
     Dim arr(0) As element
     Set arr(0) = CreateTextElement1(Nothing, sText, origin, Matrix3dIdentity)

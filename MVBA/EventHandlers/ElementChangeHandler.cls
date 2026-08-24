@@ -1,6 +1,8 @@
 ' Class Module: ElementChangeHandler
-' Description: Handles element change events for colour synchronisation, property tagging, property
-'              calculation, property actuation and property rendering (capture + deferred idle processing).
+' Description: Handles element change events for property tagging, property calculation, property actuation
+'              and property rendering (capture + deferred idle processing). Colour sync (linked geometry ->
+'              linked text) is now a byproduct of property actuation's GroupColor pilot property, not a
+'              standalone concept here.
 '              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
 '              Includes automatic detection of bulk operations using frequency-based detection.
 ' License: This project is licensed under the AGPL-3.0.
@@ -211,21 +213,14 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     If Depth > MAX_DEPTH Then Exit Sub
 
     ' === LOCAL VARIABLES ===
-    Dim ONLY_COLOR As Boolean       ' Flag: only color synchronization mode
     Dim i As Long                   ' Loop counter (Branch 2)
     Dim els() As element            ' Array of linked elements
     Dim linkedElement As element    ' Current linked element being processed
-    Dim subEl As element            ' Sub-element within a cell
-    Dim ELEnum As ElementEnumerator ' Enumerator for cell sub-elements
-    Dim fillcolor As Long           ' Saved fill color for closed elements
 
     ' === VALIDATION: Check element is still valid ===
     ' Elements can become invalid if deleted between queueing and processing
     If oElement Is Nothing Then Exit Sub
     If Not IsElementValid(oElement) Then Exit Sub
-
-    ' Load configuration flags
-    ONLY_COLOR = ARESConfig.ARES_ONLY_COLOR.Value
 
     ' Auto-attach configured custom properties (PropertyTagging, grammar v2). A plain rule attaches to the
     ' changed element itself; a rule carrying the leading "@" modifier instead fans the properties out to
@@ -276,144 +271,57 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         Exit Sub
     End If
 
-    ' ========================================
-    ' BRANCH 1: TEXT/CELL ELEMENTS
-    ' ========================================
-    If IsTextOrCellElement(oElement) Then
-
-        ' --- Color-Only Synchronization Mode ---
-        ' Synchronizes the color of text/cell elements with their linked geometry.
-        '
-        ' NOT carried over from the removed Auto Lengths branch: its "no readable text -> Exit Sub" early-out,
-        ' which incidentally also skipped this block. Reproducing it was considered and rejected. It never had
-        ' one consistent meaning (it was skipped entirely when Auto Lengths was off, and on any render-bound
-        ' element), so there was no single behaviour to preserve; and reinstating it would have given
-        ' StringsInEl.GetSetTextsInEl a production caller again - on EVERY text/cell element, before the
-        ' ONLY_COLOR test, i.e. a full recursive text walk paid by configurations that never use the result.
-        ' That is the very cost the deleted comment here refused to pay for a disabled feature, and it would
-        ' have kept the whole legacy text engine alive after the removal whose point was to retire it.
-        ' Net effect: colour sync now also reaches a text/cell element yielding no readable text. Accepted.
-        If ONLY_COLOR Then
-            ' Get the linked geometric element
-            els = Link.GetLink(oElement)
-            If Not HasElements(els) Then Exit Sub
-            Set linkedElement = els(LBound(els))
-
-            ' Validate linked element
-            If linkedElement Is Nothing Then Exit Sub
-            If Not IsElementValid(linkedElement) Then Exit Sub
-
-            ' Determine the source color from the linked element
-            ' If the source is a ClosedElement with FillMode = 2 (outlined), use its fill color
-            ' Exception: if fill color is black (0) or white (255), use outline color instead
-            Dim sourceColor As Long
-            If linkedElement.IsClosedElement Then
-                If linkedElement.AsClosedElement.FillMode = 2 Then
-                    fillcolor = linkedElement.AsClosedElement.fillcolor
-                    ' Use outline color if fill is black or white
-                    If fillcolor = 0 Or fillcolor = 255 Then
-                        sourceColor = linkedElement.Color
-                    Else
-                        sourceColor = fillcolor
-                    End If
-                Else
-                    sourceColor = linkedElement.Color
-                End If
-            Else
-                sourceColor = linkedElement.Color
-            End If
-
-            ' Process cell elements - iterate through all sub-elements
-            If oElement.IsCellElement Then
-                Set ELEnum = oElement.AsCellElement.GetSubElements
-                Do While ELEnum.MoveNext
-                    Set subEl = ELEnum.Current
-                    ' Only update if colors differ
-                    If subEl.Color <> sourceColor Then
-                        ' Handle closed elements (shapes, ellipses, etc.) specially to preserve fill color
-                        ' ClosedElement interface covers all fillable elements: ShapeElement, EllipseElement, etc.
-                        ' FillMode = 2 (msdFillModeOutlined) means the element has separate outline and fill colors
-                        If subEl.IsClosedElement Then
-                            If subEl.AsClosedElement.FillMode = 2 Then
-                                ' Save fill color, update outline color, restore fill color
-                                fillcolor = subEl.AsClosedElement.fillcolor
-                                subEl.Color = sourceColor
-                                subEl.AsClosedElement.fillcolor = fillcolor
-                            Else
-                                ' No fill or solid fill - just update the color
-                                subEl.Color = sourceColor
-                            End If
-                        Else
-                            ' Non-closed elements (lines, text, etc.) - simple color update
-                            subEl.Color = sourceColor
-                        End If
-                        subEl.Rewrite
-                    End If
-                Loop
-
-            ' Process standalone text elements
-            ElseIf oElement.IsTextElement Then
-                If oElement.AsTextElement.Color <> sourceColor Then
-                    oElement.AsTextElement.Color = sourceColor
-                    oElement.Rewrite
-                End If
-
-            ' Process text node elements (multi-line text)
-            ElseIf oElement.IsTextNodeElement Then
-                If oElement.AsTextNodeElement.Color <> sourceColor Then
-                    oElement.AsTextNodeElement.Color = sourceColor
-                    oElement.Rewrite
-                End If
-            End If
-            Exit Sub
-        End If
+    ' A text/cell element (Branch 1's old scope) has nothing left to do here: colour sync used to be handled
+    ' by the legacy ONLY_COLOR hook (retired 2026-08-24 - superseded in production by PropertyActuator's
+    ' GroupColor pilot property, which repaints a cell's own sub-elements without the header-cascade
+    ' corruption ONLY_COLOR was never exposed to - see PropertyActuator.ActuateColor's header comment), and
+    ' text/cell elements are not geometric, so Branch 2 below does not apply to them either.
+    If IsTextOrCellElement(oElement) Then Exit Sub
 
     ' ========================================
     ' BRANCH 2: GEOMETRIC ELEMENTS
     ' ========================================
-    Else
-        ' Process geometric elements (line, arc, shape, etc.)
-        ' Find linked text elements and trigger their update. Also fires when Property Calculation holds a
-        ' GroupLength rule: that source needs every OTHER group member re-queued when the linked geometry
-        ' itself changes, exactly like Auto Lengths - but must work even with Auto Lengths OFF.
-        '
-        ' ONLY_COLOR is a term in its OWN right. Colour sync's real use case is "the line's colour changes,
-        ' the linked text follows", and that propagation only happens by reaching this branch - so without
-        ' this term colour tracking would degrade to direct-contact-with-the-text only.
-        Dim bCalcEnabled As Boolean
-        bCalcEnabled = PropertyCalculation.IsEnabled
-        If Not ONLY_COLOR And Not (bCalcEnabled And PropertyCalculation.HasGroupLengthRules) Then Exit Sub
+    ' Process geometric elements (line, arc, shape, etc.). Find linked text elements and trigger their
+    ' update. Also fires when Property Calculation holds a GroupLength rule: that source needs every OTHER
+    ' group member re-queued when the linked geometry itself changes, exactly like Auto Lengths - but must
+    ' work even with Auto Lengths OFF. Same for a GroupColor rule (cahier-des-charges-groupcolor-fillmode.md
+    ' §3.2): GroupColor's candidate is found by LINK, not by name/level pattern, so - like GroupLength - it
+    ' has no "trigger element" a name-pattern scan could detect; re-evaluating every linked sibling inline
+    ' here IS its only propagation mechanism.
+    Dim bCalcEnabled As Boolean
+    bCalcEnabled = PropertyCalculation.IsEnabled
+    If Not (bCalcEnabled And (PropertyCalculation.HasGroupLengthRules Or PropertyCalculation.HasGroupColorRules)) Then Exit Sub
 
-        ' Get all elements linked to this geometry
-        els = Link.GetLink(oElement)
-        If Not HasElements(els) Then Exit Sub
+    ' Get all elements linked to this geometry
+    els = Link.GetLink(oElement)
+    If Not HasElements(els) Then Exit Sub
 
-        ' Queue each linked element for processing
-        For i = LBound(els) To UBound(els)
-            Set linkedElement = els(i)
-            ' Validate linked element before processing
-            If Not linkedElement Is Nothing Then
-                If ElementInProcesse.Add(linkedElement) Then
-                    ' Recursive call to process the linked text element
-                    ProcessElement linkedElement, Depth + 1
-                End If
-                ' The recursive call above is Depth > 0, so it SKIPS the Depth-0-only Property Calculation
-                ' hook (line ~249) - and the queue-add just above is wiped wholesale by
-                ' IdleEventHandler.CleanupHandler before a fresh Depth-0 pass ever reaches this sibling.
-                ' A GroupLength-fed sibling therefore needs INLINE treatment to recompute when the
-                ' geometry itself changes - not just once, on its own attach. Idempotent/loop-safe via
-                ' ApplyValueToSibling's compare-before-write (a redundant call here is a cheap no-op).
-                If bCalcEnabled Then PropertyCalculation.ProcessElement linkedElement
+    ' Queue each linked element for processing
+    For i = LBound(els) To UBound(els)
+        Set linkedElement = els(i)
+        ' Validate linked element before processing
+        If Not linkedElement Is Nothing Then
+            If ElementInProcesse.Add(linkedElement) Then
+                ' Recursive call to process the linked text element
+                ProcessElement linkedElement, Depth + 1
             End If
-        Next i
+            ' The recursive call above is Depth > 0, so it SKIPS the Depth-0-only Property Calculation
+            ' hook (line ~249) - and the queue-add just above is wiped wholesale by
+            ' IdleEventHandler.CleanupHandler before a fresh Depth-0 pass ever reaches this sibling.
+            ' A GroupLength- or GroupColor-fed sibling therefore needs INLINE treatment to recompute
+            ' when the linked element itself changes - not just once, on its own attach. Idempotent/
+            ' loop-safe via ApplyValueToSibling's compare-before-write (a redundant call here is a
+            ' cheap no-op).
+            If bCalcEnabled Then PropertyCalculation.ProcessElement linkedElement
+        End If
+    Next i
 
-        ' Drain the renderer's repaint hop AFTER the inline calc loop above. That loop can reach
-        ' ApplyValueToSibling -> PropertyRendering.NoteDirtyGroup, while this element's own Depth-0 render
-        ' hook has ALREADY run earlier in this very call. Without the drain, a geometric element sitting
-        ' last in the queue leaves its notes behind and the sibling's text stays stale until something
-        ' else happens to touch it - and the list must not leak across batches at all.
-        If PropertyRendering.IsEnabled Then PropertyRendering.DrainRepaintHop
-    End If
+    ' Drain the renderer's repaint hop AFTER the inline calc loop above. That loop can reach
+    ' ApplyValueToSibling -> PropertyRendering.NoteDirtyGroup, while this element's own Depth-0 render
+    ' hook has ALREADY run earlier in this very call. Without the drain, a geometric element sitting
+    ' last in the queue leaves its notes behind and the sibling's text stays stale until something
+    ' else happens to touch it - and the list must not leak across batches at all.
+    If PropertyRendering.IsEnabled Then PropertyRendering.DrainRepaintHop
 
     Exit Sub
 
@@ -593,14 +501,12 @@ End Sub
 ' Returns:
 '   True if at least one feature (color sync, property tagging, calculation or rendering) is enabled
 Private Function IsAnyFeatureEnabled() As Boolean
-    Dim onlyColorEnabled As Boolean
     Dim autoPropertiesEnabled As Boolean
     Dim calcEnabled As Boolean
     Dim renderEnabled As Boolean
     Dim actuatorEnabled As Boolean
 
     ' Config values are stored as Strings, convert to Boolean with CBool
-    onlyColorEnabled = CBool(ARESConfig.ARES_ONLY_COLOR.Value)
     autoPropertiesEnabled = CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value)
     calcEnabled = CBool(ARESConfig.ARES_PROPERTY_CALC.Value)
     ' Without this term a render-ONLY configuration never reaches ProcessElement and the feature is inert.
@@ -608,7 +514,7 @@ Private Function IsAnyFeatureEnabled() As Boolean
     ' Without this term an actuator-ONLY configuration never reaches ProcessElement and the feature is inert.
     actuatorEnabled = CBool(ARESConfig.ARES_ACTUATE_COLOR.Value) Or CBool(ARESConfig.ARES_ACTUATE_LEVEL.Value)
 
-    IsAnyFeatureEnabled = onlyColorEnabled Or autoPropertiesEnabled Or calcEnabled Or renderEnabled Or actuatorEnabled
+    IsAnyFeatureEnabled = autoPropertiesEnabled Or calcEnabled Or renderEnabled Or actuatorEnabled
 End Function
 
 ' Determines if an element should be queued for processing (Add/Modify actions)

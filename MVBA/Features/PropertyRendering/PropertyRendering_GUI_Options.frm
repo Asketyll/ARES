@@ -1,7 +1,7 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} PropertyRendering_GUI_Options 
    Caption         =   "PropertyRendering_GUI_Options"
-   ClientHeight    =   4455
+   ClientHeight    =   2895
    ClientLeft      =   120
    ClientTop       =   465
    ClientWidth     =   3015
@@ -18,9 +18,8 @@ Attribute VB_Exposed = False
 '              c'est du rendu" - painting a Color/Level FROM a property is conceptually the same family of
 '              visible result as a Prop[Name] text token, even though it is a SEPARATE engine/doctrine).
 '              This panel hosts the controls of TWO independent Depth-0 engines:
-'                1. PropertyRendering (text) - the render master switch (ARES_Text_Render) and the three
-'                   text-presentation options inherited from the removed Auto Lengths form: colour sync
-'                   (ARES_Only_Color_Update) and the two ATLAS label-cell settings
+'                1. PropertyRendering (text) - the render master switch (ARES_Text_Render) and the two
+'                   ATLAS label-cell settings inherited from the removed Auto Lengths form
 '                   (ARES_Update_ATLASCellLabel, ARES_Cell_Is_Label_Name).
 '                2. PropertyActuator (attribute, epic 16) - two independent master switches only
 '                   (ARES_Actuate_Color, ARES_Actuate_Level). Pilot properties are FIXED and RESERVED
@@ -42,14 +41,16 @@ Attribute VB_Exposed = False
 '              them. ARES_Length_Round stays with PropertyCalculation_GUI_Options: it is the default
 '              decimals of the Length/GroupLength calc SOURCES, which is literally its semantics.
 '
-'              The colour-sync option (ARES_Only_Color_Update) is hosted here as the least-wrong home while
-'              the legacy colour hook lives on in ElementChangeHandler. When the property-driven colour
-'              mechanism (PropertyActuator) replaces that hook, this checkbox moves or dies with it - it is
-'              NOT a statement that colour sync belongs to the renderer, and this story does NOT retire the
-'              legacy hook (separate, later story per the actuator's own cahier des charges �5).
+'              RETIRED 2026-08-24: the colour-sync option (ARES_Only_Color_Update, "Color_CheckBox") is gone.
+'              The legacy colour hook it drove (ElementChangeHandler.cls, Branch 1) is retired - superseded in
+'              production by PropertyActuator's GroupColor pilot property (see PropertyActuator.ActuateColor's
+'              header comment for the corruption bug that hook never had and this replacement had to solve).
+'              All code-behind for Color_CheckBox (event handlers, caption/tooltip/seed/reset wiring) has been
+'              removed from this file, but the CONTROL ITSELF still exists in the designer/.frx (code cannot
+'              delete a visual control) - Asketyll to remove it manually in the VBA IDE's UserForm designer.
 '
 '              DESIGNER (manual) - controls required with EXACTLY these names:
-'                Main_CheckBox (CheckBox, render master switch), Color_CheckBox (CheckBox, colour sync),
+'                Main_CheckBox (CheckBox, render master switch),
 '                Cell_CheckBox (CheckBox, ATLAS label rebuild), TextBox_Cells_List (TextBox, Visible = False
 '                in the designer - the inline editor for the cell-name list), Edit_Cells_List_Command
 '                (CommandButton, Visible = True - swaps with the TextBox),
@@ -59,11 +60,13 @@ Attribute VB_Exposed = False
 '                ActuateColor_CheckBox (CheckBox, PropertyActuator Color master switch),
 '                ActuateLevel_CheckBox (CheckBox, PropertyActuator Level master switch),
 '                Reset_Command (CommandButton).
-'              REVISED 2026-08-20: the pilot-property picker controls (ActuateColorProp_Label,
-'              ComboBox_ActuateColorProp, ActuateLevelProp_Label, ComboBox_ActuateLevelProp) that an earlier
-'              revision of this panel required are DROPPED - pilot properties are now fixed/reserved
-'              (ARES_Color/ARES_Lvl), nothing to pick. If any of those 4 controls were already added in the
-'              designer, they can be deleted - the code no longer references them.
+'              Color_CheckBox (and its now-unused label) can be deleted once found in the designer - the code
+'              no longer references it. REVISED 2026-08-20: the pilot-property picker controls
+'              (ActuateColorProp_Label, ComboBox_ActuateColorProp, ActuateLevelProp_Label,
+'              ComboBox_ActuateLevelProp) that an earlier revision of this panel required are DROPPED - pilot
+'              properties are now fixed/reserved (ARES_Color/ARES_Lvl), nothing to pick. If any of those 4
+'              controls were already added in the designer, they can be deleted too - the code no longer
+'              references them.
 '              VISUAL GROUPING (manual, designer): place ActuatorSection_Label + its 2 checkboxes in their
 '              own block, separated from the render/colour-sync/ATLAS controls above by visible whitespace or
 '              a horizontal rule, so the panel reads as two clearly bounded sections under one window, not one
@@ -71,8 +74,9 @@ Attribute VB_Exposed = False
 '              NO help button here, unlike the Tagging and Calculation panels: those exist to open the wiki
 '              because their rule grammars do not fit in a tooltip. The actuator has no grammar to explain
 '              beyond its two switches - every control is explained by its own tooltip.
-'              StartUpPosition = 0 Manual. Tab order: master -> colour -> cell -> edit-cells ->
-'              actuate-color -> actuate-level -> reset.
+'              StartUpPosition = 0 Manual. Tab order: master -> cell -> edit-cells -> actuate-color ->
+'              actuate-level -> reset (colour dropped from the sequence once Color_CheckBox is removed from
+'              the designer - see RETIRED note above).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, FormUXHelper, FormPlacement, Command,
 '               PropertyActuator
@@ -108,37 +112,6 @@ Private Sub Main_CheckBox_Change()
 ErrorHandler:
     SetLocked False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.Main_CheckBox_Change"
-End Sub
-
-' ============================================================
-' COLOUR SYNC - CheckBox -> ARES_Only_Color_Update
-' Independent of the master switch: the colour hook lives in ElementChangeHandler and runs whether or not
-' the renderer is on.
-' ============================================================
-
-Private Sub Color_CheckBox_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
-    On Error GoTo ErrorHandler
-    If Shift = 0 And KeyCode = vbKeyReturn Then Color_CheckBox.value = Not Color_CheckBox.value
-    Exit Sub
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.Color_CheckBox_KeyUp"
-End Sub
-
-Private Sub Color_CheckBox_Change()
-    On Error GoTo ErrorHandler
-    Dim sVal As String
-    sVal = IIf(Color_CheckBox.value, "True", "False")
-    If Not mbLocked And ARESConfig.ARES_ONLY_COLOR.value <> sVal Then
-        SetLocked True
-        ARESConfig.ARES_ONLY_COLOR.value = sVal
-        SetLocked False
-    End If
-    Exit Sub
-
-ErrorHandler:
-    SetLocked False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.Color_CheckBox_Change"
 End Sub
 
 ' ============================================================
@@ -297,7 +270,6 @@ Private Sub UserForm_Initialize()
     Me.Caption = GetTranslation("RenderingGUIOptionsCaption")
     ' Checkbox captions live on the checkboxes: Tab-focus visible + the text toggles the box
     Main_CheckBox.Caption = GetTranslation("RenderingGUIOptionsMain_LabelCaption")
-    Color_CheckBox.Caption = GetTranslation("RenderingGUIOptionsColor_LabelCaption")
     Cell_CheckBox.Caption = GetTranslation("RenderingGUIOptionsCell_LabelCaption")
     Edit_Cells_List_Command.Caption = GetTranslation("RenderingGUIOptionsEdit_Cells_List_CommandCaption")
     ActuateColor_CheckBox.Caption = GetTranslation("RenderingGUIOptionsActuateColor_LabelCaption")
@@ -306,7 +278,6 @@ Private Sub UserForm_Initialize()
 
     ' Tooltips
     FormUXHelper.SetTip Main_CheckBox, "RenderingGUIOptionsMain_LabelTip"
-    FormUXHelper.SetTip Color_CheckBox, "RenderingGUIOptionsColor_LabelTip"
     FormUXHelper.SetTip Cell_CheckBox, "RenderingGUIOptionsCell_LabelTip"
     FormUXHelper.SetTip Edit_Cells_List_Command, "RenderingGUIOptionsEdit_Cells_List_CommandTip"
     FormUXHelper.SetTip ActuateColor_CheckBox, "RenderingGUIOptionsActuateColor_LabelTip"
@@ -324,13 +295,12 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.UserForm_Initialize"
 End Sub
 
-' Re-seed the three checkboxes from the current config values. The cell-name list has no visible control
+' Re-seed the checkboxes from the current config values. The cell-name list has no visible control
 ' until the user opens the inline editor, so nothing to seed for it here.
 Private Sub SeedControls()
     On Error GoTo ErrorHandler
 
     Main_CheckBox.value = (UCase(Trim(ARESConfig.ARES_TEXT_RENDER.value)) = "TRUE")
-    Color_CheckBox.value = (UCase(Trim(ARESConfig.ARES_ONLY_COLOR.value)) = "TRUE")
     Cell_CheckBox.value = (UCase(Trim(ARESConfig.ARES_UPDATE_ATLASCELLLABEL.value)) = "TRUE")
     ActuateColor_CheckBox.value = (UCase(Trim(ARESConfig.ARES_ACTUATE_COLOR.value)) = "TRUE")
     ActuateLevel_CheckBox.value = (UCase(Trim(ARESConfig.ARES_ACTUATE_LEVEL.value)) = "TRUE")
@@ -345,7 +315,6 @@ Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
     If Not FormUXHelper.ConfirmReset() Then Exit Sub
     FormUXHelper.PersistDefault ARESConfig.ARES_TEXT_RENDER
-    FormUXHelper.PersistDefault ARESConfig.ARES_ONLY_COLOR
     FormUXHelper.PersistDefault ARESConfig.ARES_UPDATE_ATLASCELLLABEL
     FormUXHelper.PersistDefault ARESConfig.ARES_CELL_LIKE_LABEL
     FormUXHelper.PersistDefault ARESConfig.ARES_ACTUATE_COLOR
@@ -385,5 +354,6 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.UserForm_QueryClose"
 End Sub
+
 
 

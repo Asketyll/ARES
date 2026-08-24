@@ -35,7 +35,12 @@
 '                        only ever yield the bearing element's own position). All GROUP sources except
 '                        CellId are stable-pushed: a change on the matching cell (text/coord/level/color/
 '                        style/weight) is re-pushed to the OTHER members by the trigger-cell pass (see
-'                        below); CellId never needs a push (an ID cannot change).
+'                        below); CellId never needs a push (an ID cannot change). CellColor (2026-08-24,
+'                        retired ONLY_COLOR hook parity - RETROACTIVE behaviour change, see GroupColor below):
+'                        reads the matching cell's color through the SAME FillMode=2 resolution as
+'                        GroupColor/LvlColor (ResolveFillAwareColor) - a filled ClosedElement cell no longer
+'                        yields its outline color unconditionally, it now yields the fill color when
+'                        FillMode=2 (0/255 fallback to outline, exactly as the legacy hook always did).
 '                    * LvlColor[pattern] / LvlStyle[pattern] / LvlWeight[pattern] - same self-included
 '                        matching scan as CellColor/CellStyle/CellWeight, but the pattern matches the LEVEL
 '                        NAME of a group member instead of a cell's name (no element-type restriction - the
@@ -52,7 +57,26 @@
 '                        (ByLevelLineStyle/ByCellLineStyle are LineStyle OBJECTS with no reliable identity
 '                        comparison) - it reads the matching element's own LineStyle name directly, exactly
 '                        like CellStyle. All three are GROUP sources (self-included), stable-pushed like
-'                        their Cell* counterparts.
+'                        their Cell* counterparts. LvlColor (2026-08-24, retired ONLY_COLOR hook parity -
+'                        RETROACTIVE behaviour change): the raw color tested against ByLevelColor/ByCellColor
+'                        is FIRST passed through the SAME FillMode=2 resolution as CellColor/GroupColor
+'                        (ResolveFillAwareColor) - FillMode decides WHICH property to read (fill vs outline),
+'                        THEN the ByLevel/ByCell symbolic test runs on whatever that read produced.
+'                    * GroupColor - the color of the FIRST element linked to the bearing element (self-
+'                        EXCLUDED scan, Link.GetLink WITHOUT ReturnMe:=True - unlike every other GROUP source
+'                        above), no name/level pattern and no type filter (any linked element counts, not
+'                        just a measurable geometry) - mirrors the retired ONLY_COLOR hook's own candidate
+'                        selection EXACTLY (2026-08-24, cahier-des-charges-groupcolor-fillmode.md). "" when
+'                        ungrouped or no linked element. Resolved through the same FillMode=2-aware read as
+'                        CellColor/LvlColor (a filled ClosedElement candidate yields its fill color, 0/255
+'                        fallback to outline). >= 2 linked elements raise the one-shot
+'                        CalculationMultipleColorCandidates warning (a NEW disclosure, not a legacy
+'                        behaviour - the arbitrary first-found pick itself is unchanged, only now visible).
+'                        Needs NO trigger/push pass of its own, same as GroupLength: HasGroupColorRules gates
+'                        ElementChangeHandler's Branch 2 geometric re-evaluation, exactly like
+'                        HasGroupLengthRules already does (a GROUP source scanned by TYPE/link, not by name,
+'                        has no "trigger element" to detect by pattern - re-evaluating every linked sibling
+'                        inline on a geometric change already covers it).
 '                    * Value[text] - a fixed literal value (Value[] empty = invalid). A SELF source.
 '                    * Coord / Coord[n] - the "X;Y" coordinates of the bearing element (n = decimals,
 '                        default = ARES_Round), via a deterministic anchor cascade. A SELF source
@@ -122,8 +146,9 @@
 '                    geometry - the reason Lvl* exists is precisely to cover a group with no named cell).
 '                    Same "not auto-re-queued" problem as a trigger cell (ElementChangeHandler.ProcessElement
 '                    calls this module unconditionally at Depth 0 on the CHANGED element only, before the
-'                    Branch1/Branch2 split - Branch 2's own re-queue is gated on ONLY_COLOR/HasGroupLengthRules
-'                    and does not fire on a bare color/level change), so the push is needed here too. Known,
+'                    text/cell-vs-geometric split - Branch 2's own re-queue is gated on
+'                    HasGroupLengthRules/HasGroupColorRules and does not fire on a bare color/level change
+'                    otherwise), so the push is needed here too. Known,
 '                    accepted limitation: a Cell*-trigger and a Lvl*-trigger competing for the SAME target in
 '                    the SAME group are not cross-detected by the multi-trigger warning (each family only
 '                    scans its own kind) - the WRITE stays safe regardless (first-match-guarded, deterministic
@@ -175,7 +200,8 @@ Private Const SOURCE_ROUND_CLAMP As Long = 15
 ' Source vocabulary of a calc rule's right-hand side (canonicalised, case-insensitive on input). csCell*
 ' are GROUP sources (matching-cell scan, self-included); csLvl* are GROUP sources too (matching-LEVEL scan,
 ' self-included, no element-type restriction); the rest are SELF sources (the bearing element's own
-' attribute) except csGroupLength (GROUP, scanned by TYPE not name pattern).
+' attribute) except csGroupLength (GROUP, scanned by TYPE not name pattern) and csGroupColor (GROUP, retired
+' ONLY_COLOR hook parity, 2026-08-24 - self-EXCLUDED scan, no type/name filter at all, see EvaluateGroupColor).
 Public Enum CalcSource
     csCellText
     csCellCoord
@@ -194,6 +220,7 @@ Public Enum CalcSource
     csLvlColor
     csLvlStyle
     csLvlWeight
+    csGroupColor
     csLength
     csGroupLength
 End Enum
@@ -214,23 +241,25 @@ Private mnCalcCount As Long
 Private mbCalcParsed As Boolean
 
 ' One-shot guards so the calculation statuses (CalculationValueRejected / CalculationNoTarget /
-' CalculationMultipleTriggers / CalculationMultipleLvlTriggers / CalculationMultipleGeometries) each surface
-' only once per PROCESSED ELEMENT. Reset at the start of each ProcessElement; the fault one (Rejected) also
-' keeps its English log on every occurrence; NoTarget and the three Multiple ones are user feedback
-' (status-only, no log).
+' CalculationMultipleTriggers / CalculationMultipleLvlTriggers / CalculationMultipleColorCandidates /
+' CalculationMultipleGeometries) each surface only once per PROCESSED ELEMENT. Reset at the start of each
+' ProcessElement; the fault one (Rejected) also keeps its English log on every occurrence; NoTarget and the
+' four Multiple ones are user feedback (status-only, no log).
 '
 ' The ambiguity guards are DELIBERATELY SEPARATE, not one shared flag: a group can hold competing trigger
-' CELLS, competing trigger LEVEL-elements, and competing measurable GEOMETRIES all at the same time, and
-' those are three distinct misconfigurations with three distinct answers. CalculationMultipleTriggers and
-' CalculationMultipleLvlTriggers are also WORDED differently (the former says "cells", the latter does not -
-' a Cell*-trigger and a Lvl*-trigger competing for the SAME target would otherwise surface a message naming
-' cells for a collision that may involve no cell at all). Sharing one flag/message would silently swallow
-' whichever fired second, or say something false about what was actually detected.
+' CELLS, competing trigger LEVEL-elements, competing GroupColor candidates, and competing measurable
+' GEOMETRIES all at the same time, and those are four distinct misconfigurations with four distinct answers.
+' CalculationMultipleTriggers and CalculationMultipleLvlTriggers are also WORDED differently (the former
+' says "cells", the latter does not - a Cell*-trigger and a Lvl*-trigger competing for the SAME target would
+' otherwise surface a message naming cells for a collision that may involve no cell at all). Sharing one
+' flag/message would silently swallow whichever fired second, or say something false about what was
+' actually detected.
 Private mbRejectedShown As Boolean
 Private mbNoTargetShown As Boolean
 Private mbMultiShown As Boolean
 Private mbMultiGeoShown As Boolean
 Private mbMultiLvlShown As Boolean
+Private mbMultiColorShown As Boolean
 
 '######################################################################################################################
 '                                          PUBLIC SURFACE
@@ -367,6 +396,7 @@ Public Sub ProcessElement(ByVal oEl As element)
     mbMultiShown = False
     mbMultiGeoShown = False
     mbMultiLvlShown = False
+    mbMultiColorShown = False
 
     If oEl Is Nothing Then Exit Sub
 
@@ -775,6 +805,13 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
             r.SourceKind = csWeight
             r.SourceArg = ""
+        Case "GROUPCOLOR"
+            If bHasArg Then
+                ParseSource = "GroupColor takes no argument"
+                Exit Function
+            End If
+            r.SourceKind = csGroupColor
+            r.SourceArg = ""
         Case "LENGTH"
             r.SourceKind = csLength
             r.SourceArg = ""
@@ -801,9 +838,9 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
         Case Else
             If Len(kw) = 0 Then
-                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             Else
-                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             End If
             Exit Function
     End Select
@@ -914,6 +951,8 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
             SourceToCanonical = "Style"
         Case csWeight
             SourceToCanonical = "Weight"
+        Case csGroupColor
+            SourceToCanonical = "GroupColor"
         Case csLength
             SourceToCanonical = OptionalArgKeywordToCanonical("Length", r.SourceArg)
         Case csGroupLength
@@ -1113,6 +1152,8 @@ Private Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) A
             End If
         Case csWeight
             If oEl.IsGraphical Then EvaluateSource = CStr(oEl.LineWeight)
+        Case csGroupColor
+            EvaluateSource = EvaluateGroupColor(oEl)
         Case csLength
             EvaluateSource = EvaluateOwnLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
         Case csGroupLength
@@ -1230,7 +1271,10 @@ Private Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcS
         Case csCellLvl
             If Not oCell.Level Is Nothing Then ReadCellSourceValue = oCell.Level.Name
         Case csCellColor
-            ReadCellSourceValue = CStr(oCell.Color)
+            ' FillMode=2 resolution (2026-08-24, GroupColor parity extension) - see ReadLvlSourceValue's
+            ' csLvlColor comment for the full rationale. CellColor has no ByLevel/ByCell symbolic state of
+            ' its own, so ResolveFillAwareColor's result is used as-is.
+            ReadCellSourceValue = CStr(ResolveFillAwareColor(oCell))
         Case csCellStyle
             If Not oCell.LineStyle Is Nothing Then ReadCellSourceValue = oCell.LineStyle.Name
         Case csCellWeight
@@ -1376,22 +1420,30 @@ End Function
 '     (Level.ElementColor / Level.ElementLineWeight - the library default the Level Manager shows for
 '     "ByLevel"); ByCell has no Level-based answer, so it yields "" rather than propagate the raw sentinel
 '     Long as if it were a real colour/weight index (same "never fabricate" philosophy as a missing anchor).
+'     csLvlColor's INPUT to this 3-state test is ResolveFillAwareColor(oFoundEl), not oFoundEl.Color directly
+'     (2026-08-24, GroupColor/FillMode=2 parity extension, cahier-des-charges-groupcolor-fillmode.md §3.1):
+'     FillMode=2 is resolved FIRST (it decides WHICH MicroStation property holds the color to read), and the
+'     ByLevel/ByCell test then interprets WHATEVER Long that read produced, regardless of source - mirrors the
+'     legacy hook exactly, which never had a concept of ByLevel/ByCell to begin with.
 '   - csLvlStyle: deliberately NOT resolved the same way - ByLevelLineStyle/ByCellLineStyle are LineStyle
 '     OBJECTS, not Long sentinels, and no reliable identity comparison exists via mvba-docs (ByLevelLineStyle
 '     may not return a stable singleton instance). LvlStyle instead reads the found element's OWN LineStyle
-'     name directly, mirroring CellStyle exactly (no ByLevel/ByCell resolution at all).
+'     name directly, mirroring CellStyle exactly (no ByLevel/ByCell resolution at all, no FillMode=2 either -
+'     FillMode is a Color/FillColor concept, it does not apply to LineStyle).
 Private Function ReadLvlSourceValue(ByVal oFoundEl As element, ByVal kind As CalcSource) As String
     On Error GoTo ErrorHandler
 
     ReadLvlSourceValue = ""
     Select Case kind
         Case csLvlColor
-            If oFoundEl.Color = ByLevelColor Then
+            Dim rawLvlColor As Long
+            rawLvlColor = ResolveFillAwareColor(oFoundEl)
+            If rawLvlColor = ByLevelColor Then
                 If Not oFoundEl.Level Is Nothing Then ReadLvlSourceValue = CStr(oFoundEl.Level.ElementColor)
-            ElseIf oFoundEl.Color = ByCellColor Then
+            ElseIf rawLvlColor = ByCellColor Then
                 ReadLvlSourceValue = ""                ' not resolvable from the Level - never fabricate
             Else
-                ReadLvlSourceValue = CStr(oFoundEl.Color)
+                ReadLvlSourceValue = CStr(rawLvlColor)
             End If
         Case csLvlStyle
             If Not oFoundEl.LineStyle Is Nothing Then ReadLvlSourceValue = oFoundEl.LineStyle.Name
@@ -1408,6 +1460,104 @@ Private Function ReadLvlSourceValue(ByVal oFoundEl As element, ByVal kind As Cal
 
 ErrorHandler:
     ReadLvlSourceValue = ""
+End Function
+
+'######################################################################################################################
+'                                          GROUP SOURCE - GroupColor (retired ONLY_COLOR hook parity)
+'######################################################################################################################
+
+' Shared FillMode=2 resolution (2026-08-24, cahier-des-charges-groupcolor-fillmode.md §2/§3.1), recopied
+' verbatim from the retired ONLY_COLOR hook's read logic (its "Determine the source color" block, formerly
+' ElementChangeHandler.cls Branch 1 - the hook itself is gone, this is what it used to do): a ClosedElement
+' in FillMode=2 reads its FILL color, UNLESS that fill
+' color is literally 0 or 255 (black/white), in which case the OUTLINE color (.Color) is used instead. Any
+' other element (not closed, or closed but not FillMode=2) just reads .Color. Shared by GroupColor, CellColor
+' and LvlColor (2026-08-24 parity decision, Asketyll - see the cahier: this is a RETROACTIVE behaviour change
+' on CellColor/LvlColor, not just a new capability, announced explicitly in project-context.md/wiki). Returns
+' a raw Long that may itself be the ByLevelColor/ByCellColor sentinel (when the fallback lands on .Color) -
+' callers that care about that symbolic state (LvlColor) test the RESULT of this function, not el.Color
+' directly, so FillMode is always resolved first, exactly mirroring the legacy hook's own priority (it never
+' had a concept of ByLevel/ByCell to begin with).
+Private Function ResolveFillAwareColor(ByVal el As element) As Long
+    On Error GoTo ErrorHandler
+
+    ResolveFillAwareColor = el.Color
+    If el.IsClosedElement Then
+        If el.AsClosedElement.FillMode = 2 Then
+            Dim fc As Long
+            fc = el.AsClosedElement.fillcolor
+            If fc = 0 Or fc = 255 Then
+                ResolveFillAwareColor = el.Color
+            Else
+                ResolveFillAwareColor = fc
+            End If
+        End If
+    End If
+    Exit Function
+
+ErrorHandler:
+    ResolveFillAwareColor = el.Color
+End Function
+
+' GroupColor evaluation: replicates the retired ONLY_COLOR hook's candidate selection EXACTLY (cahier
+' §2/§3.1), which is DELIBERATELY DIFFERENT from every other GROUP source in this module:
+'   - SELF-EXCLUDED scan (Link.GetLink WITHOUT ReturnMe:=True) - unlike Cell*/Lvl*/GroupLength, which all
+'     self-include ("group of one" philosophy). Color has no type filter to protect a self-inclusion the way
+'     GroupLength's IsLengthCapableType does (every graphical element has a Color), so self-inclusion here
+'     would let a bearing text match ITSELF first and produce a degenerate no-op rule instead of following
+'     its linked geometry - exactly the failure mode the exclusion avoids.
+'   - NO type filter on the candidate (any linked element counts, not just a measurable geometry).
+'   - NO name/level pattern - literally the FIRST element Link.GetLink returns, mirroring `els(LBound(els))`.
+' "" when ungrouped or no linked element (never a fabricated value). >= 2 linked elements -> the one-shot
+' CalculationMultipleColorCandidates warning (2026-08-24 decision, Asketyll) - the legacy hook never warned,
+' this is a NEW behaviour, not a parity requirement, but it does not change WHICH value lands (still the
+' first), only whether the arbitrary pick is disclosed - same doctrine as CalculationMultipleGeometries.
+Private Function EvaluateGroupColor(ByVal oEl As element) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateGroupColor = ""
+
+    Dim cands() As element
+    cands = Link.GetLink(oEl)                      ' NO ReturnMe:=True - see rationale above
+    If Not HasElements(cands) Then Exit Function
+
+    Dim candidate As element
+    Set candidate = cands(LBound(cands))
+    If Not candidate Is Nothing Then
+        EvaluateGroupColor = CStr(ResolveFillAwareColor(candidate))
+    End If
+
+    If UBound(cands) > LBound(cands) Then ReportMultipleColorCandidates
+    Exit Function
+
+ErrorHandler:
+    EvaluateGroupColor = ""
+End Function
+
+' True when at least one parsed calc rule uses GroupColor. Consulted by ElementChangeHandler's geometric
+' Branch 2 gate, mirroring HasGroupLengthRules exactly: GroupColor's candidate is a GEOMETRY-ish linked
+' element (no name/level pattern to detect a "trigger" by), so - like GroupLength - it needs every OTHER
+' group member re-evaluated when the linked element itself changes. No new trigger/push pass is needed:
+' Branch 2 already re-processes every linked sibling inline on a geometric change (the same mechanism the
+' now-retired ONLY_COLOR hook used to rely on - see ElementChangeHandler.cls Branch 2's own comment).
+Public Function HasGroupColorRules() As Boolean
+    On Error GoTo ErrorHandler
+
+    HasGroupColorRules = False
+    If Not IsEnabled Then Exit Function
+
+    EnsureCalcRulesParsed
+    Dim i As Long
+    For i = 0 To mnCalcCount - 1
+        If mCalcRules(i).SourceKind = csGroupColor Then
+            HasGroupColorRules = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    HasGroupColorRules = False
 End Function
 
 '######################################################################################################################
@@ -2198,6 +2348,19 @@ Private Sub ReportMultipleLvlTriggers()
     If Not mbMultiLvlShown Then
         LangManager.ShowStatusT "CalculationMultipleLvlTriggers"
         mbMultiLvlShown = True
+    End If
+End Sub
+
+' Surface CalculationMultipleColorCandidates ONCE per processed element (deduped via its OWN
+' mbMultiColorShown). NEW status, not a legacy behaviour (the ONLY_COLOR hook never warned on this) - see
+' EvaluateGroupColor's own comment. Own DISTINCT key, same reasoning as ReportMultipleLvlTriggers: this
+' ambiguity is between LINKED elements, not cells or levels by name, so no existing status wording fits.
+' USER FEEDBACK, status-only, no English .log.
+Private Sub ReportMultipleColorCandidates()
+    On Error Resume Next
+    If Not mbMultiColorShown Then
+        LangManager.ShowStatusT "CalculationMultipleColorCandidates"
+        mbMultiColorShown = True
     End If
 End Sub
 

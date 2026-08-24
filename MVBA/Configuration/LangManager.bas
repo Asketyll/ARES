@@ -161,9 +161,10 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_CalculationNoTarget", "ARES: Property calculation - no group member carries the target property; enable Property Tagging and check the property is attached (DGNLib)"
     moTranslations.Add "EN_CalculationMultipleTriggers", "ARES: Property calculation - several trigger cells in this group; the last-modified one sets the value"
     moTranslations.Add "EN_CalculationMultipleLvlTriggers", "ARES: Property calculation - several level-matching trigger elements in this group; the last-modified one sets the value"
+    moTranslations.Add "EN_CalculationMultipleColorCandidates", "ARES: Property calculation - several linked elements in this group; the first one found sets the color"
     moTranslations.Add "EN_CalculationMultipleGeometries", "ARES: Property calculation - several measurable geometries in this group; the first one found sets the length"
-    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rule invalid, not saved (expected Prop[name][&...]=Source; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[pattern] / Value[text] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
-    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[pattern] | Value[text] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. pattern may use '|' for several name alternatives, e.g. ASUF*|SP0*. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
+    moTranslations.Add "EN_CalcRuleInvalid", "ARES: Calc rule invalid, not saved (expected Prop[name][&...]=Source; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[pattern] / Value[text] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight|GroupColor)"
+    moTranslations.Add "EN_CalculationGUIOptionsCalcRules_Tip", "Calc rules: Prop[name] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[pattern] | Value[text] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight|GroupColor. pattern may use '|' for several name alternatives, e.g. ASUF*|SP0*. First matching rule per property wins (specific rules first). Example: Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "EN_PropertyLibraryNotFound", "ARES: Custom properties - the ARES DGNLib was not found (check MS_DGNLIBLIST)"
     ' Tooltips - Zoning
@@ -225,8 +226,6 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_RenderingGUIOptionsCaption", "Property Rendering options"
     moTranslations.Add "EN_RenderingGUIOptionsMain_LabelCaption", "Enable property rendering"
     moTranslations.Add "EN_RenderingGUIOptionsMain_LabelTip", "Write a linked property's value into a text carrying a Prop[...] token (ARES_Text_Render)."
-    moTranslations.Add "EN_RenderingGUIOptionsColor_LabelCaption", "Sync text colour with the linked geometry"
-    moTranslations.Add "EN_RenderingGUIOptionsColor_LabelTip", "A text linked to a geometry takes that geometry's colour when the colour changes (ARES_Only_Color_Update)."
     moTranslations.Add "EN_RenderingGUIOptionsCell_LabelCaption", "Rebuild ATLAS label cells after a text change"
     moTranslations.Add "EN_RenderingGUIOptionsCell_LabelTip", "Rebuild the leader-label cell geometry once its text has changed, so the frame follows the new text (ARES_Update_ATLASCellLabel)."
     moTranslations.Add "EN_RenderingGUIOptionsEdit_Cells_List_CommandCaption", "Edit ATLAS cell names"
@@ -376,9 +375,10 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_CalculationNoTarget", "ARES : Calcul de propriété - aucun membre du groupe ne porte la propriété cible ; activez l'étiquetage de propriété et vérifiez que la propriété est attachée (DGNLib)"
     moTranslations.Add "FR_CalculationMultipleTriggers", "ARES : Calcul de propriété - plusieurs cellules déclencheuses dans ce groupe ; la dernière modifiée impose la valeur"
     moTranslations.Add "FR_CalculationMultipleLvlTriggers", "ARES : Calcul de propriété - plusieurs éléments déclencheurs (niveau correspondant) dans ce groupe ; le dernier modifié impose la valeur"
+    moTranslations.Add "FR_CalculationMultipleColorCandidates", "ARES : Calcul de propriété - plusieurs éléments liés dans ce groupe ; le premier trouvé impose la couleur"
     moTranslations.Add "FR_CalculationMultipleGeometries", "ARES : Calcul de propriété - plusieurs géométries mesurables dans ce groupe ; la première trouvée impose la longueur"
-    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règle de calcul invalide, non enregistrée (attendu Prop[nom][&...]=Source ; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[motif] / Value[texte] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight)"
-    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[motif] | Value[texte] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight. Le motif peut utiliser '|' pour plusieurs alternatives de nom, ex. ASUF*|SP0*. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
+    moTranslations.Add "FR_CalcRuleInvalid", "ARES : Règle de calcul invalide, non enregistrée (attendu Prop[nom][&...]=Source ; Source = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[motif] / Value[texte] / Coord|Length|GroupLength[n] / Id|Lvl|Color|Style|Weight|GroupColor)"
+    moTranslations.Add "FR_CalculationGUIOptionsCalcRules_Tip", "Règles de calcul : Prop[nom] [&Lvl/Cell/Type[..]] = CellText|CellCoord|CellId|CellLvl|CellColor|CellStyle|CellWeight|LvlColor|LvlStyle|LvlWeight[motif] | Value[texte] | Coord|Length|GroupLength[n] | Id|Lvl|Color|Style|Weight|GroupColor. Le motif peut utiliser '|' pour plusieurs alternatives de nom, ex. ASUF*|SP0*. La première règle qui correspond par propriété gagne (règles spécifiques d'abord). Exemple : Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ; Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]"
     ' --- Custom-property DGNLib round trip (OpenPropertyLibrary key-in) ---
     moTranslations.Add "FR_PropertyLibraryNotFound", "ARES : Propriétés personnalisées - DGNLib ARES introuvable (vérifiez MS_DGNLIBLIST)"
     ' Tooltips - Zoning
@@ -438,8 +438,6 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_RenderingGUIOptionsCaption", "Options du Rendu de propriétés"
     moTranslations.Add "FR_RenderingGUIOptionsMain_LabelCaption", "Activer le rendu de propriétés"
     moTranslations.Add "FR_RenderingGUIOptionsMain_LabelTip", "Écrit la valeur d'une propriété liée dans un texte portant un token Prop[...] (ARES_Text_Render)."
-    moTranslations.Add "FR_RenderingGUIOptionsColor_LabelCaption", "Synchroniser la couleur du texte avec la géométrie liée"
-    moTranslations.Add "FR_RenderingGUIOptionsColor_LabelTip", "Un texte lié à une géométrie prend la couleur de celle-ci quand elle change (ARES_Only_Color_Update)."
     moTranslations.Add "FR_RenderingGUIOptionsCell_LabelCaption", "Reconstruire les cellules d'étiquette ATLAS après modification du texte"
     moTranslations.Add "FR_RenderingGUIOptionsCell_LabelTip", "Reconstruit la géométrie de la cellule d'étiquette une fois son texte modifié, pour que le cadre suive le nouveau texte (ARES_Update_ATLASCellLabel)."
     moTranslations.Add "FR_RenderingGUIOptionsEdit_Cells_List_CommandCaption", "Modifier les noms de cellules ATLAS"

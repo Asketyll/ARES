@@ -195,10 +195,27 @@ End Function
 '######################################################################################################################
 
 ' Reads P's current value on oEl, resolves it as a MicroStation color index, writes oEl.Color only when
-' different. On a cell, also repaints original sub-elements (cahier §4.4): only the sub-elements whose
-' CURRENT color equals the header's OWN color BEFORE the write - a sub-element already holding a
-' deliberately different color is left alone (re-derived from the retired StringsInEl.bas:266 rule, since
-' AutoLengths left no surviving code to call).
+' different - UNLESS oEl is a CellElement, whose own header Color is NEVER written (see below). On a cell,
+' only repaints original sub-elements (cahier §4.4): only the sub-elements whose CURRENT color equals the
+' header's OWN color BEFORE any change - a sub-element already holding a deliberately different color is left
+' alone (re-derived from the retired StringsInEl.bas:266 rule, since AutoLengths left no surviving code to
+' call). A FillMode=2 sub-element has its own fill color saved and restored around the write (retired
+' ONLY_COLOR hook parity).
+'
+' WHY a CellElement's header Color is never written (2026-08-24, cahier-des-charges-groupcolor-fillmode.md
+' investigation - do NOT "fix" this by reinstating the write, it is the root cause of a real bug, not an
+' oversight): writing it triggers a MicroStation-NATIVE cascade onto any sub-element whose own Color/FillColor
+' is set to the ByCellColor sentinel (mvba-docs Color_Property.md / FillColor_Property.md /
+' ByCellColor_Method.md) - the header write silently resets such a sub-element's resolved FillMode/FillColor
+' (2->1) as a side effect of MicroStation's own colour re-derivation, corrupting the very fill this Sub is
+' trying to preserve, with no reliable way for MVBA code to intercept or undo it after the fact (several
+' attempts tried and failed/regressed on a real repro: refreshing the element handle right after the write,
+' snapshotting and restoring descendant Color/FillMode/FillColor state around it - a cell sub-element/
+' ComplexShapeElement component has no independently retrievable model id either, so a restore keyed by id is
+' a silent no-op, see StringsInEl.RefreshElementHandle's own comment on that). The retired ONLY_COLOR hook
+' (formerly ElementChangeHandler.cls Branch 1, now removed) never had this problem for the simple reason it
+' never wrote a CellElement's own header Color either - it went straight to a sub-element repaint loop,
+' exactly like the one below.
 Private Sub ActuateColor(ByVal oEl As element, ByVal P As String)
     On Error GoTo ErrorHandler
 
@@ -233,9 +250,14 @@ Private Sub ActuateColor(ByVal oEl As element, ByVal P As String)
     Dim oldColor As Long
     oldColor = oEl.Color
 
-    If oldColor <> targetColor Then
-        oEl.Color = targetColor
-        oEl.Rewrite
+    ' Non-cell elements have no sub-elements to repaint - writing their own Color IS the pilot property's
+    ' whole effect, and carries none of the cascade risk described above. A CellElement's header is
+    ' deliberately left untouched here; only the repaint loop below acts on it.
+    If Not oEl.IsCellElement Then
+        If oldColor <> targetColor Then
+            oEl.Color = targetColor
+            oEl.Rewrite
+        End If
     End If
 
     If oEl.IsCellElement Then
@@ -247,7 +269,21 @@ Private Sub ActuateColor(ByVal oEl As element, ByVal P As String)
             If Not subEl Is Nothing Then
                 If subEl.IsGraphical Then
                     If subEl.Color = oldColor And oldColor <> targetColor Then
-                        subEl.Color = targetColor
+                        ' FillColor preservation (retired ONLY_COLOR hook parity, cahier-des-charges-groupcolor-
+                        ' fillmode.md §4): a FillMode=2 sub-element's own fill color is saved and restored
+                        ' around the write, since Color/FillColor are documented as independent properties.
+                        If subEl.IsClosedElement Then
+                            If subEl.AsClosedElement.FillMode = 2 Then
+                                Dim savedFillColor As Long
+                                savedFillColor = subEl.AsClosedElement.fillcolor
+                                subEl.Color = targetColor
+                                subEl.AsClosedElement.fillcolor = savedFillColor
+                            Else
+                                subEl.Color = targetColor
+                            End If
+                        Else
+                            subEl.Color = targetColor
+                        End If
                         subEl.Rewrite
                     End If
                 End If
@@ -305,6 +341,10 @@ Private Sub ActuateLevel(ByVal oEl As element, ByVal P As String)
     Dim oldLevelName As String
     If Not oEl.Level Is Nothing Then oldLevelName = oEl.Level.Name
 
+    ' Unlike ActuateColor, a CellElement's header Level IS written here: Level has no ByCellColor-style
+    ' cascade sentinel (mvba-docs confirms ByLevelColor/ByLevelLineStyle/ByLevelLineWeight exist for
+    ' Color/LineStyle/LineWeight, none for Level itself), so this write carries none of the corruption risk
+    ' that ActuateColor's header write does on a cell - see that Sub's header comment for the full rationale.
     If oldLevelName <> targetLevel.Name Then
         oEl.Level = targetLevel
         oEl.Rewrite
