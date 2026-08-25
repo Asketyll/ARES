@@ -5,6 +5,48 @@
 '              standalone concept here.
 '              Implements IChangeTrackEvents to listen for element additions, modifications, and deletions.
 '              Includes automatic detection of bulk operations using frequency-based detection.
+'              DIAGNOSTIC SWITCH (ARES_DIRECT_PROCESSING, default False): when True, an element is processed
+'              synchronously inline (ProcessDirect) instead of being queued for the next MicroStation idle
+'              event. This exists to let Asketyll test, in real conditions, whether a historical ATLAS
+'              instability - the reason deferred/idle processing was introduced (git commit fa361c9,
+'              17 Nov 2025; before it, ElementChanged called element handling directly) - still applies now
+'              that custom-property processing replaced Auto Lengths. It is a TEST TOOL, not a replacement:
+'              the deferred path stays the reference behaviour and default. Direct mode carries a real,
+'              different risk from deferred mode: ProcessElement can synchronously .Rewrite an element
+'              (PropertyRendering/PropertyActuator/PropertyCalculation), and if MicroStation redispatches
+'              ElementChanged on that write before the outer call returns, that re-entry lands back on
+'              IChangeTrackEvents_ElementChanged itself - a nested COM call, not the top-level dispatch that
+'              deferred mode's own self-triggered cascades get (those happen outside any live ElementChanged
+'              call, during idle). mbProcessingDirect below exists specifically to bound that: ProcessElement's
+'              own MAX_DEPTH cannot see a re-entry through the event entry point, since each re-entry starts
+'              fresh at Depth 0 (a skipped reentrant call is logged once per session, mbReentrancyLogged, so
+'              a real hit during testing is greppable). mbProcessingDirect also suppresses
+'              DetectAndSuspendBulkOperation while active, mirroring IsIdleProcessingActive() for the idle
+'              path: a group's own Calculation/Actuator/Rendering cascade across several siblings within one
+'              ProcessDirect call must not be miscounted as an external bulk operation and false-suspend
+'              change tracking mid-test.
+'              WHAT HAPPENS TO A SKIPPED ELEMENT (confirmed live 2026-08-25, one real reentrant hit logged,
+'              no crash): a reentrant call falls back to the deferred queue instead of being dropped -
+'              no durable loss either way. CASE 1, the skipped element is ARES's OWN cascade sibling
+'              (reached via Link.GetLink / ApplyValueToSibling / PropertyRendering's NoteDirtyGroup+
+'              DrainRepaintHop): already had no loss even before the fallback - those are explicit
+'              in-call-graph mechanisms independent of ElementInProcesse (true in deferred mode too:
+'              Branch 2's own queue-add for a sibling is wiped by IdleEventHandler.CleanupHandler before any
+'              fresh pass reaches it; the explicit calls are what actually do the work) - the fallback queue-
+'              add here is a harmless redundant no-op for this case. CASE 2, the skipped element is
+'              UNRELATED to ARES's own writes (e.g. a concurrent ATLAS edit landing while mbProcessingDirect
+'              is True): the fallback is what closes this case - it is picked up on the next idle instead of
+'              staying unprocessed until its own next modification.
+'              RESULT (Asketyll, live testing, 2026-08-25): the original ATLAS instability this switch was
+'              built to test is GONE in direct mode - including under an ATLAS bulk/mass operation, where
+'              bulk-suspend and its post-operation resume both fired correctly and performance felt BETTER
+'              than deferred, not worse. Root cause unconfirmed either way (Asketyll's own reading: most
+'              likely the ATLAS dimension text driving the original slowdown never matches any ARES rule and
+'              exits the pipeline immediately, rather than the property-based engines themselves behaving
+'              differently from the old Auto Lengths code) - moving to custom-property processing may or may
+'              not be what actually fixed it, independently of this switch. Deferred nonetheless stays the
+'              shipped default; this switch remains an opt-in diagnostic tool, not a basis for retiring the
+'              deferred path.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
@@ -17,6 +59,8 @@ Implements IChangeTrackEvents
 Private moIdleHandler As IdleEventHandler       ' Single persistent idle handler instance - created once, reused; only add/removed from the idle list
 Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle handler registrations
 Private moReRegHandler As ReRegisterIdleHandler ' Member-scoped ref to prevent premature VBA GC after bulk suspend
+Private mbProcessingDirect As Boolean           ' Reentrancy guard for ARES_DIRECT_PROCESSING mode - see class header
+Private mbReentrancyLogged As Boolean           ' One-shot flag: log the FIRST time ProcessDirect skips a reentrant call
 
 ' === BULK OPERATION DETECTION (Frequency-based) ===
 ' Detects bulk operations by tracking call frequency within a time window
@@ -68,41 +112,35 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
     If Not IsAnyFeatureEnabled() Then Exit Sub
 
     Select Case Action
-        ' Handle element addition - queue the new element for processing
+        ' Handle element addition - queue (or, in direct mode, process inline) the new element
         ' Note: BeforeChange is Nothing for Add actions
         Case msdChangeTrackActionAdd
             If Not AfterChange Is Nothing Then
                 If ShouldQueueElement(AfterChange) Then
-                    If ElementInProcesse.Add(AfterChange) Then
-                        EnsureIdleHandlerRegistered
-                    End If
+                    QueueOrProcessDirect AfterChange
                 End If
             End If
 
-        ' Handle element modification - queue the modified element for processing
+        ' Handle element modification - queue (or, in direct mode, process inline) the modified element
         Case msdChangeTrackActionModify
             If Not AfterChange Is Nothing Then
                 If ShouldQueueElement(AfterChange) Then
-                    If ElementInProcesse.Add(AfterChange) Then
-                        EnsureIdleHandlerRegistered
-                    End If
+                    QueueOrProcessDirect AfterChange
                 End If
             End If
 
-        ' Handle element deletion - queue linked elements for update
+        ' Handle element deletion - queue (or, in direct mode, process inline) linked elements for update
         ' Note: AfterChange is Nothing for Delete actions
         Case msdChangeTrackActionDelete
             If Not BeforeChange Is Nothing Then
                 If ShouldQueueForDeletion(BeforeChange, els) Then
-                    ' Queue each linked element for processing. Property Calculation needs no deletion
+                    ' Queue/process each linked element. Property Calculation needs no deletion
                     ' hook here (epic 14): deleting a trigger cell already re-queues its former group
                     ' members (via Link.GetLink), so their Depth-0 BEARING pass re-resolves each carried
                     ' calc property against the CURRENT group - the surviving matching cell's text, or ""
                     ' (transition-guarded clear/detach) when none survives. No pending-clear machinery.
                     For i = LBound(els) To UBound(els)
-                        If ElementInProcesse.Add(els(i)) Then
-                            EnsureIdleHandlerRegistered
-                        End If
+                        QueueOrProcessDirect els(i)
                     Next i
                 End If
             End If
@@ -137,6 +175,62 @@ Private Sub IChangeTrackEvents_Mark()
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementChangeHandler.IChangeTrackEvents_Mark"
+    Err.Clear
+End Sub
+
+' ========================================
+' PRIVATE METHODS - Direct vs Deferred Dispatch
+' ========================================
+
+' Routes one already-filtered element to either the deferred queue (default) or, when
+' ARES_DIRECT_PROCESSING is enabled, straight to ProcessDirect. Single call site so Add/Modify/
+' Delete-linked all pick up the switch identically - see class header for what direct mode is for.
+Private Sub QueueOrProcessDirect(ByVal oElement As element)
+    If CBool(ARESConfig.ARES_DIRECT_PROCESSING.Value) Then
+        ProcessDirect oElement
+    Else
+        If ElementInProcesse.Add(oElement) Then EnsureIdleHandlerRegistered
+    End If
+End Sub
+
+' Processes one element synchronously, inline, from within IChangeTrackEvents_ElementChanged.
+' mbProcessingDirect guards against COM reentrancy: ProcessElement can .Rewrite an element
+' (PropertyRendering/PropertyActuator/PropertyCalculation), and if that write makes MicroStation
+' redispatch ElementChanged before this call returns, the reentry comes back through THIS event
+' entry point - a nested call ProcessElement's own MAX_DEPTH cannot see, since a reentrant call
+' starts fresh at Depth 0. On a reentrant call, this element is NOT processed synchronously here -
+' it falls back to the deferred queue (ElementInProcesse.Add + EnsureIdleHandlerRegistered) instead
+' of being dropped, so it is still picked up on the next idle. Safe to call from within the
+' reentrant COM frame: unlike DetachChangeTracking (bulk-suspend path), this only touches the idle
+' list, not change tracking itself. Idempotent even if the same element is already covered by
+' ARES's own explicit cascade (Link.GetLink / ApplyValueToSibling / NoteDirtyGroup+DrainRepaintHop)
+' - every engine is compare-before-write/HasItems-guarded, so a redundant idle pass is a cheap no-op,
+' not a correctness issue. ElementInProcesse itself is a dedup-by-ID queue, so re-skipping the same
+' element multiple times within one reentrant burst cannot duplicate it either.
+Private Sub ProcessDirect(ByVal oElement As element)
+    On Error GoTo ErrorHandler
+
+    If mbProcessingDirect Then
+        ' One-shot log (not status bar - this is a diagnostic switch, Asketyll reads the log, not
+        ' the status line) so a real reentrant hit is greppable while testing this switch, without
+        ' flooding the log on every subsequent occurrence in the same session.
+        If Not mbReentrancyLogged Then
+            ErrorHandler.HandleError "ARES_Direct_Processing: reentrant ElementChanged call deferred to next idle (not processed synchronously by this call)", 0, "", "ElementChangeHandler.ProcessDirect"
+            mbReentrancyLogged = True
+        End If
+        If ElementInProcesse.Add(oElement) Then EnsureIdleHandlerRegistered
+        Exit Sub
+    End If
+    mbProcessingDirect = True
+
+    ProcessElement oElement
+
+    mbProcessingDirect = False
+    Exit Sub
+
+ErrorHandler:
+    mbProcessingDirect = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementChangeHandler.ProcessDirect"
     Err.Clear
 End Sub
 
@@ -390,6 +484,13 @@ Private Function DetectAndSuspendBulkOperation() As Boolean
     ' ARES's own element modifications during idle processing would trigger false bulk detection.
     ' The idle handler sets this flag to suppress suspension during its own processing cycle.
     If IsIdleProcessingActive() Then Exit Function
+
+    ' Mirrors the guard above for direct mode (ARES_DIRECT_PROCESSING): a group's Calculation/
+    ' Actuator/Rendering passes can .Rewrite several sibling members from a single ProcessDirect
+    ' call, each potentially redispatching ElementChanged. Without this, ARES's own cascade could
+    ' cross ARES_Bulk_Threshold and suspend change tracking - a false bulk-suspend caused by ARES
+    ' itself, not by an external app, silently invalidating exactly the test this switch exists for.
+    If mbProcessingDirect Then Exit Function
 
     ' Already suspended for a bulk in progress. RemoveChangeTrackEventsHandler is not synchronous
     ' during a tight bulk loop (e.g. a DGN conversion), so in-flight ElementChanged events keep

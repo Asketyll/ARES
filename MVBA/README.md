@@ -82,9 +82,12 @@ If DetectAndSuspendBulkOperation() Then Exit Sub
 If Not ARESConfig.IsInitialized Then Exit Sub
 If Not IsAnyFeatureEnabled() Then Exit Sub
 Select Case Action
-  Add / Modify : ShouldQueueElement() -> ElementInProcesse.Add -> EnsureIdleHandlerRegistered
-  Delete       : ShouldQueueForDeletion() -> for each linked el: Add -> EnsureIdleHandlerRegistered
+  Add / Modify : ShouldQueueElement() -> QueueOrProcessDirect
+  Delete       : ShouldQueueForDeletion() -> for each linked el: QueueOrProcessDirect
 ```
+`QueueOrProcessDirect`: default → `ElementInProcesse.Add` → `EnsureIdleHandlerRegistered` (unchanged). If `ARES_Direct_Processing` → `ProcessDirect` (see below).
+
+**`ARES_Direct_Processing` (default `False`, DIAGNOSTIC SWITCH, not an architecture change)**: when `True`, `QueueOrProcessDirect` routes an already-filtered element to `ProcessDirect` (calls `ProcessElement` synchronously, inline, from inside `IChangeTrackEvents_ElementChanged`) instead of `ElementInProcesse.Add` + idle. `DetectAndSuspendBulkOperation` still runs first either way, and is ALSO suppressed by `mbProcessingDirect` (mirroring the existing `IsIdleProcessingActive()` suppression for the idle path) — without this, a group's own Calculation/Actuator/Rendering cascade across several siblings in one `ProcessDirect` call could cross `ARES_Bulk_Threshold` and trigger a false bulk-suspend caused by ARES itself. Reentrancy is guarded by `mbProcessingDirect` — a reentrant call (e.g. `ProcessElement`'s own `.Rewrite` making MicroStation redispatch `ElementChanged` before the outer call returns) is NOT processed synchronously; it falls back to the deferred queue instead of being dropped, since that reentry lands back on the event entry point itself, invisible to `ProcessElement`'s `MAX_DEPTH`. The first fallback per session is logged (`mbReentrancyLogged`, log-only, no status bar). Exists so Asketyll can test whether a historical ATLAS instability — the reason deferred/idle processing replaced direct processing (commit `fa361c9`, 17 Nov 2025) — still applies now that custom-property processing replaced Auto Lengths. **Result (Asketyll, live testing, 2026-08-25): the original ATLAS instability is gone in direct mode, including under an ATLAS bulk operation** (bulk-suspend/resume both fired correctly, perceived performance was better than deferred); root cause unconfirmed. Deferred stays the reference default; do not remove the deferred path on the strength of this switch alone.
 
 **Phase 2 — Deferred** (`IdleEventHandler.IEnterIdleEvent_EnterIdle`)
 
