@@ -220,6 +220,10 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ActuatorLevelInvalid", "ARES: Property actuator - the pilot property's value does not name an existing, unlocked level"
     moTranslations.Add "EN_ActuatorSelfRatchetRefused", "ARES: Property actuator - refused: the pilot property is itself computed from this same attribute"
 
+    ' --- Call Stack tracer ---
+    moTranslations.Add "EN_CallStackLogged", "ARES: call stack written to the log"
+    moTranslations.Add "EN_CallStackEmpty", "ARES: no call stack captured yet - trigger an ARES event (add/modify an element) first, then run this again"
+
     ' Property Rendering options form (epic 15). The colour-sync and ATLAS label settings moved here from
     ' the Auto Lengths options form: all three serve DISPLAY, and CellRedreaw - the sole consumer of the two
     ' ATLAS settings - is called by the renderer's only text write.
@@ -433,6 +437,10 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ActuatorColorInvalid", "ARES : Actionneur de propriété - la valeur de la propriété pilote n'est pas un indice de couleur valide"
     moTranslations.Add "FR_ActuatorLevelInvalid", "ARES : Actionneur de propriété - la valeur de la propriété pilote ne désigne pas un niveau existant et non verrouillé"
     moTranslations.Add "FR_ActuatorSelfRatchetRefused", "ARES : Actionneur de propriété - refusé : la propriété pilote est elle-même calculée à partir de ce même attribut"
+
+    ' --- Traceur de pile d'appels ---
+    moTranslations.Add "FR_CallStackLogged", "ARES : pile d'appels écrite dans le journal"
+    moTranslations.Add "FR_CallStackEmpty", "ARES : aucune pile d'appels capturée pour l'instant - déclenchez d'abord un événement ARES (ajout/modification d'un élément), puis relancez cette commande"
 
     ' Formulaire d'options du Rendu de propriétés (epic 15)
     moTranslations.Add "FR_RenderingGUIOptionsCaption", "Options du Rendu de propriétés"

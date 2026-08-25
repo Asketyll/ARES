@@ -3,7 +3,7 @@
 ' This module handles text manipulation for TextElement, TextNodeElement, and CellElement types.
 ' It supports trigger-based text replacement (for automatic length insertion) and color synchronization.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, CellRedreaw
+' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, CellRedreaw, CallStackClass
 '
 ' IMPORTANT NOTES ON TEXTLINE PROPERTY:
 ' - Color Property is erased if you use TextLine Write Property
@@ -577,25 +577,45 @@ Public Function SetTextAtSubId(ByRef El As element, ByVal SubId As Long, ByVal N
     Dim bFaulted As Boolean
     Dim oTarget As element
     Dim bChanged As Boolean
+    Dim bStackPushed As Boolean      ' Guards ErrorHandler's Pop against a fault raised by El.IsLocked
+                                      ' below, i.e. BEFORE the Push a few lines down ever runs
 
     SetTextAtSubId = False
     If El Is Nothing Then Exit Function
     If SubId < 0 Then Exit Function
     If El.IsLocked Then Exit Function
 
+    ' Pushed only past the cheap validity guards above. Every Exit Function below this point (7 of
+    ' them) plus ErrorHandler pops this frame.
+    CallStack.Push "StringsInEl.SetTextAtSubId", El
+    bStackPushed = True
+
     nFound = 0
     WalkTextBearers El, " ", sSink, els, texts, nFound, bFaulted, noIds, 0
-    If bFaulted Then Exit Function
-    If SubId > nFound - 1 Then Exit Function
+    If bFaulted Then
+        CallStack.Pop
+        Exit Function
+    End If
+    If SubId > nFound - 1 Then
+        CallStack.Pop
+        Exit Function
+    End If
 
     Set oTarget = els(SubId)
-    If oTarget Is Nothing Then Exit Function
+    If oTarget Is Nothing Then
+        CallStack.Pop
+        Exit Function
+    End If
     ' The existing cell SET path only tests the top-level element (:38); a locked sub-element must be
     ' honoured too, so the asymmetry is not reproduced here.
-    If oTarget.IsLocked Then Exit Function
+    If oTarget.IsLocked Then
+        CallStack.Pop
+        Exit Function
+    End If
 
     If texts(SubId) = NewText Then
         SetTextAtSubId = True
+        CallStack.Pop
         Exit Function
     End If
 
@@ -609,7 +629,10 @@ Public Function SetTextAtSubId(ByRef El As element, ByVal SubId As Long, ByVal N
             bChanged = WriteTextNodeLines(oTarget, NewText)
     End Select
 
-    If Not bChanged Then Exit Function
+    If Not bChanged Then
+        CallStack.Pop
+        Exit Function
+    End If
 
     ' Rebuild the ATLAS leader-label geometry - only on a real change, mirroring ProcessCellElement.
     If El.IsCellElement Then
@@ -623,10 +646,12 @@ Public Function SetTextAtSubId(ByRef El As element, ByVal SubId As Long, ByVal N
     RefreshElementHandle El
 
     SetTextAtSubId = True
+    CallStack.Pop
     Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "StringsInEl.SetTextAtSubId"
+    If bStackPushed Then CallStack.Pop
     SetTextAtSubId = False
 End Function
 

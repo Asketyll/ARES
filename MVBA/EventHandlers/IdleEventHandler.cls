@@ -2,7 +2,8 @@
 ' Description: Handles IEnterIdleEvent to execute deferred element processing when MicroStation is idle.
 '              This implements a batch processing pattern to avoid blocking the UI during active modeling.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, ElementChangeHandler, ElementInProcesseClass
+' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, ElementChangeHandler, ElementInProcesseClass,
+'               CallStackClass
 
 Option Explicit
 
@@ -24,6 +25,11 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
         Exit Sub
     End If
 
+    ' Pushed only past the reentrance/initial-idle guards above.
+    Dim bStackPushed As Boolean
+    CallStack.Push "IdleEventHandler.IEnterIdleEvent_EnterIdle"
+    bStackPushed = True
+
     ' Ensure ARESConfig is initialized before processing.
     If Not ARESConfig.IsInitialized Then
         ARESConfig.Initialize
@@ -37,11 +43,13 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
         CleanupHandler
     End If
 
+    CallStack.Pop
     Exit Sub
 
 ErrorHandler:
     mbIsProcessing = False
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "IdleEventHandler.IEnterIdleEvent_EnterIdle"
+    If bStackPushed Then CallStack.Pop
     ' Ensure cleanup even on error in main entry point
     CleanupHandler
     Err.Clear
@@ -50,6 +58,7 @@ End Sub
 ' Handle the initial idle event after project load (existing behavior)
 Private Sub HandleInitialIdle()
     On Error GoTo ErrorHandler
+    CallStack.Push "IdleEventHandler.HandleInitialIdle"
 
     Dim projectName As String
     projectName = Application.FullName
@@ -71,10 +80,12 @@ Private Sub HandleInitialIdle()
     ' Remove the handler after initialization
     RemoveEnterIdleEventHandler Me
 
+    CallStack.Pop
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "IdleEventHandler.HandleInitialIdle"
+    CallStack.Pop
     RemoveEnterIdleEventHandler Me  ' Cleanup even on error
     Err.Clear
 End Sub
@@ -82,22 +93,24 @@ End Sub
 ' Process all pending elements in the queue
 Private Sub ProcessPendingElements()
     On Error GoTo ErrorHandler
-    
+    CallStack.Push "IdleEventHandler.ProcessPendingElements"
+
     Dim colElements As Collection
     Dim oElement As element
     Dim nProcessedCount As Long
     Dim nErrorCount As Long
-    
+
     ' Set processing flag and suppress bulk detection during ARES's own modifications
     mbIsProcessing = True
     SetIdleProcessingActive True
 
     ' Get all valid elements (already fresh from MicroStation)
     Set colElements = ElementInProcesse.GetAllElements()
-    
+
     ' Check if collection is empty
     If colElements Is Nothing Or colElements.Count = 0 Then
         CleanupHandler
+        CallStack.Pop
         Exit Sub
     End If
     
@@ -135,12 +148,14 @@ Private Sub ProcessPendingElements()
 
     ' Always cleanup after processing
     CleanupHandler
-    
+
+    CallStack.Pop
     Exit Sub
 
 ErrorHandler:
     ' Ensure cleanup even on error
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "IdleEventHandler.ProcessPendingElements"
+    CallStack.Pop
     CleanupHandler
 End Sub
 

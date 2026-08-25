@@ -111,13 +111,11 @@ Public ARES_ACTUATE_COLOR As ARES_MS_VAR_Class 'Default Value: False            
 Public ARES_ACTUATE_LEVEL As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in FormPlacement module — remembers each option form's last on-screen position. INTERNAL, managed automatically (do not edit by hand).
 Public ARES_FORM_LAYOUT As ARES_MS_VAR_Class 'Default Value: (empty)   <FormName>=<xPct>:<yPct> entries delimited by | (ARES_VAR_DELIMITER)
-' DIAGNOSTIC SWITCH, not an architecture change - see ElementChangeHandler.cls header. Used in ElementChangeHandler module —
-' when True, ProcessElement runs synchronously inside IChangeTrackEvents_ElementChanged (Add/Modify/Delete-linked)
-' instead of being queued to the next MicroStation idle event. Default False = current deferred behaviour, unchanged. Exists to let
-' Asketyll test in real conditions whether a historical ATLAS instability (which the deferred design was built to
-' avoid; see git commit fa361c9) still applies now that custom-property processing replaced Auto Lengths - it is a
-' test tool, not a replacement for the deferred path, which stays the reference behaviour.
-Public ARES_DIRECT_PROCESSING As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
+' Used in ElementChangeHandler module — when True, ProcessElement runs synchronously inside
+' IChangeTrackEvents_ElementChanged (Add/Modify/Delete-linked) instead of being queued to the next MicroStation
+' idle event. Default True = standard behaviour. False falls back to the deferred (queued) path - see
+' ElementChangeHandler.cls header for the reentrancy guard and when to use the fallback.
+Public ARES_DIRECT_PROCESSING As ARES_MS_VAR_Class 'Default Value: True                      True or False (Boolean)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -190,7 +188,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ACTUATE_COLOR = CreateConfigVar("ARES_Actuate_Color", "False")
     Set ARES_ACTUATE_LEVEL = CreateConfigVar("ARES_Actuate_Level", "False")
     Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
-    Set ARES_DIRECT_PROCESSING = CreateConfigVar("ARES_Direct_Processing", "False")
+    Set ARES_DIRECT_PROCESSING = CreateConfigVar("ARES_Direct_Processing", "True")
     CreateConfigVariables = True
     Exit Function
 

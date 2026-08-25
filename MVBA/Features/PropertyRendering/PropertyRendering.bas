@@ -1,53 +1,15 @@
 ' Module: PropertyRendering
-' Description: The SOLE text writer of ARES - the third engine, after Tagging (the sole attacher) and
-'              Calculation (the sole value writer). It displays a custom property's value inside a text
-'              by FULLY REPLACING a "Prop[Name]" token typed in that text: the user writes
-'              "Ligne Prop[Len] m", the renderer writes "Ligne 13,3 m". Rendered text is CLEAN - no
-'              visible scaffolding ever survives a render.
-'
-'              The binding is NOT the visible text and NOT the graphic group: it is hidden metadata, an
-'              ItemType ARES_Render living in a SECOND, internal ItemTypeLibrary (ARES_SYS) authored in
-'              the same ARES_Custom_Properties.dgnlib. ARES_Render carries two String properties:
-'              SchemaVersion, and Entries - a serialised list of {SubId, Template, LastValues} records.
-'              LastValues maps each token's property name to the value last rendered for it. The last
-'              rendering is never stored: it is COMPUTED as Expand(Template, LastValues).
-'
-'              That computed last rendering is what makes a hidden template safe. On each processed
-'              bearer, per entry, after an IsLocked test and a successful non-empty read:
-'                1. visible = Expand(Template, CURRENT values)  -> up to date, strict no-op (terminator)
-'                2. visible = Expand(Template, LastValues), or visible IS the Template up to CASE (an
-'                   entry authored but never rendered) -> re-render + store
-'                3. otherwise (a NON-EMPTY read differing from BOTH) -> the user edited the text:
-'                   PER-TOKEN release. A rendered span left intact is substituted back to its token in
-'                   the NEW Template and keeps updating; a span the user changed drops its token and
-'                   becomes static text. Ambiguous alignment -> conservative fallback + status.
-'                4. no metadata at all, visible carries valid tokens -> FIRST AUTHOR, hybrid policy:
-'                   auto-bind only when every token's property is ALREADY attached to the element
-'                   (attachment is the intent signal); otherwise the token stays literal and the
-'                   BindPropertyRender key-in is the entry point.
-'              An EMPTY/absent value renders the token's own literal text as the visible "unset" cue AND
-'              stores an EMPTY LastValues entry - without that write, an unset -> reset round-trip lands
-'              in branch 3 and silently flattens the binding.
-'
-'              DOCTRINE: this module writes VISIBLE TEXT and its own ARES_SYS metadata, nothing else. It
-'              never writes a USER property value (that is Calculation's job) and never attaches or
-'              detaches anything itself - the ARES_Render attach/detach is delegated to the two
-'              PropertyTagging wrappers so the attach choke point stays unique. Any
-'              SetPropertyValueToElement on the "ARES" library inside this module is a review BLOCKER.
-'
-'              Values are copied VERBATIM (decision: convert once at value-write, never at render) - no
-'              CStr, no Format, no locale-dependent transform, so two stations never rewrite each other's
-'              decimal separator. All dressing is static template text: "(Prop[Len]m)" renders "(12.3m)",
-'              byte-identical to what the retired Auto Lengths feature used to write - the renderer
-'              SUPERSEDED it, and reproducing that exact output is why the migration is a text edit rather
-'              than a re-draw. The renderer never inspects the SHAPE of its own expansion: it writes
-'              "(12.3m)" whenever the template says so, which is the flagship "(Prop[Len]m)" case.
-'
-'              Every user-facing refusal is status-bar only, translated and one-shot; only the
-'              schema/library self-disable conditions also log ONE English line.
+' Description: The SOLE text writer of ARES. Displays a custom property's value inside a text by fully
+'              replacing a "Prop[Name]" token; the binding lives in hidden ARES_SYS metadata, never in
+'              the visible text or the graphic group. Full mechanism (binding storage, the 4-branch
+'              release state machine, value semantics): see _bmad/docs/property-rendering-mechanics.md.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), CustomPropertyHandler, PropertyTagging,
-'               PropertyCalculation, StringsInEl, Link, LangManager, ErrorHandlerClass (global ErrorHandler)
+'               PropertyCalculation, StringsInEl, Link, LangManager, ErrorHandlerClass (global ErrorHandler),
+'               CallStackClass (global CallStack)
+'
+' Never writes a USER property value or attaches/detaches anything itself (delegated to PropertyTagging).
+' Any SetPropertyValueToElement on the "ARES" library inside this module is a review BLOCKER.
 
 Option Explicit
 
@@ -102,46 +64,15 @@ Private mbNotBoundShown As Boolean
 Private mbGovernedShown As Boolean
 Private mbCycleShown As Boolean
 
-' D6 - WHITELIST of the SYMBOLS an accepted addition may border the value with (letters are admitted by
-' code range in IsSafeBoundaryChar, digits never are). Deliberately a whitelist, never a blacklist: a
-' blacklist has to enumerate every character that could pass for part of a number and it silently loses the
-' moment one is missed - Chr(160) (non-breaking space, the French thousands separator Excel emits in fr-FR),
-' Chr(8239) (narrow no-break space), the Unicode digits. Every one of those falls OUTSIDE this list and is
-' refused without ever being named, which is what makes the "no forged number" guarantee closed rather than
-' a list of the cases we happened to think of.
-'
-' ADMISSION CRITERION, applied one character at a time to what follows: placed between the value and the
-' addition, the character must not let the whole be read as ONE number of a DIFFERENT value. That excludes
-' strictly MORE than IsNumericText's own alphabet ("0123456789 ,."), and each exclusion has a name:
-'   '   Swiss thousands separator - a suffix of "'500" would render a future 20 as "20'500"
-'   /   fraction - a suffix of "/2" would render a future 1 as "1/2"
-'   - + sign - a PREFIX of "-" would render a future 20 as "-20"
-' Those three are excluded WHOLESALE rather than per direction ("135-A" after a terminal token therefore
-' releases, as it does today): one list that can be audited character by character is worth more than two
-' lists that can drift apart, and refusing costs nothing but today's behaviour.
-'
-' Two admitted characters are worth naming so the next reader does not have to re-derive them:
-'   ( )  accounting negatives need BOTH, and this rule can only ever contribute ONE of them - a
-'        simultaneous prefix AND suffix fails the anchor test and releases before reaching this list.
-'        The pair CAN still occur, and saying otherwise would be wrong: on a Template AUTHORED as
-'        "Prop[Len])", typing "(" in front is accepted here and a future value of 20 renders "(20)".
-'        What makes that acceptable is not that it cannot happen - it is that the other half was
-'        WRITTEN BY THE USER and is visible in the text. This rule forged nothing; it preserved a
-'        binding inside a composition its author already had on screen. The guarantee is about what
-'        an ADDITION can weld onto a value, not about what an authored Template can spell.
-'   :    "20:30" reads as a time, not as a number of a different value.
-' Letters are admitted, but never BETWEEN two digits - see the exponent guard in the two callers, which
-' closes "20e5" and "0x20" by shape instead of by naming e and x.
+' D6 - WHITELIST (not a blacklist) of symbols an addition may border a value with: a blacklist could
+' silently miss a forging character (e.g. a locale thousands separator) - this list is closed by
+' construction instead. Full admission criterion and named exceptions: see
+' property-rendering-mechanics.md.
 Private Const SAFE_BOUNDARY_SYMBOLS As String = "%()[]{}\*#~<>=:;!?&@_|"""
 
-' D8 - every character that can appear INSIDE a number literal of any base: decimal digits, the hex digits,
-' and the base markers. Used only by NumericTailIsPossible, to delimit the trailing run it examines - the
-' run's FIRST character is what decides, so this list bounds the scan and never grants safety by itself.
-'
-' THE LIST CAN BE WRONG WITHOUT THE RULE BEING WRONG, and that is the whole reason this shape was chosen.
-' Too broad costs nothing; too narrow only breaks the run EARLIER, which cannot manufacture a hole. It is
-' the exact inverse of the round-38 blacklist, where a missing member WAS the hole. Anything added here
-' must keep that property: this list may only ever bound a scan, never grant safety.
+' D8 - characters that can appear INSIDE a number literal (any base), bounding NumericTailIsPossible's
+' scan only - never granting safety by itself (too broad is harmless, too narrow just stops the scan
+' early). Full rationale: see property-rendering-mechanics.md.
 Private Const NUMBER_CAPABLE_CHARS As String = "0123456789abcdefABCDEFxXbBoO"
 
 ' The two self-disable conditions also write an English log line. Those flags are SESSION-scoped, not
@@ -150,13 +81,8 @@ Private Const NUMBER_CAPABLE_CHARS As String = "0123456789abcdefABCDEFxXbBoO"
 Private mbLibraryLogged As Boolean
 Private mbSchemaLogged As Boolean
 
-' Third SESSION-scoped self-disable, same shape and for the same kind of reason. A metadata write that
-' FAILS restores the text it wrote and leaves the persisted state byte-identical to what it found, so the
-' next pass takes exactly the same path and emits exactly the same Rewrites - each of which re-queues the
-' element. That is an unbounded write/restore loop, and it is deterministically reachable on a DGNLib
-' whose ARES_Render properties are not named SchemaVersion/Entries, because bNoFallback deliberately
-' removes the tolerance that would otherwise paper over it. One English log line, then the engine is inert
-' for the rest of the session (RefreshRenderCaches clears it, for the tests).
+' Third SESSION-scoped self-disable: guards against an unbounded write/restore fault loop, not a normal
+' refusal. Full rationale: see "Session-scoped self-disable guards" in property-rendering-mechanics.md.
 Private mbWriteDisabled As Boolean
 
 ' Managed property-name cache. GetCustomPropertyNames() has NO cache of its own: every call builds a
@@ -221,30 +147,23 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering.RefreshRenderCaches"
 End Sub
 
-' The Depth-0 hook, called from ElementChangeHandler.ProcessElement right after the Calculation hook and
-' BEFORE the graphic-group filter, so a bound text carrying no graphic group is still rendered on its own
-' pass. Values are therefore fresh from the same pass: tagging -> calc -> render.
-'
-' KNOWN v1 LIMIT, accepted rather than worked around: this hook only ever sees elements the pipeline
-' QUEUES, and ShouldQueueElement is deliberately untouched (it is the capture hot path). A bound text
-' therefore refreshes from a value pushed by ANOTHER element only when it belongs to a REAL graphic group
-' - the calc transport and the repaint hop's Link.GetLink walk both need that group to reach it. Outside a
-' group, only direct contact with that very text moves it forward: editing it, or a calc rule that writes
-' its own property. Documented in the wiki alongside the DWG/V7 caveat.
-'
-' Guard order is cost-driven: master switch (no COM cost when OFF) -> cheap TYPE filter -> ONE re-fetch
-' -> cheap text walk -> ONE IsItemAttachedToElement. The re-fetch sits exactly between the type filter and
-' the first TEXT read: the type cannot go stale, so filtering first keeps every line and arc in the queue
-' from paying a COM call, while nothing that reads text ever runs on a handle we did not just fetch. The
-' final probe costs a COM Items.Refresh and is unavoidable: a bound text is CLEAN by design, so nothing in
-' its visible text distinguishes it from any other text.
+' The Depth-0 hook, called from ElementChangeHandler.ProcessElement right after Calculation and before the
+' graphic-group filter. Guard order and the v1 queue-only limitation: see "ProcessElement hook" in
+' property-rendering-mechanics.md.
 Public Sub ProcessElement(ByVal oEl As element)
     On Error GoTo ErrorHandler
+    Dim bStackPushed As Boolean
 
     ResetOneShots
 
     If Not IsEnabled Then Exit Sub
     If oEl Is Nothing Then Exit Sub
+
+    ' Pushed only past the cheap enable/validity guards above. Every guard below this point funnels
+    ' through the single DrainAndExit label, so ONE Pop there (plus one in ErrorHandler) covers all
+    ' of them - no per-guard Pop needed, unlike modules without a shared exit label.
+    CallStack.Push "PropertyRendering.ProcessElement", oEl
+    bStackPushed = True
 
     ' A metadata write already failed this session: stay inert instead of replaying the same failing
     ' write, and its restore, on every single pass. The list still drains so nothing leaks across batches.
@@ -256,17 +175,9 @@ Public Sub ProcessElement(ByVal oEl As element)
     ' Keeping it ahead of the re-fetch is what stops every line and arc in the queue paying a COM call.
     If Not IsRenderableType(oEl) Then GoTo DrainAndExit
 
-    ' RE-FETCH BEFORE READING ANY TEXT, and after the cheap filter so only elements that will really be
-    ' processed pay for it. The handle handed to this hook is NOT necessarily current: IdleEventHandler
-    ' materialises the WHOLE batch up front (ElementInProcesse.GetAllElements, one GetElementById per
-    ' queued id, all of them before the first element is processed), and processing an EARLIER element in
-    ' that batch can rewrite the text of a LATER one - the repaint hop walks the graphic group and renders
-    ' siblings that are themselves queued. The handle then still serves the text it was fetched with,
-    ' while the ITEM side is re-read from the file on every access (CustomPropertyHandler calls
-    ' El.Items.Refresh before each read, precisely so a same-pass attach is visible). Stale visible + fresh
-    ' values is the one combination the state machine cannot survive: it matches NEITHER expansion, which
-    ' branch 3 is entitled to read as positive proof of a user edit, and the binding is released on a text
-    ' nobody touched. The read has to be true; weakening branch 3 would only hide it.
+    ' RE-FETCH BEFORE READING ANY TEXT: the handle handed to this hook is not necessarily current (the
+    ' idle batch materialises all elements up front). See "The stale-handle invariant (FreshHandle)" in
+    ' property-rendering-mechanics.md.
     Set oEl = FreshHandle(oEl)
     If oEl Is Nothing Then GoTo DrainAndExit
 
@@ -300,6 +211,7 @@ Public Sub ProcessElement(ByVal oEl As element)
 
 DrainAndExit:
     DrainRepaintHop
+    If bStackPushed Then CallStack.Pop
     Exit Sub
 
 ErrorHandler:
@@ -307,14 +219,13 @@ ErrorHandler:
     ' The hop must never leak across batches, so it drains even on a fault (the drain is re-entrance
     ' guarded and clears the list unconditionally).
     DrainRepaintHop
+    If bStackPushed Then CallStack.Pop
 End Sub
 
-' "Does this engine own that text?" - True when ARES_Render is attached. IsEnabled is tested FIRST so a
-' render-free configuration pays no COM cost at all.
-' NO PRODUCTION CALLER since the Auto Lengths removal: its only one was ElementChangeHandler's Branch 1,
-' which existed to stand down on a text the renderer owned. KEEP IT ANYWAY - it is a meaningful state
-' query and the seam 12 assertions in PropertyRenderingTest are written against. Do not delete it as
-' unused.
+' "Does this engine own that text?" - True when ARES_Render is attached. IsEnabled tested FIRST so a
+' render-free configuration pays no COM cost.
+' NO PRODUCTION CALLER since the Auto Lengths removal - kept as a meaningful state query and a seam
+' PropertyRenderingTest asserts against. Do not delete it as unused.
 Public Function IsRenderBound(ByVal El As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -329,13 +240,10 @@ ErrorHandler:
     IsRenderBound = False
 End Function
 
-' Containment seam consumed by PropertyCalculation's CellText source: the SubIds of oCell's sub-texts
-' this engine writes, so a rendered value can never feed the CellText[...] value that governs it (the
-' ratcheting cycle). Returns False when the cell carries no readable ARES_Render.
-'
-' Keyed on metadata PRESENCE only - it must NOT consult IsEnabled. If it did, toggling ARES_Text_Render
-' would change what GetConcatenatedText returns and therefore change a CellText VALUE: a feature switch
-' must never mutate data.
+' Containment seam consumed by PropertyCalculation's CellText source: the SubIds of oCell's sub-texts this
+' engine writes, so a rendered value can never feed the CellText[...] value that governs it. Keyed on
+' metadata PRESENCE only, never IsEnabled - see "Containment (GetExcludedSubIds)" in
+' property-rendering-mechanics.md.
 Public Function GetExcludedSubIds(ByVal oCell As element, ByRef ids() As Long, ByRef nIds As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -343,11 +251,8 @@ Public Function GetExcludedSubIds(ByVal oCell As element, ByRef ids() As Long, B
     nIds = 0
     If oCell Is Nothing Then Exit Function
 
-    ' The two cheap gates run on the handle as received. Neither can be fooled by staleness: the library
-    ' check does not touch the element at all, and the attach probe reads the ITEM side, which
-    ' CustomPropertyHandler refreshes from the file on every access. Only a cell that really carries
-    ' ARES_Render gets as far as the re-fetch below - which matters, because calc calls this on EVERY
-    ' CellText read.
+    ' Two cheap, staleness-proof gates before paying for the re-fetch below - calc calls this on every
+    ' CellText read. See property-rendering-mechanics.md.
     If Not IsSysLibraryPresent() Then Exit Function
     If Not CustomPropertyHandler.IsItemAttachedToElement(oCell, ARES_ITEM_RENDER, ARES_NAME_LIBRARY_SYS) Then Exit Function
 
@@ -371,12 +276,8 @@ Public Function GetExcludedSubIds(ByVal oCell As element, ByRef ids() As Long, B
     If Not ReadRenderMetadata(oCell, ents, nEnts) Then Exit Function
     If nEnts = 0 Then Exit Function
 
-    ' The STORED SubId is NOT the answer. An ordinal drift (the cell was redefined, a sub-element added)
-    ' makes it designate a different sub-text, and calc runs BEFORE render inside the same Depth-0 pass,
-    ' so this seam would always read the pre-relocation value. Excluding the wrong ordinal hides an
-    ' AUTHENTIC source text from the CellText value AND lets the rendered one feed it - the exact
-    ' ratcheting cycle this seam exists to prevent. Resolve exactly the way the renderer does, so the
-    ' exclusion set is precisely the set of sub-texts the renderer would write.
+    ' The STORED SubId is NOT the answer (ordinal drift). Resolve exactly the way the renderer does, so the
+    ' exclusion set matches what it would actually write. See property-rendering-mechanics.md.
     nBearers = StringsInEl.EnumerateTextSubIds(oCell, walkIds, texts)
     If nBearers <= 0 Then Exit Function
     ResolveAllSubIds ents, nEnts, texts, nBearers, subIds
@@ -402,14 +303,8 @@ ErrorHandler:
 End Function
 
 ' Append entry point for the bounded repaint hop, called by PropertyCalculation.ApplyValueToSibling on a
-' value STATE CHANGE. Disabled = strict no-op, and that matters: Calculation runs independently of the
-' render switch, so without this guard the list would grow for a whole session with nothing draining it.
-'
-' The SOURCE ELEMENT is stored, not just its group id - Link.GetLink deliberately EXCLUDES the element it
-' is given, and that excluded element is precisely the sibling whose value was just written. The group is
-' resolved by the renderer at drain time, behind its own IsGraphical guard: letting the caller read
-' .GraphicGroup would RAISE on a non-graphical element and pollute ApplyValueToSibling's handler on
-' every write.
+' value STATE CHANGE. Stores the SOURCE ELEMENT, not its group id (Link.GetLink excludes the element it is
+' given). Full rationale: see "Repaint hop (bounded)" in property-rendering-mechanics.md.
 Public Sub NoteDirtyGroup(ByVal oSource As element)
     On Error GoTo ErrorHandler
 
@@ -425,25 +320,10 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering.NoteDirtyGroup"
 End Sub
 
-' Drain the repaint hop: for each noted element, run the FULL state machine on the element ITSELF and
-' then on its graphic-group siblings, ONE Link.GetLink per distinct group. Never a blind re-render - the
-' queue-order race means a sibling may carry a not-yet-processed user edit, and a blind write would
-' destroy it. Re-entrance-guarded; the list is cleared unconditionally, so nothing leaks across batches.
-'
-' TWO RULES HERE ARE LOAD-BEARING, and a group holding TWO bound texts breaks without either of them:
-'
-'   * Every element is re-fetched from the model immediately before its state machine runs (FreshHandle).
-'     The handles this list carries were captured at VALUE-WRITE time, long before anything was rendered,
-'     and an element handle does NOT track writes made through another handle - it keeps serving the text
-'     it was captured with. Reading a pre-write text is indistinguishable from a user edit, so branch 3
-'     fires on a text nobody touched and RELEASES a perfectly healthy binding.
-'   * Each element runs AT MOST ONCE per drain (RenderDrainTarget's done-list). With two bound texts in
-'     one group, the second one is reached twice - once as another source's Link.GetLink sibling, once as
-'     its own noted source - and that second run is exactly the stale read above.
-'
-' The sibling list is also built BEFORE the source is rendered, because Link.GetLink scans the model off
-' the source's own handle and rendering it first would leave that scan running off a handle its own
-' Rewrite has just invalidated.
+' Drain the repaint hop: for each noted element, run the FULL state machine on it and then on its
+' graphic-group siblings, ONE Link.GetLink per distinct group. Never a blind re-render. Re-entrance-guarded;
+' the list clears unconditionally. Two load-bearing rules (re-fetch before each run; each element runs at
+' most once) - see "Repaint hop (bounded)" in property-rendering-mechanics.md.
 Public Sub DrainRepaintHop()
     On Error GoTo ErrorHandler
 
@@ -514,11 +394,8 @@ Public Function BindElement(ByVal El As element) As Boolean
 
     If El Is Nothing Then Exit Function
 
-    ' Self-disabled after a failed metadata write. This is a REFUSAL the user asked for, so it must be
-    ' visible - a silent Exit here would reintroduce exactly the defect ResetOneShots just fixed, and
-    ' would make Command.bas's "BindElement reports every refusal" comment false again. The existing
-    ' RenderMetadataUnreadable key says it accurately ("the stored binding could not be read or saved"),
-    ' so no key is invented for it.
+    ' Self-disabled after a failed metadata write - a refusal the user asked for, so it must stay visible.
+    ' See "First-author key-in visibility (BindElement)" in property-rendering-mechanics.md.
     If mbWriteDisabled Then
         ReportMetadataUnreadable
         Exit Function
@@ -566,21 +443,9 @@ End Function
 '                                   TEMPLATE MODEL (pure logic - Public test seams)
 '######################################################################################################################
 
-' Expand a Template against a set of values. A Template is the alternating sequence L0 T0 L1 T1 ... Ln;
-' each token is replaced by its value, and an EMPTY or ABSENT value is replaced by the token's OWN
-' LITERAL TEXT ("Prop[Len]"). That literal is the visible "unset" cue, and it is also what makes the
-' release-on-empty failure branch unreachable: an emptied value re-materialises its token, so the "no
-' token visible" state can never be reached through a value transition.
-'
-' Public and read-only so UnitTesting can assert the pure logic without MicroStation (VBA cannot call a
-' Private proc across modules). bValidateNames:=False makes every "Prop[x]" a token, which is the pure
-' grammar; the runtime passes True so an unknown property name stays literal, fail-closed.
-'
-' bOk reports whether the expansion is TRUSTWORTHY. It matters because this function fails OPEN - it
-' returns sTemplate on a fault - and ParseTemplate reaches COM (IsKnownProperty -> EnsurePropertyNames ->
-' GetCustomPropertyNames). A caller that compared the visible against that garbage would miss branches 1
-' and 2 and fall into branch 3, the only destructive one, turning a transient library-read fault into a
-' permanent binding release. The state machine therefore SKIPS the entry when bOk comes back False.
+' Expand a Template (L0 T0 L1 T1 ... Ln) against a set of values; an EMPTY/ABSENT value renders the token's
+' OWN LITERAL TEXT. bOk reports whether the expansion is TRUSTWORTHY (fails OPEN on a fault) - see
+' "ExpandTemplate" in property-rendering-mechanics.md.
 Public Function ExpandTemplate(ByVal sTemplate As String, ByRef ValNames() As String, ByRef ValValues() As String, ByVal nVals As Long, Optional ByVal bValidateNames As Boolean = True, Optional ByRef bOk As Boolean) As String
     On Error GoTo ErrorHandler
 
@@ -619,19 +484,10 @@ ErrorHandler:
     bOk = False
 End Function
 
-' Align a user-edited visible string against the Template that produced the last rendering, and derive
-' the NEW Template plus the surviving LastValues (the per-token release).
-'
-' The literals are walked left to right, each located at or after the current cursor. L0 may legitimately
-' be empty (the Template opens with a token) and so may Ln (it ends with one - the final span then runs
-' to end-of-string); an INTERIOR empty literal is impossible because adjacent tokens are refused at
-' author time, which is exactly what keeps every span boundary defined.
-'
-' A span SURVIVED when it equals its LastValues entry, or - the unset case - when it equals the token's
-' own literal text while that entry is empty. A survivor is substituted back to its token in the new
-' Template and keeps updating; anything else was edited, so it becomes static text and its entry is
-' dropped. Returns False when a literal cannot be located: the caller must then fall back conservatively
-' rather than guess.
+' Align a user-edited visible string against the Template that produced the last rendering, deriving the
+' new Template plus the surviving LastValues (the per-token release). Full mechanism (literal walk, span
+' survival, why anchor-first): see "AlignVisible (per-token release, literal walk)" in
+' property-rendering-mechanics.md.
 Public Function AlignVisible(ByVal sVisible As String, ByVal sTemplate As String, ByRef ValNames() As String, ByRef ValValues() As String, ByVal nVals As Long, ByRef sNewTemplate As String, ByRef NewNames() As String, ByRef NewValues() As String, ByRef nNew As Long, Optional ByVal bValidateNames As Boolean = True) As Boolean
     On Error GoTo ErrorHandler
 
@@ -660,15 +516,9 @@ Public Function AlignVisible(ByVal sVisible As String, ByVal sTemplate As String
     If Not ParseTemplate(sTemplate, lits, toks, nTok, bValidateNames) Then Exit Function
     If nTok = 0 Then Exit Function
 
-    ' L0 must sit at the very start (it is empty when the Template opens with a token). Compared
-    ' case-insensitively, consistently with the tokeniser - ParseTemplate matches "Prop[" with
-    ' vbTextCompare, so a Template can legitimately hold a casing the canonical form does not.
-    '
-    ' The VISIBLE's own text goes into the new Template for every span that was EDITED (:698 keeps sSpan
-    ' verbatim). A SURVIVING span does not: it is re-materialised CANONICALLY through TokenLiteral (:695),
-    ' so this function can hand back a Template spelled "Prop[" for a visible that reads "prop[". That is
-    ' not cosmetic - it is what let a lowercase token authored on an already-bound bearer sit unrendered
-    ' for ever, until branch 2 was taught to recognise the never-rendered state case-insensitively.
+    ' L0 must sit at the very start (empty when the Template opens with a token), matched case-insensitively
+    ' like the tokeniser. A surviving span is re-materialised CANONICALLY (TokenLiteral), an edited one keeps
+    ' the user's own casing verbatim - see "AlignVisible" in property-rendering-mechanics.md.
     If Len(lits(0)) > 0 Then
         If StrComp(Left(sVisible, Len(lits(0))), lits(0), vbTextCompare) <> 0 Then Exit Function
     End If
@@ -692,12 +542,8 @@ Public Function AlignVisible(ByVal sVisible As String, ByVal sTemplate As String
             End If
         End If
 
-        ' ANCHOR FIRST, literal search only as the fallback. Locating the closing literal blindly is
-        ' wrong the moment a VALUE can contain it - values are copied verbatim, so "1 m 2" is a legal
-        ' value under the Template "Prop[Len] m", and InStr would stop INSIDE the value. The span would
-        ' then come back short, a purely static edit would read as a value edit, and the token would be
-        ' released; with several tokens, one misaligned span misaligns every later one. When the known
-        ' string is still sitting at the cursor, no guessing is needed at all.
+        ' ANCHOR FIRST, literal search only as fallback: locating the closing literal blindly breaks the
+        ' moment a VALUE contains it (values are copied verbatim). See property-rendering-mechanics.md.
         bSpanFound = False
         If Len(sAnchor) > 0 Then
             If SpanAnchorsAt(sVisible, cursor, sAnchor, lits(i + 1), lCmp) Then
@@ -737,33 +583,10 @@ Public Function AlignVisible(ByVal sVisible As String, ByVal sTemplate As String
             End If
         End If
 
-        ' D7 - the span still CONTAINS the value intact, with the user's text beside it. This is the one
-        ' place both edges of a span meet, and it generalises D6's leading half rather than sitting next to
-        ' it: the value is untouched, so nothing has to be guessed about it; what has to be decided is
-        ' whether the text beside it can be kept as static content while the token stays live.
-        '
-        ' WHY IT IS NOT ENOUGH TO LOOK AT THE ADDITION ALONE. The addition has TWO boundaries, not one -
-        ' with the value, and with whatever already sat on its other side. Only the first is visible in the
-        ' addition itself, so each test is handed the addition CONCATENATED WITH ITS CONTEXT (the literal
-        ' before it, or the literal after it). That is not defensive padding, it is the fix for two real
-        ' forges the addition alone cannot see:
-        '   "T70Prop[x]m" + typing "x" before the value -> "T70x20m" reads 0x20, hexadecimal
-        '   "T70Prop[x]m" + typing " " before the value -> "T70 20m" welds 70 and 20 into one number
-        ' and it is equally what makes the ordinary case work: on "tProp[x]m", a space typed after the "t"
-        ' is safe precisely BECAUSE the "t" is there to cut the reading - which only the context shows.
-        '
-        ' ONE side at a time, deliberately. The value is located by matching it against one END of the span,
-        ' never by searching INSIDE it: a value of "1" inside a span of " 1 1 " has no defensible position.
-        ' So an addition on both sides at once satisfies neither test and releases, exactly as today.
-        '
-        ' The ElseIf makes the PREFIX reading win when a span both starts and ends with the value (sEntry
-        ' "1", sSpan "1 1"): the suffix reading is then never evaluated. Safety does NOT rest on that
-        ' precedence - each branch is checked on its own merits, so whichever ran would have to pass - it is
-        ' only what keeps the outcome deterministic instead of order-of-test dependent.
-        '
-        ' The right-hand test uses lits(i + 1), not sLit: sLit is the same literal in the USER's casing
-        ' (matched with vbTextCompare). Casing turns no letter into a digit and no digit into a letter, so
-        ' the two are interchangeable here. Left as is on purpose - "fixing" it would suggest a difference.
+        ' D7 - the span still CONTAINS the value intact, with the user's text beside it: may that addition be
+        ' kept as static content while the token stays live? Each test is handed the addition concatenated
+        ' with its context (the neighbouring literal), never the addition alone. Full rationale (the two
+        ' forges a context-free test would miss): see "D7" in property-rendering-mechanics.md.
         sKeep = ""
         sKeepAfter = ""
         If Not bSurvived And bHasEntry Then
@@ -812,13 +635,9 @@ ErrorHandler:
     nNew = 0
 End Function
 
-' True when sAnchor - the string the LAST rendering left in this span - is still sitting exactly at the
-' cursor AND is immediately followed by the literal that closes the span. When that closing literal is the
-' trailing EMPTY one, the anchor must instead run to the very end of the string: anything after it is text
-' the user appended, which means the span is no longer just the anchor.
-' The closing literal is always matched case-insensitively (the tokeniser's rule); the anchor's own
-' comparison is the caller's call - binary for a VALUE, case-insensitive for a re-materialised token
-' literal.
+' True when sAnchor - what the LAST rendering left in this span - still sits exactly at the cursor AND is
+' immediately followed by the closing literal. D6 relaxes the trailing-empty-literal case in one direction
+' (safe appended text). Full rationale: see "SpanAnchorsAt" in property-rendering-mechanics.md.
 Private Function SpanAnchorsAt(ByVal sVisible As String, ByVal cursor As Long, ByVal sAnchor As String, ByVal sNextLit As String, ByVal lAnchorCompare As Long) As Boolean
     SpanAnchorsAt = False
     If Len(sAnchor) = 0 Then Exit Function
@@ -827,13 +646,6 @@ Private Function SpanAnchorsAt(ByVal sVisible As String, ByVal cursor As Long, B
     If StrComp(Mid(sVisible, cursor, Len(sAnchor)), sAnchor, lAnchorCompare) <> 0 Then Exit Function
 
     If Len(sNextLit) = 0 Then
-        ' No closing literal, so nothing bounds the end of the span: the anchor normally has to run to the
-        ' very end of the string. D6 relaxes that in ONE direction only - text APPENDED after the anchor is
-        ' accepted when the boundary is provably safe (SuffixIsSafeAddition), which is what makes
-        ' "135" -> "135m" keep its binding instead of releasing it. Everything else still requires
-        ' end-of-string, so an in-place edit of the value ("13" -> "135") releases exactly as before.
-        ' The caller needs no change: sSpan comes back as the anchor itself and AlignVisible's trailing
-        ' "anything past the final literal is static text" line keeps the addition.
         If cursor + Len(sAnchor) = Len(sVisible) + 1 Then
             SpanAnchorsAt = True
         Else
@@ -844,9 +656,8 @@ Private Function SpanAnchorsAt(ByVal sVisible As String, ByVal cursor As Long, B
     End If
 End Function
 
-' D6 - ASCII letter / ASCII digit, by CODE POINT. AscW, not Asc, so neither answer depends on the active
-' code page: an accented letter, a Unicode digit or a fullwidth digit is none of these, and being none of
-' these is always the REFUSING side of every test below.
+' D6 - ASCII letter / ASCII digit, by CODE POINT (AscW, not Asc - locale-independent). An accented letter,
+' a Unicode digit or a fullwidth digit is none of these, and is always the REFUSING side below.
 Private Function IsAsciiLetter(ByVal sChar As String) As Boolean
     Dim n As Long
     IsAsciiLetter = False
@@ -863,10 +674,8 @@ Private Function IsAsciiDigit(ByVal sChar As String) As Boolean
     IsAsciiDigit = (n >= 48 And n <= 57)
 End Function
 
-' D6 - the whitelist test. True only for a character explicitly admitted: an ASCII letter, or one of the
-' symbols in SAFE_BOUNDARY_SYMBOLS (see the admission criterion there). Anything else - digits, "." and ","
-' obviously, but equally Chr(160), a narrow no-break space, a Unicode digit, a character nobody has thought
-' of yet - is False, because it was never listed. That is the whole point: the refusal is the DEFAULT.
+' D6 - the whitelist test: True only for a character explicitly admitted (ASCII letter, or a
+' SAFE_BOUNDARY_SYMBOLS member). Refusal is the DEFAULT - see property-rendering-mechanics.md.
 Private Function IsSafeBoundaryChar(ByVal sChar As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -884,30 +693,10 @@ ErrorHandler:
     IsSafeBoundaryChar = False
 End Function
 
-' D6 - may an addition AFTER the value be kept while the token keeps updating?
-'
-' Three conditions, all load-bearing:
-'   1. the anchor is NUMERIC. A textual value is not covered, deliberately: "AB" -> "ABC" is as
-'      indistinguishable as "13" -> "135", but there is no equivalent of IsNumericText to bound the damage,
-'      so that domain keeps today's behaviour and gains no new risk.
-'   2. the first character of the addition, ASCII spaces skipped, is on the whitelist. Spaces are skipped
-'      rather than accepted because a space IS part of IsNumericText's alphabet - "135" + " 000" would
-'      otherwise be kept and a later value of 20 would render "20 000", one plausible number. Skipping is
-'      also why Chr(160) needs no mention: LTrim leaves it in place, and it is not on the whitelist.
-'   3. the EXPONENT guard. A letter is admitted by 2, but "value + e5" reads as scientific notation, so a
-'      whitelisted letter is refused when a digit follows it (an optional sign in between, which closes
-'      "e-5" too). Written by SHAPE - digit, letter, digit - so it covers "0x20", "0b1", and any base
-'      prefix nobody has named, instead of blacklisting e and x.
-'
-' What this does NOT do is guess what the user meant - that is impossible (appending "5" to "13" and
-' retyping "135" produce the identical string). It bounds the CONSEQUENCE of being wrong: with the boundary
-' provably unable to weld the addition onto a number, no future value can be silently forged. A wrong call
-' shows "20m" instead of a frozen "135m" - visible, keeps the true value on screen, and undone by editing.
-'
-' sSuffix is EVERYTHING to the right of the value, not just what the user typed: D7's caller appends the
-' closing literal, so an addition of " " on the Template "tProp[x]5m" is judged as " 5m" and refused - the
-' welding it would allow lives one character past what the user typed. Where nothing follows (a terminal
-' token, SpanAnchorsAt's caller) there is no context to append and the addition IS the whole right side.
+' D6 - may an addition AFTER the value be kept while the token keeps updating? Three load-bearing
+' conditions (numeric anchor, whitelisted boundary char, exponent guard) that bound the CONSEQUENCE of a
+' wrong call rather than guess intent. sSuffix is EVERYTHING to the right of the value, not just what the
+' user typed. Full rationale: see "D6 - SuffixIsSafeAddition" in property-rendering-mechanics.md.
 Private Function SuffixIsSafeAddition(ByVal sAnchor As String, ByVal sSuffix As String) As Boolean
     On Error GoTo ErrorHandler
     Dim s As String
@@ -935,16 +724,9 @@ ErrorHandler:
     SuffixIsSafeAddition = False
 End Function
 
-' D6, mirror image - may an addition BEFORE the value be kept? Same three conditions, opposite end: the LAST
-' character of the addition, trailing ASCII spaces skipped, must be on the whitelist, and a letter there is
-' refused when a digit PRECEDES it ("1e" + 20 -> "1e20", "0x" + 20 -> "0x20"). The space skip matters as
-' much here: a prefix of "1 " ends in a space, and keeping it would render "1 20" once the value moves.
-'
-' sPrefix is EVERYTHING to the left of the value, not just what the user typed - D7's caller prepends the
-' opening literal. That is what decides the two cases the typed text alone cannot tell apart: on
-' "tProp[x]m" a typed space becomes "t ", whose "t" cuts any numeric reading, so it is KEPT; on
-' "T70Prop[x]m" the same space becomes "T70 ", ending on a digit, so it is REFUSED - and the "x" that would
-' spell "T70x20" is caught by the same concatenation through the digit-letter-digit guard.
+' D6 mirror - may an addition BEFORE the value be kept? Same three conditions, opposite end. sPrefix is
+' EVERYTHING to the left of the value, not just what the user typed. Full rationale: see "D6 mirror -
+' PrefixIsSafeAddition" in property-rendering-mechanics.md.
 Private Function PrefixIsSafeAddition(ByVal sPrefix As String, ByVal sAnchor As String) As Boolean
     On Error GoTo ErrorHandler
     Dim s As String
@@ -969,10 +751,8 @@ ErrorHandler:
     PrefixIsSafeAddition = False
 End Function
 
-' D8 - the RAW frontier of a literal: its first / last two characters, BEFORE any trimming. It answers one
-' question only - did the text touching the value change? - and the rawness is the whole point. RTrim would
-' hide the very edit that matters: an authored "T70" with a space typed after it trims back to "T70" and
-' would read as untouched, while the frontier truly went from "70" to "0 ".
+' D8 - the RAW frontier of a literal (first/last two characters, BEFORE any trimming): did the text
+' touching the value change? Full rationale: see "D8" in property-rendering-mechanics.md.
 Private Function RawHead(ByVal s As String) As String
     RawHead = Left(s, 2)
 End Function
@@ -982,18 +762,9 @@ Private Function RawTail(ByVal s As String) As String
 End Function
 
 ' D8 - could the END of this literal be the beginning of a number? Answered on the trailing run of
-' number-capable characters taken WHOLE - bounded by the data, never by a constant.
-'
-' This exists because D6's guards look a FIXED distance back (a character, then one more for the exponent
-' test), which is exactly as far as an ADJACENT addition could ever reach. D8 accepts an edit anywhere, so
-' "0x" typed at the far start of a literal ending in "A1" spells "0xA1", and a future 20 renders "0xA120" -
-' hexadecimal, four characters from the frontier the guards inspect. Any constant depth is the blacklist
-' mistake wearing new clothes: an enumeration over an open space.
-'
-' The closed form, and the reason no base prefix has to be named: A NUMBER STARTS WITH A DIGIT. Decimal,
-' 0x, 0b, 0o - all of them. So a trailing run is number-capable exactly when its FIRST character is a
-' digit, and every base notation is covered by that one sentence instead of by a list of the ones we
-' happen to know.
+' number-capable characters taken WHOLE, bounded by the data never a constant: a number starts with a
+' digit. Closes the non-local base-literal forge D6's fixed-distance guards cannot see. Full rationale:
+' see "D8" in property-rendering-mechanics.md.
 Private Function NumericTailIsPossible(ByVal sLit As String) As Boolean
     On Error GoTo ErrorHandler
     Dim i As Long
@@ -1013,25 +784,14 @@ ErrorHandler:
     NumericTailIsPossible = False
 End Function
 
-' D8 - is the text now sitting to the LEFT of a value acceptable? Three questions, and the ORDER is the
-' design:
-'   1. did the edit CREATE the possibility of a base literal where there was none? That is the only
-'      non-local forge, and it is judged first because the frontier test below cannot see it: typing "0x"
-'      in front of an authored "A1" leaves the last two characters untouched.
-'   2. did the frontier change at all? An untouched literal is not judged - it is the user's authored text,
-'      and D7's own claim is that the rule may not be stricter than what the Template already spells. That
-'      is what lets "b" typed at the very start of "Zone 70Prop[Len]m" keep its binding: "70" still touches
-'      the value, nothing new does.
-'   3. only then, D6's guard on the whole current literal.
-' The frontier is the RAW last two characters, so an edit that only LOOKS harmless after trimming - "T70"
-' becoming "T70 " - still counts as a change and is judged.
+' D8 - is the text now sitting to the LEFT of a value acceptable? Three ordered questions (new base
+' literal possible? did the RAW frontier change at all? then D6's guard). Full rationale: see "D8" in
+' property-rendering-mechanics.md.
 Private Function LeftContextIsSafe(ByVal sAuthored As String, ByVal sCurrent As String, ByVal sValue As String) As Boolean
     LeftContextIsSafe = True
 
-    ' The user deleted the literal outright, so the value now starts the text. EMPTY is the one context
-    ' that provably cannot weld: there is no character to weld WITH. Note this is the exact opposite of what
-    ' empty means to the shared predicates, where it says "no addition was made, this branch should not have
-    ' run" - which is why they refuse it, and why this case is handled HERE and never in them.
+    ' EMPTY current literal provably cannot weld (nothing to weld with) - handled HERE, never in the shared
+    ' D6 predicates, where empty means the opposite ("no addition was made").
     If Len(sCurrent) = 0 Then Exit Function
 
     LeftContextIsSafe = False
@@ -1043,39 +803,23 @@ Private Function LeftContextIsSafe(ByVal sAuthored As String, ByVal sCurrent As 
     LeftContextIsSafe = PrefixIsSafeAddition(sCurrent, sValue)
 End Function
 
-' D8 - mirror image, for the text now sitting to the RIGHT of a value.
-' No base-literal guard on this side, and that is not an omission: a base literal needs its PREFIX ("0x")
-' in front of the digits, so the family can only ever form to the LEFT of a value. What can form on the
-' right is an exponent, and SuffixIsSafeAddition already closes it.
+' D8 mirror, for the text now sitting to the RIGHT of a value - no base-literal guard needed (that family
+' can only form to the LEFT). See property-rendering-mechanics.md.
 Private Function RightContextIsSafe(ByVal sAuthored As String, ByVal sCurrent As String, ByVal sValue As String) As Boolean
     RightContextIsSafe = True
 
-    ' Same as the left half: an emptied literal leaves the value at the end of the text, with nothing to
-    ' weld onto. A gap emptied BETWEEN two values would make two tokens adjacent instead - that one is not
-    ' waved through here, it is caught by the well-formedness half of ReauthoredTemplateIsSound, which is
-    ' the single place this mechanism checks what it re-authored.
+    ' Emptied literal (nothing to weld) handled here, same as the left half. An emptied gap BETWEEN two
+    ' values is caught by ReauthoredTemplateIsSound's well-formedness check instead.
     If Len(sCurrent) = 0 Then Exit Function
     If RawHead(sAuthored) = RawHead(sCurrent) Then Exit Function
 
     RightContextIsSafe = SuffixIsSafeAddition(sValue, sCurrent)
 End Function
 
-' D8 - the ONE check that makes a re-authored Template safe to store, and it replaces three separate
-' arguments with a single verification.
-'
-' The mechanism below promotes ALL non-value text to literal, so a user who happens to type "Prop[Other]"
-' into a bound text gets it promoted too. That is the round-8/10 WEDGE: the entry would carry a token set
-' its LastValues does not match, EntryIsConsistent would refuse it as vandalised metadata on every pass
-' afterwards, and nothing recovers it.
-'
-' Rather than argue the three properties separately, verify them:
-'   1. the re-authored Template is well-formed (no duplicate, no adjacent tokens - both newly reachable
-'      here, since ordinary user text becomes literal);
-'   2. it carries EXACTLY the tokens we put in it - a "Prop[...]" that came from the user's own typing
-'      changes the count and is caught;
-'   3. THE FIXED POINT: expanding it with the very same LastValues reproduces the visible text byte for
-'      byte. This is the property the whole engine rests on, and it is checked, not inherited.
-' Any failure returns False and the caller falls back conservatively, which is today's behaviour.
+' D8 - the ONE check that makes a re-authored Template safe to store: well-formed, carries exactly the
+' expected tokens, and expanding it with the SAME LastValues reproduces the visible text byte-for-byte
+' (the engine's fixed point, verified not inherited). Any failure falls back conservatively. Full
+' rationale (the round-8/10 wedge case): see property-rendering-mechanics.md.
 Private Function ReauthoredTemplateIsSound(ByVal sNewTemplate As String, ByVal nExpectedTok As Long, ByRef names() As String, ByRef values() As String, ByVal n As Long, ByVal sVisible As String, ByVal bValidateNames As Boolean) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1101,46 +845,9 @@ ErrorHandler:
     ReauthoredTemplateIsSound = False
 End Function
 
-' D8 - alignment by VALUE RECOGNITION, the fallback for everything the literal walk cannot follow.
-'
-' AlignVisible locates a value by IMPOSING positions: lits(0) must sit at offset 1, the value must sit at
-' the cursor, the closing literal must sit right behind it. Every geometry that broke between rounds 35 and
-' 41 was a position that moved - text typed before the leading literal, after the trailing one, between a
-' literal and the value. This function inverts the search: find each LastValues entry in the visible, and
-' whatever lies between the matches BECOMES the new literal. Positions stop mattering, so static text is
-' free to change anywhere, in any quantity, on any number of tokens.
-'
-' Three conditions, all refusals rather than guesses:
-'   - every token must have a NON-EMPTY value. The unset state renders as the token's own literal text and
-'     is left to AlignVisible, which already handles it.
-'   - each value must appear EXACTLY ONCE. Two occurrences have no defensible choice between them, and
-'     picking one would move the token - a silent corruption far worse than releasing. A short value that
-'     also occurs in the static text ("3" in "3x240") therefore releases; that is a known limitation, not
-'     an oversight, and it is where AlignVisible's literal anchoring still earns its keep.
-'   - both frontiers of every value must be safe (see LeftContextIsSafe / RightContextIsSafe).
-'
-' Runs ONLY where AlignVisible has already failed or survived nothing, so no path that works today changes.
-'
-' THE NON-LOCAL FORGE, and why it is closed rather than accepted. Widening the surface from "adjacent
-' addition" to "edit anywhere" reopens one family the D6/D7 guards cannot see: a base literal. Typing "0x"
-' at the far start of a literal ending in "A1" spells "0xA1", and a future 20 renders "0xA120" - four
-' characters from the frontier those guards inspect, and with the last two unchanged, so neither the guard
-' nor the frontier test fires. It was briefly accepted as residual; NumericTailIsPossible closes it
-' instead, on ONE sentence that needs no base prefix enumerated - a number starts with a digit.
-' The rule is differential, like D7's claim: a base literal that was ALREADY possible in the authored
-' Template is not held against the user (that is the arbitrated "authored, not forged" class), only one the
-' edit newly makes possible. The case that justifies the differential is not some exotic one - it is
-' "Zone 70Prop[Len]m", whose trailing run ALREADY starts with a digit. Judged absolutely, it would be
-' refused with no edit anywhere near the value: the mandate's own headline case.
-'
-' COMPLETENESS, by argument rather than by the test corpus: a value is IsNumericText - digits, space, comma,
-' point - so it can never supply the "x". A base reading therefore needs the "0x" inside the LITERAL, and
-' every character able to continue that reading (x, hex digits, digits) is number-capable, so the run
-' holding that "0" necessarily reaches the end of the literal and its first character IS that "0". Any
-' non-capable character in between breaks the run and the reading together ("0xA1 " + 20 reads "0xA1 20").
-' There is no gap between the two.
-' Public for the same reason ExpandTemplate and AlignVisible are: it is a read-only test seam (AC12), so
-' the decision table below can be asserted without a DGNLib. It writes nothing and touches no element.
+' D8 - alignment by VALUE RECOGNITION, the fallback for everything the literal walk cannot follow. Runs
+' ONLY after AlignVisible has declined. Public test seam (AC12). See "D8 - AlignByValues" in
+' property-rendering-mechanics.md.
 Public Function AlignByValues(ByVal sVisible As String, ByVal sTemplate As String, ByRef ValNames() As String, ByRef ValValues() As String, ByVal nVals As Long, ByRef sNewTemplate As String, ByRef NewNames() As String, ByRef NewValues() As String, ByRef nNew As Long, Optional ByVal bValidateNames As Boolean = True) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1212,14 +919,9 @@ End Function
 '                                          STATE MACHINE
 '######################################################################################################################
 
-' One drain target: skip it when this drain already ran it, re-fetch it, then run the state machine.
-'
-' The done-list is what stops an element being processed twice in one drain. It legitimately turns up
-' twice - once as a noted source, once as another source's group sibling - and the second run is not
-' merely wasted work: it reads the element through a handle captured BEFORE the first run rewrote it, sees
-' the pre-write text, matches neither expansion, and releases the binding as if the user had retyped it.
-' That is the "one of the two texts loses its binding" failure, and it needs a group with TWO bound texts
-' plus a value that keeps moving - which is why one text, however fast it is edited, never shows it.
+' One drain target: skip it when this drain already ran it (done-list dedup), re-fetch it, then run the
+' state machine. Full rationale (the "two bound texts in one group" failure this prevents): see "Repaint
+' hop (bounded)" in property-rendering-mechanics.md.
 Private Sub RenderDrainTarget(ByVal oEl As element, ByRef doneIds() As String, ByRef nDone As Long)
     On Error GoTo ErrorHandler
 
@@ -1248,19 +950,8 @@ ErrorHandler:
 End Sub
 
 ' Re-fetch an element from the model so the state machine reads what is REALLY in the file. THE rule of
-' this module: never read text through a handle you did not just fetch.
-'
-' Every element handle reaching this engine was captured earlier by someone else - the idle batch
-' materialises all of its elements before processing the first one, moDirty stores them at value-write
-' time, Link.GetLink scans before the walk writes anything, the bind key-in loops over a selection set
-' taken up front - and a handle keeps serving the TEXT it was captured with. The ITEM side does not
-' behave that way: CustomPropertyHandler refreshes it from the file on every access. Stale text plus
-' fresh values is the one combination the state machine cannot survive, because it matches neither
-' expansion and branch 3 is entitled to call that a user edit.
-'
-' The same staleness is why StringsInEl.UpdateTextLines re-fetches after every sub-write and why
-' ElementInProcesse stores ids rather than elements. Best effort: an element that cannot be re-fetched
-' keeps the handle it had, which is no worse than before.
+' this module: never read text through a handle you did not just fetch. Full rationale: see "The
+' stale-handle invariant (FreshHandle)" in property-rendering-mechanics.md.
 Private Function FreshHandle(ByVal oEl As element) As element
     On Error Resume Next
 
@@ -1320,14 +1011,9 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering.RenderOneElement"
 End Sub
 
-' Branches 1-3, per stored entry. texts() holds the whole text of every bearer, indexed by SubId, from
-' the single walk the caller already paid for.
-'
-' Write ORDER is load-bearing and enforced here: every TEXT write happens first, the ONE metadata write
-' last. Metadata-first with a failed text write would leave the visible and LastValues disagreeing, so
-' the next pass would match neither expansion and release the binding spuriously. If the metadata write
-' fails after the text landed, every text written in this pass is restored (best effort) and NOTHING
-' transitions - the in-memory entry changes are simply discarded.
+' Branches 1-3, per stored entry. texts() holds the whole text of every bearer, indexed by SubId. Write
+' ORDER is load-bearing: every TEXT write happens first, the ONE metadata write last. Full rationale: see
+' "RenderBoundElement / RenderEntryOnElement" in property-rendering-mechanics.md.
 Private Sub RenderBoundElement(ByRef oEl As element, ByRef texts() As String, ByVal nBearers As Long)
     On Error GoTo ErrorHandler
 
@@ -1401,14 +1087,8 @@ Private Sub RenderBoundElement(ByRef oEl As element, ByRef texts() As String, By
         ReportMetadataUnreadable
         DisableAfterWriteFailure
     ElseIf bRepaint Then
-        ' Branch 3 transitioned an entry WITHOUT writing text, so the bearer may still show a literal
-        ' token. Note it only HERE, after the metadata write succeeded: the drain re-reads the entry from
-        ' the file, so noting it before the write would re-render it against the OLD Template. Once per
-        ' element and per pass, never once per entry - moDirty would otherwise carry the same element as
-        ' many times as it has re-authored sub-texts.
-        ' Terminates: the drain runs the FULL state machine, branch 2 renders and WRITES, and a written
-        ' entry never sets bRepaint. DrainRepaintHop is re-entrance-guarded and clears its list, so a note
-        ' added from inside a drain is dropped rather than replayed.
+        ' Branch 3 transitioned an entry WITHOUT writing text. Noted only HERE, after the metadata write
+        ' succeeded - see "RenderBoundElement / RenderEntryOnElement" in property-rendering-mechanics.md.
         NoteDirtyGroup oEl
     End If
     Exit Sub
@@ -1417,13 +1097,10 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering.RenderBoundElement"
 End Sub
 
-' The three branches for ONE entry. Returns ENTRY_UNCHANGED / ENTRY_UPDATED / ENTRY_DROP.
-' SubId is the ordinal ResolveAllSubIds settled for this entry (-1 = refuse); it may differ from the
-' stored one, which is what a drift relocation means.
-' wSubId + wPrev report a text write that DID land, so the caller can undo it if the metadata write
-' then fails (wSubId stays -1 when nothing was written).
-' oEl is ByRef all the way down to StringsInEl.SetTextAtSubId, so the handle refreshed after a
-' sub-element Rewrite reaches the caller instead of dying in a local copy.
+' The three branches for ONE entry. Returns ENTRY_UNCHANGED / ENTRY_UPDATED / ENTRY_DROP. SubId is the
+' ordinal ResolveAllSubIds settled (-1 = refuse; a drift relocation may differ from the stored one). oEl is
+' ByRef down to StringsInEl.SetTextAtSubId (see WriteRenderedText). Full rationale for each branch: see
+' "RenderBoundElement / RenderEntryOnElement" in property-rendering-mechanics.md.
 Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As RenderEntry, ByVal idx As Long, ByRef texts() As String, ByVal nBearers As Long, ByVal SubId As Long, ByRef wSubId As Long, ByRef wPrev As String, ByRef bRepaint As Boolean) As Long
     On Error GoTo ErrorHandler
 
@@ -1459,10 +1136,8 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
         ReportDrift
         Exit Function
     End If
-    ' The relocation is held in a LOCAL and committed only once the entry has proved usable. Committing
-    ' it here would return ENTRY_UPDATED out of every "skip, never transition" exit below - the empty
-    ' read, the vandalised metadata, the illegal value - and so write metadata for an entry the state
-    ' machine has just declared unusable.
+    ' Relocation held in a LOCAL and committed only once the entry proves usable - see
+    ' property-rendering-mechanics.md.
     bRelocated = (SubId <> ents(idx).SubId)
 
     sVisible = texts(SubId)
@@ -1481,19 +1156,15 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
 
     If Not ReadCurrentValues(oEl, ents(idx), curNames, curValues, nCur) Then Exit Function
 
-    ' ExpandTemplate fails OPEN (it returns the Template unchanged), and it reaches COM through
-    ' ParseTemplate -> IsKnownProperty. Comparing the visible against a garbage expansion would miss
-    ' branches 1 and 2 and land in branch 3, the only destructive one - a transient library-read fault
-    ' would then become a permanent binding release. Skip the entry instead, exactly as an empty or
-    ' faulted read does.
+    ' ExpandTemplate fails OPEN and reaches COM - skip the entry on a fault, exactly as an empty read does.
+    ' See "ExpandTemplate" in property-rendering-mechanics.md.
     sExpCur = ExpandTemplate(ents(idx).Template, curNames, curValues, nCur, True, bOkCur)
     If Not bOkCur Then Exit Function
     sExpLast = ExpandTemplate(ents(idx).Template, ents(idx).ValNames, ents(idx).ValValues, ents(idx).nVals, True, bOkLast)
     If Not bOkLast Then Exit Function
 
-    ' The entry is READABLE, CONSISTENT and its values are legal: only now may a relocation be persisted
-    ' (edge #17 - "on success, update the stored SubId"). An entry that did NOT drift still returns
-    ' ENTRY_UNCHANGED here, so branch 1 stays the strict no-op AC2 requires.
+    ' Relocation is persisted only once the entry is proven readable/consistent/legal (edge #17). An
+    ' undrifted entry still returns ENTRY_UNCHANGED, so branch 1 stays the strict no-op AC2 requires.
     If bRelocated Then
         ents(idx).SubId = SubId
         RenderEntryOnElement = ENTRY_UPDATED
@@ -1503,19 +1174,9 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
     ' terminator, and the reason a re-queued unchanged element costs nothing.
     If sVisible = sExpCur Then Exit Function
 
-    ' --- BRANCH 2: the visible still matches the LAST rendering, so the VALUES moved. Re-render.
-    '
-    ' Second test: an entry authored but NEVER rendered has no last rendering at all - its visible IS its
-    ' Template, in whatever casing the USER typed, while ExpandTemplate always re-materialises the
-    ' canonical "Prop[" prefix. A "prop[Name]" typed into an ALREADY-BOUND bearer is authored verbatim by
-    ' the top-up scan with an empty LastValues entry, so both expansions come back capitalised, neither
-    ' matches binary, and the entry lands in branch 3 - which rewrites the Template to the canonical form,
-    ' resets the value to empty and writes NO text. Every later pass repeats it identically: the token
-    ' never renders, and nothing is reported. The first-author path never sees this because it expands and
-    ' writes straight from the current values, which is why the SAME token renders on an unbound bearer.
-    ' Compared case-insensitively, like every other INTERPRETATION in this module (AlignVisible's token
-    ' literals); IDENTIFICATION - ResolveAllSubIds - stays binary. This also recovers an entry already
-    ' trapped by an earlier pass, whose stored Template is canonical while its visible is not.
+    ' --- BRANCH 2: the visible still matches the LAST rendering, so the VALUES moved. Re-render. Second
+    ' test also catches an entry authored but never rendered (branch 3 trap otherwise) - full rationale:
+    ' see "RenderBoundElement / RenderEntryOnElement" in property-rendering-mechanics.md.
     If sVisible = sExpLast Or StrComp(sVisible, ents(idx).Template, vbTextCompare) = 0 Then
         If WriteRenderedText(oEl, SubId, sExpCur) Then
             wSubId = SubId
@@ -1527,30 +1188,13 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
     End If
 
     ' --- BRANCH 3: a NON-EMPTY read differing from BOTH expansions - positive proof of a user edit.
-    ' Per-token release. No DATA property is touched, and no text is written: the user's own text IS
-    ' the new Template.
+    ' Per-token release, no text written. Full rationale: see "RenderBoundElement / RenderEntryOnElement"
+    ' in property-rendering-mechanics.md.
     If AlignVisible(sVisible, ents(idx).Template, ents(idx).ValNames, ents(idx).ValValues, ents(idx).nVals, sNewTemplate, newNames, newValues, nNew) Then
-        ' The re-authored Template is re-validated exactly like a first author: the state machine may
-        ' never produce a Template that breaks a v1 invariant.
+        ' The re-authored Template is re-validated exactly like a first author.
         If TemplateIsWellFormed(sNewTemplate, True) Then
-            ' TemplateIsWellFormed is True for a token-FREE string too - nothing in it can be malformed -
-            ' so it cannot be the only gate. Edge #5 (the user retypes the whole text) releases the last
-            ' token and lands here with ZERO tokens left, and storing THAT as a live entry would be a
-            ' one-way trap: ARES_Render would stay attached for ever, CountLiveEntries would never reach
-            ' 0 so the detach would never fire and IsRenderBound would stay True on a text that no longer
-            ' carries a single token - with no unbind key-in in Phase 1 to recover it.
-            ' Release the entry instead, the same nTok = 0 test ApplyConservativeFallback
-            ' already makes.
             If ParseTemplate(sNewTemplate, newLits, newToks, nNewTok, True) Then
                 If nNewTok > 0 Then
-                    ' A token the user TYPED into an already-bound text is in the new Template but has no
-                    ' LastValues entry, and EntryIsConsistent demands the two sets match EXACTLY - the
-                    ' entry would be read as vandalised metadata from then on and never render again, with
-                    ' no way back. Give every token the new Template carries an entry, empty for the ones
-                    ' that just appeared: that is what ApplyConservativeFallback already does, and an empty
-                    ' entry renders as the literal token until a value shows up and branch 2 takes over.
-                    ' Nothing is resurrected here - a token the user WIPED is no longer in the visible, so
-                    ' it is not in newToks either.
                     For k = 0 To nNewTok - 1
                         If Not HasValueEntry(newToks(k), newNames, nNew) Then
                             AppendValue newToks(k), "", newNames, newValues, nNew
@@ -1558,27 +1202,11 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
                     Next k
                     ents(idx).Template = sNewTemplate
                     SetEntryValues ents, idx, newNames, newValues, nNew
-                    ' This branch writes NO text on purpose - the user's own text IS the new Template - so
-                    ' it leaves the bearer showing whatever was typed, which for a re-typed token is the
-                    ' LITERAL rather than the value. The state machine's own answer is "the very next pass
-                    ' renders it (branch 2)", and that is true; what is not true is that a next pass ever
-                    ' comes: the text stayed unrendered until the user edited it a SECOND time. The chain
-                    ' most likely responsible - no text write, so no Rewrite, so no change event, so no
-                    ' re-queue - is OBSERVED, NOT PROVEN (story 15-2, Task 0(b)): bulk detection,
-                    ' ShouldQueueElement or idle-write timing would look identical from here. The fix does
-                    ' not rest on that diagnosis, which is the point of doing it this way.
-                    ' Ask for the repaint hop instead: the caller notes the element once the metadata is
-                    ' safely written, and the drain that ProcessElement already runs re-enters the full
-                    ' state machine on it, where branch 2 renders it in this same pass.
                     bRepaint = True
                     RenderEntryOnElement = ENTRY_UPDATED
                 Else
-                    ' The alignment SUCCEEDED and concluded that nothing survived - a deliberate release,
-                    ' not a failure to understand the text. Until now it was the only way a binding could
-                    ' die without the user being told anything at all, which is why it gets its own status
-                    ' rather than borrowing ReportAmbiguous below: that one says "the text could not be
-                    ' matched", which is the opposite of what happened here, and both being one-shot the
-                    ' less accurate message would win whichever fired first.
+                    ' Alignment SUCCEEDED and concluded nothing survived - a deliberate release, not a
+                    ' failure to understand the text; gets its own status rather than ReportAmbiguous below.
                     ReportBindingReleased
                     RenderEntryOnElement = ENTRY_DROP
                 End If
@@ -1587,16 +1215,11 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
         End If
     End If
 
-    ' --- BRANCH 3b (D8): the literal walk could not follow the text, so stop following literals.
-    ' AlignVisible fails whenever a position moved - text typed before the leading literal, or a static word
-    ' edited anywhere - even though the rendered VALUE is still sitting there untouched. Try to recognise
-    ' the values themselves; everything else in the text then simply becomes the new static content.
-    ' This runs ONLY here, after AlignVisible has already declined, so no path that works today is affected.
+    ' --- BRANCH 3b (D8): the literal walk could not follow the text (a position moved anywhere). Try to
+    ' recognise the values themselves instead. Runs ONLY after AlignVisible has declined.
     If AlignByValues(sVisible, ents(idx).Template, ents(idx).ValNames, ents(idx).ValValues, ents(idx).nVals, sNewTemplate, newNames, newValues, nNew) Then
         ents(idx).Template = sNewTemplate
         SetEntryValues ents, idx, newNames, newValues, nNew
-        ' Same repaint hop as branch 3: no text is written here either - the user's own text IS the new
-        ' Template - so the caller must re-enter the state machine for branch 2 to render this pass.
         bRepaint = True
         RenderEntryOnElement = ENTRY_UPDATED
         Exit Function
@@ -1613,16 +1236,9 @@ ErrorHandler:
     RenderEntryOnElement = ENTRY_UNCHANGED
 End Function
 
-' Conservative outcome: the visible text BECOMES the Template, so the "Prop[Name]" substrings the user
-' left verbatim stay live (with an EMPTY LastValues entry - they are unset until the next value read)
-' and everything else is static. That state converges: the very next pass either renders the values
-' (branch 2) or finds itself already correct (branch 1).
-'
-' When the visible is not a well-formed Template (the user typed the same token twice, or two adjacent
-' ones), NO valid binding can be stored for it - and storing a token-free Template is not an option
-' either, since a Template is re-parsed from its string and any "Prop[Known]" in it is always a token.
-' The entry is therefore RELEASED outright, which is also what keeps this branch from churning the
-' metadata on every single pass.
+' Conservative outcome: the visible text BECOMES the Template. Converges next pass (branch 2 or 1); an
+' ill-formed or token-free visible RELEASES the entry outright instead. Full rationale: see
+' "ApplyConservativeFallback" in property-rendering-mechanics.md.
 Private Function ApplyConservativeFallback(ByRef ents() As RenderEntry, ByVal idx As Long, ByVal sVisible As String) As Long
     On Error GoTo ErrorHandler
 
@@ -1656,18 +1272,9 @@ ErrorHandler:
 End Function
 
 ' Author ONE bearer, if it qualifies, appending an entry to the list. THE unit of binding is the SUB-TEXT,
-' not the element: a cell header carries ONE ARES_Render item holding an entry per bound sub-text, so
-' "this element is already bound" says nothing about whether a given sub-text is. Both the first-author
-' scan and the top-up scan on an already-bound bearer run this one function, so the rules cannot drift.
-'
-' The hybrid policy (§6.2) in full: at least one valid token, a well-formed Template (no duplicate or
-' adjacent tokens), a bearer allowed to carry tokens, and EVERY token naming a property ALREADY ATTACHED
-' to the element - attachment being the intent signal that story 15-1's convergent "@" pull makes reliable.
-' bKeepSource / nFree carry the source-preservation rule (see FeedsCellSource). They live HERE, at the one
-' place an entry is ever created, and not in the callers: the round-8 regression was let through by a
-' guard that sat in only ONE of this function's two callers, so the two authoring paths diverged again on
-' exactly the rule that mattered. nFree is the number of sub-texts still outside the exclusion set, and it
-' is decremented here on every successful author, so both callers stay honest without repeating anything.
+' not the element. Both the first-author scan and the top-up scan run this one function, so the rules
+' cannot drift. Full rationale (hybrid policy §6.2, source-preservation via bKeepSource/nFree): see
+' "Authoring (TryAuthorBearer / AuthorUnclaimedBearers / TryFirstAuthor)" in property-rendering-mechanics.md.
 Private Function TryAuthorBearer(ByRef oEl As element, ByVal sText As String, ByVal SubId As Long, ByRef ents() As RenderEntry, ByRef nEnts As Long, ByVal bKeepSource As Boolean, ByRef nFree As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1685,9 +1292,7 @@ Private Function TryAuthorBearer(ByRef oEl As element, ByVal sText As String, By
     If Not ParseTemplate(sText, lits, toks, nTok, True) Then Exit Function
     If nTok = 0 Then Exit Function
 
-    ' SOURCE PRESERVATION, applied after the token test on purpose: a bearer carrying no token was never a
-    ' candidate, is exactly what we want left behind as the source, and must not draw a warning. Only a
-    ' bearer that WOULD have been authored can take the last free sub-text away.
+    ' SOURCE PRESERVATION, after the token test on purpose - see property-rendering-mechanics.md.
     If bKeepSource Then
         If nFree <= 1 Then
             ReportCycleWarning
@@ -1736,17 +1341,9 @@ ErrorHandler:
     TryAuthorBearer = False
 End Function
 
-' Does this element FEED a Cell* calc source? If it does, it must keep at least ONE sub-text out of the
-' exclusion set, and TryAuthorBearer enforces that.
-'
-' GetExcludedSubIds hides every rendered sub-text from GetConcatenatedText, so binding the LAST unbound one
-' leaves the CellText source with nothing to read: it resolves to "", calc empties the very properties the
-' cell displays, and the renderer then shows them all as literal tokens - the containment destroying the
-' data it exists to protect. There is no repair on the READ side either: once every sub-text is rendered,
-' any non-empty read necessarily contains rendered text, so every possible fallback IS the ratchet. The
-' exclusion is structurally incompatible with "all sub-texts bound", which makes refusing the last one the
-' only lever available - the same conservative call §4.4a already makes for a TextNode in a matched cell,
-' through the same IsTriggerCell superset.
+' Does this element FEED a Cell* calc source? If so it must keep at least ONE sub-text out of the exclusion
+' set (TryAuthorBearer enforces it) - binding the last one would let the containment destroy the data it
+' protects. Full rationale: see "Authoring" in property-rendering-mechanics.md.
 Private Function FeedsCellSource(ByRef oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1762,14 +1359,9 @@ ErrorHandler:
 End Function
 
 ' TOP-UP AUTHORING on a bearer that is ALREADY bound: every sub-text no stored entry claims is offered to
-' the same authoring rule. Returns how many entries were added.
-'
-' Without this, first-authoring is gated on the ELEMENT being unbound while the unit of binding is the
-' SUB-TEXT, and the two disagree the moment a cell holds more than one token. The first sub-text to
-' qualify attaches ARES_Render to the cell header; from then on every pass takes the bound branch, which
-' only ever loops the entries already stored - so a second sub-text whose property arrives later is never
-' looked at again, by any path, including the bind key-in. It stays inert for ever, exactly as if its
-' token had never been typed.
+' the same authoring rule. Returns how many entries were added. Without this a second sub-text whose
+' property arrives later stays inert forever. Full rationale: see "Authoring" in
+' property-rendering-mechanics.md.
 Private Function AuthorUnclaimedBearers(ByRef oEl As element, ByRef texts() As String, ByVal nBearers As Long, ByRef ents() As RenderEntry, ByRef nEnts As Long, ByRef subIds() As Long) As Long
     On Error GoTo ErrorHandler
 
@@ -1783,16 +1375,8 @@ Private Function AuthorUnclaimedBearers(ByRef oEl As element, ByRef texts() As S
     If nBearers <= 0 Then Exit Function
     If Not IsAcceptableBearerElement(oEl) Then Exit Function
 
-    ' Entries just read from metadata are never Dropped, so the test is defensive - but it states the
-    ' rule: only a LIVE entry owns its sub-text. The case this really serves is the reported one - a
-    ' sub-text whose token names a property that was not attached YET at first author. On an unbound
-    ' element the author scan simply retries every pass; on a bound one, nothing retried it at all.
-    '
-    ' An UNRESOLVED live entry (subIds = -1) is the dangerous case: its sub-text is unknown, so leaving it
-    ' unclaimed would let this scan author a DUPLICATE for the very text that entry drives - and the
-    ' re-resolution that follows hands the ordinal to the newcomer, stranding the original in permanent
-    ' drift as a dead record in the blob. The picture is incomplete, so author nothing this pass; the
-    ' entry already reports drift, and once it resolves the top-up resumes. Refuse rather than guess.
+    ' An UNRESOLVED live entry (subIds = -1) bails the whole scan this pass, rather than risk authoring a
+    ' duplicate for the text it drives. See "Authoring" in property-rendering-mechanics.md.
     ReDim claimed(0 To nBearers - 1)
     For i = 0 To nEnts - 1
         If Not ents(i).Dropped Then
@@ -1824,12 +1408,9 @@ ErrorHandler:
     AuthorUnclaimedBearers = 0
 End Function
 
-' Branch 4 - the first author, hybrid policy. bManual = the BindPropertyRender key-in (which reports why
-' it refused); the automatic path stays quieter but uses the exact same rules.
-'
-' A bearer is bound only when its visible text carries at least one valid token AND every one of those
-' tokens names a property ALREADY ATTACHED to the element. Attachment is the intent signal - it is what
-' story 15-1's convergent "@" pull makes reliable - so nothing is ever bound by accident.
+' Branch 4 - the first author, hybrid policy. bManual = the BindPropertyRender key-in (reports refusals);
+' the automatic path uses identical rules. A bearer binds only when every token names a property ALREADY
+' ATTACHED to the element - attachment is the intent signal, so nothing is ever bound by accident.
 Private Function TryFirstAuthor(ByRef oEl As element, ByRef texts() As String, ByVal nBearers As Long, ByVal bManual As Boolean) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1853,11 +1434,8 @@ Private Function TryFirstAuthor(ByRef oEl As element, ByRef texts() As String, B
     ' Element-level bearer guard, evaluated once: never author on anything but a TOP-LEVEL model element.
     If Not IsAcceptableBearerElement(oEl) Then Exit Function
 
-    ' One decision per BEARER, taken by the shared authoring rule - the same one the top-up scan runs on an
-    ' already-bound element, so the two can never drift apart. That includes SOURCE PRESERVATION: a first
-    ' author binds every qualifying sub-text in ONE pass, so a fresh cell whose sub-texts all carry valid
-    ' tokens would otherwise empty its own CellText source on the spot - the round-8 failure through the
-    ' other door. Nothing is bound yet here, so every bearer is still free.
+    ' One decision per BEARER, via the shared authoring rule (includes SOURCE PRESERVATION - see
+    ' "Authoring" in property-rendering-mechanics.md). Nothing is bound yet, so every bearer starts free.
     bKeepSource = FeedsCellSource(oEl)
     nFree = nBearers
     For i = 0 To nBearers - 1
@@ -1931,15 +1509,8 @@ Private Sub RestoreWrittenTexts(ByRef oEl As element, ByRef ids() As Long, ByRef
 End Sub
 
 ' The ONE place visible text is written. Refuses a reserved serialisation delimiter (and a stray CR) before
-' it can reach the file. It does NOT refuse an expansion shaped like a legacy Auto Lengths trigger -
-' writing "(12.3m)" is the flagship case, and nothing competes for the text any more.
-' Returns True only when the sub-text now reads sNew.
-'
-' oEl is ByRef, and the WHOLE chain above it (RenderBoundElement / TryFirstAuthor / RenderEntryOnElement)
-' is too, on purpose: StringsInEl.SetTextAtSubId re-fetches the element after the sub-element Rewrite that
-' makes the handle stale, and VBA's ByVal on an object copies the REFERENCE - the refreshed handle would
-' die in this procedure's local copy. It has to reach the caller, because on a cell with two rendered
-' sub-texts the SECOND write and the closing WriteRenderMetadata both run off that same handle.
+' it reaches the file. Returns True only when the sub-text now reads sNew. oEl is ByRef down the whole call
+' chain on purpose - see "WriteRenderedText and the ByRef element chain" in property-rendering-mechanics.md.
 Private Function WriteRenderedText(ByRef oEl As element, ByVal SubId As Long, ByVal sNew As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1965,11 +1536,8 @@ ErrorHandler:
 End Function
 
 ' Read the CURRENT value of every token of an entry, off the bearing element's OWN attached properties.
-' Values are copied VERBATIM: a non-string typed value (a date or boolean from a hand-authored lib) is
-' NOT converted - it yields the literal token plus a status, because a locale-dependent conversion is
-' exactly what would make two stations rewrite each other's text forever.
-' Returns False only when a value carries a reserved delimiter or a line break - the whole entry is then
-' skipped, so no VALUE can ever make the metadata unparseable.
+' Values are copied VERBATIM (never CStr/Format/rounding). Full rationale: see "ReadCurrentValues" in
+' property-rendering-mechanics.md.
 Private Function ReadCurrentValues(ByVal oEl As element, ByRef ent As RenderEntry, ByRef names() As String, ByRef values() As String, ByRef n As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -2021,29 +1589,10 @@ ErrorHandler:
     ReadCurrentValues = False
 End Function
 
-' Locate the sub-text EVERY entry drives, in TWO PASSES over the whole entry list. subIds(i) comes back
-' as the resolved ordinal, or -1 when the entry must be refused rather than written blind.
-'
-' The two passes are what make the result independent of entry ORDER, and that is the whole point:
-'   Pass A - every entry that can PROVE nothing drifted (the text at its stored ordinal still IS its
-'            computed last rendering, or its Template) takes that ordinal and claims it.
-'   Pass B - only then do the still-unresolved entries scan the rest of the cell for their text, over
-'            the ordinals nobody claimed, and fall back to their own stored ordinal when in range.
-'
-' A single pass gets this wrong in both directions. Resolving entries one at a time, an entry whose
-' sub-text the user just EDITED no longer matches at its own ordinal, so its global scan finds a SIBLING
-' whose rendering happens to read the same string and steals it - the sibling is then refused, and the
-' user's edit is interpreted against the wrong text instead of reaching branch 3. Preferring the stored
-' ordinal outright would fix that and break edge #17 instead: after a cell redefinition inserts a
-' sub-element, every stored ordinal is still IN RANGE while designating someone else's text, and the
-' relocation would never fire. Pass A settles all the certain cases first, so pass B only ever scans what
-' is genuinely unaccounted for - and two entries that both drifted still both relocate correctly.
-'
-' Comparisons are BINARY on purpose. This is IDENTIFICATION, not interpretation: two sub-texts differing
-' only in case are two different texts, and a value's casing is data (values are copied verbatim). Both
-' sides of the "last rendering" test are produced by ExpandTemplate, so the canonical "Prop[" prefix
-' cannot make them disagree; AlignVisible, which interprets rather than identifies, is the one that
-' matches token literals case-insensitively.
+' Locate the sub-text EVERY entry drives, in TWO PASSES over the whole entry list (Pass A: certain matches
+' only; Pass B: relocation scan). Independent of entry ORDER, and comparisons are BINARY (identification,
+' not interpretation). Full rationale: see "SubId resolution - the two-pass algorithm" in
+' property-rendering-mechanics.md.
 Private Sub ResolveAllSubIds(ByRef ents() As RenderEntry, ByVal nEnts As Long, ByRef texts() As String, ByVal nBearers As Long, ByRef subIds() As Long)
     On Error GoTo ErrorHandler
 
@@ -2095,13 +1644,8 @@ ErrorHandler:
     ResolveSubIdExact = -1
 End Function
 
-' Pass B, for the entries pass A could not settle:
-'   1. a sub-text elsewhere carrying this entry's last rendering, then one carrying its Template - the
-'      cell was redefined and the ordinals shifted, so the entry follows its text (edge #17);
-'   2. otherwise its own stored ordinal if that is still in range and unclaimed - the ordinal is fine and
-'      the text simply no longer matches because the USER edited it, which is what branch 3 interprets;
-'   3. otherwise -1: refuse rather than write blind into a sub-text that is not ours.
-' Every step skips ordinals another entry already owns.
+' Pass B, for entries pass A could not settle: relocate by matching text, else fall back to the stored
+' ordinal, else refuse. Full rationale (edge #17): see "SubId resolution" in property-rendering-mechanics.md.
 Private Function ResolveSubIdRelocate(ByRef ents() As RenderEntry, ByVal idx As Long, ByRef texts() As String, ByVal nBearers As Long, ByRef claimed() As Boolean) As Long
     On Error GoTo ErrorHandler
 
@@ -2155,20 +1699,9 @@ Private Function IsSubIdClaimed(ByRef claimed() As Boolean, ByVal SubId As Long)
     IsSubIdClaimed = claimed(SubId)
 End Function
 
-' Defensive bearer guard: the bearer is always a TOP-LEVEL model element, never a cell component. The
-' Ouroboros exclusion is keyed on the CELL that carries ARES_Render, so a sub-text bound DIRECTLY would
-' compute no exclusion at all and the rendered span would feed the very CellText value that governs it.
-'
-' In normal use this state is UNREACHABLE - attaching a custom property to a cell component without
-' dropping the cell first is not something the UI offers - but BindPropertyRender is a new key-in whose
-' selection semantics carry none of the native attach command's guarantees, so the invariant is enforced
-' rather than assumed.
-'
-' It refuses SILENTLY, and that is deliberate: none of the 20 sanctioned i18n keys describes this case
-' truthfully (reusing RenderTextNodeInCellRefused would tell the user something about multi-line texts in
-' cells that is simply not what happened), and inventing a key is barred until the spec rules on it. A
-' wrong message is worse than none for a state the user cannot reach; the day it becomes reachable, it
-' needs its own key.
+' Defensive bearer guard (the Ouroboros exclusion): the bearer is always a TOP-LEVEL model element, never a
+' cell component. Refuses SILENTLY on purpose. Full rationale: see "Bearer guards" in
+' property-rendering-mechanics.md.
 Private Function IsAcceptableBearerElement(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -2182,14 +1715,9 @@ ErrorHandler:
     IsAcceptableBearerElement = False
 End Function
 
-' v1 refuses to author a token inside a TEXTNODE that belongs to a cell fed by an active group source:
-' the exclusion granularity is one whole bearer, and a TextNode IS one bearer, so a single token line
-' could not be excluded without also hiding the cell's other lines from the calc value. A plain
-' sub-TextElement is excludable and therefore allowed.
-'
-' The "fed by a group source" test reuses PropertyCalculation.IsTriggerCell, which is broader than
-' CellText alone (it covers every pushable Cell* source). Deliberately conservative: over-refusing a bind
-' costs a status message, under-refusing corrupts a value.
+' v1 refuses to author a token inside a TEXTNODE belonging to a cell fed by an active group source: the
+' exclusion granularity is one whole bearer, and a TextNode IS one bearer. Full rationale: see "Bearer
+' guards" in property-rendering-mechanics.md.
 Private Function CanBearTokens(ByVal oEl As element, ByVal sBearerText As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -2242,19 +1770,10 @@ End Sub
 '                                   METADATA (ARES_SYS / ARES_Render)
 '######################################################################################################################
 
-' Read and parse the ARES_Render metadata of an element. False = attached but unusable (unreadable,
-' unknown schema, or malformed) - the caller must refuse, never guess. True with nEnts = 0 is the legal
-' "freshly attached, nothing stored yet" state.
-'
-' EVERY False path reports its OWN status here, and callers must not add one: a schema mismatch has a
-' dedicated key (edge #24) and an unconditional generic "unreadable" from the caller would overwrite it
-' on the status bar, defeating the point of having it.
-'
-' EVERY access names ItemName AND LibraryName explicitly, and suppresses the single-property fallback.
-' Two independent traps sit here: CustomPropertyHandler defaults an omitted ItemName to the PROPERTY
-' name (the "ItemType name IS the property name" convention that ARES_Render deliberately breaks), which
-' would make every read return Null silently; and its fallback returns "the first property that yields a
-' value", which on this 2-property ItemType hands back Entries when SchemaVersion is empty.
+' Read and parse the ARES_Render metadata of an element. False = attached but unusable - the caller must
+' refuse, never guess. True with nEnts = 0 is the legal "freshly attached, nothing stored yet" state. EVERY
+' access names ItemName AND LibraryName explicitly (two independent CustomPropertyHandler traps otherwise).
+' Full rationale: see "ReadRenderMetadata" in property-rendering-mechanics.md.
 Private Function ReadRenderMetadata(ByVal El As element, ByRef ents() As RenderEntry, ByRef nEnts As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -2527,12 +2046,9 @@ ErrorHandler:
     nTok = 0
 End Function
 
-' A Template is well formed when no property is tokenised twice (v1 rule: ONE token per property per
-' text) and no two tokens are adjacent. An interior EMPTY literal is what adjacency produces, and it
-' leaves the span boundary undefined - which is precisely what the per-token release needs in order to
-' decide what the user edited.
-' Public (read-only) as a test seam, like ExpandTemplate and AlignVisible: the duplicate/adjacent
-' refusals are acceptance criteria and VBA cannot call a Private proc from UnitTesting.
+' A Template is well formed when no property is tokenised twice (v1: ONE token per property per text) and
+' no two tokens are adjacent - adjacency produces an interior EMPTY literal, leaving the span boundary
+' undefined for the per-token release. Public test seam, like ExpandTemplate/AlignVisible.
 Public Function TemplateIsWellFormed(ByVal sTemplate As String, Optional ByVal bValidateNames As Boolean = True) As Boolean
     On Error GoTo ErrorHandler
 
@@ -2932,12 +2448,8 @@ Private Sub ReportLibraryMissing()
     End If
 End Sub
 
-' Third self-disable condition, and the one that is not a refusal but a FAULT LOOP. Both writers restore
-' the text they wrote and return, leaving the persisted state byte-identical to what they found - so the
-' next pass takes exactly the same path, emits exactly the same Rewrites, and each of those re-queues the
-' element. Branch 1, the declared loop terminator, is never reached because nothing is ever retained.
-' Log ONE English line and go inert for the session, the same shape as the schema/library conditions. The
-' user's recovery is to fix the DGNLib and reopen; RefreshRenderCaches clears it for the tests.
+' Third self-disable condition, and the one that is not a refusal but a FAULT LOOP guard. Full rationale:
+' see "Session-scoped self-disable guards" in property-rendering-mechanics.md.
 Private Sub DisableAfterWriteFailure()
     On Error Resume Next
     If mbWriteDisabled Then Exit Sub

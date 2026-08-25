@@ -1,26 +1,10 @@
 ' Module: CustomPropertyHandler
 ' Description: Attaches, reads and writes ARES custom properties (MicroStation Item Types) on
-'              elements, with silent error handling.
-'
-'              The item-type DEFINITIONS and their value lists live in a DGNLib (the "ARES"
-'              ItemTypeLibrary), authored once through the Item Types dialog and deployed via
-'              MS_DGNLIBLIST - they are NOT created from VBA (the MVBA Item Type API cannot author
-'              a native value list / picklist). This module only ATTACHES the types to elements and
-'              reads/writes their values (the value stored on the element is a plain string).
-'              The library is resolved with FindForDesignFile(..., includeDgnLibs:=True), so the
-'              definitions are found whether they live in the active file or in a referenced DGNLib.
-'
-'              The managed property names are ENUMERATED FROM THE DGNLIB ITSELF (GetCustomPropertyNames)
-'              - each ItemType in the "ARES" library is one custom property, its name being BOTH the
-'              ItemType name and the property name. The library IS the list: authoring an ItemType (+ its
-'              value list) in the DGNLib is all it takes for ARES to know about it - no config var to
-'              keep in sync, no code change.
-'
-'              It also owns the MicroStation-side Item Type STATE refresh (RefreshItemTypes):
-'              MicroStation reads MS_DGNLIBLIST only at boot, so a DGNLib deployed or edited
-'              afterwards needs an explicit refresh to become visible - and the round trip to the
-'              library itself (OpenCustomPropertyLibrary), which opens the DGNLib FILE and raises the
-'              Item Types dialog on it so the definitions can be edited.
+'              elements, with silent error handling. Definitions/value lists live in a DGNLib (the
+'              "ARES" ItemTypeLibrary), authored via the Item Types dialog - not created from VBA.
+'              The DGNLib IS the list: GetCustomPropertyNames enumerates it directly, no config var
+'              to keep in sync. Also owns the MicroStation-side refresh (RefreshItemTypes) and the
+'              DGNLib edit round trip (OpenCustomPropertyLibrary).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, Config, ErrorHandlerClass (global ErrorHandler)
 
@@ -42,22 +26,9 @@ Private Const DGNLIBLIST_SEPARATOR As String = ";"
 '                              MANAGED PROPERTY NAMES (enumerated from the DGNLib)
 '######################################################################################################################
 
-' The ARES custom-property names ARES manages: every ItemType of the "ARES" ItemTypeLibrary, read from
-' the library itself (one ItemType per property, so the ItemType name IS the property name). The DGNLib
-' is the single source of truth - authoring an ItemType there is enough; nothing to declare elsewhere.
-'
-' Enumerated with the documented successive-Find idiom - ItemTypeLibrary.Find(NamePattern[, previous])
-' returns the next ItemType, and "*" walks them all (mvba-docs/03-methods/Find_Method.md: "You can
-' successively find all ItemTypes by giving the name pattern, '*'"); each name comes from
-' ItemType.ItemTypeName (mvba-docs/04-properties/ItemTypeName_Property.md).
-'
-' ORDER is the library's own enumeration order (authoring order in the DGNLib) - NOT sorted, and not
-' guaranteed stable across edits. No consumer depends on it: Zone Export uses the array as a membership
-' set and as combo content.
-'
-' 0-based array, ALWAYS allocated. Library missing (no DGNLib deployed / not yet refreshed) or holding no
-' ItemType -> the one-empty-entry array [""], the same shape an empty list used to produce, which both
-' consumers already absorb (combo skips empty names; membership test simply fails -> "Zone <n>" labels).
+' Every ItemType of the "ARES" ItemTypeLibrary, via the documented successive-Find idiom
+' (Find("*", previous)). Order is the library's own authoring order, not guaranteed stable. Always
+' returns a 0-based array; missing library or no ItemType -> the one-empty-entry array [""].
 Public Function GetCustomPropertyNames() As String()
     On Error GoTo ErrorHandler
 
@@ -111,19 +82,13 @@ End Function
 '                              ITEM TYPE STATE REFRESH (MicroStation side)
 '######################################################################################################################
 
-' Force MicroStation to re-read its Item Type state, so ItemTypes deployed or edited in a DGNLib become
-' visible without restarting the session. MicroStation only scans MS_DGNLIBLIST at boot; this key-in is
-' the supported way to refresh that state afterwards. Note: SendKeyin is synchronous (it returns once
-' MicroStation has processed the key-in - mvba-docs/03-methods/SendKeyin_Method.md).
-'
-' Idempotent and deliberately silent: refreshing an already-current state is a no-op, and this is a
-' background consistency step, so there is no status message and no translation key.
+' Forces MicroStation to re-read Item Type state (it only scans MS_DGNLIBLIST at boot). Idempotent and
+' deliberately silent - a background consistency step, no status message.
 Public Sub RefreshItemTypes()
     On Error GoTo ErrorHandler
 
-    ' The UPDATEALL key-in only takes effect while the Item Types dialog is OPEN (live-established by
-    ' Asketyll, 2026-08-10) - hence the open / update / close sandwich. Works inline from the DGN-open
-    ' event too (the earlier on-open failure was the missing dialog, not timing).
+    ' The UPDATEALL key-in only takes effect while the Item Types dialog is OPEN - hence the open /
+    ' update / close sandwich. Works inline from the DGN-open event too.
     CadInputQueue.SendKeyin "DIALOG ITEMTYPE OPEN"
     CadInputQueue.SendKeyin "ITEMTYPE DIALOG UPDATEALL"
     CadInputQueue.SendKeyin "DIALOG ITEMTYPE CLOSE"
@@ -141,17 +106,10 @@ End Sub
 '                              DGNLIB ROUND TRIP (edit the definitions)
 '######################################################################################################################
 
-' Open the DGNLib that holds the ARES ItemTypes, then raise the Item Types dialog on it, so the user can
-' edit the custom-property definitions (add an ItemType, extend a value list) without navigating there by
-' hand. Returns False when the library file cannot be located - the caller owns the user message.
-'
-' MicroStation supports ONE open design file, so OpenDesignFile closes the working file first
-' (mvba-docs/03-methods/OpenDesignFile_Method.md; on error the original file is left open). Read-write,
-' since editing is the whole point. When the user re-opens the working file afterwards, DGNOpenClose's
-' OnDesignFileOpened already calls RefreshItemTypes - so the edits are picked up without a restart and
-' the edit loop closes itself.
-'
-' Unlike RefreshItemTypes' open/update/close sandwich, the dialog is left OPEN here: the user edits in it.
+' Opens the DGNLib holding the ARES ItemTypes and raises the Item Types dialog on it for editing.
+' Returns False when the library file cannot be located. MicroStation supports only ONE open design
+' file, so this closes the working file first; DGNOpenClose.OnDesignFileOpened already calls
+' RefreshItemTypes when the user reopens it, so the edit loop closes itself.
 Public Function OpenCustomPropertyLibrary() As Boolean
     On Error GoTo ErrorHandler
 
@@ -177,15 +135,9 @@ ErrorHandler:
     OpenCustomPropertyLibrary = False
 End Function
 
-' Full path of the ARES DGNLib, or "" when it cannot be found.
-'
-' Resolved through MS_DGNLIBLIST - the list MicroStation itself scans - rather than from the resolved
-' ItemTypeLibrary: the MVBA ItemTypeLibrary object exposes no source file at all (LibName / Write /
-' AddItemType / Find / GetItemTypeByName / GetSchemaAccessString / RemoveItemType / DeleteLib / Refresh -
-' mvba-docs/02-objects/ItemTypeLibrary_Object.md), so there is no path to read back from it.
-' Each MS_DGNLIBLIST entry may be a file, a folder or a wildcard pattern, so every entry is probed both as
-' a folder and as a path whose parent folder holds the library. Falls back to the installer's own
-' deployment folder when the list yields nothing.
+' Full path of the ARES DGNLib, or "" when not found. Resolved through MS_DGNLIBLIST (the MVBA
+' ItemTypeLibrary object exposes no source path of its own). Each entry may be a file, folder or
+' wildcard, probed both ways; falls back to the installer's deployment folder.
 Public Function FindCustomPropertyLibraryPath() As String
     On Error GoTo ErrorHandler
 
@@ -335,14 +287,9 @@ ErrorHandler:
     AttachItemToElement = False
 End Function
 
-' Read-only attach check: True when El carries the named ItemType from LibraryName. Thin wrapper over
-' Element.Items.HasItems (verified in mvba-docs/03-methods/HasItems_Method.md, signature
-' Boolean = object.HasItems(Libname [, ItemTypename])) after a cache Refresh (mvba-docs/03-methods/
-' Refresh_Method.md, Items.Refresh Libname) so a same-pass attach is visible. Unlike inferring absence
-' from GetPropertyValueFromElement returning Null (which cannot distinguish "not attached" from
-' "attached but empty"), this reports the unambiguous ATTACHMENT state - the frontier the value engine
-' (PropertyCalculation) uses to write a value only where the target property is already attached.
-' No model write (Refresh is a cache refresh only). Standard error pattern -> False on fault.
+' Read-only attach check: True when El carries the named ItemType (after a cache Refresh so a same-pass
+' attach is visible). Unlike a Null value read, this distinguishes "not attached" from "attached but
+' empty" - the frontier PropertyCalculation uses to write only where a property is already attached.
 Public Function IsItemAttachedToElement(ByVal El As element, ByVal ItemName As String, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
     On Error GoTo ErrorHandler
 
@@ -477,20 +424,10 @@ ErrorHandler:
     Set GetItemTypePropertyHandlerFromElement = Nothing
 End Function
 
-' Read a property value from an element. Returns Null when the item/property is not present.
-' Tolerant of a hand-authored DGNLib whose real property name differs from the ItemType name: it
-' tries the caller's access string first (fast path), and only if that RAISES or yields Null does it
-' fall back to the ItemType definition's actual property name(s). ARES item types carry a single
-' property, so "the first property that yields a value" is unambiguous. A genuinely value-less item
-' returns Null SILENTLY (the normal "no value" case) — no parasitic log.
-' ItemName omitted defaults to PropertyName (ARES convention: the ItemType name IS the property name),
-' so the read addresses the property's OWN item — never "the first attached item" of a multi-item element.
-'
-' bNoFallback = True suppresses that single-property fallback and returns Null instead. Required by any
-' MULTI-property ItemType (ARES_SYS/ARES_Render carries SchemaVersion + Entries): the fallback returns
-' "the first property that yields a value", so reading an EMPTY SchemaVersion would silently hand back
-' Entries. It is the LAST parameter on purpose — the hot call sites are positional
-' (PropertyCalculation.bas:1620), so inserting it before LibraryName would land the item name in it.
+' Reads a property value; Null when absent. Tolerant of a hand-authored DGNLib whose real property
+' name differs from the ItemType name: tries the caller's access string first, then the ItemType's
+' actual property name(s). bNoFallback=True suppresses that fallback - mandatory for a MULTI-property
+' ItemType like ARES_Render, where it could silently return the wrong field.
 Public Function GetPropertyValueFromElement(ByVal El As element, ByVal PropertyName As String, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ByVal bNoFallback As Boolean = False) As Variant
     On Error GoTo ErrorHandler
 
@@ -529,11 +466,8 @@ ErrorHandler:
     GetPropertyValueFromElement = Null
 End Function
 
-' Fallback for GetPropertyValueFromElement: iterate the attached ItemType's real ItemTypeProperty
-' names (from the definition) and return the value of the first one the handler can read. Resolves
-' the ItemType from the handler's own ItemTypeName (robust when the caller passed no ItemName). Each
-' GetPropertyValue is isolated (silent) since a mismatch/absence must not log. Returns Null when no
-' property yields a value. ARES item types are single-property, so the first hit is unambiguous.
+' Fallback for GetPropertyValueFromElement: returns the value of the first real ItemTypeProperty the
+' handler can read (ARES item types are single-property, so the first hit is unambiguous).
 Private Function GetFirstPropertyValue(ByVal oHandler As ItemTypePropertyHandler, ByVal LibraryName As String) As Variant
     On Error GoTo ErrorHandler
 
@@ -568,21 +502,9 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetFirstPropertyValue"
 End Function
 
-' Write a property value to an element. Returns True on success.
-' Tolerant of a hand-authored DGNLib whose real property name differs from the ItemType name (the
-' write-side mirror of GetPropertyValueFromElement): it tries the caller's access string first (fast
-' path), and only if that RAISES or returns False does it fall back to the ItemType definition's
-' actual property name(s). ARES item types carry a single property, so "the first property that
-' accepts the write" is unambiguous. Returns False only when neither the given name nor any real
-' property name accepts the value (a genuinely constrained property — picklist / type mismatch).
-' ItemName omitted defaults to PropertyName (ARES convention: the ItemType name IS the property name),
-' so the write addresses the property's OWN item — never "the first attached item" of a multi-item
-' element, where the fallback would land the value in the WRONG property.
-'
-' bNoFallback = True suppresses that fallback and returns False instead — mandatory on a MULTI-property
-' ItemType (ARES_SYS/ARES_Render), where "the first property that accepts the write" can silently land
-' the value in the wrong field AND still report success. LAST parameter on purpose: the hot call sites
-' are positional (PropertyCalculation.bas:1626/:1638), so any earlier position would break them.
+' Write-side mirror of GetPropertyValueFromElement: tries the caller's access string first, falls
+' back to the ItemType's real property name(s) on a hand-authored DGNLib. bNoFallback=True suppresses
+' that fallback - mandatory on a MULTI-property ItemType, where it could silently write the wrong field.
 Public Function SetPropertyValueToElement(ByVal El As element, ByVal PropertyName As String, ByVal PropertyValue As Variant, Optional ByVal ItemName As String = "", Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE, Optional ByVal bNoFallback As Boolean = False) As Boolean
     On Error GoTo ErrorHandler
 
@@ -620,12 +542,8 @@ ErrorHandler:
     SetPropertyValueToElement = False
 End Function
 
-' Fallback for SetPropertyValueToElement: iterate the attached ItemType's real ItemTypeProperty names
-' (from the definition) and write PropertyValue to the first one the handler accepts. Resolves the
-' ItemType from the handler's own ItemTypeName (robust when the caller passed no ItemName). Each
-' SetPropertyValue is isolated (silent) since a wrong name RAISES and must not log. Returns True on the
-' first accepted write, False when no property accepts the value. ARES item types are single-property,
-' so the first success is unambiguous. Structural mirror of GetFirstPropertyValue.
+' Fallback for SetPropertyValueToElement, structural mirror of GetFirstPropertyValue: writes
+' PropertyValue to the first real ItemTypeProperty the handler accepts.
 Private Function SetFirstPropertyValue(ByVal oHandler As ItemTypePropertyHandler, ByVal LibraryName As String, ByVal PropertyValue As Variant) As Boolean
     On Error GoTo ErrorHandler
 

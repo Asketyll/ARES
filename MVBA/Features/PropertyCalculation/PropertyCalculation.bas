@@ -1,186 +1,16 @@
 ' Module: PropertyCalculation
-' Description: The VALUE-CALCULATION engine for ARES custom properties (redecoupage epic 11, AWAKE in
-'              phase 2 - epic 14). It computes each custom property's VALUE from a per-property CALC RULE
-'              and writes it - but ONLY where that property is ALREADY ATTACHED (by a PropertyTagging
-'              rule). It NEVER attaches, and never calls CustomPropertyHandler attach/detach directly. A
-'              member that does not carry the target property is SKIPPED (the frontier: attach/detach is
-'              the tagger's domain). Opt-in, OFF by default (ARES_Property_Calc).
-'
-'              CALC GRAMMAR (ARES_Calc_Rules, epic 14):  "rule ; rule ; ..."  where each rule is
-'                  Prop[name] [& condition]* = Source
-'                - Prop[name] = the TARGET property (left-most). One name, NO wildcard (a target is named,
-'                    not matched). Syntactic-only validation; membership in the ARES DGNLib is NOT
-'                    hard-checked (the runtime frontier is the guard - the engine only writes where
-'                    the property is actually attached).
-'                - [& condition]* = OPTIONAL conditions, the SAME grammar as the tag rules (Lvl/Cell/Type,
-'                    &, !, */? wildcards), delegated verbatim to the shared RuleGrammar module.
-'                - Source (right of "="), keyword + optional [arg], arity-checked, unknown rejected. Two
-'                    families: a GROUP source (keyword prefixed "Cell"/"Lvl"/"Group") scans the element's
-'                    graphic group INCLUDING itself for a matching member and reads off THAT member; a SELF
-'                    source reads the bearing element's own attribute.
-'                    * CellText[pattern] - the full text (StringsInEl.GetConcatenatedText) of a cell in the
-'                        element's graphic group whose name matches pattern (wildcards OK; pattern may be
-'                        several ARES_VAR_DELIMITER ("|") - separated alternatives, e.g. "ASUF*|SP0*|Bois*" -
-'                        the SAME alternation as a tag/calc CONDITION's Cell[name|name|...]). INCLUDES the
-'                        bearing element itself (a matching cell yields its own text; an ungrouped matching
-'                        cell is a group of one). A GROUP source (driven by the matching cell).
-'                    * CellCoord[pattern] / CellId[pattern] / CellLvl[pattern] / CellColor[pattern] /
-'                        CellStyle[pattern] / CellWeight[pattern] - same matching-cell scan as CellText
-'                        (self-included, same pattern/alternation grammar), reading that SAME cell's "X;Y"
-'                        coordinates (anchor cascade, ARES_Round decimals, no [n] override) / DLongToString
-'                        ID / level name / color index / line-style name / line-weight of that MATCHING
-'                        CELL, not the bearing element's own - use these to read the tagging cell's own
-'                        attributes on a member it pushed properties to (e.g.
-'                        Prop[Coordonnee]=CellCoord[ASUF*|SP0*|Bois*|BO *|APO*|AH6*] where Coord alone would
-'                        only ever yield the bearing element's own position). All GROUP sources except
-'                        CellId are stable-pushed: a change on the matching cell (text/coord/level/color/
-'                        style/weight) is re-pushed to the OTHER members by the trigger-cell pass (see
-'                        below); CellId never needs a push (an ID cannot change). CellColor (2026-08-24,
-'                        retired ONLY_COLOR hook parity - RETROACTIVE behaviour change, see GroupColor below):
-'                        reads the matching cell's color through the SAME FillMode=2 resolution as
-'                        GroupColor/LvlColor (ResolveFillAwareColor) - a filled ClosedElement cell no longer
-'                        yields its outline color unconditionally, it now yields the fill color when
-'                        FillMode=2 (0/255 fallback to outline, exactly as the legacy hook always did).
-'                    * LvlColor[pattern] / LvlStyle[pattern] / LvlWeight[pattern] - same self-included
-'                        matching scan as CellColor/CellStyle/CellWeight, but the pattern matches the LEVEL
-'                        NAME of a group member instead of a cell's name (no element-type restriction - the
-'                        matching member can be ANY graphical element, e.g. a Line/Arc, not just a cell; this
-'                        is the whole point: covers a group whose authority is a plain geometry on a named
-'                        level, with no named cell). LvlColor/LvlWeight resolve MicroStation's own ByLevel
-'                        symbology: if the matching element's Color/LineWeight is the ByLevelColor/
-'                        ByLevelLineWeight sentinel, the value comes from that element's OWN Level
-'                        (Level.ElementColor / Level.ElementLineWeight, the library default); an explicit
-'                        Color/LineWeight is read as-is; the ByCellColor/ByCellLineWeight sentinel (derived
-'                        from an enclosing CELL, unrelated to the Level) has no Level-based answer and
-'                        yields "" rather than propagate the raw sentinel as if it were a real index (never
-'                        fabricate). LvlStyle does NOT attempt the same ByLevel/ByCell resolution
-'                        (ByLevelLineStyle/ByCellLineStyle are LineStyle OBJECTS with no reliable identity
-'                        comparison) - it reads the matching element's own LineStyle name directly, exactly
-'                        like CellStyle. All three are GROUP sources (self-included), stable-pushed like
-'                        their Cell* counterparts. LvlColor (2026-08-24, retired ONLY_COLOR hook parity -
-'                        RETROACTIVE behaviour change): the raw color tested against ByLevelColor/ByCellColor
-'                        is FIRST passed through the SAME FillMode=2 resolution as CellColor/GroupColor
-'                        (ResolveFillAwareColor) - FillMode decides WHICH property to read (fill vs outline),
-'                        THEN the ByLevel/ByCell symbolic test runs on whatever that read produced.
-'                    * GroupColor - the color of the FIRST element linked to the bearing element (self-
-'                        EXCLUDED scan, Link.GetLink WITHOUT ReturnMe:=True - unlike every other GROUP source
-'                        above), no name/level pattern and no type filter (any linked element counts, not
-'                        just a measurable geometry) - mirrors the retired ONLY_COLOR hook's own candidate
-'                        selection EXACTLY (2026-08-24, cahier-des-charges-groupcolor-fillmode.md). "" when
-'                        ungrouped or no linked element. Resolved through the same FillMode=2-aware read as
-'                        CellColor/LvlColor (a filled ClosedElement candidate yields its fill color, 0/255
-'                        fallback to outline). >= 2 linked elements raise the one-shot
-'                        CalculationMultipleColorCandidates warning (a NEW disclosure, not a legacy
-'                        behaviour - the arbitrary first-found pick itself is unchanged, only now visible).
-'                        Needs NO trigger/push pass of its own, same as GroupLength: HasGroupColorRules gates
-'                        ElementChangeHandler's Branch 2 geometric re-evaluation, exactly like
-'                        HasGroupLengthRules already does (a GROUP source scanned by TYPE/link, not by name,
-'                        has no "trigger element" to detect by pattern - re-evaluating every linked sibling
-'                        inline on a geometric change already covers it).
-'                    * Value[text] - a fixed literal value (Value[] empty = invalid). A SELF source.
-'                    * Coord / Coord[n] - the "X;Y" coordinates of the bearing element (n = decimals,
-'                        default = ARES_Round), via a deterministic anchor cascade. A SELF source
-'                        (recomputes on Modify). Coordinates are ALREADY master units - no UOR scaling.
-'                    * Id - the bearing element's ID via DLongToString (mandatory DLong helper). A SELF
-'                        source (stable).
-'                    * Lvl / Color / Style / Weight - the bearing element's OWN level name / color index /
-'                        line-style name / line-weight (guarded by IsGraphical; "" when not graphical or
-'                        when the specific attribute is unavailable - e.g. a level-less cell header - never
-'                        a fabricated value). SELF sources (recompute on Modify).
-'                    * Length / Length[n] - the bearing element's OWN geometry length (Length.GetLength; n =
-'                        decimals, default = ARES_Length_Round), ONLY when the bearing element itself is a
-'                        length-capable type (Line/Arc/Shape/ComplexShape/ComplexString); "" otherwise (no
-'                        silent 0). A SELF source - use this when the calc-target property is attached
-'                        directly to the geometry.
-'                    * GroupLength / GroupLength[n] - same decimals as Length, but reads the FIRST length-
-'                        capable element found scanning the graphic group INCLUDING itself (scan order, no
-'                        name pattern - geometry has no name to match against, unlike Cell* sources); "" when
-'                        the group (or the ungrouped bearing element itself) holds no length-capable member.
-'                        A GROUP source - the common case: the calc-target property sits on a TEXT/CELL and
-'                        the length comes from the linked line/arc/shape (mirrors the Auto Lengths pattern).
-'                - Several rules for the SAME property: the FIRST rule that MATCHES wins (order = priority;
-'                    put specific rules before general ones).
-'              Example:  Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord ;
-'                        Prop[Coordonnee]=CellCoord[ASUF*|SP0*] ; Prop[Longueur]=GroupLength[1]
-'
-'              ONE bracket-depth-aware parser (ParseCalcRule) is the single source of truth: it splits on
-'              the depth-0 "=" (RuleGrammar.FindTopLevelChar), the LEFT side on the depth-0 "&"
-'              (RuleGrammar.SplitTopLevel) - segment[0] MUST be Prop[name], segments[1..] are conditions
-'              (RuleGrammar.ParseCondition) - and the RIGHT side into a single arity-checked Source.
-'              EnsureCalcRulesParsed caches (skip a bad rule fail-closed); RefreshCalcRules invalidates.
-'              ValidateAndNormalizeCalcRule(sRule, sCanonical) is the read-only validate-AND-normalise the
-'              options editor (14-3) calls on commit: "" + COMPACT canonical form on valid, a targeted
-'              reason on invalid. CalcRuleHasNoEffect(sRule, segments) flags a dead CONDITION combo (via
-'              RuleGrammar.ConditionsHaveContradiction, ignoring the Prop target) for the preview.
-'
-'              ENGINE WAKE - two Depth-0 passes, both routing every write through ApplyValueToSibling
-'              (its frontier + compare-guard + non-empty->empty transition guard + delegated
-'              detach-on-empty are load-bearing loop-safety BLOCKERs):
-'                - BEARING pass: for each DISTINCT calc-target property P that oEl carries, resolve its
-'                    value from the FIRST matching calc rule and write it (compare-guarded). This is the
-'                    single code path for "fill on attach", "recompute Coord on move", "re-pull CellText",
-'                    and "reconcile on a neighbour's delete" (the surviving matching cell's text, or "" ->
-'                    transition-guarded clear/detach when none survives). A property with no matching rule
-'                    is LEFT UNTOUCHED (the engine only governs what a rule matches).
-'                - TRIGGER-CELL pass: when oEl is a trigger cell (its name matches ANY pushable GROUP
-'                    source's pattern - CellText/CellCoord/CellLvl/CellColor/CellStyle/CellWeight), push the
-'                    freshly-read attribute to the OTHER group members carrying that rule's target - the
-'                    members MicroStation did NOT re-queue when only the cell's own attribute changed (a cell
-'                    is a Branch-1/text-cell element in ElementChangeHandler; only a Branch-2/geometric change
-'                    auto-re-queues every group member). First-match guarded (a member whose P is governed by
-'                    an earlier rule is left alone). CellId never needs a push (an ID cannot change, so the
-'                    bearing pass's own computation on the member stays correct forever). GroupLength needs NO
-'                    push of its own: its source is a GEOMETRY element, and ElementChangeHandler's Branch 2
-'                    reacts when that geometry changes - gated on ARES_Update_Lengths OR
-'                    PropertyCalculation.HasGroupLengthRules (a GroupLength rule pulls its own trigger into
-'                    that gate so it works even with Auto Lengths OFF). Branch 2's own recursive walk runs at
-'                    Depth > 0, which SKIPS this module's Depth-0-only hook, and its queue-add is wiped by
-'                    IdleEventHandler.CleanupHandler before a fresh Depth-0 pass ever reaches the sibling - so
-'                    Branch 2 also calls PropertyCalculation.ProcessElement on each linked sibling DIRECTLY
-'                    (inline, not via the queue), exactly mirroring how Auto Lengths' own trigger-text work
-'                    already runs inline there regardless of Depth.
-'                - TRIGGER-LEVEL pass: the LvlColor/LvlStyle/LvlWeight mirror of the TRIGGER-CELL pass above,
-'                    DUPLICATED rather than folded in (IsTriggerLevel/PushLvlDerivedValuesToMembers) because
-'                    the trigger predicate differs structurally: a Cell* trigger must be a cell whose NAME
-'                    matches; a Lvl* trigger is ANY graphical element whose LEVEL matches (typically a plain
-'                    geometry - the reason Lvl* exists is precisely to cover a group with no named cell).
-'                    Same "not auto-re-queued" problem as a trigger cell (ElementChangeHandler.ProcessElement
-'                    calls this module unconditionally at Depth 0 on the CHANGED element only, before the
-'                    text/cell-vs-geometric split - Branch 2's own re-queue is gated on
-'                    HasGroupLengthRules/HasGroupColorRules and does not fire on a bare color/level change
-'                    otherwise), so the push is needed here too. Known,
-'                    accepted limitation: a Cell*-trigger and a Lvl*-trigger competing for the SAME target in
-'                    the SAME group are not cross-detected by the multi-trigger warning (each family only
-'                    scans its own kind) - the WRITE stays safe regardless (first-match-guarded, deterministic
-'                    by rule order), only the discoverability warning is silo'd per family.
-'
-'              Deletion is reconciled by the BEARING pass on the members ShouldQueueForDeletion already
-'              re-queues (Link.GetLink(BeforeChange)) - no pending-clear machinery (retired in 14-2).
-'
-'              PropertyRendering (epic 15) is a READER of this module, in three narrow places: a value
-'              STATE CHANGE notes the sibling for the renderer's bounded repaint hop; the CellText source
-'              asks the renderer which sub-texts to EXCLUDE, so a rendered value can never feed the value
-'              that governs it; and GetCalcRuleForProperty answers "where does this value come from" at
-'              bind time. This module still writes values only - it knows nothing about text.
-'
-'              Emptying semantics: when a CellText source has no surviving matching cell it yields "";
-'              ApplyValueToSibling then CLEARS the value (property stays attached) by default, or with
-'              ARES_Calc_Detach_Empty ON DELEGATES the detach to the tagger (PropertyTagging.
-'              DetachRuleProperty) - the ONLY detach path, gated on the non-empty->empty transition so a
-'              re-attaching rule cannot oscillate it (termination).
+' Description: The VALUE-CALCULATION engine for ARES custom properties. Computes each custom property's
+'              VALUE from a per-property calc rule (ARES_Calc_Rules) and writes it - but ONLY where that
+'              property is ALREADY ATTACHED (by PropertyTagging). Never attaches/detaches directly.
+'              Full grammar, engine passes and coupling doctrine: see _bmad/docs/calc-rules-grammar.md.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, CustomPropertyHandler,
 '               PropertyTagging, PropertyRendering, PropertyActuator, StringsInEl, Link, Length, LangManager,
-'               ErrorHandlerClass (global ErrorHandler)
+'               ErrorHandlerClass (global ErrorHandler), CallStackClass (global CallStack)
 '
-' NOTE on the PropertyActuator dependency (added 2026-08-24): ApplyValueToSibling calls
-' PropertyActuator.ProcessElement on a sibling it just pushed a value to (see that function) - a two-way
-' coupling with PropertyActuator (which already depends on THIS module for IsTriggerCell/GetCalcRuleForProperty/
-' the CalcSource enum), mirroring the shape this module already has with PropertyRendering (NoteDirtyGroup
-' here, GetCalcRuleForProperty/GetExcludedSubIds the other way). Not a layering violation of "engines only
-' talk through ElementChangeHandler's sequencing": ApplyValueToSibling is the ONLY code that knows WHICH
-' sibling just received a fresh value, so it is the only viable call site - same reasoning that already
-' justified the Rendering coupling.
+' NOTE: ApplyValueToSibling calls PropertyActuator.ProcessElement on a sibling it just pushed a value to -
+' a two-way coupling (PropertyActuator depends back on this module for IsTriggerCell/GetCalcRuleForProperty).
+' Not a layering violation: ApplyValueToSibling is the only code that knows which sibling just changed.
 
 Option Explicit
 
@@ -197,11 +27,9 @@ Private Const SOURCE_MAX_DECIMALS As Long = 254
 ' places).
 Private Const SOURCE_ROUND_CLAMP As Long = 15
 
-' Source vocabulary of a calc rule's right-hand side (canonicalised, case-insensitive on input). csCell*
-' are GROUP sources (matching-cell scan, self-included); csLvl* are GROUP sources too (matching-LEVEL scan,
-' self-included, no element-type restriction); the rest are SELF sources (the bearing element's own
-' attribute) except csGroupLength (GROUP, scanned by TYPE not name pattern) and csGroupColor (GROUP, retired
-' ONLY_COLOR hook parity, 2026-08-24 - self-EXCLUDED scan, no type/name filter at all, see EvaluateGroupColor).
+' Source vocabulary of a calc rule's right-hand side. csCell*/csLvl* are GROUP sources (self-included
+' member scan by cell name / level name); the rest are SELF sources except csGroupLength (GROUP, by
+' TYPE) and csGroupColor (GROUP, self-EXCLUDED - see EvaluateGroupColor).
 Public Enum CalcSource
     csCellText
     csCellCoord
@@ -240,20 +68,10 @@ Private mCalcRules() As CalcRuleInfo
 Private mnCalcCount As Long
 Private mbCalcParsed As Boolean
 
-' One-shot guards so the calculation statuses (CalculationValueRejected / CalculationNoTarget /
-' CalculationMultipleTriggers / CalculationMultipleLvlTriggers / CalculationMultipleColorCandidates /
-' CalculationMultipleGeometries) each surface only once per PROCESSED ELEMENT. Reset at the start of each
-' ProcessElement; the fault one (Rejected) also keeps its English log on every occurrence; NoTarget and the
-' four Multiple ones are user feedback (status-only, no log).
-'
-' The ambiguity guards are DELIBERATELY SEPARATE, not one shared flag: a group can hold competing trigger
-' CELLS, competing trigger LEVEL-elements, competing GroupColor candidates, and competing measurable
-' GEOMETRIES all at the same time, and those are four distinct misconfigurations with four distinct answers.
-' CalculationMultipleTriggers and CalculationMultipleLvlTriggers are also WORDED differently (the former
-' says "cells", the latter does not - a Cell*-trigger and a Lvl*-trigger competing for the SAME target would
-' otherwise surface a message naming cells for a collision that may involve no cell at all). Sharing one
-' flag/message would silently swallow whichever fired second, or say something false about what was
-' actually detected.
+' One-shot guards so each calculation status surfaces only once per processed element; reset at the
+' start of ProcessElement. The four "Multiple" guards are DELIBERATELY SEPARATE, not one shared flag: a
+' group can hold competing trigger cells, trigger levels, GroupColor candidates and geometries all at
+' once, and a shared flag would silently swallow whichever fired second.
 Private mbRejectedShown As Boolean
 Private mbNoTargetShown As Boolean
 Private mbMultiShown As Boolean
@@ -265,12 +83,8 @@ Private mbMultiColorShown As Boolean
 '                                          PUBLIC SURFACE
 '######################################################################################################################
 
-' True once CalculationMultipleGeometries has been surfaced for the element currently being processed
-' (cleared by ProcessElement like every other one-shot).
-' Public (read-only) as a test seam, like ResolvePropertyValue and HasGroupLengthRules: disclosing an
-' ambiguous group is an ACCEPTANCE CRITERION - it is the whole of what the GroupLength warning decision
-' bought - and VBA cannot call a Private proc from UnitTesting. Without it the only observable is "a value
-' still lands", which was already true before the warning existed and so cannot detect it.
+' True once CalculationMultipleGeometries has been surfaced for the element being processed. Public
+' (read-only) as a test seam - VBA cannot call a Private proc from UnitTesting.
 Public Function MultipleGeometriesReported() As Boolean
     MultipleGeometriesReported = mbMultiGeoShown
 End Function
@@ -295,12 +109,9 @@ Public Sub RefreshCalcRules()
     mbCalcParsed = False
 End Sub
 
-' Read-only validate-AND-normalise for ONE calc rule (the seam the 14-3 editor writes through). Returns:
-'   - "" with sCanonical = "" when the rule is empty (the caller treats it as a delete);
-'   - "" with sCanonical = the COMPACT canonical stored form when the rule is valid;
-'   - a short English reason (fault/log channel) when the rule is invalid.
-' It calls the SAME ParseCalcRule the runtime parser uses, so it accepts exactly what the parser accepts
-' (no drift). Syntactic only - no DGNLib membership check on Prop[name] (the runtime frontier is the guard).
+' Read-only validate-AND-normalise for ONE calc rule (the options editor's commit seam). Returns "" +
+' canonical form on valid, "" + "" on empty (delete), or a short reason on invalid. Uses the SAME
+' ParseCalcRule as the runtime, so it accepts exactly what the parser accepts.
 Public Function ValidateAndNormalizeCalcRule(ByVal sRule As String, ByRef sCanonical As String) As String
     On Error GoTo ErrorHandler
 
@@ -353,12 +164,9 @@ ErrorHandler:
     segments(0) = ""
 End Function
 
-' Trigger test (re-wired AWAKE, epic 14; extended for CellCoord/CellLvl/CellColor/CellStyle/CellWeight). A
-' trigger cell is a CELL, in a REAL graphic group, whose name matches a PUSHABLE Cell* source's pattern
-' (IsPushableCellSourceKind) of at least one calc rule. Drives the trigger-cell pass (pushing a changed
-' cell's attribute to the members MicroStation did not re-queue). CellId is excluded (an ID never changes,
-' so it never needs a push). An ungrouped matching cell is NOT a trigger (it has no other members; its own
-' value is handled by the bearing pass via each GROUP source's self-inclusion).
+' A trigger cell is a CELL, in a REAL graphic group, whose name matches a pushable Cell* source's pattern.
+' Drives the trigger-cell push pass; CellId is excluded (an ID never changes). An ungrouped matching cell
+' is NOT a trigger - its own value is handled by the bearing pass instead.
 Public Function IsTriggerCell(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -377,19 +185,13 @@ ErrorHandler:
     IsTriggerCell = False
 End Function
 
-' Depth-0 hook, called from ElementChangeHandler.ProcessElement (before the graphic-group filter) when the
-' feature is enabled. Runs three passes:
-'   (1) BEARING pass - fill/recompute each calc-target property oEl carries from its first matching rule.
-'   (2) TRIGGER-CELL pass - if oEl is a trigger cell, push its text/coord/level/color/style/weight to the
-'       OTHER members carrying the fed target (the members not otherwise re-queued when only the cell's own
-'       attribute changed).
-'   (3) TRIGGER-LEVEL pass - if oEl's Level matches a pushable Lvl* pattern, push its color/style/weight to
-'       the OTHER members carrying the fed target - same rationale as (2), for a level-bearing element of
-'       ANY type instead of a named cell.
-' Every write routes through ApplyValueToSibling (frontier + compare-guard + transition guard + delegated
-' detach). The one-shot status guards are reset here (per processed element).
+' Depth-0 hook: (1) BEARING pass - fill/recompute each calc-target property oEl carries; (2) TRIGGER-CELL
+' pass - if oEl is a trigger cell, push its attributes to the OTHER members MicroStation didn't re-queue;
+' (3) TRIGGER-LEVEL pass - same, for a level-bearing trigger of any type. Every write routes through
+' ApplyValueToSibling (frontier + compare-guard + transition guard).
 Public Sub ProcessElement(ByVal oEl As element)
     On Error GoTo ErrorHandler
+    Dim bStackPushed As Boolean
 
     mbRejectedShown = False
     mbNoTargetShown = False
@@ -403,14 +205,19 @@ Public Sub ProcessElement(ByVal oEl As element)
     EnsureCalcRulesParsed
     If mnCalcCount = 0 Then Exit Sub
 
+    CallStack.Push "PropertyCalculation.ProcessElement", oEl
+    bStackPushed = True
+
     BearingPass oEl
 
     If IsTriggerCell(oEl) Then PushCellDerivedValuesToMembers oEl
     If IsTriggerLevel(oEl) Then PushLvlDerivedValuesToMembers oEl
+    CallStack.Pop
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ProcessElement"
+    If bStackPushed Then CallStack.Pop
 End Sub
 
 '######################################################################################################################
@@ -1003,12 +810,8 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.BearingPass"
 End Sub
 
-' Resolve P's value on oEl: find the FIRST calc rule whose target is P and whose conditions match oEl, then
-' evaluate its source. bHasRule distinguishes "no rule governs P here" (False -> the caller leaves P alone)
-' from "a rule yields the empty string" (True with "" -> the caller clears/detaches, transition-guarded).
-' READ-ONLY (no attach, no write, no frontier): computes "what value would P get on this element". Public
-' so PropertyCalculationTest can assert first-match + all four sources DGNLib-free (and a future preview
-' could reuse it), mirroring the phase-1 read-only test seam.
+' Resolves P's value from its first matching calc rule. bHasRule False = no rule governs P (caller leaves
+' it alone); True with "" = the rule yields empty (caller clears/detaches). Read-only test/preview seam.
 Public Function ResolvePropertyValue(ByVal P As String, ByVal oEl As element, ByRef bHasRule As Boolean) As String
     On Error GoTo ErrorHandler
 
@@ -1029,12 +832,8 @@ ErrorHandler:
     bHasRule = False
 End Function
 
-' Read-only "where does P's value come from on this element" seam. Returns False when no calc rule
-' governs P here; otherwise True with the source kind, its bracket argument and a canonical
-' "Source[arg]" string. Public because PropertyRendering needs it at BIND time to tell the user which
-' engine owns the value they are about to display, and to spot the one static cycle v1 can detect (a
-' token rendered inside the very cell whose text feeds the property). Same ByRef-out shape as
-' ResolvePropertyValue's bHasRule. CalcRuleInfo stays a Private Type - only scalars cross the boundary.
+' Read-only "where does P's value come from on this element" seam - False when no rule governs P.
+' PropertyRendering uses it at BIND time to detect the one static cycle v1 can catch.
 Public Function GetCalcRuleForProperty(ByVal P As String, ByVal oEl As element, ByRef SourceKind As CalcSource, ByRef SourceArg As String, ByRef sCanonical As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1174,11 +973,9 @@ Private Function ResolveDecimals(ByVal sArg As String, ByVal defaultDec As Long)
     End If
 End Function
 
-' Shared GROUP scan for every Cell* source: scan the bearing element's graphic group INCLUDING itself
-' (Link.GetLink ReturnMe:=True) and return the FIRST cell (scan order) whose name matches sPattern via
-' foundCell (Nothing when none); nMatch = total matching-cell count, left to each caller to act on (>= 2
-' drives the one-shot multi-trigger warning). For an UNGROUPED bearing element Link.GetLink returns nothing,
-' so the element is its own sole candidate (a group of one).
+' Shared GROUP scan for every Cell* source: scan the group INCLUDING itself, return the FIRST matching
+' cell via foundCell and the total match count via nMatch (>= 2 drives the multi-trigger warning). An
+' ungrouped bearing element is its own sole candidate.
 Private Function FindFirstMatchingCellInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundCell As element, ByRef nMatch As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1245,13 +1042,9 @@ Private Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcS
     ReadCellSourceValue = ""
     Select Case kind
         Case csCellText
-            ' Containment (epic 15): a sub-text the RENDERER writes must not feed the value that governs
-            ' it, or the value would ratchet on its own output. The exclusion is a function of the SOURCE
-            ' CELL, not of the rule, so it is resolved HERE rather than threaded through six signatures -
-            ' and that is also what keeps PushCellDerivedValuesToMembers' lazy cache correct: the cache is
-            ' keyed on the CalcSource ordinal alone, which stays sound only because within one push pass
-            ' there is exactly ONE source cell and therefore exactly one exclusion set. A future
-            ' RULE-dependent exclusion would break that cache and must re-key it.
+            ' A sub-text the RENDERER writes must not feed the value that governs it (self-ratchet). The
+            ' exclusion is a function of the SOURCE CELL, resolved here rather than threaded through
+            ' every caller.
             Dim exIds() As Long
             Dim nEx As Long
             If PropertyRendering.GetExcludedSubIds(oCell, exIds, nEx) Then
@@ -1271,9 +1064,9 @@ Private Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcS
         Case csCellLvl
             If Not oCell.Level Is Nothing Then ReadCellSourceValue = oCell.Level.Name
         Case csCellColor
-            ' FillMode=2 resolution (2026-08-24, GroupColor parity extension) - see ReadLvlSourceValue's
-            ' csLvlColor comment for the full rationale. CellColor has no ByLevel/ByCell symbolic state of
-            ' its own, so ResolveFillAwareColor's result is used as-is.
+            ' FillMode=2-aware resolution - see ReadLvlSourceValue's csLvlColor comment for the full
+            ' rationale. CellColor has no ByLevel/ByCell symbolic state of its own, so
+            ' ResolveFillAwareColor's result is used as-is.
             ReadCellSourceValue = CStr(ResolveFillAwareColor(oCell))
         Case csCellStyle
             If Not oCell.LineStyle Is Nothing Then ReadCellSourceValue = oCell.LineStyle.Name
@@ -1286,13 +1079,9 @@ ErrorHandler:
     ReadCellSourceValue = ""
 End Function
 
-' True when sName matches at least one of sPattern's ARES_VAR_DELIMITER ("|") - separated parts
-' (case-insensitive, wildcards via RuleGrammar.LikeCI) - the SAME multi-prefix alternation as the tag/calc
-' CONDITION grammar (Cell[ASUF*|SP0*|...]), so a CellText/CellCoord/CellId[pattern] source can feed off the
-' same cell-name families a Property Tagging @ rule already groups. A single pattern with no "|" is just a
-' one-element split (behavior-identical to the pre-alternation scalar match). Shared by every cell-name-vs-
-' pattern comparison in this module (IsMatchingCell, the trigger-cell detector, the push loop) so the
-' alternation is honoured consistently everywhere, not just on the initial bearing-pass computation.
+' True when sName matches at least one of sPattern's "|" -separated parts (case-insensitive, wildcards) -
+' the same alternation grammar as a tag/calc CONDITION. Shared by every cell-name-vs-pattern comparison
+' in this module so the alternation is honoured consistently everywhere.
 Private Function MatchesAnyPattern(ByVal sName As String, ByVal sPattern As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1348,11 +1137,8 @@ ErrorHandler:
     IsMatchingLevel = False
 End Function
 
-' Shared GROUP scan for every Lvl* source: scan the bearing element's graphic group INCLUDING itself
-' (Link.GetLink ReturnMe:=True) and return the FIRST element (scan order) whose LEVEL matches sPattern via
-' foundEl (Nothing when none); nMatch = total matching count, left to the caller (>= 2 drives the same
-' one-shot multi-trigger warning as Cell*). Mirrors FindFirstMatchingCellInGroup exactly, substituting
-' IsMatchingLevel for IsMatchingCell.
+' Shared GROUP scan for every Lvl* source, mirroring FindFirstMatchingCellInGroup but matching on LEVEL
+' name instead of cell name.
 Private Function FindFirstMatchingLevelInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundEl As element, ByRef nMatch As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1388,12 +1174,8 @@ ErrorHandler:
     nMatch = 0
 End Function
 
-' Every Lvl* source evaluation, unified: find the FIRST group element whose Level matches sPattern
-' (self-included via FindFirstMatchingLevelInGroup) and read the attribute named by kind off THAT element
-' (ReadLvlSourceValue); "" when no element matches. >= 2 matches -> the multi-trigger warning (one-shot),
-' same shape as EvaluateGroupCellSource - but ReportMultipleLvlTriggers (own key), NOT ReportMultipleTriggers:
-' this ambiguity is between LEVEL-matching elements, which may involve no cell at all - the "cells" wording
-' of CalculationMultipleTriggers would be factually wrong here.
+' Every Lvl* source evaluation, unified: read kind off the first Level-matching group member. Uses its
+' OWN ReportMultipleLvlTriggers, not ReportMultipleTriggers - a Lvl* collision may involve no cell at all.
 Private Function EvaluateGroupLvlSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource) As String
     On Error GoTo ErrorHandler
 
@@ -1411,25 +1193,10 @@ ErrorHandler:
     EvaluateGroupLvlSource = ""
 End Function
 
-' Read ONE attribute off a SPECIFIC element (already located by FindFirstMatchingLevelInGroup, or as the
-' trigger element itself during the push pass). Never fabricates a value.
-'   - csLvlColor / csLvlWeight: the found element's Color/LineWeight is a THREE-state value in MicroStation -
-'     an explicit value, the ByLevelColor/ByLevelLineWeight sentinel ("derive from this element's Level"), or
-'     the ByCellColor/ByCellLineWeight sentinel ("derive from the CELL this element resides in", unrelated to
-'     its Level). Only the first two are resolvable here: ByLevel resolves via the found element's OWN Level
-'     (Level.ElementColor / Level.ElementLineWeight - the library default the Level Manager shows for
-'     "ByLevel"); ByCell has no Level-based answer, so it yields "" rather than propagate the raw sentinel
-'     Long as if it were a real colour/weight index (same "never fabricate" philosophy as a missing anchor).
-'     csLvlColor's INPUT to this 3-state test is ResolveFillAwareColor(oFoundEl), not oFoundEl.Color directly
-'     (2026-08-24, GroupColor/FillMode=2 parity extension, cahier-des-charges-groupcolor-fillmode.md §3.1):
-'     FillMode=2 is resolved FIRST (it decides WHICH MicroStation property holds the color to read), and the
-'     ByLevel/ByCell test then interprets WHATEVER Long that read produced, regardless of source - mirrors the
-'     legacy hook exactly, which never had a concept of ByLevel/ByCell to begin with.
-'   - csLvlStyle: deliberately NOT resolved the same way - ByLevelLineStyle/ByCellLineStyle are LineStyle
-'     OBJECTS, not Long sentinels, and no reliable identity comparison exists via mvba-docs (ByLevelLineStyle
-'     may not return a stable singleton instance). LvlStyle instead reads the found element's OWN LineStyle
-'     name directly, mirroring CellStyle exactly (no ByLevel/ByCell resolution at all, no FillMode=2 either -
-'     FillMode is a Color/FillColor concept, it does not apply to LineStyle).
+' csLvlColor/csLvlWeight: Color/LineWeight is a 3-state MicroStation value (explicit / ByLevel / ByCell).
+' Only ByLevel resolves here (via the element's own Level default); ByCell yields "" - never fabricate.
+' csLvlColor tests ResolveFillAwareColor's result, not .Color directly, so FillMode=2 is resolved first.
+' csLvlStyle has no ByLevel/ByCell equivalent (LineStyle is an object, not a sentinel) - reads it as-is.
 Private Function ReadLvlSourceValue(ByVal oFoundEl As element, ByVal kind As CalcSource) As String
     On Error GoTo ErrorHandler
 
@@ -1466,18 +1233,9 @@ End Function
 '                                          GROUP SOURCE - GroupColor (retired ONLY_COLOR hook parity)
 '######################################################################################################################
 
-' Shared FillMode=2 resolution (2026-08-24, cahier-des-charges-groupcolor-fillmode.md §2/§3.1), recopied
-' verbatim from the retired ONLY_COLOR hook's read logic (its "Determine the source color" block, formerly
-' ElementChangeHandler.cls Branch 1 - the hook itself is gone, this is what it used to do): a ClosedElement
-' in FillMode=2 reads its FILL color, UNLESS that fill
-' color is literally 0 or 255 (black/white), in which case the OUTLINE color (.Color) is used instead. Any
-' other element (not closed, or closed but not FillMode=2) just reads .Color. Shared by GroupColor, CellColor
-' and LvlColor (2026-08-24 parity decision, Asketyll - see the cahier: this is a RETROACTIVE behaviour change
-' on CellColor/LvlColor, not just a new capability, announced explicitly in project-context.md/wiki). Returns
-' a raw Long that may itself be the ByLevelColor/ByCellColor sentinel (when the fallback lands on .Color) -
-' callers that care about that symbolic state (LvlColor) test the RESULT of this function, not el.Color
-' directly, so FillMode is always resolved first, exactly mirroring the legacy hook's own priority (it never
-' had a concept of ByLevel/ByCell to begin with).
+' Shared FillMode=2-aware color resolution (GroupColor/CellColor/LvlColor): a ClosedElement in FillMode=2
+' reads its FILL color unless that fill is literally 0/255, falling back to .Color. Callers that care
+' about the ByLevel/ByCell sentinel test THIS function's result, not el.Color directly.
 Private Function ResolveFillAwareColor(ByVal el As element) As Long
     On Error GoTo ErrorHandler
 
@@ -1499,19 +1257,10 @@ ErrorHandler:
     ResolveFillAwareColor = el.Color
 End Function
 
-' GroupColor evaluation: replicates the retired ONLY_COLOR hook's candidate selection EXACTLY (cahier
-' §2/§3.1), which is DELIBERATELY DIFFERENT from every other GROUP source in this module:
-'   - SELF-EXCLUDED scan (Link.GetLink WITHOUT ReturnMe:=True) - unlike Cell*/Lvl*/GroupLength, which all
-'     self-include ("group of one" philosophy). Color has no type filter to protect a self-inclusion the way
-'     GroupLength's IsLengthCapableType does (every graphical element has a Color), so self-inclusion here
-'     would let a bearing text match ITSELF first and produce a degenerate no-op rule instead of following
-'     its linked geometry - exactly the failure mode the exclusion avoids.
-'   - NO type filter on the candidate (any linked element counts, not just a measurable geometry).
-'   - NO name/level pattern - literally the FIRST element Link.GetLink returns, mirroring `els(LBound(els))`.
-' "" when ungrouped or no linked element (never a fabricated value). >= 2 linked elements -> the one-shot
-' CalculationMultipleColorCandidates warning (2026-08-24 decision, Asketyll) - the legacy hook never warned,
-' this is a NEW behaviour, not a parity requirement, but it does not change WHICH value lands (still the
-' first), only whether the arbitrary pick is disclosed - same doctrine as CalculationMultipleGeometries.
+' GroupColor: unlike every other GROUP source, SELF-EXCLUDED (no ReturnMe:=True) - Color has no type
+' filter to protect a self-match the way GroupLength's IsLengthCapableType does, so self-inclusion would
+' make a bearing text match itself instead of its linked geometry. No name/level pattern - first linked
+' element wins. >= 2 candidates -> CalculationMultipleColorCandidates (discloses the pick, doesn't change it).
 Private Function EvaluateGroupColor(ByVal oEl As element) As String
     On Error GoTo ErrorHandler
 
@@ -1534,12 +1283,9 @@ ErrorHandler:
     EvaluateGroupColor = ""
 End Function
 
-' True when at least one parsed calc rule uses GroupColor. Consulted by ElementChangeHandler's geometric
-' Branch 2 gate, mirroring HasGroupLengthRules exactly: GroupColor's candidate is a GEOMETRY-ish linked
-' element (no name/level pattern to detect a "trigger" by), so - like GroupLength - it needs every OTHER
-' group member re-evaluated when the linked element itself changes. No new trigger/push pass is needed:
-' Branch 2 already re-processes every linked sibling inline on a geometric change (the same mechanism the
-' now-retired ONLY_COLOR hook used to rely on - see ElementChangeHandler.cls Branch 2's own comment).
+' True when at least one calc rule uses GroupColor. Gates ElementChangeHandler's Branch 2 (mirrors
+' HasGroupLengthRules): GroupColor has no name/level "trigger" pattern, so it needs every sibling
+' re-evaluated inline when the linked element changes - Branch 2 already does that.
 Public Function HasGroupColorRules() As Boolean
     On Error GoTo ErrorHandler
 
@@ -1573,14 +1319,9 @@ Private Function IsPushableCellSourceKind(ByVal kind As CalcSource) As Boolean
                                  kind = csCellColor Or kind = csCellStyle Or kind = csCellWeight)
 End Function
 
-' Trigger-cell pass: oCell is a trigger cell whose text/coordinates/level/color/style/weight may have
-' changed while its group members were NOT re-queued. For each OTHER group member M carrying a property P
-' fed by a pushable Cell* rule matching oCell's name, and where THIS rule is M's first-match for P (AC3 - a
-' member governed by an earlier rule for P is left alone), push the rule-appropriate attribute (compare-
-' guarded via ApplyValueToSibling) read off oCell via ReadCellSourceValue - each SourceKind computed at most
-' ONCE per call (lazy, cached by enum ordinal, shared across every matching rule/member). Discoverability:
-' matching members exist but none carry a fed target -> one-shot CalculationNoTarget. Two competing cells
-' for one P -> one-shot CalculationMultipleTriggers (last-processed wins).
+' Trigger-cell pass: pushes oCell's attributes to OTHER group members whose first-matching rule for their
+' target P is fed by oCell's name (AC3 first-match guard). Each SourceKind is read at most once per call
+' (cached by enum ordinal). No carrying member -> CalculationNoTarget; two competing cells -> Multiple.
 Private Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
     On Error GoTo ErrorHandler
 
@@ -1691,27 +1432,12 @@ End Function
 '                                          ENGINE - TRIGGER-LEVEL PASS
 '######################################################################################################################
 
-' Parallel trigger/push pass for Lvl* sources, deliberately DUPLICATED rather than folded into the Cell*
-' functions above: the trigger predicate differs structurally (a Cell* trigger must be a CELL whose NAME
-' matches; a Lvl* trigger is ANY graphical element whose LEVEL matches - typically a plain geometry, since
-' that is the whole reason Lvl* exists). Folding the two would either silently stop pushing for a non-cell
-' trigger (the Lvl* main use case) or silently start firing the cell pass for a matching level - two
-' different, unrelated misconfigurations.
-'
-' KNOWN LIMITATION (accepted, not a safety gap): GroupHasCompetingLvlTrigger below mirrors
-' GroupHasCompetingTrigger and only detects a SECOND LEVEL-trigger competing for the same target - it does
-' NOT cross-check against a competing CELL-trigger (and vice-versa). If a Cell* rule and a Lvl* rule both
-' feed the SAME target property in the SAME group, the first-match guard in both push functions
-' (FindCalcRuleForProperty(P, m) = ri) still makes the WRITE deterministic and safe (governed by rule
-' order, exactly like two competing Cell* rules today) - only the discoverability warning
-' (CalculationMultipleTriggers) is silo'd per trigger family and will not fire for this specific cross-type
-' combination. Accepted for this lot: extending both detectors to scan across families is a real cost for a
-' configuration that is a new combination of two features that did not coexist before.
+' Parallel trigger/push pass for Lvl* sources, deliberately DUPLICATED rather than folded into Cell*: the
+' trigger predicate differs structurally (Cell* = a cell whose NAME matches; Lvl* = any element whose
+' LEVEL matches). KNOWN LIMITATION: a competing Cell*-trigger and Lvl*-trigger for the same target are not
+' cross-detected (each family only scans its own kind) - the write itself stays safe (first-match-guarded).
 
-' True for the Lvl* source kinds (LvlColor/LvlStyle/LvlWeight): a change on the matching LEVEL-bearing
-' element can leave its group siblings un-re-queued (see the parallel Cell* rationale above), so the
-' trigger-level pass must push. Unlike Cell*, there is no LvlId source to exclude - all three Lvl* kinds
-' are pushable.
+' True for the Lvl* source kinds. Unlike Cell*, there is no LvlId to exclude - all three are pushable.
 Private Function IsPushableLvlSourceKind(ByVal kind As CalcSource) As Boolean
     IsPushableLvlSourceKind = (kind = csLvlColor Or kind = csLvlStyle Or kind = csLvlWeight)
 End Function
@@ -1857,14 +1583,9 @@ End Function
 '                                          GEOMETRY - Coord ANCHOR CASCADE
 '######################################################################################################################
 
-' Deterministic anchor point of an element, for the Coord/CellCoord sources (the latter passes the MATCHING
-' CELL, not the bearing element). Returns True and fills pt when an anchor is available; returns False ONLY
-' when even the universal Range-centre seed cannot be computed (a non-graphical element, or a Range fault) -
-' the caller then yields "" + logs, NEVER a fabricated
-' coordinate. It NEVER returns a fabricated (0,0,0): the Range centre ((Low+High)/2) is seeded first, and a
-' type-specific anchor OVERRIDES it only on success, so a per-branch geometry fault (e.g. the
-' applicability-unverified AsClosedElement.Centroid raising on a closed element) degrades to the Range
-' centre, never to the origin. Coordinates are already master units (no UOR scaling).
+' Deterministic anchor point for Coord/CellCoord. The Range centre is seeded FIRST and a type-specific
+' anchor overrides it only on success, so a per-branch geometry fault degrades to the Range centre, never
+' to a fabricated (0,0,0). False only when even the Range seed fails.
 Private Function GetElementAnchorPoint(ByVal oEl As element, ByRef pt As Point3d) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1891,14 +1612,9 @@ ErrorHandler:
     GetElementAnchorPoint = False
 End Function
 
-' Attempt the type-specific anchor for the Coord source, isolated so a raise NEVER reaches the caller's
-' Range-centre seed. Each As*/geometry API is verified in mvba-docs (a review BLOCKER to use an unverified
-' signature): cell -> AsCellElement.Origin; shared cell -> AsSharedCellElement.Origin; text ->
-' AsTextElement.Origin (the User Origin, per mvba-docs); text node -> AsTextNodeElement.Origin; line ->
-' AsLineElement.Origin; arc -> AsArcElement.CenterPoint; ellipse -> AsEllipseElement.CenterPoint; closed
-' (Shape/ComplexShape) -> AsClosedElement.Centroid (a method returning Point3d, no ByRef args; its
-' applicability to a closed element is UNDOCUMENTED, so a raise here degrades to the Range-centre seed).
-' Returns False (-> the caller keeps the seed) when the element has no specific anchor OR the read faults.
+' Type-specific anchor per element type (cell/text/line Origin, arc/ellipse CenterPoint, closed shape
+' Centroid - undocumented for closed elements, hence isolated here). False (-> caller keeps the Range
+' seed) when the element has no specific anchor or the read faults.
 Private Function TryGetSpecificAnchor(ByVal oEl As element, ByRef ptOut As Point3d) As Boolean
     On Error GoTo ErrorHandler
 
@@ -1993,11 +1709,8 @@ ErrorHandler:
     EvaluateOwnLength = ""
 End Function
 
-' Shared GROUP scan for GroupLength: scan the bearing element's graphic group INCLUDING itself (Link.GetLink
-' ReturnMe:=True) and return the FIRST length-capable member (scan order, NOT a name pattern - geometry has
-' no name to match, unlike a Cell* source) via foundGeo (Nothing when none); nMatch = total length-capable
-' member count. For an UNGROUPED bearing element Link.GetLink returns nothing, so the element is its own sole
-' candidate (a group of one) - mirrors FindFirstMatchingCellInGroup.
+' Shared GROUP scan for GroupLength: first length-capable member by scan order (no name pattern -
+' geometry has none, unlike Cell*). Mirrors FindFirstMatchingCellInGroup.
 Private Function FindFirstLengthCapableInGroup(ByVal oEl As element, ByRef foundGeo As element, ByRef nMatch As Long) As Boolean
     On Error GoTo ErrorHandler
 
@@ -2032,21 +1745,9 @@ ErrorHandler:
     nMatch = 0
 End Function
 
-' GroupLength evaluation: the length of the FIRST length-capable element found scanning the group
-' (self-included, deterministic scan order - the same first-match philosophy as calc rules themselves); ""
-' when neither the group nor the ungrouped bearing element itself holds one.
-'
-' WARNS on multiple candidates, like the Cell* sources. This REVERSES an earlier decision, and the reason
-' the reversal was needed is worth keeping: the old rationale ("a group commonly holds several geometric
-' members - e.g. an outline plus inner detail - without that being a misconfiguration") was written for
-' GroupLength as an AUTHORED calc source, where the user asked for "the group's length" and first-match is
-' a chosen, documented semantic. It does not survive GroupLength's promotion to Auto Lengths' replacement:
-' Auto Lengths measured on its OWN initiative and, faced with several measurable geometries, REFUSED to
-' choose and asked the user. Dropping that without a word would silently move the decision from the user to
-' MicroStation's scan order - a plausible, possibly wrong value, with nothing said.
-'
-' The warning does not restore the old behaviour (first-match still lands; nobody is asked). It makes the
-' arbitrary pick VISIBLE instead of silent, which is the whole of what it claims to do.
+' GroupLength: length of the FIRST length-capable member found (self-included scan order); "" when none.
+' WARNS on multiple candidates - GroupLength replaced Auto Lengths, which refused to choose silently when
+' several geometries were measurable, so this makes the same arbitrary pick visible rather than silent.
 Private Function EvaluateGroupLength(ByVal oEl As element, ByVal dec As Long) As String
     On Error GoTo ErrorHandler
 
@@ -2188,21 +1889,10 @@ End Function
 '                        VALUE-WRITE MACHINERY (loop-safety BLOCKERs - do not weaken the guards)
 '######################################################################################################################
 
-' The frontier + compare-before-write on a single sibling (loop-safety). Returns True when s ALREADY
-' carries the target property P (whether or not a write happened) - the caller counts these to detect
-' the "no member carries P" misconfiguration. The value engine NEVER attaches and never calls
-' CustomPropertyHandler detach directly:
-'   - P not attached (IsItemAttachedToElement False) -> SKIP (return False). Attach is the tagger's job.
-'   - non-empty value, different from current       -> set (compare-guarded); rejection -> one-shot status.
-'   - non-empty value, equal to current             -> no-op (loop-safety).
-'   - empty value, current non-empty (a real emptying TRANSITION):
-'         option OFF -> clear the value ("");  option ON -> delegate a detach to the tagger
-'         (PropertyTagging.DetachRuleProperty). This is the ONLY detach path, gated on BOTH the option
-'         AND the non-empty->empty transition (the load-bearing loop-safety guard).
-'   - empty value, current already empty            -> no-op (transition guard: no re-detach).
-' The read AND both writes address P's OWN item explicitly (ItemName:=P): with ItemName omitted, the
-' handler resolves to the FIRST attached ARES item (Items.Find "*"), which misdirects the write as soon
-' as the element carries a second calc property (the "Coord value lands in the wrong property" bug).
+' Frontier + compare-before-write on one sibling (loop-safety). Returns True when P is already attached
+' (write attempted or not). Never attaches/detaches directly: an emptying (non-empty -> empty) TRANSITION
+' either clears the value or, with ARES_Calc_Detach_Empty ON, delegates a detach to the tagger - the ONLY
+' detach path, gated on the transition so a re-attaching rule cannot oscillate it.
 Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVal value As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -2225,25 +1915,9 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
         ' Non-empty value: set only when different (compare-guarded).
         If sCurrent <> value Then
             If CustomPropertyHandler.SetPropertyValueToElement(s, P, value, P) Then
-                ' Value STATE CHANGE: note the sibling for the renderer's bounded repaint hop. The
-                ' pipeline does not re-queue a member whose value we just pushed, so without this its
-                ' displayed text would stay stale until the element is touched again. A REJECTED write
-                ' warrants no repaint. The element is passed as-is: the renderer resolves the graphic
-                ' group itself behind its own IsGraphical guard, because reading .GraphicGroup here would
-                ' RAISE on a non-graphical element and pollute this handler on every write.
+                ' s was never queued by MicroStation (only the trigger was), so nothing else would refresh
+                ' its rendered text or repaint its Color/Level from this fresh value - note/react inline.
                 PropertyRendering.NoteDirtyGroup s
-                ' Same problem, for the ACTUATOR (epic 16): s's pilot property (e.g. ARES_Color) is now
-                ' fresh, but s itself was never the element MicroStation queued - only the trigger element
-                ' was - so PropertyActuator.ProcessElement never runs on s this pass, and its Color/Level
-                ' attribute stays stale until s is directly touched (the bug Asketyll hit in real use,
-                ' 2026-08-24). Unlike the renderer's NoteDirtyGroup/DrainRepaintHop, no batching/FreshHandle
-                ' machinery is needed here: the actuator is a pure SELF reaction with no group scan of its
-                ' own (module header), and s is the SAME live handle just written through, not a
-                ' separately-fetched one - so an immediate INLINE call is sufficient and correct, mirroring
-                ' Branch 2's inline PropertyCalculation.ProcessElement call for GroupLength siblings
-                ' (ElementChangeHandler.cls) for the identical underlying reason: the queue-add for s would
-                ' be wiped before a fresh Depth-0 pass ever reached it. Self-guarded (IsEnabled/IsLocked/
-                ' trigger-cell exclusion all re-checked inside ProcessElement), so unconditional here is safe.
                 PropertyActuator.ProcessElement s
             Else
                 ReportRejected
@@ -2264,18 +1938,9 @@ Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVa
                 bEmptied = CustomPropertyHandler.SetPropertyValueToElement(s, P, "", P)
                 If Not bEmptied Then ReportRejected
             End If
-            ' The EMPTYING transition is noted too, whichever branch handled it: it is precisely what must
-            ' re-materialise the literal token in a rendered text, on a sibling nothing else re-queues.
-            ' Gated on the clear having been ACCEPTED, exactly like the non-empty branch above: a picklist
-            ' or otherwise constrained property that rejects the clear leaves the value where it was, and a
-            ' rejected write warrants no repaint. The detach branch has no return to test (DetachRuleProperty
-            ' is a Sub), so it stays a transition.
+            ' Gated on the clear/detach having been ACCEPTED - a rejected write warrants no repaint.
             If bEmptied Then
                 PropertyRendering.NoteDirtyGroup s
-                ' Symmetry with the non-empty branch above: ActuateColor/ActuateLevel no-op on an empty
-                ' pilot value (Null/"" -> Exit Sub before any write), so this is harmless: it just lets the
-                ' actuator's OWN state (one-shot status flags) reset for s promptly rather than at its next
-                ' unrelated touch.
                 PropertyActuator.ProcessElement s
             End If
         End If
@@ -2314,10 +1979,7 @@ Private Sub ReportRejected()
     End If
 End Sub
 
-' Surface CalculationNoTarget ONCE per processed element: a trigger cell fired with siblings present but
-' NONE carried its target property (the value engine writes only where a rule already attached P). USER
-' FEEDBACK, not a fault - status-only, no English .log (like ReportMultipleTriggers). Hints the user to add
-' an attach rule in Property Tagging.
+' A trigger cell fired but no sibling carried its target property. Status-only, no log.
 Private Sub ReportNoTarget()
     On Error Resume Next
     If Not mbNoTargetShown Then
@@ -2326,9 +1988,7 @@ Private Sub ReportNoTarget()
     End If
 End Sub
 
-' Surface CalculationMultipleTriggers ONCE per processed element (deduped via mbMultiShown, reset in
-' ProcessElement). USER FEEDBACK, not a fault: per the Design Note it is status-only and does NOT write an
-' English .log line (unlike ReportRejected). Last-processed wins.
+' Two competing trigger cells for one target. Status-only, no log. Last-processed wins.
 Private Sub ReportMultipleTriggers()
     On Error Resume Next
     If Not mbMultiShown Then
@@ -2337,12 +1997,8 @@ Private Sub ReportMultipleTriggers()
     End If
 End Sub
 
-' Surface CalculationMultipleLvlTriggers ONCE per processed element (deduped via its OWN mbMultiLvlShown).
-' Own DISTINCT key from ReportMultipleTriggers, not a reuse: CalculationMultipleTriggers' wording names
-' "cells", but a Lvl*-trigger collision (GroupHasCompetingLvlTrigger, the pure Lvl-vs-Lvl case - the MAIN
-' use case of Lvl* sources) may involve no cell at all, so reusing that message would say something false
-' about what was just detected - the same trap CalculationMultipleGeometries below already avoids for
-' geometries. USER FEEDBACK, status-only, no English .log.
+' Own key, not a reuse of ReportMultipleTriggers: that message names "cells", but a Lvl*-collision may
+' involve no cell at all.
 Private Sub ReportMultipleLvlTriggers()
     On Error Resume Next
     If Not mbMultiLvlShown Then
@@ -2351,11 +2007,7 @@ Private Sub ReportMultipleLvlTriggers()
     End If
 End Sub
 
-' Surface CalculationMultipleColorCandidates ONCE per processed element (deduped via its OWN
-' mbMultiColorShown). NEW status, not a legacy behaviour (the ONLY_COLOR hook never warned on this) - see
-' EvaluateGroupColor's own comment. Own DISTINCT key, same reasoning as ReportMultipleLvlTriggers: this
-' ambiguity is between LINKED elements, not cells or levels by name, so no existing status wording fits.
-' USER FEEDBACK, status-only, no English .log.
+' Own key: this ambiguity is between LINKED elements, not cells or levels by name.
 Private Sub ReportMultipleColorCandidates()
     On Error Resume Next
     If Not mbMultiColorShown Then
@@ -2364,12 +2016,7 @@ Private Sub ReportMultipleColorCandidates()
     End If
 End Sub
 
-' Surface CalculationMultipleGeometries ONCE per processed element (deduped via its OWN mbMultiGeoShown).
-' Same shape as ReportMultipleTriggers but a DISTINCT key and a DISTINCT flag, because it says something
-' factually different: the ambiguity is between measurable GEOMETRIES, not between trigger cells, and the
-' winner is the FIRST in scan order, not the last-modified one. Reusing CalculationMultipleTriggers here
-' would emit a warning that is wrong on both counts - worse than staying silent, since the whole point of
-' warning is to make the arbitrary pick honest. USER FEEDBACK, status-only, no English .log.
+' Own key: the ambiguity is between measurable GEOMETRIES (first in scan order wins), not trigger cells.
 Private Sub ReportMultipleGeometries()
     On Error Resume Next
     If Not mbMultiGeoShown Then

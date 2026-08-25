@@ -1282,17 +1282,9 @@ ErrorHandler:
     FileDialogsTest = False
 End Function
 
-' Test 18: Property Calculation engine (AWAKE, epic 14; extended for CellCoord/CellId). Drives
-' ARES_Calc_Rules through the read-only resolver ResolvePropertyValue (finds the first-match rule +
-' evaluates the source WITHOUT attaching or reading the property, so all sources and first-match are
-' asserted DGNLib-FREE) and the re-wired IsTriggerCell (a cell in a real group whose name matches a
-' CellText[pattern] or CellCoord[pattern]). Covers: CellText nominal + self + ungrouped self; first-match
-' specific-then-general; Value; Id (DLongToString); Coord on a cell/line/shape (tolerant "X;Y" shape);
-' CellCoord/CellId on a GROUP MEMBER resolving to the MATCHING CELL's own position/id (not the member's
-' own) via the shared "|" ARES_VAR_DELIMITER alternation grammar; no-matching-rule -> "no rule"; CellText
-' with no surviving cell -> governed but empty (the delete-reconcile path); multi-trigger (a cell text is
-' returned); IsTriggerCell cases (CellCoord IS a trigger, CellId-only is NOT); ProcessElement smoke. Saves/
-' restores every touched config var. A -1 margin covers environment variance.
+' Test 18: Property Calculation engine, via the read-only ResolvePropertyValue (DGNLib-free) and
+' IsTriggerCell. Covers CellText/Value/Id/Coord/CellCoord sources, first-match, multi-trigger, and a
+' ProcessElement smoke test. Saves/restores every touched config var.
 Private Function PropertyCalculationTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -1554,11 +1546,10 @@ Private Function PropertyCalculationTest() As Boolean
         TotalTests = TotalTests + 1
         If Not PropertyCalculation.IsTriggerLevel(lLvlMember) Then TestsPassed = TestsPassed + 1
 
-        ' --- LvlColor FillMode=2 resolution (2026-08-24, ResolveFillAwareColor, retroactive parity
-        '     extension): the level-matching candidate is itself a FILLED shape (not the plain Line used
-        '     above) - LvlColor must read its FILL color, not its outline, mirroring GroupColor/the retired
-        '     ONLY_COLOR hook. Own dedicated group so it doesn't interfere with the IsTriggerLevel assertions
-        '     above (which need lLvlAuth/lLvlMember unchanged). ---
+        ' --- LvlColor FillMode=2 resolution (ResolveFillAwareColor): the level-matching candidate is
+        '     itself a FILLED shape (not the plain Line used above) - LvlColor must read its FILL color,
+        '     not its outline, mirroring GroupColor. Own dedicated group so it doesn't interfere with the
+        '     IsTriggerLevel assertions above (which need lLvlAuth/lLvlMember unchanged). ---
         Dim shLvlFill As element
         Set shLvlFill = CreateFillTestShape(7461, 8300, 200, 12)   ' FillMode=2, FillColor=12 (not 0/255)
         shLvlFill.Level = oLvlAuth
@@ -1569,9 +1560,8 @@ Private Function PropertyCalculationTest() As Boolean
         If RVEq("LCol", lLvlFillMember, ExpectedLvlColorValue(shLvlFill)) Then TestsPassed = TestsPassed + 1
     End If
 
-    ' --- GroupColor (2026-08-24, retired ONLY_COLOR hook parity, cahier-des-charges-groupcolor-fillmode.md):
-    '     SELF-EXCLUDED scan (unlike every other GROUP source above) - the bearing element reads the color
-    '     of the FIRST OTHER linked element, no name/level pattern. ---
+    ' --- GroupColor: SELF-EXCLUDED scan (unlike every other GROUP source above) - the bearing element
+    '     reads the color of the FIRST OTHER linked element, no name/level pattern. ---
     ARESConfig.ARES_CALC_RULES.Value = "Prop[GC]=GroupColor"
     PropertyCalculation.RefreshCalcRules
 
@@ -1713,13 +1703,9 @@ ErrorHandler:
     PropertyCalculationTest = False
 End Function
 
-' Test 19: PropertyTagging grammar v2 - ValidateAndNormalizeRule (validate + normalise to canonical) and
-' RuleHasNoEffect (dead-rule contradiction detector). Pure string logic, deterministic, DGNLib-free, no
-' config mutation (reads only module constants), so no save/restore and no -1 tolerance - every case passes
-' EXACTLY. Valid rules return "" and the expected COMPACT canonical form (matching the story I/O matrix,
-' no spaces around "&"/"="); invalid rules return a non-empty reason (incl. every v1 rule and the exact
-' "|"-instead-of-";" incident); RuleHasNoEffect is True (with the two conflicting segments) for the four
-' contradiction shapes and False for a compatible or wildcard-guarded rule.
+' Test 19: PropertyTagging grammar v2 - ValidateAndNormalizeRule (validate + canonical form) and
+' RuleHasNoEffect (dead-rule detector). Pure string logic, deterministic, no config mutation - every
+' case passes exactly, no tolerance margin.
 Private Function PropertyRuleValidationTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -1827,13 +1813,9 @@ Private Function DeadSeg(ByVal sRule As String, ByVal seg1 As String, ByVal seg2
     End If
 End Function
 
-' Test 20: PropertyCalculation calc grammar - ValidateAndNormalizeCalcRule (validate + normalise to the
-' COMPACT canonical form) and CalcRuleHasNoEffect (dead-condition detector, Prop target ignored). Pure
-' string logic, deterministic, DGNLib-free, no config mutation, so no save/restore and no -1 tolerance -
-' every case passes EXACTLY. Valid rules return "" and the expected canonical (Prop keyword + source
-' keyword canonical, condition names/args VERBATIM via the shared RuleGrammar); invalid rules (tag rule /
-' unknown source / bad arity / wildcard target / empty side) return a non-empty reason; CalcRuleHasNoEffect
-' is True (with the two conflicting segments) for a dead condition combo and False otherwise.
+' Test 20: PropertyCalculation calc grammar - ValidateAndNormalizeCalcRule (canonical form) and
+' CalcRuleHasNoEffect (dead-condition detector). Pure string logic, deterministic - every case passes
+' exactly, no tolerance margin.
 Private Function CalcRuleValidationTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -1930,16 +1912,9 @@ Private Function CDeadSeg(ByVal sRule As String, ByVal seg1 As String, ByVal seg
     End If
 End Function
 
-' Test 21: PropertyTagging "@" membership convergence - the PULL pass (story 15-1). An element added to an
-' ALREADY tagged graphic group must receive the "@" rule's properties at its OWN processing, without the
-' matching element being re-touched. Drives ApplyPropertyRules directly (that is exactly what
-' ElementChangeHandler.ProcessElement calls at Depth 0) on real elements of the throwaway test DGN, with a
-' "@Lvl[...]" rule targeting a REAL DGNLib property (the first enumerated one) - so, like
-' CustomPropertyHandlerTest, the test is not-applicable (pass) when the ARES DGNLib is not deployed.
-' Covers: pull-positive (edge #1), idempotence (edge #8), the matcher never self-receiving, and
-' pull-negative (edge #2, a group where no member matches). ARES_Property_Rules is saved and restored on
-' BOTH the nominal and the error path - VBA has no Finally and a failed assertion must never leave the
-' user's rules corrupted.
+' Test 21: PropertyTagging "@" membership convergence (the PULL pass) - an element added to an ALREADY
+' tagged group must receive the "@" rule's properties at its OWN processing. Not-applicable (pass) when
+' the ARES DGNLib is not deployed. ARES_Property_Rules saved/restored on both the nominal and error path.
 Private Function PropertyTaggingPullTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -2086,11 +2061,8 @@ Private Function CreateRenderTestCell(ByVal sName As String, ByVal sText0 As Str
     Set CreateRenderTestCell = oCell
 End Function
 
-' Read a rendered sub-text through a FRESHLY re-fetched handle, and leave the caller holding that fresh
-' handle. An MVBA element handle is a COPY of the element data - that is why .Rewrite exists at all, why
-' StringsInEl.UpdateTextLines re-fetches after every sub-write, and why ElementInProcesse stores ids
-' rather than elements - so a handle the test still holds keeps serving the text it was created with.
-' Asserting through it would read the PRE-render text and fail a render that actually worked.
+' Reads a rendered sub-text through a FRESHLY re-fetched handle: an MVBA handle is a data copy, so
+' asserting through the caller's old handle would read the PRE-render text and fail a working render.
 Private Function RenderedTextOf(ByRef El As element, ByVal SubId As Long) As String
     On Error Resume Next
     Dim oFresh As element
@@ -2123,12 +2095,10 @@ Private Function RVContains(ByVal P As String, ByVal el As element, ByVal sSub A
     End If
 End Function
 
-' Expected value for LvlColor[pattern] on el, mirroring ReadLvlSourceValue's csLvlColor branch exactly (the
-' SAME ByLevel/ByCell sentinel resolution) so the assertion reflects the live element's actual symbology
-' state rather than assuming it is never ByLevel/ByCell.
-' Mirrors ReadLvlSourceValue's csLvlColor branch, INCLUDING the FillMode=2 resolution (2026-08-24,
-' ResolveFillAwareColor) it now composes with - the raw color tested against ByLevel/ByCellColor is the
-' FillMode-resolved one, not el.Color directly.
+' Expected value for LvlColor[pattern] on el, mirroring ReadLvlSourceValue's csLvlColor branch exactly
+' (the SAME ByLevel/ByCell sentinel resolution, composed with the FillMode=2 resolution of
+' ResolveFillAwareColor - the raw color tested against ByLevel/ByCellColor is the FillMode-resolved one,
+' not el.Color directly) so the assertion reflects the live element's actual symbology state.
 Private Function ExpectedLvlColorValue(ByVal el As element) As String
     Dim rawColor As Long
     rawColor = ExpectedFillAwareColor(el)
@@ -2179,13 +2149,9 @@ Private Function RVNoRule(ByVal P As String, ByVal el As element) As Boolean
     RVNoRule = (Not bHas)
 End Function
 
-' Property Rendering (epic 15, tid 22).
-' Two halves. The FIRST asserts the Template pure logic - Expand, Align and the well-formedness rules -
-' through the module's read-only Public seams, with name validation OFF so it needs no DGNLib at all. The SECOND drives real elements and therefore N/A-skips (returns
-' True) when the ARES DGNLib or the internal ARES_SYS library is absent, per the
-' CustomPropertyHandlerTest convention.
-' Every config variable it touches is restored on the nominal path AND in ErrorHandler (no Finally in
-' VBA), guarded by bSaved so a fault occurring before the save cannot blank the user's configuration.
+' Property Rendering. Two halves: pure Template logic (Expand/Align, no DGNLib needed) then real
+' elements (N/A-skips when the ARES DGNLib is absent). Config vars restored on nominal path AND
+' ErrorHandler.
 Private Function PropertyRenderingTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -2274,8 +2240,8 @@ Private Function PropertyRenderingTest() As Boolean
     ' AC2 / edge #7 - the STATIC part was edited, so the LITERAL WALK cannot follow it. This assertion is
     ' unchanged and still correct, but it no longer means what it used to: since D8 it says "AlignVisible
     ' declines", not "the binding is released". The caller now hands this exact case to AlignByValues, which
-    ' keeps it - see the D8 block below and the element-level check. Asketyll arbitrated the flip on
-    ' 2026-08-18: editing static text must NOT cost the binding.
+    ' keeps it - see the D8 block below and the element-level check: editing static text must NOT cost the
+    ' binding.
     names(0) = "Len": values(0) = "13,3"
     TotalTests = TotalTests + 1
     If Not PropertyRendering.AlignVisible("Cable 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
@@ -2490,7 +2456,7 @@ Private Function PropertyRenderingTest() As Boolean
     TotalTests = TotalTests + 1
     If Not PropertyRendering.AlignByValues("T70 39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
-    ' AC2 / edge #7, FLIPPED (Asketyll, 2026-08-18): editing the static text keeps the binding.
+    ' AC2 / edge #7, FLIPPED: editing the static text keeps the binding.
     names(0) = "Len": values(0) = "13,3"
     TotalTests = TotalTests + 1
     If PropertyRendering.AlignByValues("Cable 13,3 m", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
@@ -2608,12 +2574,9 @@ ErrorHandler:
     PropertyRenderingTest = False
 End Function
 
-' Test 23: PropertyActuator (epic 16) - SELF reaction, own pilot property -> own Color/Level attribute.
-' Pilot properties are FIXED and RESERVED (ARESConstants.ARES_PROP_COLOR = "ARES_Color", revised
-' 2026-08-20 - see cahier des charges §8), not a name drawn from the deployed DGNLib's property list.
-' N/A-skips (returns True) when the ARES DGNLib is unavailable OR does not define ARES_Color, per the
-' CustomPropertyHandlerTest convention - this test cannot fabricate a reserved ItemType that is not there.
-' Every touched config var is saved/restored on the nominal path AND in ErrorHandler.
+' Test 23: PropertyActuator - SELF reaction, own pilot property -> own Color/Level attribute (fixed
+' names, not drawn from the DGNLib). N/A-skips when the ARES DGNLib doesn't define ARES_Color. Config
+' vars saved/restored on nominal path AND ErrorHandler.
 Private Function PropertyActuatorTest() As Boolean
     On Error GoTo ErrorHandler
 
@@ -2722,13 +2685,11 @@ Private Function PropertyActuatorTest() As Boolean
     TotalTests = TotalTests + 1
     If lE.Color = colorEBefore Then TestsPassed = TestsPassed + 1     ' refused: never painted
 
-    ' --- Regression (2026-08-24, real-world bug): when PropertyCalculation pushes a pilot-property value
-    '     to a group member it did not itself queue (the trigger-cell/trigger-level push pass), the
-    '     actuator must ALSO run on that member inline - not just its PROPERTY, its graphic ATTRIBUTE too.
-    '     Asketyll hit this in real use: ARES_Color updated on the linked text, but the text's own Color
-    '     stayed stale until the text itself was directly touched. This asserts the ATTRIBUTE, not just the
-    '     property value (PropertyCalculationTest's own CellColor coverage already asserts the property and
-    '     would NOT have caught this - it never reads back .Color) ---
+    ' --- Regression: when PropertyCalculation pushes a pilot-property value to a group member it did not
+    '     itself queue (the trigger-cell/trigger-level push pass), the actuator must ALSO run on that
+    '     member inline - not just its PROPERTY, its graphic ATTRIBUTE too. This asserts the ATTRIBUTE, not
+    '     just the property value (PropertyCalculationTest's own CellColor coverage already asserts the
+    '     property and would NOT have caught this - it never reads back .Color) ---
     ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=CellColor[ACTPUSH*]"
     PropertyCalculation.RefreshCalcRules
     Dim cPushTrig As CellElement, lPushMember As element
@@ -2744,11 +2705,8 @@ Private Function PropertyActuatorTest() As Boolean
     TotalTests = TotalTests + 1
     If lPushMember.Color = targetColorPush Then TestsPassed = TestsPassed + 1
 
-    ' --- FillColor preservation on a FillMode=2 cell sub-element (2026-08-24, retired ONLY_COLOR hook parity,
-    '     cahier-des-charges-groupcolor-fillmode.md §4/decision 6): ActuateColor's repaint must leave the
-    '     sub-element's OWN fill color untouched even though its outline Color changes - mirrors the retired
-    '     hook's save/restore precaution, added by Asketyll's decision without waiting for a real-MicroStation
-    '     confirmation that it is strictly necessary (cost judged negligible) ---
+    ' --- FillColor preservation on a FillMode=2 cell sub-element: ActuateColor's repaint must leave the
+    '     sub-element's OWN fill color untouched even though its outline Color changes ---
     ARESConfig.ARES_CALC_RULES.Value = ""
     PropertyCalculation.RefreshCalcRules
     Dim cFillCell As CellElement
@@ -3244,8 +3202,8 @@ Private Function CreateCalculationTestShape(ByVal lGroup As Long, ByVal baseX As
 End Function
 
 ' Build a FillMode=2 (outlined) shape with a specific FillColor - helper for GroupColor/LvlColor FillMode=2
-' resolution tests (ResolveFillAwareColor, epic 16 follow-up 2026-08-24) and the PropertyActuator FillColor
-' preservation test. Same footprint as CreateCalculationTestShape otherwise.
+' resolution tests (ResolveFillAwareColor) and the PropertyActuator FillColor preservation test. Same
+' footprint as CreateCalculationTestShape otherwise.
 Private Function CreateFillTestShape(ByVal lGroup As Long, ByVal baseX As Double, ByVal baseY As Double, ByVal fillColorVal As Long) As element
     Dim verts(4) As Point3d
     verts(0) = Point3dFromXYZ(baseX, baseY, 0)
@@ -3276,12 +3234,8 @@ Private Function CreateCalculationTestPointString(ByVal lGroup As Long, ByVal ba
     Set CreateCalculationTestPointString = oPs
 End Function
 
-' Build a single-TextElement graphic cell named sName, in graphic group lGroup (0 = ungrouped),
-' added to the active model. Helper for PropertyCalculationTest.
 ' A cell whose single sub-element is a FillMode=2 shape with a given FillColor - helper for
-' PropertyActuatorTest's FillColor-preservation check (2026-08-24, cahier-des-charges-groupcolor-fillmode.md
-' §4/decision 6). The sub-shape's outline color is left at the active default, same as the header, so
-' ActuateColor's "subEl.Color = oldColor" repaint condition holds without extra tweaking.
+' PropertyActuatorTest's FillColor-preservation check.
 Private Function CreateFillCellTestCell(ByVal sName As String, ByVal origin As Point3d, ByVal fillColorVal As Long) As CellElement
     Dim verts(4) As Point3d
     verts(0) = Point3dFromXYZ(origin.X, origin.Y, 0)

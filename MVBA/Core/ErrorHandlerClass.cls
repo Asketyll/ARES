@@ -1,7 +1,8 @@
 ' Class Module: ErrorHandlerClass
 ' Description: Centralized error handling and logging for ARES application
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: None
+' Dependencies: CallStackClass (read-only, via the global BootLoader.CallStack - see
+'               FormatErrorMessage; CallStackClass itself has no dependency back on this class)
 Option Explicit
 
 ' === CONSTANTS ===
@@ -150,6 +151,18 @@ Private Function FormatErrorMessage(ByVal Description As String, _
     End If
     
     Result = Result & Description
+
+    ' Append the current call-stack chain, if any is available and non-empty (see CallStackClass -
+    ' read-only, tolerant of BootLoader.CallStack not existing yet/anymore, so a missing/torn-down
+    ' stack never breaks logging). Own line, indented, so the primary message stays grep-stable.
+    Dim sStack As String
+    On Error Resume Next
+    sStack = CallStack.Snapshot
+    On Error GoTo 0
+    If Len(sStack) > 0 Then
+        Result = Result & vbCrLf & "    CallStack: " & sStack
+    End If
+
     FormatErrorMessage = Result
 End Function
 

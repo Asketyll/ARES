@@ -36,7 +36,8 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | **Core/** | `BootLoader.bas` | entry point; owns global state, init order, change-tracking lifecycle |
 | | `ARESConstants.bas` | central home for shared compile-time `Public Const` (sentinels, delimiters, geometry factors). **Not** the config vars |
 | | `ElementInProcesseClass.cls` | uniqueness queue of element IDs pending processing (global `ElementInProcesse`) |
-| | `ErrorHandlerClass.cls` | central logger (global `ErrorHandler`); per-DGN log file with rotation |
+| | `ErrorHandlerClass.cls` | central logger (global `ErrorHandler`); per-DGN log file with rotation; appends the current call-stack chain to every logged fault |
+| | `CallStackClass.cls` | manual call-stack tracer (global `CallStack`); `Push`/`Pop` at 8 key entry points (not every procedure — perf); dumped on demand via key-in `LogCallStack` |
 | | `ColorDialog.bas` | Win32 color picker ↔ MS color-index helpers |
 | **Configuration/** | `ARESConfigClass.cls` | registry of ~35 MS config vars (global `ARESConfig`); versioned import/export |
 | | `ARES_MS_VAR_Class.cls` | one config var; assigning `.Value` **write-throughs to MicroStation** |
@@ -67,7 +68,7 @@ Entry point: **`BootLoader.OnProjectLoad`**
 2. `InitializeDGNHandlers()` → `New DGNOpenClose` (wires `Application` open/close events).
 3. `InitializeInitialIdleHandler()` → an `IdleEventHandler` that sets the caption, initializes translations + config, checks for updates, then removes itself.
 
-**Global objects** (declared in `BootLoader.bas`): `ChangeHandler` (ElementChangeHandler), `ErrorHandler` (ErrorHandlerClass), `ElementInProcesse` (ElementInProcesseClass), `ARESConfig` (ARESConfigClass).
+**Global objects** (declared in `BootLoader.bas`): `ChangeHandler` (ElementChangeHandler), `ErrorHandler` (ErrorHandlerClass), `ElementInProcesse` (ElementInProcesseClass), `ARESConfig` (ARESConfigClass), `CallStack` (CallStackClass, auto-instantiating).
 
 **Teardown** `OnProjectUnload`: reset flags, then `Set … = Nothing` in dependency order (ErrorHandler last).
 
@@ -87,7 +88,7 @@ Select Case Action
 ```
 `QueueOrProcessDirect`: default → `ElementInProcesse.Add` → `EnsureIdleHandlerRegistered` (unchanged). If `ARES_Direct_Processing` → `ProcessDirect` (see below).
 
-**`ARES_Direct_Processing` (default `False`, DIAGNOSTIC SWITCH, not an architecture change)**: when `True`, `QueueOrProcessDirect` routes an already-filtered element to `ProcessDirect` (calls `ProcessElement` synchronously, inline, from inside `IChangeTrackEvents_ElementChanged`) instead of `ElementInProcesse.Add` + idle. `DetectAndSuspendBulkOperation` still runs first either way, and is ALSO suppressed by `mbProcessingDirect` (mirroring the existing `IsIdleProcessingActive()` suppression for the idle path) — without this, a group's own Calculation/Actuator/Rendering cascade across several siblings in one `ProcessDirect` call could cross `ARES_Bulk_Threshold` and trigger a false bulk-suspend caused by ARES itself. Reentrancy is guarded by `mbProcessingDirect` — a reentrant call (e.g. `ProcessElement`'s own `.Rewrite` making MicroStation redispatch `ElementChanged` before the outer call returns) is NOT processed synchronously; it falls back to the deferred queue instead of being dropped, since that reentry lands back on the event entry point itself, invisible to `ProcessElement`'s `MAX_DEPTH`. The first fallback per session is logged (`mbReentrancyLogged`, log-only, no status bar). Exists so Asketyll can test whether a historical ATLAS instability — the reason deferred/idle processing replaced direct processing (commit `fa361c9`, 17 Nov 2025) — still applies now that custom-property processing replaced Auto Lengths. **Result (Asketyll, live testing, 2026-08-25): the original ATLAS instability is gone in direct mode, including under an ATLAS bulk operation** (bulk-suspend/resume both fired correctly, perceived performance was better than deferred); root cause unconfirmed. Deferred stays the reference default; do not remove the deferred path on the strength of this switch alone.
+**`ARES_Direct_Processing` (default `True`)**: `QueueOrProcessDirect` routes an already-filtered element to `ProcessDirect` (calls `ProcessElement` synchronously, inline, from inside `IChangeTrackEvents_ElementChanged`) instead of `ElementInProcesse.Add` + idle. `DetectAndSuspendBulkOperation` still runs first either way, and is ALSO suppressed by `mbProcessingDirect` (mirroring the existing `IsIdleProcessingActive()` suppression for the idle path) — without this, a group's own Calculation/Actuator/Rendering cascade across several siblings in one `ProcessDirect` call could cross `ARES_Bulk_Threshold` and trigger a false bulk-suspend caused by ARES itself. Reentrancy is guarded by `mbProcessingDirect` — a reentrant call (e.g. `ProcessElement`'s own `.Rewrite` making MicroStation redispatch `ElementChanged` before the outer call returns) is NOT processed synchronously; it falls back to the deferred queue instead of being dropped, since that reentry lands back on the event entry point itself, invisible to `ProcessElement`'s `MAX_DEPTH`. The first fallback per session is logged (`mbReentrancyLogged`, log-only, no status bar). Setting the var to `False` falls back to the older deferred (queued) path, kept available for rollback or future diagnosis of a reentrancy issue.
 
 **Phase 2 — Deferred** (`IdleEventHandler.IEnterIdleEvent_EnterIdle`)
 

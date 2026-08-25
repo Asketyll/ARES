@@ -1,51 +1,14 @@
 ' Module: PropertyTagging
-' Description: The SOLE attach/detach engine for ARES custom properties. Auto-attaches ARES custom
-'              properties to elements as they are created / modified, driven by configurable rules
-'              (ARES_Property_Rules). Attach-only on match: the property appears (empty) on the element,
-'              to be filled by the user (native value-list dropdown) or by the Calculation engine when a
-'              calc rule targets it.
-'
-'              Called from ElementChangeHandler.ProcessElement (deferred, on idle) when
-'              ARES_Auto_Properties is True. Rules are parsed once and cached - call RefreshRules
-'              after changing ARES_Property_Rules at runtime.
-'
-'              GRAMMAR v2 (ARES_Property_Rules):  "rule ; rule ; ..."  where each rule is
-'                  [@] condition [& condition]* = prop[|prop]*
-'                - condition = [!] Keyword[name|name|...]  (Lvl / Cell / Type; & = AND; ! = negation;
-'                    */? = wildcards; see the shared RuleGrammar module for the full condition grammar).
-'                - @ = a RULE modifier (leading, normalised), MEMBERSHIP-CONVERGENT: the properties
-'                    attach to the OTHER members of the matching element's graphic group - never the
-'                    matcher itself, nothing without a real group. Two symmetric passes make it
-'                    order-of-arrival independent: a PUSH at match time (the matching element fans the
-'                    props out to the members present at that instant) and a PULL at each member's own
-'                    processing (an element that joined the group LATER receives the props of every @
-'                    rule matched by another member, at its next Depth-0 pass - the matching element does
-'                    not have to be re-touched). Without @, they attach to the matching element itself.
-'                - Right of "=": "|"-separated property names, everything literal ("@" literal); both
-'                    sides of "=" must be non-empty. A prop containing "=" or ";" is rejected (the
-'                    "|"-instead-of-";" mistake stays caught).
-'              Example:  Type[Cell]&!Cell[A]=Repere ; @Cell[ETI0*]=Commune ; Lvl[WALLS]=Commune|Coupe_Type
-'
-'              PropertyTagging keeps the RULE SHELL (the "@" modifier, the "=" split, the props side, the
-'              cache, matching, attach); the CONDITION sub-grammar (parse/match/canonical/contradiction +
-'              bracket-depth-aware split) is delegated to the shared RuleGrammar module (epic 14), which
-'              PropertyCalculation's calc rules also reuse. ONE bracket-depth-aware parser (ParseOneRule)
-'              is the single source of truth: EnsureRulesParsed (skip fail-closed) and
-'              ValidateAndNormalizeRule both call it, so the validator accepts exactly what the parser
-'              accepts. v1 rules have no recognised keyword => INVALID (skipped / refused); no migration.
-'
-'              ValidateAndNormalizeRule(sRule, sCanonical) is the read-only validate-AND-normalise the
-'              options form calls on every commit: "" + canonical form on a valid rule, a targeted reason
-'              on an invalid one. RuleHasNoEffect(sRule, segments) is a read-only contradiction detector
-'              (a syntactically valid rule that can never match) feeding the coloured preview.
-'
-'              DetachRuleProperty(El, P) is the public detach service used by the AWAKE calculation
-'              engine (epic 14) when a calculated value is emptied with ARES_Calc_Detach_Empty ON.
-'              AttachRenderMetadata / DetachRenderMetadata (epic 15) are the same service for the
-'              RENDERER's internal ARES_SYS/ARES_Render metadata: PropertyRendering writes text, never
-'              attachments, so this module stays the SOLE attach/detach choke point for both libraries.
+' Description: The SOLE attach/detach engine for ARES custom properties. Auto-attaches properties to
+'              elements as they are created/modified, driven by configurable rules (ARES_Property_Rules).
+'              Attach-only on match (empty value, filled by the user or by Calculation). Called from
+'              ElementChangeHandler.ProcessElement (deferred, on idle) when ARES_Auto_Properties is True;
+'              rules are parsed once and cached - call RefreshRules after changing the variable at runtime.
+'              Grammar v2, the "@" group-membership convergence mechanism, the RuleGrammar delegation, and
+'              the attach/detach choke point (incl. render metadata): see
+'              _bmad/docs/property-tagging-grammar.md.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), CustomPropertyHandler, Link, RuleGrammar, ErrorHandlerClass (global ErrorHandler)
+' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), CustomPropertyHandler, Link, RuleGrammar, ErrorHandlerClass (global ErrorHandler), CallStackClass (global CallStack)
 
 Option Explicit
 
@@ -126,24 +89,19 @@ ErrorHandler:
     ElementMatchesAnyRule = False
 End Function
 
-' Attach the configured properties for every rule the element drives, in TWO symmetric directions.
-'   PUSH - for each matching rule: a "@" (group) rule fans the props out to each OTHER member of the
-'          element's graphic group (nothing without a real group); a plain rule attaches the props to the
-'          element itself.
-'   PULL - the element then receives the props of every "@" rule matched by at least one OTHER member of
-'          its group, so an element added to an ALREADY tagged group converges at its own Depth-0 pass
-'          without the matching element being re-touched (membership convergence).
-' Both directions share ONE Link.GetLink fetch, entered only when a "@" rule exists AND the element sits
-' in a real graphic group. All attaches are idempotent (CustomPropertyHandler.AttachItemToElement is
-' HasItems-guarded) -> loop-safe. Nothing is ever detached here. Level is read once (guarded) and passed
-' to the matcher, so Cell/Type rules still reach a level-less cell header.
+' Attach the configured properties for every rule the element drives, in TWO symmetric directions (PUSH /
+' PULL). Full mechanism: see "ApplyPropertyRules - PUSH/PULL mechanism" in property-tagging-grammar.md.
 Public Sub ApplyPropertyRules(ByVal oElement As element)
     On Error GoTo ErrorHandler
 
+    Dim bStackPushed As Boolean
     If oElement Is Nothing Then Exit Sub
 
     EnsureRulesParsed
     If mnRuleCount = 0 Then Exit Sub
+
+    CallStack.Push "PropertyTagging.ApplyPropertyRules", oElement
+    bStackPushed = True
 
     Dim sLevel As String
     Dim bHasLevel As Boolean
@@ -156,11 +114,8 @@ Public Sub ApplyPropertyRules(ByVal oElement As element)
         End If
     End If
 
-    ' ONE member fetch per processed element, shared by the push and the pull. NESTED Ifs, never a single
-    ' "And" chain: VBA does not short-circuit, and .GraphicGroup raises on a non-graphical element (this
-    ' Sub is Public, so the pipeline's graphical guarantee cannot be assumed here). GetLink runs with its
-    ' DEFAULTS - the array EXCLUDES oElement (compared by DLong id inside Link) and filters no type, so a
-    ' member of any type can both receive (push) and deliver (pull).
+    ' ONE member fetch per processed element, shared by the push and the pull. NESTED Ifs, never "And" (VBA
+    ' does not short-circuit, .GraphicGroup raises on a non-graphical element). See property-tagging-grammar.md.
     Dim els() As element
     Dim bHaveEls As Boolean
     bHaveEls = False
@@ -190,17 +145,16 @@ Public Sub ApplyPropertyRules(ByVal oElement As element)
 
     ' PULL pass - runs after the push, on the SAME members array.
     If bHaveEls Then PullGroupProperties oElement, els
+    CallStack.Pop
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.ApplyPropertyRules"
+    If bStackPushed Then CallStack.Pop
 End Sub
 
-' Public detach service: remove a single property P from El. Called by the calculation engine's
-' value-write path when it empties a value with ARES_Calc_Detach_Empty ON - detach is
-' delegated here so ALL attach/detach stays inside PropertyTagging. Thin wrapper over
-' CustomPropertyHandler.RemoveItemFromElement (itself HasItems-guarded, idempotent). Does NOT consult the
-' parsed rules.
+' Public detach service: remove a single property P from El (ARES_Calc_Detach_Empty). Thin wrapper over
+' CustomPropertyHandler.RemoveItemFromElement, idempotent. See property-tagging-grammar.md.
 Public Sub DetachRuleProperty(ByVal El As element, ByVal P As String)
     On Error GoTo ErrorHandler
 
@@ -246,13 +200,9 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.DetachRenderMetadata"
 End Sub
 
-' Read-only validate-AND-normalise for ONE rule (the seam the editor writes through). Returns:
-'   - "" with sCanonical = "" when the rule is empty (the caller treats it as a delete);
-'   - "" with sCanonical = the canonical stored form when the rule is valid;
-'   - a short English reason (fault/log channel) when the rule is invalid.
-' It calls the SAME ParseOneRule the runtime parser uses, so it accepts exactly what the parser accepts
-' (no drift). Canonical form is COMPACT (no spaces around "&"/"="; see RuleToCanonical). Syntactic only -
-' no DGNLib membership check (a property may be authored later). Called from the options form on commit.
+' Read-only validate-AND-normalise for ONE rule, the seam the editor writes through. Calls the SAME
+' ParseOneRule the runtime parser uses (no drift). Syntactic only - no DGNLib membership check. See
+' "Options-form services" in property-tagging-grammar.md.
 Public Function ValidateAndNormalizeRule(ByVal sRule As String, ByRef sCanonical As String) As String
     On Error GoTo ErrorHandler
 
@@ -279,11 +229,8 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.ValidateAndNormalizeRule"
 End Function
 
-' Read-only contradiction (dead-rule) detector on a SYNTACTICALLY VALID rule. Returns True (with the two
-' conflicting condition segments, canonical text) when the rule can never match. The parse is the shell's;
-' the contradiction reasoning over the conditions is delegated to RuleGrammar.ConditionsHaveContradiction
-' (same coverage: same-keyword disjoint lists + Cell-implies-cell-type; wildcard abstention on the
-' disjoint-list checks only). Used by the coloured preview.
+' Read-only contradiction (dead-rule) detector on a SYNTACTICALLY VALID rule; delegates the reasoning to
+' RuleGrammar.ConditionsHaveContradiction. Used by the coloured preview. See property-tagging-grammar.md.
 Public Function RuleHasNoEffect(ByVal sRule As String, ByRef segments() As String) As Boolean
     On Error GoTo ErrorHandler
 
@@ -528,12 +475,8 @@ ErrorHandler:
     RuleMatches = False
 End Function
 
-' PUSH - fan the rule's props out to each OTHER member of the element's graphic group (idempotent
-' attach). The members array is fetched ONCE by the caller and shared with the pull pass, so this Sub no
-' longer scans the model itself; bHaveEls tells whether that array holds anything. The bHaveEls guard is
-' what keeps the behavior identical to the old self-fetch: an ungrouped element (queued through a
-' non-"@" rule) or a single-member group leaves els() unallocated, and reaching LBound on it would raise
-' error 9 where the old group guard simply exited.
+' PUSH - fan the rule's props out to each OTHER member of the element's graphic group. See
+' "AttachGroupMembers (PUSH)" in property-tagging-grammar.md (the bHaveEls / els() unallocated guard).
 Private Sub AttachGroupMembers(ByVal oElement As element, ByRef r As RuleInfo, ByRef els() As element, ByVal bHaveEls As Boolean)
     On Error GoTo ErrorHandler
 
@@ -557,16 +500,8 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging.AttachGroupMembers"
 End Sub
 
-' PULL - the exact mirror of AttachGroupMembers: oElement receives the props of every "@" rule matched by
-' at least one OTHER member of its graphic group (union across rules). This is what makes the "@" rules
-' membership-convergent - an element joining an already tagged group is tagged at its own Depth-0 pass,
-' whatever the order the members joined in.
-' Shape: MEMBERS outer, RULES inner, so each member's level is resolved ONCE (guarded exactly like the
-' caller does for oElement: a level-less cell header keeps bHasLevel = False and still evaluates its
-' Cell/Type conditions). delivered() makes each rule deliver at most once and the walk stops as soon as
-' every "@" rule has delivered. Matching is the unchanged RuleMatches, so AND / strict "!" / wildcards
-' behave exactly as in the push. Attaches are idempotent (HasItems-guarded) -> loop-safe. NOTHING is ever
-' detached: an element leaving a group keeps its properties (attach-only convergence).
+' PULL - the exact mirror of AttachGroupMembers, membership-convergent. Full mechanism (MEMBERS-outer/
+' RULES-inner shape, delivered() early exit): see "PullGroupProperties (PULL)" in property-tagging-grammar.md.
 Private Sub PullGroupProperties(ByVal oElement As element, ByRef els() As element)
     On Error GoTo ErrorHandler
 

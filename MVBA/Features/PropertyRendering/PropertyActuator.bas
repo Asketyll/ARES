@@ -1,48 +1,29 @@
 ' Module: PropertyActuator
-' Description: Fourth engine (epic 16) - reverses the read doctrine of Tagging/Calculation/Rendering:
-'              writes a graphic attribute (Color/Level) FROM a custom property value, SELF only.
+' Description: Fourth engine (epic 16) - reverses the property system's read doctrine: writes a graphic
+'              attribute (Color/Level) FROM a custom property value, SELF reaction only.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), CustomPropertyHandler,
-'               PropertyCalculation, GetElements, LangManager, ErrorHandlerClass (global ErrorHandler)
+'               PropertyCalculation, GetElements, LangManager, ErrorHandlerClass (global ErrorHandler),
+'               CallStackClass (global CallStack)
 Option Explicit
 
 '######################################################################################################################
 '                                          DOCTRINE
 '######################################################################################################################
-' Tagging attaches. Calculation computes values. Rendering writes text. PropertyActuator writes graphic
-' ATTRIBUTES (Color, Level in v1) - the fourth and last leg of the custom-property system, and the first
-' one that reverses direction: property VALUE -> graphic attribute, instead of attribute -> property.
-'
-' It is a pure SELF reaction, not a group engine. Its source, CellColor[pattern]/CellLvl[pattern], is
-' already a PUSHABLE Cell* source in PropertyCalculation: PushCellDerivedValuesToMembers already keeps the
-' pilot property fresh on every OTHER group member that carries it attached (frontier IsItemAttachedToElement).
-' By the time this module's ProcessElement runs on a given element, that element's own pilot property is
-' already up to date - so the actuator only has to read ITS OWN pilot property and reflect it onto ITS OWN
-' attribute. No PUSH, no PULL, no Link.GetLink here - that group propagation stays PropertyCalculation's job.
-'
-' Pilot properties are FIXED and RESERVED (ARESConstants.ARES_PROP_COLOR/ARES_PROP_LVL), not user-configurable
-' (revised 2026-08-20 - see cahier des charges §8): a real-world test with a LENGTH property picked as the
-' color pilot via an earlier configurable-picker design painted the length value itself as a raw color index.
-' A fixed, reserved property name closes that error class by construction. Attachment goes through
-' PropertyTagging's existing "|" multi-property grammar on the user's own tagging rules (e.g.
-' "Lvl[WALLS]=Commune|ARES_Color") - no dedicated actuator rules variable.
-'
-' Any AttachItemToElement/RemoveItemFromElement/direct SetPropertyValueToElement call in this module is a
-' review BLOCKER, same doctrine line as the other three engines.
+' Pilot properties are FIXED/RESERVED (ARES_PROP_COLOR/ARES_PROP_LVL), never user-configurable - a
+' configurable picker once let a length value get painted as a raw color index in production. Attach via
+' PropertyTagging's "|" grammar, no dedicated rules var. Any attach/detach call here is a review BLOCKER.
 
 '######################################################################################################################
 '                                          ONE-SHOT STATUS GUARDS
 '######################################################################################################################
-' Reset at the start of every ProcessElement (same shape as PropertyCalculation's
-' mbRejectedShown/mbNoTargetShown - status-bar only, never logged, an EXPECTED refusal per project doctrine).
+' Status-bar only, never logged (expected refusals) - reset at the start of every ProcessElement.
 Private mbColorInvalidShown As Boolean
 Private mbLevelInvalidShown As Boolean
 Private mbSelfRatchetShown As Boolean
 
-' Session-wide fail-closed latch (cahier §4.6): a repeated COM attribute-write failure (locked DGN, rights)
-' disables the actuator for the rest of the session instead of retrying/spamming on every hot-path pass.
-' Mirrors PropertyRendering.mbWriteDisabled. Cleared by RefreshActuatorState (same entry point tests use to
-' reset the module's state).
+' Session-wide fail-closed latch: a repeated attribute-write failure (locked DGN, rights) disables the
+' actuator instead of retrying every pass. Cleared by RefreshActuatorState.
 Private mbWriteDisabled As Boolean
 
 '######################################################################################################################
@@ -90,9 +71,8 @@ ErrorHandler:
     IsEnabled = False
 End Function
 
-' Clears the write-disabled latch (§4.6) - the same "retry point" convention as
-' PropertyRendering.RefreshRenderCaches, used by both the options panel (a user just toggled a switch) and
-' the test harness. No rules to re-parse (pilot properties are fixed constants, revised 2026-08-20).
+' Clears the write-disabled latch - used by the options panel (a user just toggled a switch) and the
+' test harness. No rules to re-parse (pilot properties are fixed constants).
 Public Sub RefreshActuatorState()
     mbWriteDisabled = False
 End Sub
@@ -102,62 +82,43 @@ End Sub
 ' compare to own attribute, write only if different, once per enabled attribute.
 Public Sub ProcessElement(ByVal oEl As element)
     On Error GoTo ErrorHandler
+    Dim bStackPushed As Boolean
 
     mbColorInvalidShown = False
     mbLevelInvalidShown = False
     mbSelfRatchetShown = False
 
-    ' A repeated COM write failure on this DGN (locked file, rights) must not spam the user nor retry
-    ' indefinitely on the hot path (cahier §4.6) - same fail-closed session latch as
-    ' PropertyRendering.mbWriteDisabled, cleared only by RefreshActuatorState.
     If mbWriteDisabled Then Exit Sub
-
     If oEl Is Nothing Then Exit Sub
     If Not oEl.IsGraphical Then Exit Sub
-
-    ' Containment exclusion (cahier §4.6): never paint a locked or reference-owned element - same guard,
-    ' same place in the sequence, as PropertyRendering.bas:534-536 (El.IsLocked).
-    If oEl.IsLocked Then Exit Sub
-
+    If oEl.IsLocked Then Exit Sub    ' never paint a locked or reference-owned element
     If Not IsColorEnabled() And Not IsLevelEnabled() Then Exit Sub
 
-    ' Fail-closed exclusion of the trigger cell (cahier des charges §4.2/§6.2): a cell that matches
-    ' CellColor[pattern]/CellLvl[pattern] must never be painted by the value it is itself the source of,
-    ' or the non-looping invariant (source set / painted set disjoint by construction) no longer holds.
+    ' A trigger must never be painted by the value it is itself the source of. NOT redundant with
+    ' IsSelfSourceRatchet below: a Lvl*-fed rule's SourceKind never equals csColor/csLvl, so ratchet alone
+    ' misses a Lvl*-trigger that also carries the pilot property.
     If IsProtectedTriggerCell(oEl) Then Exit Sub
-
-    ' Same exclusion, for a LEVEL trigger (epic 16 follow-up, LvlColor/LvlStyle/LvlWeight, 2026-08-24): an
-    ' element whose OWN Level matches a pushable Lvl* pattern is the self-inclusion candidate
-    ' FindFirstMatchingLevelInGroup can legitimately return for ITSELF. IsSelfSourceRatchet (below) does NOT
-    ' catch this case - it compares the calc rule's SourceKind to csColor/csLvl, but a Lvl*-fed rule's
-    ' SourceKind is csLvlColor/csLvlStyle/csLvlWeight, a DIFFERENT enum value, so the ratchet's equality
-    ' test never fires. Without this guard, an element that is BOTH the Lvl*-trigger AND a carrier of
-    ' ARES_Color would have its own ByLevel-symbolic Color silently frozen into the resolved literal index
-    ' by this very pass (BearingPass computes ARES_Color from Level.ElementColor, then this Sub reads it
-    ' back and overwrites the element's Color with that literal - not a loop, since the second pass is a
-    ' no-op once stable, but a surprising, unwanted mutation of an element that should never be painted by
-    ' its own authority, symmetric to the cell case above).
     If IsProtectedTriggerLevel(oEl) Then Exit Sub
+
+    CallStack.Push "PropertyActuator.ProcessElement", oEl
+    bStackPushed = True
 
     If IsColorEnabled() Then ActuateColor oEl, ARES_PROP_COLOR
     If IsLevelEnabled() Then ActuateLevel oEl, ARES_PROP_LVL
+    CallStack.Pop
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyActuator.ProcessElement"
+    If bStackPushed Then CallStack.Pop
 End Sub
 
 '######################################################################################################################
 '                                          TRIGGER EXCLUSION (own fail-closed wrappers, Cell and Level)
 '######################################################################################################################
 
-' PropertyCalculation.IsTriggerCell is scoped GLOBALLY (any pushable Cell* rule in the WHOLE config, not
-' just this actuator's own pilot rule) and its OWN ErrorHandler resolves to False (does NOT protect on a
-' fault - it would paint the element by default). This wrapper is the actuator's OWN, protecting on fault
-' like PropertyRendering.FeedsCellSource does - NEVER call IsTriggerCell bare from anywhere else in this
-' module, and NEVER delegate to FeedsCellSource itself (that one is scoped to the renderer's own concern).
-' Accepted compromise (cahier §4.2 point 1): a cell that matches an UNRELATED rule's pattern is also
-' excluded here (false negative, no visible consequence - it was never in the painted set anyway).
+' PropertyCalculation.IsTriggerCell fails OPEN on error (paints by default). This wrapper fails CLOSED
+' instead - the actuator's own copy of the guard, protecting the element on any fault.
 Private Function IsProtectedTriggerCell(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -168,15 +129,11 @@ Private Function IsProtectedTriggerCell(ByVal oEl As element) As Boolean
     Exit Function
 
 ErrorHandler:
-    ' Fail-closed: if we cannot tell, assume the cell is a trigger and protect it from being painted.
-    IsProtectedTriggerCell = True
+    IsProtectedTriggerCell = True    ' fail-closed: assume trigger, protect it
 End Function
 
-' Mirrors IsProtectedTriggerCell exactly, for PropertyCalculation.IsTriggerLevel (Lvl* sources, epic 16
-' follow-up) instead of IsTriggerCell - same fail-closed-on-fault wrapper rationale, own ErrorHandler
-' protecting rather than PropertyCalculation.IsTriggerLevel's own (which resolves False on fault). NO
-' element-type restriction here (unlike IsProtectedTriggerCell's IsCellElement gate), mirroring
-' IsTriggerLevel itself - a Level trigger can be any graphical element, not just a cell.
+' Same fail-closed wrapper for PropertyCalculation.IsTriggerLevel. No element-type restriction: a Level
+' trigger can be any graphical element, not just a cell.
 Private Function IsProtectedTriggerLevel(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -186,45 +143,26 @@ Private Function IsProtectedTriggerLevel(ByVal oEl As element) As Boolean
     Exit Function
 
 ErrorHandler:
-    ' Fail-closed: if we cannot tell, assume the element is a trigger and protect it from being painted.
-    IsProtectedTriggerLevel = True
+    IsProtectedTriggerLevel = True    ' fail-closed: assume trigger, protect it
 End Function
 
 '######################################################################################################################
 '                                          ATTRIBUTE ACTUATION
 '######################################################################################################################
 
-' Reads P's current value on oEl, resolves it as a MicroStation color index, writes oEl.Color only when
-' different - UNLESS oEl is a CellElement, whose own header Color is NEVER written (see below). On a cell,
-' only repaints original sub-elements (cahier §4.4): only the sub-elements whose CURRENT color equals the
-' header's OWN color BEFORE any change - a sub-element already holding a deliberately different color is left
-' alone (re-derived from the retired StringsInEl.bas:266 rule, since AutoLengths left no surviving code to
-' call). A FillMode=2 sub-element has its own fill color saved and restored around the write (retired
-' ONLY_COLOR hook parity).
+' Writes P's color onto oEl.Color - EXCEPT a CellElement's header, never written (see below); on a cell,
+' only sub-elements still matching the header's OLD color are repainted, preserving FillMode=2 fill.
 '
-' WHY a CellElement's header Color is never written (2026-08-24, cahier-des-charges-groupcolor-fillmode.md
-' investigation - do NOT "fix" this by reinstating the write, it is the root cause of a real bug, not an
-' oversight): writing it triggers a MicroStation-NATIVE cascade onto any sub-element whose own Color/FillColor
-' is set to the ByCellColor sentinel (mvba-docs Color_Property.md / FillColor_Property.md /
-' ByCellColor_Method.md) - the header write silently resets such a sub-element's resolved FillMode/FillColor
-' (2->1) as a side effect of MicroStation's own colour re-derivation, corrupting the very fill this Sub is
-' trying to preserve, with no reliable way for MVBA code to intercept or undo it after the fact (several
-' attempts tried and failed/regressed on a real repro: refreshing the element handle right after the write,
-' snapshotting and restoring descendant Color/FillMode/FillColor state around it - a cell sub-element/
-' ComplexShapeElement component has no independently retrievable model id either, so a restore keyed by id is
-' a silent no-op, see StringsInEl.RefreshElementHandle's own comment on that). The retired ONLY_COLOR hook
-' (formerly ElementChangeHandler.cls Branch 1, now removed) never had this problem for the simple reason it
-' never wrote a CellElement's own header Color either - it went straight to a sub-element repaint loop,
-' exactly like the one below.
+' A cell header's Color is never written: it triggers a MicroStation-native ByCellColor cascade that
+' silently resets sub-elements' FillMode/FillColor. Already tried and failed: handle refresh, descendant
+' snapshot/restore. Root cause of a real fill-corruption bug - do not reinstate or retry those workarounds
+' (cahier-des-charges-groupcolor-fillmode.md).
 Private Sub ActuateColor(ByVal oEl As element, ByVal P As String)
     On Error GoTo ErrorHandler
 
     If Not CustomPropertyHandler.IsItemAttachedToElement(oEl, P) Then Exit Sub
 
-    ' SELF-ratchet refusal (cahier §6.1), checked against THIS element's actual governing calc rule -
-    ' GetCalcRuleForProperty needs a real element to resolve Lvl/Cell/Type conditions, so this cannot be
-    ' done once ahead of time. A pilot property whose calc source is the element's OWN Color feeding back
-    ' into that same Color is a stable, meaningless fixed point.
+    ' Refuse a self-fed pilot property - see IsSelfSourceRatchet.
     If IsSelfSourceRatchet(P, oEl, PropertyCalculation.csColor) Then
         ReportSelfRatchet
         Exit Sub
@@ -250,9 +188,6 @@ Private Sub ActuateColor(ByVal oEl As element, ByVal P As String)
     Dim oldColor As Long
     oldColor = oEl.Color
 
-    ' Non-cell elements have no sub-elements to repaint - writing their own Color IS the pilot property's
-    ' whole effect, and carries none of the cascade risk described above. A CellElement's header is
-    ' deliberately left untouched here; only the repaint loop below acts on it.
     If Not oEl.IsCellElement Then
         If oldColor <> targetColor Then
             oEl.Color = targetColor
@@ -269,9 +204,7 @@ Private Sub ActuateColor(ByVal oEl As element, ByVal P As String)
             If Not subEl Is Nothing Then
                 If subEl.IsGraphical Then
                     If subEl.Color = oldColor And oldColor <> targetColor Then
-                        ' FillColor preservation (retired ONLY_COLOR hook parity, cahier-des-charges-groupcolor-
-                        ' fillmode.md §4): a FillMode=2 sub-element's own fill color is saved and restored
-                        ' around the write, since Color/FillColor are documented as independent properties.
+                        ' Color/FillColor are independent properties - preserve the fill across the write.
                         If subEl.IsClosedElement Then
                             If subEl.AsClosedElement.FillMode = 2 Then
                                 Dim savedFillColor As Long
@@ -293,32 +226,19 @@ Private Sub ActuateColor(ByVal oEl As element, ByVal P As String)
     Exit Sub
 
 ErrorHandler:
-    ' A fault here is most likely the attribute write/Rewrite itself (the only COM call in this sub that
-    ' can fail on a locked/rights-restricted DGN despite the upstream IsLocked guard - e.g. a reference or
-    ' server-side lock taken between the guard and the write). Latch the session-wide kill switch (§4.6)
-    ' rather than retry this element again next pass.
     DisableAfterWriteFailure
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyActuator.ActuateColor"
 End Sub
 
-' Reads P's current value on oEl, resolves it as a Level NAME (never auto-created - cahier §7.0), writes
-' oEl.Level only when different. Same "original sub-elements only" repaint rule as ActuateColor, generalized
-' to Level (compare on the sub-element's Level NAME, since Level objects are not directly comparable).
-' An UNRESOLVABLE level NAME gets the generic ReportLevelInvalid status (cahier §7.0: "niveau verrouille/
-' reference externe = meme chemin d'echec generique") - a name GetElements.GetLevel simply cannot find.
-' A level that resolves but then FAILS TO WRITE (locked/reference-owned target) is a DIFFERENT path in
-' practice: it faults inside the .Level = / .Rewrite call below, caught by this sub's own ErrorHandler,
-' which logs once (English) and latches the session-wide kill switch (§4.6) rather than showing
-' ReportLevelInvalid repeatedly - reviewer-4 flagged this wording mismatch (2026-08-19): both cases are
-' "no dedicated handling" in spirit (no bespoke per-cause status), but they are NOT literally the same
-' status/code path. Left as-is (not worth a bespoke unified status for a rare case); noted here so a future
-' reader does not go looking for a single shared branch that does not exist.
+' Writes P's value onto oEl.Level (a Level name, never auto-created), same repaint rule as ActuateColor.
+' Unlike ActuateColor, the header Level IS written - Level has no ByCellColor-style cascade sentinel.
+' An unresolvable name (-> ReportLevelInvalid) and a resolved-but-unwritable level (-> this Sub's
+' ErrorHandler) are separate failure paths, not one.
 Private Sub ActuateLevel(ByVal oEl As element, ByVal P As String)
     On Error GoTo ErrorHandler
 
     If Not CustomPropertyHandler.IsItemAttachedToElement(oEl, P) Then Exit Sub
 
-    ' SELF-ratchet refusal (cahier §6.1) - see ActuateColor for the full rationale.
     If IsSelfSourceRatchet(P, oEl, PropertyCalculation.csLvl) Then
         ReportSelfRatchet
         Exit Sub
@@ -341,10 +261,6 @@ Private Sub ActuateLevel(ByVal oEl As element, ByVal P As String)
     Dim oldLevelName As String
     If Not oEl.Level Is Nothing Then oldLevelName = oEl.Level.Name
 
-    ' Unlike ActuateColor, a CellElement's header Level IS written here: Level has no ByCellColor-style
-    ' cascade sentinel (mvba-docs confirms ByLevelColor/ByLevelLineStyle/ByLevelLineWeight exist for
-    ' Color/LineStyle/LineWeight, none for Level itself), so this write carries none of the corruption risk
-    ' that ActuateColor's header write does on a cell - see that Sub's header comment for the full rationale.
     If oldLevelName <> targetLevel.Name Then
         oEl.Level = targetLevel
         oEl.Rewrite
@@ -372,18 +288,13 @@ Private Sub ActuateLevel(ByVal oEl As element, ByVal P As String)
     Exit Sub
 
 ErrorHandler:
-    ' See ActuateColor's ErrorHandler for the rationale.
     DisableAfterWriteFailure
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyActuator.ActuateLevel"
 End Sub
 
-' True when P's calc source ON THIS ELEMENT (PropertyCalculation.ARES_Calc_Rules, conditions resolved
-' against oEl) is the SAME SELF source as TargetKind (csColor for a Color rule, csLvl for a Level rule) -
-' the ratchet cahier §6.1 forbids: the pilot property would only ever reflect what THIS actuator itself
-' last wrote onto the very attribute it drives. Checked per element, per attribute, right before the write -
-' PropertyCalculation.GetCalcRuleForProperty needs a REAL element to resolve a rule's Lvl/Cell/Type
-' conditions (it returns "no rule" outright on Nothing), and a calc rule's SourceKind for P can legitimately
-' vary by condition from one element to the next, so this cannot be checked once ahead of time.
+' True when P's calc source on oEl is the same SELF source as TargetKind - the pilot property would then
+' only ever reflect what this actuator itself last wrote. Checked per element/attribute at write time,
+' since a calc rule's source can vary by condition.
 Private Function IsSelfSourceRatchet(ByVal P As String, ByVal oEl As element, ByVal TargetKind As CalcSource) As Boolean
     On Error GoTo ErrorHandler
 
@@ -398,12 +309,7 @@ Private Function IsSelfSourceRatchet(ByVal P As String, ByVal oEl As element, By
     Exit Function
 
 ErrorHandler:
-    ' Fail-closed (reviewer-4 finding: an internal fault here used to fail OPEN - i.e. allow the write -
-    ' which was inconsistent with IsProtectedTriggerCell's assumed fail-closed doctrine right next to it.
-    ' When we cannot tell whether P is SELF-sourced from this very attribute, refuse the write: the cost of
-    ' a wrongly-skipped legitimate write is a status the user can investigate; the cost of a wrongly-allowed
-    ' one is the silent, symptomless ratchet §6.1 exists to prevent).
-    IsSelfSourceRatchet = True
+    IsSelfSourceRatchet = True    ' fail-closed: refuse the write if we cannot tell
 End Function
 
 '######################################################################################################################
@@ -431,10 +337,8 @@ Private Sub ReportSelfRatchet()
     LangManager.ShowStatusT "ActuatorSelfRatchetRefused"
 End Sub
 
-' Session-wide fail-closed latch on a repeated attribute-write failure (cahier §4.6), mirroring
-' PropertyRendering.DisableAfterWriteFailure (PropertyRendering.bas:2941-2946): idempotent, logs ONE
-' English line (never translated/status-bar - this is a genuine fault, not an expected refusal), then every
-' subsequent ProcessElement short-circuits at the top until RefreshActuatorState clears it.
+' Session-wide fail-closed latch on a repeated attribute-write failure: idempotent, logs one English
+' line, then every subsequent ProcessElement short-circuits until RefreshActuatorState clears it.
 Private Sub DisableAfterWriteFailure()
     On Error Resume Next
     If mbWriteDisabled Then Exit Sub

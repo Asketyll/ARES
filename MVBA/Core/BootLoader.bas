@@ -3,7 +3,7 @@
 '              Also provides change tracking suspension for bulk operations.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: DGNOpenClose, ElementChangeHandler, LangManager, ErrorHandlerClass,
-'               ElementInProcesseClass, ARESConfigClass
+'               ElementInProcesseClass, ARESConfigClass, CallStackClass
 
 Option Explicit
 
@@ -12,6 +12,11 @@ Public ChangeHandler As ElementChangeHandler
 Public ErrorHandler As ErrorHandlerClass
 Public ElementInProcesse As New ElementInProcesseClass
 Public ARESConfig As New ARESConfigClass
+' Auto-instantiating (like ElementInProcesse/ARESConfig above): CallStack has no dependencies and a
+' trivial Class_Initialize, so it is always available the moment anything references it - including
+' ErrorHandlerClass.FormatErrorMessage, which reads it before OnProjectLoad necessarily runs (e.g. a
+' fault during VBA project load itself). No explicit init step, no "Is Nothing" ordering to get right.
+Public CallStack As New CallStackClass
 
 ' === PRIVATE OBJECTS ===
 Private moOpenClose As DGNOpenClose
@@ -115,6 +120,7 @@ Public Sub OnProjectUnload()
     Set ChangeHandler = Nothing
     Set ElementInProcesse = Nothing
     Set ARESConfig = Nothing
+    Set CallStack = Nothing
     Set ErrorHandler = Nothing
 End Sub
 

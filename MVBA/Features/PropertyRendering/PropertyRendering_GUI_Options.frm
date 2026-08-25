@@ -13,70 +13,23 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' UserForm: PropertyRendering_GUI_Options
-' Description: Options panel for EVERYTHING THAT RENDERS A CUSTOM PROPERTY VISIBLE - text or graphic
-'              attribute (Asketyll, 2026-08-19: "dans le formulaire de rendu, ce n'est pas du texte mais
-'              c'est du rendu" - painting a Color/Level FROM a property is conceptually the same family of
-'              visible result as a Prop[Name] text token, even though it is a SEPARATE engine/doctrine).
-'              This panel hosts the controls of TWO independent Depth-0 engines:
-'                1. PropertyRendering (text) - the render master switch (ARES_Text_Render) and the two
-'                   ATLAS label-cell settings inherited from the removed Auto Lengths form
-'                   (ARES_Update_ATLASCellLabel, ARES_Cell_Is_Label_Name).
-'                2. PropertyActuator (attribute, epic 16) - two independent master switches only
-'                   (ARES_Actuate_Color, ARES_Actuate_Level). Pilot properties are FIXED and RESERVED
-'                   (ARES_Color/ARES_Lvl, revised 2026-08-20 after a real-world test exposed a silent-error
-'                   class in an earlier configurable-picker design - see PropertyActuator's own header) -
-'                   no picker, nothing to configure beyond the two switches.
-'              SHARING IS THE PANEL ONLY, NOT THE MODULES: PropertyRendering.bas and PropertyActuator.bas
-'              stay two separate logic modules with two separate doctrines (Rendering writes TEXT only,
-'              Actuator writes ATTRIBUTES only) and two separate Depth-0 pipeline call sites in
-'              ElementChangeHandler.cls (Actuator runs BEFORE Rendering - see PropertyActuator's own header).
-'              Do NOT let this shared panel become a reason to merge the two modules' logic - a future
-'              agent editing THIS FILE is touching UI wiring for two engines at once; a future agent editing
-'              PropertyActuator.bas or PropertyRendering.bas is touching exactly one engine, as before.
+' Description: Options panel for both text rendering (PropertyRendering: ARES_Text_Render + the two ATLAS
+'              label-cell settings) and attribute actuation (PropertyActuator: ARES_Actuate_Color/Level).
+'              SHARING IS THE PANEL ONLY: the two stay separate logic modules with separate doctrines and
+'              pipeline call sites - do not let this shared panel become a reason to merge their logic.
 '
-'              WHY HERE AND NOT IN THE CALCULATION FORM (the three original text-presentation options): all
-'              three serve DISPLAY, not value computation. CellRedreaw - the sole consumer of the two ATLAS
-'              settings - is called by StringsInEl.SetTextAtSubId, which is the renderer's only text write.
-'              Housing them under Calculation would have put them one engine away from the code that reads
-'              them. ARES_Length_Round stays with PropertyCalculation_GUI_Options: it is the default
-'              decimals of the Length/GroupLength calc SOURCES, which is literally its semantics.
+'              OUTSTANDING MANUAL CLEANUP: the retired "Color_CheckBox" control (colour-sync option) and
+'              the pilot-property picker controls of an earlier revision (ActuateColorProp_Label,
+'              ComboBox_ActuateColorProp, ActuateLevelProp_Label, ComboBox_ActuateLevelProp), if present,
+'              are unreferenced dead controls still in the designer/.frx - code cannot delete a visual
+'              control, remove them manually in the VBA IDE.
 '
-'              RETIRED 2026-08-24: the colour-sync option (ARES_Only_Color_Update, "Color_CheckBox") is gone.
-'              The legacy colour hook it drove (ElementChangeHandler.cls, Branch 1) is retired - superseded in
-'              production by PropertyActuator's GroupColor pilot property (see PropertyActuator.ActuateColor's
-'              header comment for the corruption bug that hook never had and this replacement had to solve).
-'              All code-behind for Color_CheckBox (event handlers, caption/tooltip/seed/reset wiring) has been
-'              removed from this file, but the CONTROL ITSELF still exists in the designer/.frx (code cannot
-'              delete a visual control) - Asketyll to remove it manually in the VBA IDE's UserForm designer.
-'
-'              DESIGNER (manual) - controls required with EXACTLY these names:
-'                Main_CheckBox (CheckBox, render master switch),
-'                Cell_CheckBox (CheckBox, ATLAS label rebuild), TextBox_Cells_List (TextBox, Visible = False
-'                in the designer - the inline editor for the cell-name list), Edit_Cells_List_Command
-'                (CommandButton, Visible = True - swaps with the TextBox),
-'                ActuatorSection_Label (Label, bold/section-header style - "Property Actuator" divider so
-'                the two engines' controls are never visually mistaken for one group; reviewer-4 flagged
-'                this labelling as the one thing to get right about sharing this panel),
-'                ActuateColor_CheckBox (CheckBox, PropertyActuator Color master switch),
-'                ActuateLevel_CheckBox (CheckBox, PropertyActuator Level master switch),
-'                Reset_Command (CommandButton).
-'              Color_CheckBox (and its now-unused label) can be deleted once found in the designer - the code
-'              no longer references it. REVISED 2026-08-20: the pilot-property picker controls
-'              (ActuateColorProp_Label, ComboBox_ActuateColorProp, ActuateLevelProp_Label,
-'              ComboBox_ActuateLevelProp) that an earlier revision of this panel required are DROPPED - pilot
-'              properties are now fixed/reserved (ARES_Color/ARES_Lvl), nothing to pick. If any of those 4
-'              controls were already added in the designer, they can be deleted too - the code no longer
-'              references them.
-'              VISUAL GROUPING (manual, designer): place ActuatorSection_Label + its 2 checkboxes in their
-'              own block, separated from the render/colour-sync/ATLAS controls above by visible whitespace or
-'              a horizontal rule, so the panel reads as two clearly bounded sections under one window, not one
-'              flat list where an Actuator checkbox could be mistaken for a Rendering option or vice versa.
-'              NO help button here, unlike the Tagging and Calculation panels: those exist to open the wiki
-'              because their rule grammars do not fit in a tooltip. The actuator has no grammar to explain
-'              beyond its two switches - every control is explained by its own tooltip.
+'              DESIGNER - controls required with EXACTLY these names: Main_CheckBox, Cell_CheckBox,
+'              TextBox_Cells_List (Visible=False), Edit_Cells_List_Command, ActuatorSection_Label (bold
+'              divider), ActuateColor_CheckBox, ActuateLevel_CheckBox, Reset_Command. Group
+'              ActuatorSection_Label + its 2 checkboxes visually apart from the render/ATLAS controls.
 '              StartUpPosition = 0 Manual. Tab order: master -> cell -> edit-cells -> actuate-color ->
-'              actuate-level -> reset (colour dropped from the sequence once Color_CheckBox is removed from
-'              the designer - see RETIRED note above).
+'              actuate-level -> reset.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, FormUXHelper, FormPlacement, Command,
 '               PropertyActuator
@@ -205,9 +158,8 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
-' PROPERTY ACTUATOR (epic 16) - Color/Level attribute painting, hosted here per Asketyll's ruling (see
-' module header). Two independent master switches only - pilot properties are fixed/reserved
-' (ARES_Color/ARES_Lvl), revised 2026-08-20, nothing to pick.
+' PROPERTY ACTUATOR - Color/Level attribute painting, hosted here (see module header). Two independent
+' master switches only - pilot properties are fixed/reserved (ARES_Color/ARES_Lvl), nothing to pick.
 ' ============================================================
 
 Private Sub ActuateColor_CheckBox_KeyUp(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)

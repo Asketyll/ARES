@@ -1,7 +1,7 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering
+' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering, CallStackClass
 Option Explicit
 
 Private moZoningGUI          As Zoning_GUI_Options
@@ -594,6 +594,35 @@ Sub BindPropertyRender()
 
 ErrorHandler:
     ReportFailure "BindPropertyRender", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Key-in: write the deepest/most recent ARES call-stack chain to the log, on demand, without any error
+' involved. VBA/MicroStation is single-threaded and synchronous: no ARES procedure is ever still "on the
+' stack" by the time a key-in runs (control has already returned to the user), so this cannot read a live
+' snapshot - it dumps CallStack.LastSnapshot instead, the chain captured through the most recent ARES
+' event/idle pass (see CallStackClass.Push). Reproduces, from a key-in, the same visibility the temporary
+' Debug.Print instrumentation used to give during manual debugging sessions.
+Sub LogCallStack()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    Dim sSnapshot As String
+    sSnapshot = CallStack.LastSnapshot
+
+    If Len(sSnapshot) = 0 Then
+        ShowStatusT "CallStackEmpty"
+        Exit Sub
+    End If
+
+    ErrorHandler.HandleError sSnapshot, 0, "", "Command.LogCallStack"
+    ShowStatusT "CallStackLogged"
+    ReportIfLogged "LogCallStack"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "LogCallStack", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' Persist the position of every option form still open (best-effort; called at project unload).

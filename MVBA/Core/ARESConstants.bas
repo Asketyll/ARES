@@ -36,18 +36,13 @@ Public Const ARES_RND_ERROR_VALUE As Byte = 255
 Public Const ARES_CELL_INDEX_ERROR_VALUE As Integer = -1
 
 ' === CUSTOM PROPERTY (ITEM TYPE) NAMING CONSTANTS ===
-' Used in CustomPropertyHandler module.
-' ARES stores ONE ItemType per custom property inside the "ARES" ItemTypeLibrary; each ItemType
-' carries exactly one property, hence ItemType name == property name (what the Properties dialog
-' shows). The library name is fixed below; the managed property names are enumerated from the library
-' itself (see CustomPropertyHandler.GetCustomPropertyNames) - the DGNLib is the list.
+' ARES stores ONE ItemType per custom property inside the "ARES" ItemTypeLibrary (ItemType name ==
+' property name). Managed property names are enumerated from the library itself, not from a list here.
 Public Const ARES_NAME_LIBRARY_TYPE As String = "ARES"          ' ItemTypeLibrary name (namespace)
 
 ' === INTERNAL (SYSTEM) ITEM TYPE CONSTANTS ===
-' A SECOND ItemTypeLibrary, authored in the SAME ARES_Custom_Properties.dgnlib, holding ARES's own
-' metadata - never a user-facing custom property. It must NEVER surface in GetCustomPropertyNames()
-' (which stays bound to ARES_NAME_LIBRARY_TYPE above), in the Zone Export property picker, or in any
-' options form. Used by PropertyRendering to store the text-render binding on the bearing element.
+' A SECOND ItemTypeLibrary holding ARES's own metadata (the text-render binding) - never a user-facing
+' custom property. Must NEVER surface in GetCustomPropertyNames(), the Zone Export picker, or any form.
 Public Const ARES_NAME_LIBRARY_SYS As String = "ARES_SYS"       ' internal ItemTypeLibrary name (metadata)
 ' The single ItemType of ARES_SYS: the render binding. TWO String properties, SchemaVersion + Entries -
 ' which is why every access to it must name BOTH its ItemName and its LibraryName, and must suppress
@@ -58,11 +53,8 @@ Public Const ARES_ITEM_RENDER As String = "ARES_Render"
 Public Const ARES_RENDER_SCHEMA As String = "1"
 
 ' === RESERVED ACTUATOR PILOT PROPERTY NAMES ===
-' Two property names reserved inside the ARES_NAME_LIBRARY_TYPE DGNLib for PropertyActuator (epic 16,
-' revised 2026-08-20): fixed, non-configurable pilot properties for Color/Level actuation - not a separate
-' mechanism, ordinary custom properties like any other, attached via PropertyTagging's standard "|"
-' multi-property grammar. Must exist as ItemTypes in the DGNLib (same authoring path as any custom
-' property) for CustomPropertyHandler.IsItemAttachedToElement to ever find them attached.
+' Fixed, non-configurable pilot properties for PropertyActuator - ordinary custom properties, attached
+' via PropertyTagging's standard "|" grammar like any other. Must exist as ItemTypes in the DGNLib.
 Public Const ARES_PROP_COLOR As String = "ARES_Color"
 Public Const ARES_PROP_LVL As String = "ARES_Lvl"
 
@@ -94,8 +86,6 @@ Public Const ARES_ARC_MIN_CHORDS As Long = 4
 Public Const ARES_ARC_MAX_CHORDS As Long = 720
 
 ' === ZONING GEOMETRY CONSTANTS ===
-' Used in Zoning module. A buffer piece endpoint within (buffer distance * this factor) of the
-' chain's global Start/End point is treated as a free end (flat cap); any other endpoint is an
-' interior junction (rounded cap). Coincident endpoints carry identical stored coordinates, so the
-' real match distance is ~0; the factor only absorbs floating-point noise.
+' A buffer piece endpoint within (distance * this factor) of the chain's global Start/End is a free
+' end (flat cap); any other endpoint is an interior junction (rounded cap).
 Public Const ARES_CAP_MATCH_FRAC As Double = 0.001
