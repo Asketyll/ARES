@@ -600,7 +600,7 @@ End Sub
 ' Checks if any ARES feature is enabled
 ' Used for early exit to avoid unnecessary processing
 ' Returns:
-'   True if at least one feature (color sync, property tagging, calculation or rendering) is enabled
+'   True if at least one feature (property tagging, calculation, actuator or rendering) is enabled
 Private Function IsAnyFeatureEnabled() As Boolean
     Dim autoPropertiesEnabled As Boolean
     Dim calcEnabled As Boolean
