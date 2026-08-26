@@ -56,7 +56,7 @@ Private Function TryAuthorBearer(ByRef oEl As element, ByVal sText As String, By
             bAllAttached = False
         Else
             AppendValue toks(j), "", names, values, n
-            WarnGovernedValue oEl, toks(j)
+            WarnStaticCellTextCycle oEl, toks(j)
         End If
     Next j
 
@@ -364,10 +364,14 @@ ErrorHandler:
     CanBearTokens = False
 End Function
 
-' Bind-time discoverability: tell the user which engine owns the value they are about to display (manual
-' edits of a rendered value ARE overwritten, by design), and warn about the one static cycle v1 can
-' detect - a token rendered inside the very cell whose text feeds the property through a CellText rule.
-Private Sub WarnGovernedValue(ByVal oEl As element, ByVal P As String)
+' Bind-time discoverability: warn about the one static cycle v1 can detect - a token rendered inside the
+' very cell whose text feeds the property through a CellText rule. This is a structural trap in the
+' binding choice itself, independent of any later edit, so it stays a bind-time check - unlike the general
+' "this value is governed by a calc rule" notice, which moved to StateMachine's WarnGovernedTokensLost:
+' at bind time every token here is freshly attached and unedited, so a "won't survive an edit" message
+' would be misleading before any edit ever happened. See "WarnGovernedTokensLost" in
+' property-rendering-mechanics.md, PropertyRendering_StateMachine.bas.
+Private Sub WarnStaticCellTextCycle(ByVal oEl As element, ByVal P As String)
     On Error Resume Next
 
     Dim kind As CalcSource
@@ -375,8 +379,6 @@ Private Sub WarnGovernedValue(ByVal oEl As element, ByVal P As String)
     Dim sCanonical As String
 
     If Not PropertyCalculation.GetCalcRuleForProperty(P, oEl, kind, sArg, sCanonical) Then Exit Sub
-
-    PropertyRendering_Reporting.ReportGovernedValue P
 
     If kind = csCellText Then
         If oEl.IsCellElement Then PropertyRendering_Reporting.ReportCycleWarning

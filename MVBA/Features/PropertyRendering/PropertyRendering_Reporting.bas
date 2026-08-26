@@ -212,9 +212,13 @@ Public Sub ReportStructuralRefusal(ByVal sTemplate As String)
     ReportAdjacentTokens
 End Sub
 
-' Bind-time discoverability: tell the user which engine owns the value they are about to display. Called
-' by Module E's (Authoring) WarnGovernedValue - relocated here with mbGovernedShown, per the "all one-shot
-' flags in one place" judgment call (§1 option (a) of the split plan, decided by Asketyll via the lead).
+' Edit-time discoverability: tell the user a value they just edited is governed by a calc rule (and so the
+' edit will not stick unless the token was released too). Called by Module D (StateMachine)'s
+' WarnGovernedTokensLost, at the moment a user edit costs the binding a governed token - NOT at bind time
+' (moved off Module E's original WarnGovernedValue, 2026-08-26, per Asketyll's field feedback: the message
+' text reads as a response to an edit, so it must not fire before any edit happened). mbGovernedShown
+' stays here per the "all one-shot flags in one place" judgment call (§1 option (a) of the split plan,
+' decided by Asketyll via the lead).
 Public Sub ReportGovernedValue(ByVal P As String)
     On Error Resume Next
     If Not mbGovernedShown Then

@@ -19,7 +19,18 @@ Private moIdleHandler As IdleEventHandler       ' Single persistent idle handler
 Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle handler registrations
 Private moReRegHandler As ReRegisterIdleHandler ' Member-scoped ref to prevent premature VBA GC after bulk suspend
 Private mbProcessingDirect As Boolean           ' Reentrancy guard for ARES_DIRECT_PROCESSING mode - see class header
-Private mbReentrancyLogged As Boolean           ' One-shot flag: log the FIRST time ProcessDirect skips a reentrant call
+
+' Per-cascade "already processed" set - reset at the top of every Depth=0 ProcessElement entry, seeded with
+' the trigger element's own ID, consulted/populated by Branch 2 in BOTH modes. Prevents a same-cascade cycle
+' (A->B->A through the graphic-group link graph) from re-running a full pass on an element already handled
+' earlier in THIS pass - MAX_DEPTH alone bounds runaway recursion depth but does not stop a short cycle well
+' under it from doing redundant work. Mirrors PropertyRendering_StateMachine's ElementIdKey/IsIdDone shape
+' (DLongToString, linear scan - a group's member count is always small). Scoped to ONE Depth=0 cascade only:
+' does NOT protect against two SEPARATE Depth=0 entries (two native events, or two elements independently
+' queued and processed back-to-back in the same IdleEventHandler.ProcessPendingElements batch) reaching each
+' other - that is a distinct, harder problem, deliberately not addressed here.
+Private mSeenIds() As String
+Private mnSeenIds As Long
 
 ' === BULK OPERATION DETECTION (Frequency-based) ===
 ' Detects bulk operations by tracking call frequency within a time window
@@ -146,10 +157,8 @@ Private Sub ProcessDirect(ByVal oElement As element)
     On Error GoTo ErrorHandler
 
     If mbProcessingDirect Then
-        If Not mbReentrancyLogged Then
-            ErrorHandler.HandleError "ARES_Direct_Processing: reentrant ElementChanged call deferred to next idle (not processed synchronously by this call)", 0, "", "ElementChangeHandler.ProcessDirect"
-            mbReentrancyLogged = True
-        End If
+        ' This is the expected, routine path whenever ARES's own Depth-0 pipeline Rewrites the element
+        ' being processed (Tagging/Calculation/Rendering all can) - not an anomaly worth logging.
         If ElementInProcesse.Add(oElement) Then EnsureIdleHandlerRegistered
         Exit Sub
     End If
@@ -220,7 +229,13 @@ End Function
 ' Called by IdleEventHandler for each pending element. At Depth 0: property tagging, then calculation,
 ' then actuation, then rendering. Then Branch 1 (text/cell: nothing left to do) or Branch 2 (geometric:
 ' find linked text elements and recurse).
-Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Integer = 0)
+' bRunEngines (default True) controls the Tagging/Calculation/Actuator/Rendering block below - it used to be
+' hardwired to "Depth = 0", but Branch 2 now needs to give a linked sibling its own full pass, at whatever
+' depth it sits, when ARES_Direct_Processing is on (see Branch 2 below). Depth keeps its original, sole
+' meaning - the MAX_DEPTH recursion safety net - unrelated to bRunEngines. Every EXISTING call site
+' (IdleEventHandler.ProcessPendingElements, ElementChangeHandler.ProcessDirect) omits both optional
+' arguments, so this default preserves their behaviour exactly.
+Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Integer = 0, Optional ByVal bRunEngines As Boolean = True)
     On Error GoTo ErrorHandler
 
     Const MAX_DEPTH As Integer = 20
@@ -240,10 +255,20 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     CallStack.Push "ElementChangeHandler.ProcessElement", oElement
     bStackPushed = True
 
-    ' Depth-0 only, BEFORE the graphic-group filter below (so ungrouped elements are reached too):
-    ' Tagging attaches -> Calculation fills -> Actuator paints -> Rendering writes the text. Order
-    ' matters - each stage reads what the previous one just wrote, in the SAME pass.
+    ' A fresh top-level cascade starts here (Depth=0 is never reached by Branch 2's own recursion any
+    ' more - it always passes Depth+1): reset the per-cascade seen-set and seed it with THIS element's own
+    ' ID, so a cycle that loops back to the original trigger is caught too, not just sibling-to-sibling
+    ' cycles. See mSeenIds's declaration comment above.
     If Depth = 0 Then
+        mnSeenIds = 0
+        MarkIdSeenThisCascade oElement
+    End If
+
+    ' Governed by bRunEngines, not "Depth = 0" any more (see header comment above), BEFORE the graphic-
+    ' group filter below (so ungrouped elements are reached too): Tagging attaches -> Calculation fills ->
+    ' Actuator paints -> Rendering writes the text. Order matters - each stage reads what the previous one
+    ' just wrote, in the SAME pass.
+    If bRunEngines Then
         If CBool(ARESConfig.ARES_AUTO_PROPERTIES.Value) Then
             PropertyTagging.ApplyPropertyRules oElement
         End If
@@ -290,15 +315,52 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
         Exit Sub
     End If
 
+    Dim bDirectProcessing As Boolean
+    bDirectProcessing = CBool(ARESConfig.ARES_DIRECT_PROCESSING.Value)
+
     For i = LBound(els) To UBound(els)
         Set linkedElement = els(i)
         If Not linkedElement Is Nothing Then
-            If ElementInProcesse.Add(linkedElement) Then
-                ProcessElement linkedElement, Depth + 1
+            If Not IsIdSeenThisCascade(linkedElement) Then
+                If bDirectProcessing Then
+                    ' ARES_Direct_Processing=True: give the sibling its OWN full pass (Tagging+Calc+
+                    ' Actuator+Rendering) right now, synchronously, instead of the old partial Calc-only
+                    ' nudge plus a guaranteed-redundant later idle pass - it is never added to
+                    ' ElementInProcesse any more. Only mark it seen (and only recurse) when the recursive
+                    ' call will not immediately no-op via the MAX_DEPTH guard above - "seen" must mean
+                    ' "processed", not "attempted", or a diamond-shaped link graph could mark an element
+                    ' seen on a too-deep path and never give it its real pass via a shorter one.
+                    If Depth + 1 <= MAX_DEPTH Then
+                        MarkIdSeenThisCascade linkedElement
+                        ProcessElement linkedElement, Depth + 1, True
+                    End If
+                    ' Accepted asymmetry vs deferred mode (reviewer-10, code review): a sibling reached
+                    ' beyond MAX_DEPTH gets NO processing at all here (not even a Calc-only fallback),
+                    ' whereas deferred mode's separate inline nudge below is NOT depth-gated and still
+                    ' fires. Today's old code had one unconditional Calc-only nudge outside any depth
+                    ' check, in both modes; merging that nudge into the now depth-gated full-pass call
+                    ' removed it for Direct mode specifically. Never observed in practice (needs a 20+
+                    ' link group-chain) - left as-is rather than adding back a partial fallback that would
+                    ' re-introduce its own "did this sibling already get a full pass elsewhere" question.
+                Else
+                    ' ARES_Direct_Processing=False: UNCHANGED, byte-for-byte, from the pre-existing
+                    ' behaviour - only the seen-set skip above and the seen-marking below are new, and
+                    ' both are no-ops on the common (non-cyclic) case exercised by every existing scenario.
+                    ' bRunEngines:=False is NOT the default here on purpose: Depth+1 <> 0 already kept the
+                    ' engines from running at this call today (via the old "Depth = 0" gate) - if a future
+                    ' edit drops this explicit False (trusting the new default), the engines would start
+                    ' running at Depth > 0 in DEFERRED mode too, a real regression. Keep it explicit.
+                    If ElementInProcesse.Add(linkedElement) Then
+                        If Depth + 1 <= MAX_DEPTH Then
+                            MarkIdSeenThisCascade linkedElement
+                            ProcessElement linkedElement, Depth + 1, False
+                        End If
+                    End If
+                    ' Depth > 0 skips the engines block, and the queue-add is wiped before a fresh pass
+                    ' reaches this sibling - a GroupLength/GroupColor-fed sibling needs this INLINE call.
+                    If bCalcEnabled Then PropertyCalculation.ProcessElement linkedElement
+                End If
             End If
-            ' Depth > 0 skips the Depth-0-only calc hook, and the queue-add is wiped before a fresh pass
-            ' reaches this sibling - a GroupLength/GroupColor-fed sibling needs this INLINE call instead.
-            If bCalcEnabled Then PropertyCalculation.ProcessElement linkedElement
         End If
     Next i
 
@@ -341,6 +403,41 @@ Private Function IsElementValid(ByVal oElement As element) As Boolean
 InvalidElement:
     IsElementValid = False
 End Function
+
+' Has oElement already been fully processed (or is it the Depth=0 trigger itself) in the CURRENT top-level
+' cascade? See mSeenIds's declaration comment. Silent on a fault (mirrors PropertyRendering_StateMachine's
+' IsIdDone) - an element whose ID cannot be read simply gets no dedup, never a wrongly-skipped pass.
+Private Function IsIdSeenThisCascade(ByVal oElement As element) As Boolean
+    On Error GoTo ErrorHandler
+    Dim sKey As String
+    Dim i As Long
+
+    IsIdSeenThisCascade = False
+    sKey = DLongToString(oElement.id)
+    If Len(sKey) = 0 Then Exit Function
+
+    For i = 0 To mnSeenIds - 1
+        If mSeenIds(i) = sKey Then
+            IsIdSeenThisCascade = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    IsIdSeenThisCascade = False
+End Function
+
+Private Sub MarkIdSeenThisCascade(ByVal oElement As element)
+    On Error Resume Next
+    Dim sKey As String
+    sKey = DLongToString(oElement.id)
+    If Len(sKey) = 0 Then Exit Sub
+
+    ReDim Preserve mSeenIds(0 To mnSeenIds)
+    mSeenIds(mnSeenIds) = sKey
+    mnSeenIds = mnSeenIds + 1
+End Sub
 
 ' NOTE: IsNumericText lives in StringsInEl - this module no longer calls it. It is the NUMERIC GATE of
 ' PropertyRendering's forge protection; PropertyRendering is its only caller.

@@ -2,7 +2,7 @@
 ' Description: The render branches (1-3b) for an already-bound element. Full mechanism (the 4-branch
 '              release state machine): see _bmad/docs/property-rendering-mechanics.md.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: PropertyTagging, StringsInEl, ErrorHandlerClass (global ErrorHandler),
+' Dependencies: PropertyTagging, StringsInEl, PropertyCalculation, ErrorHandlerClass (global ErrorHandler),
 '               PropertyRendering (Core), PropertyRendering_Types, PropertyRendering_TemplateModel,
 '               PropertyRendering_Authoring, PropertyRendering_Serialization, PropertyRendering_Reporting
 
@@ -197,6 +197,10 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
                             AppendValue newToks(k), "", newNames, newValues, nNew
                         End If
                     Next k
+                    ' The user's edit is about to release every token in ents(idx) that has no surviving
+                    ' entry in newNames - warn for the ones a calc rule governs, BEFORE ents(idx) is
+                    ' overwritten below. See "WarnGovernedTokensLost" in property-rendering-mechanics.md.
+                    WarnGovernedTokensLost oEl, ents(idx).ValNames, ents(idx).nVals, newNames, nNew
                     ents(idx).Template = sNewTemplate
                     SetEntryValues ents, idx, newNames, newValues, nNew
                     bRepaint = True
@@ -204,6 +208,8 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
                 Else
                     ' Alignment SUCCEEDED and concluded nothing survived - a deliberate release, not a
                     ' failure to understand the text; gets its own status rather than ReportAmbiguous below.
+                    ' Every old token is lost here (newNames is empty) - warn for the governed ones.
+                    WarnGovernedTokensLost oEl, ents(idx).ValNames, ents(idx).nVals, newNames, nNew
                     PropertyRendering_Reporting.ReportBindingReleased
                     RenderEntryOnElement = ENTRY_DROP
                 End If
@@ -225,7 +231,7 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
     ' Ambiguous alignment (or an invalid re-authored Template): keep only the literal tokens the visible
     ' still carries, drop everything else, and say so.
     PropertyRendering_Reporting.ReportAmbiguous
-    RenderEntryOnElement = ApplyConservativeFallback(ents, idx, sVisible)
+    RenderEntryOnElement = ApplyConservativeFallback(oEl, ents, idx, sVisible)
     Exit Function
 
 ErrorHandler:
@@ -235,8 +241,10 @@ End Function
 
 ' Conservative outcome: the visible text BECOMES the Template. Converges next pass (branch 2 or 1); an
 ' ill-formed or token-free visible RELEASES the entry outright instead. Full rationale: see
-' "ApplyConservativeFallback" in property-rendering-mechanics.md.
-Private Function ApplyConservativeFallback(ByRef ents() As RenderEntry, ByVal idx As Long, ByVal sVisible As String) As Long
+' "ApplyConservativeFallback" in property-rendering-mechanics.md. oEl is needed only to warn for a
+' released token a calc rule governs (WarnGovernedTokensLost) - this is still "the user edited the text",
+' the same release event as Branch 3's, just reached via the ambiguous fallback instead of AlignVisible.
+Private Function ApplyConservativeFallback(ByVal oEl As element, ByRef ents() As RenderEntry, ByVal idx As Long, ByVal sVisible As String) As Long
     On Error GoTo ErrorHandler
 
     Dim lits() As String
@@ -248,15 +256,25 @@ Private Function ApplyConservativeFallback(ByRef ents() As RenderEntry, ByVal id
     Dim n As Long
 
     ApplyConservativeFallback = ENTRY_DROP
-
-    If Not PropertyRendering_TemplateModel.TemplateIsWellFormed(sVisible, True) Then Exit Function
-    If Not PropertyRendering_TemplateModel.ParseTemplate(sVisible, lits, toks, nTok, True) Then Exit Function
-    If nTok = 0 Then Exit Function
-
     n = 0
+
+    If Not PropertyRendering_TemplateModel.TemplateIsWellFormed(sVisible, True) Then
+        WarnGovernedTokensLost oEl, ents(idx).ValNames, ents(idx).nVals, names, n
+        Exit Function
+    End If
+    If Not PropertyRendering_TemplateModel.ParseTemplate(sVisible, lits, toks, nTok, True) Then
+        WarnGovernedTokensLost oEl, ents(idx).ValNames, ents(idx).nVals, names, n
+        Exit Function
+    End If
+    If nTok = 0 Then
+        WarnGovernedTokensLost oEl, ents(idx).ValNames, ents(idx).nVals, names, n
+        Exit Function
+    End If
+
     For i = 0 To nTok - 1
         AppendValue toks(i), "", names, values, n
     Next i
+    WarnGovernedTokensLost oEl, ents(idx).ValNames, ents(idx).nVals, names, n
 
     ents(idx).Template = sVisible
     SetEntryValues ents, idx, names, values, n
@@ -294,3 +312,29 @@ Private Function EntryIsConsistent(ByRef ent As RenderEntry) As Boolean
 ErrorHandler:
     EntryIsConsistent = False
 End Function
+
+' A user edit just released oldNames(0..oldCount-1)'s tokens that have no surviving entry in
+' newNames(0..newCount-1) - warn for each released token whose property is governed by a calc rule
+' (PropertyCalculation.GetCalcRuleForProperty). One-shot per element pass via ReportGovernedValue, so
+' losing several governed tokens in the same pass still surfaces a single status line, consistent with
+' every other one-shot report in this module.
+' Deliberately NOT called at bind time (TryAuthorBearer): every token is freshly attached and unedited
+' there, so "editing this won't change it" would be true before any edit ever happened - it only means
+' something once an edit has actually cost the binding a governed token. See "WarnGovernedTokensLost" in
+' property-rendering-mechanics.md.
+Private Sub WarnGovernedTokensLost(ByVal oEl As element, ByRef oldNames() As String, ByVal oldCount As Long, ByRef newNames() As String, ByVal newCount As Long)
+    On Error Resume Next
+
+    Dim i As Long
+    Dim kind As CalcSource
+    Dim sArg As String
+    Dim sCanonical As String
+
+    For i = 0 To oldCount - 1
+        If Not HasValueEntry(oldNames(i), newNames, newCount) Then
+            If PropertyCalculation.GetCalcRuleForProperty(oldNames(i), oEl, kind, sArg, sCanonical) Then
+                PropertyRendering_Reporting.ReportGovernedValue oldNames(i)
+            End If
+        End If
+    Next i
+End Sub
