@@ -383,18 +383,64 @@ ErrorHandler:
 End Function
 
 ' A token name is acceptable when it is non-empty, carries no grammar metacharacter, and - at runtime -
-' names a property the DGNLib really declares.
+' names a property the DGNLib really declares. A "Base:Member" name (the split-coordinate field syntax,
+' Prop[Name:X]/Prop[Name:Y] - see plan-xy-split-coordinate-properties.md) validates the BASE against the
+' DGNLib as before, and the MEMBER strictly against the fixed X/Y convention (no ItemType introspection
+' here by design - the convention is fixed, not discovered) - regardless of bValidateNames, since this is a
+' grammar-level constraint like the "[" / ";" checks above, not a DGNLib-existence check like
+' IsKnownProperty is.
 Private Function IsAcceptableTokenName(ByVal sName As String, ByVal bValidateNames As Boolean) As Boolean
     IsAcceptableTokenName = False
     If Len(Trim(sName)) = 0 Then Exit Function
     If InStr(1, sName, "[") > 0 Then Exit Function
     If InStr(1, sName, ";") > 0 Then Exit Function
     If PropertyRendering_Serialization.ValueHasIllegalChar(sName) Then Exit Function
+
+    Dim sBase As String, sMember As String
+    If Not SplitTokenMember(sName, sBase, sMember) Then Exit Function     ' malformed "A:B:C" / ":X" / "Name:"
+    If Len(Trim(sBase)) = 0 Then Exit Function
+
+    If Len(sMember) > 0 Then
+        If StrComp(sMember, "X", vbTextCompare) <> 0 Then
+            If StrComp(sMember, "Y", vbTextCompare) <> 0 Then Exit Function
+        End If
+    End If
+
     If Not bValidateNames Then
         IsAcceptableTokenName = True
         Exit Function
     End If
-    IsAcceptableTokenName = PropertyRendering.IsKnownProperty(sName)
+    IsAcceptableTokenName = PropertyRendering.IsKnownProperty(sBase)
+End Function
+
+' Splits a token name into its BASE property name and, if present, a ":Member" suffix - the split-
+' coordinate field syntax, Prop[Name:X]/Prop[Name:Y]. sMember = "" when sTokenName carries no ":" (the
+' ordinary, unsplit case - every token before this feature). Pure syntax splitting only, no DGNLib/ItemType
+' validation here (see IsAcceptableTokenName for that) - False only on a MALFORMED colon shape (more than
+' one ":", or nothing on one side of it), never on an unrecognised member name (that is
+' IsAcceptableTokenName's job). Public: also used by PropertyRendering_Authoring to route the three
+' different name resolutions a token can need (base-only for the calc-rule/attachment lookups, base+member
+' split for the value read) - see the plan's §5.3 for why these must not be conflated.
+Public Function SplitTokenMember(ByVal sTokenName As String, ByRef sBase As String, ByRef sMember As String) As Boolean
+    Dim nPos As Long
+
+    SplitTokenMember = False
+    sBase = sTokenName
+    sMember = ""
+
+    nPos = InStr(1, sTokenName, ":")
+    If nPos = 0 Then
+        SplitTokenMember = True
+        Exit Function
+    End If
+
+    If InStr(nPos + 1, sTokenName, ":") > 0 Then Exit Function   ' more than one ":" - malformed
+    If nPos = 1 Then Exit Function                                ' ":X" - nothing before the ":"
+    If nPos = Len(sTokenName) Then Exit Function                  ' "Name:" - nothing after the ":"
+
+    sBase = Left(sTokenName, nPos - 1)
+    sMember = Mid(sTokenName, nPos + 1)
+    SplitTokenMember = True
 End Function
 
 ' The exact substring a token occupies in the text. This is the "unset" cue Expand writes, and the thing

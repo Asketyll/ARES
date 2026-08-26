@@ -372,6 +372,66 @@ ErrorHandler:
     Set GetItemTypeFromElement = Nothing
 End Function
 
+' True when oItem has EXACTLY 2 members, named (case-insensitively, matching IsKnownProperty's convention)
+' "X" and "Y" in either order - the shape a split-coordinate ItemType must have (Coord/CellCoord calc
+' sources write X/Y independently into such an item instead of one combined "X;Y" string; PropertyRendering's
+' "Prop[Name:X]"/"Prop[Name:Y]" token syntax reads one field of it). False for a 1-member item (today's
+' single-field shape - unchanged behaviour, by construction, since every caller only special-cases a True
+' result), False for 3+ members, False for 2 members not named X/Y. sXMember/sYMember are set to the
+' member's REAL property name (its own casing, as declared in the DGNLib) so callers pass the exact access
+' string on to GetPropertyValueFromElement/SetPropertyValueToElement - never assume the literal "X"/"Y"
+' casing the caller asked about is what the ItemType actually declares.
+' Single source of truth for "is this a split coordinate item" - do not re-derive this shape test elsewhere.
+Public Function GetXYSplitMembers(ByVal oItem As ItemType, ByRef sXMember As String, ByRef sYMember As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    GetXYSplitMembers = False
+    sXMember = ""
+    sYMember = ""
+    If oItem Is Nothing Then Exit Function
+
+    Dim oProp As ItemTypeProperty
+    Dim nCount As Long
+    Dim sName As String
+
+    nCount = 0
+    Do
+        Set oProp = oItem.Find("*", oProp)
+        If oProp Is Nothing Then Exit Do
+
+        nCount = nCount + 1
+        If nCount > 2 Then                            ' 3+ members - not a split-coordinate item
+            sXMember = ""
+            sYMember = ""
+            Exit Function
+        End If
+
+        sName = oProp.PropertyName
+        If StrComp(sName, "X", vbTextCompare) = 0 Then
+            sXMember = sName
+        ElseIf StrComp(sName, "Y", vbTextCompare) = 0 Then
+            sYMember = sName
+        Else
+            sXMember = ""                             ' a member not named X or Y - not this shape
+            sYMember = ""
+            Exit Function
+        End If
+    Loop
+
+    GetXYSplitMembers = (nCount = 2) And (Len(sXMember) > 0) And (Len(sYMember) > 0)
+    If Not GetXYSplitMembers Then
+        sXMember = ""
+        sYMember = ""
+    End If
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetXYSplitMembers"
+    GetXYSplitMembers = False
+    sXMember = ""
+    sYMember = ""
+End Function
+
 ' Get the ItemTypeLibrary an element references items from (Nothing if the element has none).
 Public Function GetItemTypeLibraryFromElement(ByVal El As element, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As ItemTypeLibrary
     On Error GoTo ErrorHandler

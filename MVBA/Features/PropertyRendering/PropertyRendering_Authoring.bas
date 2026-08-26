@@ -25,6 +25,7 @@ Private Function TryAuthorBearer(ByRef oEl As element, ByVal sText As String, By
     Dim n As Long
     Dim j As Long
     Dim bAllAttached As Boolean
+    Dim sBase As String, sMember As String
 
     TryAuthorBearer = False
 
@@ -52,11 +53,15 @@ Private Function TryAuthorBearer(ByRef oEl As element, ByVal sText As String, By
     bAllAttached = True
     n = 0
     For j = 0 To nTok - 1
-        If Not CustomPropertyHandler.IsItemAttachedToElement(oEl, toks(j)) Then
+        ' Attachment is ITEM-scoped, not field-scoped (a "Base:X" and a "Base:Y" token both address the
+        ' SAME item) - resolve the BASE name before checking/looking up the calc rule. See
+        ' plan-xy-split-coordinate-properties.md §5.3.
+        PropertyRendering_TemplateModel.SplitTokenMember toks(j), sBase, sMember
+        If Not CustomPropertyHandler.IsItemAttachedToElement(oEl, sBase) Then
             bAllAttached = False
         Else
             AppendValue toks(j), "", names, values, n
-            WarnStaticCellTextCycle oEl, toks(j)
+            WarnStaticCellTextCycle oEl, sBase
         End If
     Next j
 
@@ -288,6 +293,7 @@ Public Function ReadCurrentValues(ByVal oEl As element, ByRef ent As RenderEntry
     Dim i As Long
     Dim vVal As Variant
     Dim sVal As String
+    Dim sBase As String, sMember As String
 
     ReadCurrentValues = False
     n = 0
@@ -295,7 +301,18 @@ Public Function ReadCurrentValues(ByVal oEl As element, ByRef ent As RenderEntry
 
     For i = 0 To nTok - 1
         sVal = ""
-        vVal = CustomPropertyHandler.GetPropertyValueFromElement(oEl, toks(i), toks(i))
+        ' A "Base:Member" token (the split-coordinate field syntax) reads the named MEMBER off the BASE
+        ' item, with bNoFallback:=True - mandatory, not optional (see plan-xy-split-coordinate-properties.md
+        ' §3.1): without it, a legitimately-empty X could silently fall through to
+        ' GetPropertyValueFromElement's "first non-Null member wins" fallback and answer with Y instead. An
+        ' ordinary token (no ":") keeps the EXACT call it always had - including the fallback that recovers
+        ' a hand-authored DGNLib's mismatched access string - unaffected by this feature.
+        PropertyRendering_TemplateModel.SplitTokenMember toks(i), sBase, sMember
+        If Len(sMember) > 0 Then
+            vVal = CustomPropertyHandler.GetPropertyValueFromElement(oEl, sMember, sBase, , True)
+        Else
+            vVal = CustomPropertyHandler.GetPropertyValueFromElement(oEl, toks(i), toks(i))
+        End If
         ' Nested tests, never an And chain: VBA evaluates both operands, and VarType/CStr on an array
         ' would raise.
         If IsNull(vVal) Then

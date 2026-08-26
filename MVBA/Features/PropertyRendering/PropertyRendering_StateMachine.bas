@@ -329,10 +329,15 @@ Private Sub WarnGovernedTokensLost(ByVal oEl As element, ByRef oldNames() As Str
     Dim kind As CalcSource
     Dim sArg As String
     Dim sCanonical As String
+    Dim sBase As String, sMember As String
 
     For i = 0 To oldCount - 1
         If Not HasValueEntry(oldNames(i), newNames, newCount) Then
-            If PropertyCalculation.GetCalcRuleForProperty(oldNames(i), oEl, kind, sArg, sCanonical) Then
+            ' The calc rule targets the ITEM as a whole - a lost "Base:X"/"Base:Y" split-coordinate token
+            ' resolves the rule lookup against the BASE name, never the full token. See
+            ' plan-xy-split-coordinate-properties.md §5.3.
+            PropertyRendering_TemplateModel.SplitTokenMember oldNames(i), sBase, sMember
+            If PropertyCalculation.GetCalcRuleForProperty(sBase, oEl, kind, sArg, sCanonical) Then
                 PropertyRendering_Reporting.ReportGovernedValue oldNames(i)
             End If
         End If

@@ -1084,6 +1084,22 @@ Public Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVal
     If Not CustomPropertyHandler.IsItemAttachedToElement(s, P) Then Exit Function
     ApplyValueToSibling = True
 
+    ' Split-coordinate items: detected by the TARGET ITEM'S SHAPE alone (a 2-field X/Y ItemType - see
+    ' CustomPropertyHandler.GetXYSplitMembers), NOT by which SourceKind produced value. Any calc rule
+    ' (Coord/CellCoord, but also Value[...] or any other source) that targets such an item takes this
+    ' split-write path; ApplyXYValueToSibling rejects outright (writes nothing) if value is not exactly
+    ' "part;part" once non-empty, rather than truncating silently. Every OTHER target (the 1-field shape
+    ' every other property uses) takes the unchanged single-field path below unmodified - GetXYSplitMembers
+    ' is False for a 1-member item by construction, so this is a pure no-op check for every property that
+    ' isn't a split coordinate.
+    Dim oItem As ItemType
+    Dim sXMember As String, sYMember As String
+    Set oItem = CustomPropertyHandler.GetItemTypeFromElement(s, P, ARESConstants.ARES_NAME_LIBRARY_TYPE)
+    If CustomPropertyHandler.GetXYSplitMembers(oItem, sXMember, sYMember) Then
+        ApplyXYValueToSibling s, P, sXMember, sYMember, value
+        Exit Function
+    End If
+
     ' Read the current value. Nested read-then-branch keeps CStr off a possible array (no short-circuit
     ' in VBA); an attached-but-empty property reads back Null -> sCurrent "".
     Dim vCurrent As Variant
@@ -1132,6 +1148,112 @@ ErrorHandler:
     ' used to detect "no member carried P", so leaving it as-is is correct.
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ApplyValueToSibling"
 End Function
+
+' Split-coordinate write path for ApplyValueToSibling (design: see plan-xy-split-coordinate-properties.md
+' §3, Option C). value is the combined "X;Y" string a Coord/CellCoord source produced (FormatCoord's own
+' field separator) - split as a plain STRING operation, never re-parsed as a number here (both target
+' fields are String properties; no numeric round-trip is involved). Reads/compares/writes each field
+' INDEPENDENTLY, each behind its own bNoFallback:=True call - mandatory, not optional: the fallback that
+' resolves a mismatched access string by scanning ALL of an item's members (CustomPropertyHandler.
+' GetFirstPropertyValue/SetFirstPropertyValue) would otherwise silently answer with/write the WRONG axis on
+' a genuinely multi-property item (see the plan's §3.1). "Empty" for the transition guard means BOTH
+' components empty - Coord/CellCoord's source (GetElementAnchorPoint) is always fully populated or not at
+' all, never just one axis (see the plan's §4), so this is the only shape this path is ever reached with.
+' A fault between the X write and the Y write (element becomes invalid mid-pass) is accepted as-is per the
+' plan's §4/lead's decision - no extra IsElementValid re-check between the two writes; a later pass
+' recomputes and converges, same as any other transient write failure this module already tolerates.
+'
+' The split is triggered by the TARGET ITEM'S SHAPE alone (GetXYSplitMembers), not by which SourceKind
+' produced value - a Value[...] literal, not just Coord/CellCoord, reaching a 2-field X/Y item takes this
+' path too (see the plan's §1: "any ItemType matching this shape, whatever its name"). A malformed value
+' (not exactly 2 non-empty ";"-separated parts) is therefore possible here - e.g. Value[bonjour] (0 ";")
+' or Value[A;B;C] (2 ";"). Per lead's decision, this is REJECTED outright (nothing written to either
+' field) rather than silently truncated - "no value rather than a wrong value", consistent with
+' IsProtectedTriggerCell/IsSelfSourceRatchet/GetElementAnchorPoint elsewhere in ARES. A truly empty value
+' (value = "") is NOT malformed - it is the legitimate empty-transition case handled below.
+Private Sub ApplyXYValueToSibling(ByVal s As element, ByVal P As String, ByVal sXMember As String, ByVal sYMember As String, ByVal value As String)
+    On Error GoTo ErrorHandler
+
+    Dim parts() As String
+    Dim sNewX As String, sNewY As String
+    If Len(value) > 0 Then
+        parts = Split(value, ";")
+        If (UBound(parts) - LBound(parts)) <> 1 Then
+            ReportRejected                        ' not exactly 2 parts - malformed, write nothing
+            Exit Sub
+        End If
+        sNewX = parts(LBound(parts))
+        sNewY = parts(LBound(parts) + 1)
+        If Len(sNewX) = 0 Or Len(sNewY) = 0 Then
+            ReportRejected                        ' a part is empty ("X;" or ";Y") - malformed, write nothing
+            Exit Sub
+        End If
+    End If
+
+    Dim vCurX As Variant, vCurY As Variant
+    Dim sCurX As String, sCurY As String
+    vCurX = CustomPropertyHandler.GetPropertyValueFromElement(s, sXMember, P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True)
+    vCurY = CustomPropertyHandler.GetPropertyValueFromElement(s, sYMember, P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True)
+    If IsNull(vCurX) Then sCurX = "" Else sCurX = CStr(vCurX)
+    If IsNull(vCurY) Then sCurY = "" Else sCurY = CStr(vCurY)
+
+    If Len(sNewX) > 0 Or Len(sNewY) > 0 Then
+        ' Non-empty: write whichever field differs (independent compare-guard per field - see the plan's
+        ' §4; X/Y are never independently absent for THIS source, so in practice both differ together).
+        Dim bChanged As Boolean
+        bChanged = False
+        If sCurX <> sNewX Then
+            If CustomPropertyHandler.SetPropertyValueToElement(s, sXMember, sNewX, P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True) Then
+                bChanged = True
+            Else
+                ReportRejected
+            End If
+        End If
+        If sCurY <> sNewY Then
+            If CustomPropertyHandler.SetPropertyValueToElement(s, sYMember, sNewY, P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True) Then
+                bChanged = True
+            Else
+                ReportRejected
+            End If
+        End If
+        If bChanged Then
+            PropertyRendering.NoteDirtyGroup s
+            PropertyActuator.ProcessElement s
+        End If
+    Else
+        ' Empty value: act ONLY on a real non-empty -> empty TRANSITION, mirroring the single-field path.
+        ' "Empty" here means BOTH components empty (see header comment).
+        If Len(sCurX) > 0 Or Len(sCurY) > 0 Then
+            Dim bEmptiedX As Boolean, bEmptiedY As Boolean
+            bEmptiedX = True
+            bEmptiedY = True
+            If IsDetachEmptyEnabled() Then
+                ' Option ON: delegate the detach to the tagger - item-scoped, not field-scoped, same as
+                ' the single-field path (DetachRuleProperty already detaches the whole item today).
+                PropertyTagging.DetachRuleProperty s, P
+            Else
+                If Len(sCurX) > 0 Then
+                    bEmptiedX = CustomPropertyHandler.SetPropertyValueToElement(s, sXMember, "", P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True)
+                    If Not bEmptiedX Then ReportRejected
+                End If
+                If Len(sCurY) > 0 Then
+                    bEmptiedY = CustomPropertyHandler.SetPropertyValueToElement(s, sYMember, "", P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True)
+                    If Not bEmptiedY Then ReportRejected
+                End If
+            End If
+            ' Gated on BOTH clears having been accepted - a partial rejection still warrants a repaint
+            ' (something did change), mirrored loosely on the single-field "gated on acceptance" rule.
+            If bEmptiedX And bEmptiedY Then
+                PropertyRendering.NoteDirtyGroup s
+                PropertyActuator.ProcessElement s
+            End If
+        End If
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ApplyXYValueToSibling"
+End Sub
 
 ' Option (ARES_Calc_Detach_Empty): when True, an emptied value is DETACHED (delegated to the tagger)
 ' instead of cleared. Mirrors IsEnabled - fail-closed False on any nil; lazy ARESConfig init.
