@@ -3,14 +3,23 @@
 '              VALUE from a per-property calc rule (ARES_Calc_Rules) and writes it - but ONLY where that
 '              property is ALREADY ATTACHED (by PropertyTagging). Never attaches/detaches directly.
 '              Full grammar, engine passes and coupling doctrine: see _bmad/docs/calc-rules-grammar.md.
+'              This module is the Core - rule cache, grammar/parsing, canonicalisation, Public API,
+'              orchestration AND reporting (no dedicated Reporting module here, unlike PropertyRendering -
+'              see the split plan §1/§4 for why: only 6 one-shot flags, and the sole read-accessor
+'              (MultipleGeometriesReported) is externally pinned to Core anyway). Source evaluation lives
+'              in PropertyCalculation_SourceEval; trigger-cell/trigger-level push mechanics live in
+'              PropertyCalculation_TriggerPush.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, CustomPropertyHandler,
-'               PropertyTagging, PropertyRendering, PropertyActuator, StringsInEl, Link, Length, LangManager,
-'               ErrorHandlerClass (global ErrorHandler), CallStackClass (global CallStack)
+'               PropertyTagging, PropertyRendering, PropertyActuator, LangManager,
+'               ErrorHandlerClass (global ErrorHandler), CallStackClass (global CallStack),
+'               PropertyCalculation_SourceEval, PropertyCalculation_TriggerPush
 '
 ' NOTE: ApplyValueToSibling calls PropertyActuator.ProcessElement on a sibling it just pushed a value to -
 ' a two-way coupling (PropertyActuator depends back on this module for IsTriggerCell/GetCalcRuleForProperty).
 ' Not a layering violation: ApplyValueToSibling is the only code that knows which sibling just changed.
+' This coupling is orthogonal to the split and MUST stay intact/Public - do not move IsTriggerCell/
+' IsTriggerLevel/GetCalcRuleForProperty out of this module.
 
 Option Explicit
 
@@ -23,9 +32,6 @@ Private Const PROP_KEYWORD As String = "PROP"
 ' Upper bound accepted for Coord[n]/Length[n]/GroupLength[n] decimal counts (syntactic; runtime formatting
 ' clamps to a sane max). Also within Length.GetLength's Byte RND range (255 is its reserved error sentinel).
 Private Const SOURCE_MAX_DECIMALS As Long = 254
-' Runtime clamp so VBA Round never faults on an absurd decimal count (no coordinate/length ever needs > 15
-' places).
-Private Const SOURCE_ROUND_CLAMP As Long = 15
 
 ' Source vocabulary of a calc rule's right-hand side. csCell*/csLvl* are GROUP sources (self-included
 ' member scan by cell name / level name); the rest are SELF sources except csGroupLength (GROUP, by
@@ -55,8 +61,9 @@ End Enum
 
 ' One parsed calc rule: Prop[TargetProp] [& conditions]* = Source. Conditions() (RuleGrammar.RuleCondition)
 ' is bounded by nCond. SourceArg holds the pattern (CellText/CellCoord/CellId), the fixed text (Value), the
-' decimals string (Coord[n]) - empty for Id and bare Coord.
-Private Type CalcRuleInfo
+' decimals string (Coord[n]) - empty for Id and bare Coord. Public: Module B (SourceEval) and Module C
+' (TriggerPush) receive/return it across the module boundary.
+Public Type CalcRuleInfo
     TargetProp As String
     Conditions() As RuleGrammar.RuleCondition
     nCond As Long
@@ -178,11 +185,34 @@ Public Function IsTriggerCell(ByVal oEl As element) As Boolean
     EnsureCalcRulesParsed
     If mnCalcCount = 0 Then Exit Function
 
-    IsTriggerCell = AnyPushableSourcePatternMatches(oEl.AsCellElement.Name)
+    IsTriggerCell = PropertyCalculation_TriggerPush.AnyPushableSourcePatternMatches(oEl.AsCellElement.Name)
     Exit Function
 
 ErrorHandler:
     IsTriggerCell = False
+End Function
+
+' Trigger test, mirrors IsTriggerCell but for a LEVEL match instead of a CELL-name match: oEl is a trigger
+' when its OWN Level's name matches a pushable Lvl* source's pattern of at least one calc rule. NO element-
+' type restriction (unlike IsTriggerCell's IsCellElement gate) - a Line/Arc on a matching level is a trigger
+' just as much as a cell would be.
+Public Function IsTriggerLevel(ByVal oEl As element) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsTriggerLevel = False
+    If oEl Is Nothing Then Exit Function
+    If Not oEl.IsGraphical Then Exit Function
+    If oEl.Level Is Nothing Then Exit Function
+    If oEl.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
+
+    EnsureCalcRulesParsed
+    If mnCalcCount = 0 Then Exit Function
+
+    IsTriggerLevel = PropertyCalculation_TriggerPush.AnyPushableLvlSourcePatternMatches(oEl.Level.Name)
+    Exit Function
+
+ErrorHandler:
+    IsTriggerLevel = False
 End Function
 
 ' Depth-0 hook: (1) BEARING pass - fill/recompute each calc-target property oEl carries; (2) TRIGGER-CELL
@@ -210,8 +240,8 @@ Public Sub ProcessElement(ByVal oEl As element)
 
     BearingPass oEl
 
-    If IsTriggerCell(oEl) Then PushCellDerivedValuesToMembers oEl
-    If IsTriggerLevel(oEl) Then PushLvlDerivedValuesToMembers oEl
+    If IsTriggerCell(oEl) Then PropertyCalculation_TriggerPush.PushCellDerivedValuesToMembers oEl
+    If IsTriggerLevel(oEl) Then PropertyCalculation_TriggerPush.PushLvlDerivedValuesToMembers oEl
     CallStack.Pop
     Exit Sub
 
@@ -219,6 +249,65 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ProcessElement"
     If bStackPushed Then CallStack.Pop
 End Sub
+
+' True when at least one calc rule uses GroupColor. Gates ElementChangeHandler's Branch 2 (mirrors
+' HasGroupLengthRules): GroupColor has no name/level "trigger" pattern, so it needs every sibling
+' re-evaluated inline when the linked element changes - Branch 2 already does that.
+Public Function HasGroupColorRules() As Boolean
+    On Error GoTo ErrorHandler
+
+    HasGroupColorRules = False
+    If Not IsEnabled Then Exit Function
+
+    EnsureCalcRulesParsed
+    Dim i As Long
+    For i = 0 To mnCalcCount - 1
+        If mCalcRules(i).SourceKind = csGroupColor Then
+            HasGroupColorRules = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    HasGroupColorRules = False
+End Function
+
+' True when at least one parsed calc rule uses GroupLength. Consulted by ElementChangeHandler's geometric
+' Branch 2 gate: a GroupLength rule needs every OTHER group member re-queued when the linked geometry itself
+' changes, same as Auto Lengths' own ARES_Update_Lengths gate - but must work even with Auto Lengths OFF.
+' Public so ElementChangeHandler can short-circuit without duplicating the calc-rules cache.
+Public Function HasGroupLengthRules() As Boolean
+    On Error GoTo ErrorHandler
+
+    HasGroupLengthRules = False
+    If Not IsEnabled Then Exit Function
+
+    EnsureCalcRulesParsed
+    Dim i As Long
+    For i = 0 To mnCalcCount - 1
+        If mCalcRules(i).SourceKind = csGroupLength Then
+            HasGroupLengthRules = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    HasGroupLengthRules = False
+End Function
+
+' Number of parsed calc rules currently cached. Public accessor so Module C (TriggerPush) never reads
+' mCalcRules()/mnCalcCount directly - added by the split (not in the original file).
+Public Function RuleCount() As Long
+    RuleCount = mnCalcCount
+End Function
+
+' One parsed calc rule by index, returned BY VALUE. Public accessor so Module C (TriggerPush) never reads
+' the raw array directly - added by the split (not in the original file). Cheap: CalcRuleInfo is small.
+Public Function GetRule(ByVal idx As Long) As CalcRuleInfo
+    GetRule = mCalcRules(idx)
+End Function
 
 '######################################################################################################################
 '                                          CALC-RULE GRAMMAR (single source of truth)
@@ -823,7 +912,7 @@ Public Function ResolvePropertyValue(ByVal P As String, ByVal oEl As element, By
     If idx < 0 Then Exit Function
 
     bHasRule = True
-    ResolvePropertyValue = EvaluateSource(mCalcRules(idx), oEl)
+    ResolvePropertyValue = PropertyCalculation_SourceEval.EvaluateSource(mCalcRules(idx), oEl)
     Exit Function
 
 ErrorHandler:
@@ -859,8 +948,9 @@ ErrorHandler:
 End Function
 
 ' First-match resolution: index of the first calc rule whose TargetProp = P (case-insensitive) AND whose
-' conditions match oEl; -1 if none. Order in the config = priority (specific rules first).
-Private Function FindCalcRuleForProperty(ByVal P As String, ByVal oEl As element) As Long
+' conditions match oEl; -1 if none. Order in the config = priority (specific rules first). Public: called
+' from Module C (TriggerPush)'s Push*DerivedValuesToMembers (AC3 first-match guard).
+Public Function FindCalcRuleForProperty(ByVal P As String, ByVal oEl As element) As Long
     On Error GoTo ErrorHandler
 
     FindCalcRuleForProperty = -1
@@ -911,901 +1001,6 @@ ErrorHandler:
     RuleMatchesConditions = False
 End Function
 
-' Evaluate a calc rule's Source against the bearing element. Returns the computed/fixed string ("" when a
-' CellText/GroupLength source finds no matching member, or a SELF attribute is unavailable). Coordinates are
-' ALREADY master units (mvba-docs) - no scaling.
-Private Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As String
-    On Error GoTo ErrorHandler
-
-    EvaluateSource = ""
-    Select Case r.SourceKind
-        Case csCellText, csCellCoord, csCellId, csCellLvl, csCellColor, csCellStyle, csCellWeight
-            EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind)
-        Case csLvlColor, csLvlStyle, csLvlWeight
-            EvaluateSource = EvaluateGroupLvlSource(oEl, r.SourceArg, r.SourceKind)
-        Case csValue
-            EvaluateSource = r.SourceArg
-        Case csCoord
-            Dim pt As Point3d
-            If GetElementAnchorPoint(oEl, pt) Then
-                EvaluateSource = FormatCoord(pt, ResolveDecimals(r.SourceArg, GetCoordDefaultDecimals()))
-            Else
-                ' No valid anchor (a geometry fault, or a non-graphical bearing element) -> yield NO value
-                ' (never a fabricated "0;0"), the same "no value rather than a wrong value" philosophy as a
-                ' FormatCoord fault. Log the technical anomaly (English, Number 0); ResolvePropertyValue then
-                ' returns "" -> the transition-guarded clear (safe).
-                ErrorHandler.HandleError "Property calculation: no anchor point for Coord source", 0, "", "PropertyCalculation.EvaluateSource"
-                EvaluateSource = ""
-            End If
-        Case csId
-            EvaluateSource = DLongToString(oEl.ID)
-        Case csLvl
-            If oEl.IsGraphical Then
-                If Not oEl.Level Is Nothing Then EvaluateSource = oEl.Level.Name
-            End If
-        Case csColor
-            If oEl.IsGraphical Then EvaluateSource = CStr(oEl.Color)
-        Case csStyle
-            If oEl.IsGraphical Then
-                If Not oEl.LineStyle Is Nothing Then EvaluateSource = oEl.LineStyle.Name
-            End If
-        Case csWeight
-            If oEl.IsGraphical Then EvaluateSource = CStr(oEl.LineWeight)
-        Case csGroupColor
-            EvaluateSource = EvaluateGroupColor(oEl)
-        Case csLength
-            EvaluateSource = EvaluateOwnLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
-        Case csGroupLength
-            EvaluateSource = EvaluateGroupLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
-    End Select
-    Exit Function
-
-ErrorHandler:
-    EvaluateSource = ""
-End Function
-
-' n from a Coord[n]/Length[n]/GroupLength[n] SourceArg ("" -> defaultDec).
-Private Function ResolveDecimals(ByVal sArg As String, ByVal defaultDec As Long) As Long
-    If Len(sArg) > 0 Then
-        ResolveDecimals = CLng(sArg)
-    Else
-        ResolveDecimals = defaultDec
-    End If
-End Function
-
-' Shared GROUP scan for every Cell* source: scan the group INCLUDING itself, return the FIRST matching
-' cell via foundCell and the total match count via nMatch (>= 2 drives the multi-trigger warning). An
-' ungrouped bearing element is its own sole candidate.
-Private Function FindFirstMatchingCellInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundCell As element, ByRef nMatch As Long) As Boolean
-    On Error GoTo ErrorHandler
-
-    FindFirstMatchingCellInGroup = False
-    Set foundCell = Nothing
-    nMatch = 0
-
-    Dim cands() As element
-    cands = Link.GetLink(oEl, True)
-
-    If HasElements(cands) Then
-        Dim i As Long
-        For i = LBound(cands) To UBound(cands)
-            If IsMatchingCell(cands(i), sPattern) Then
-                nMatch = nMatch + 1
-                If foundCell Is Nothing Then Set foundCell = cands(i)
-            End If
-        Next i
-    Else
-        ' Ungrouped bearing element: it is its own (single) candidate.
-        If IsMatchingCell(oEl, sPattern) Then
-            nMatch = 1
-            Set foundCell = oEl
-        End If
-    End If
-
-    FindFirstMatchingCellInGroup = Not (foundCell Is Nothing)
-    Exit Function
-
-ErrorHandler:
-    FindFirstMatchingCellInGroup = False
-    Set foundCell = Nothing
-    nMatch = 0
-End Function
-
-' Every Cell* source evaluation, unified: find the FIRST group cell matching sPattern (self-included via
-' FindFirstMatchingCellInGroup) and read the attribute named by kind off THAT cell (ReadCellSourceValue); ""
-' when no cell matches. >= 2 matches -> the multi-trigger warning (one-shot) - the same ambiguity regardless
-' of WHICH attribute is being read off the matching cell.
-Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource) As String
-    On Error GoTo ErrorHandler
-
-    EvaluateGroupCellSource = ""
-
-    Dim foundCell As element
-    Dim nMatch As Long
-    If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
-        EvaluateGroupCellSource = ReadCellSourceValue(foundCell, kind)
-    End If
-    If nMatch >= 2 Then ReportMultipleTriggers
-    Exit Function
-
-ErrorHandler:
-    EvaluateGroupCellSource = ""
-End Function
-
-' Read ONE attribute off a SPECIFIC cell element (already located - either by FindFirstMatchingCellInGroup
-' during the bearing pass, or as the trigger cell itself during the push pass). Never fabricates a value:
-' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/CellCoord philosophy). Coordinates use
-' the default decimals (no [n] override on a Cell* source - the bracket already carries the pattern).
-Private Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSource) As String
-    On Error GoTo ErrorHandler
-
-    ReadCellSourceValue = ""
-    Select Case kind
-        Case csCellText
-            ' A sub-text the RENDERER writes must not feed the value that governs it (self-ratchet). The
-            ' exclusion is a function of the SOURCE CELL, resolved here rather than threaded through
-            ' every caller.
-            Dim exIds() As Long
-            Dim nEx As Long
-            If PropertyRendering.GetExcludedSubIds(oCell, exIds, nEx) Then
-                ReadCellSourceValue = StringsInEl.GetConcatenatedTextExcluding(oCell, exIds, nEx)
-            Else
-                ReadCellSourceValue = StringsInEl.GetConcatenatedText(oCell)
-            End If
-        Case csCellCoord
-            Dim pt As Point3d
-            If GetElementAnchorPoint(oCell, pt) Then
-                ReadCellSourceValue = FormatCoord(pt, GetCoordDefaultDecimals())
-            Else
-                ErrorHandler.HandleError "Property calculation: no anchor point for CellCoord source", 0, "", "PropertyCalculation.ReadCellSourceValue"
-            End If
-        Case csCellId
-            ReadCellSourceValue = DLongToString(oCell.ID)
-        Case csCellLvl
-            If Not oCell.Level Is Nothing Then ReadCellSourceValue = oCell.Level.Name
-        Case csCellColor
-            ' FillMode=2-aware resolution - see ReadLvlSourceValue's csLvlColor comment for the full
-            ' rationale. CellColor has no ByLevel/ByCell symbolic state of its own, so
-            ' ResolveFillAwareColor's result is used as-is.
-            ReadCellSourceValue = CStr(ResolveFillAwareColor(oCell))
-        Case csCellStyle
-            If Not oCell.LineStyle Is Nothing Then ReadCellSourceValue = oCell.LineStyle.Name
-        Case csCellWeight
-            ReadCellSourceValue = CStr(oCell.LineWeight)
-    End Select
-    Exit Function
-
-ErrorHandler:
-    ReadCellSourceValue = ""
-End Function
-
-' True when sName matches at least one of sPattern's "|" -separated parts (case-insensitive, wildcards) -
-' the same alternation grammar as a tag/calc CONDITION. Shared by every cell-name-vs-pattern comparison
-' in this module so the alternation is honoured consistently everywhere.
-Private Function MatchesAnyPattern(ByVal sName As String, ByVal sPattern As String) As Boolean
-    On Error GoTo ErrorHandler
-
-    MatchesAnyPattern = False
-
-    Dim parts() As String
-    parts = Split(sPattern, ARESConstants.ARES_VAR_DELIMITER)
-
-    Dim i As Long
-    For i = LBound(parts) To UBound(parts)
-        If Len(parts(i)) > 0 Then
-            If RuleGrammar.LikeCI(sName, parts(i)) Then
-                MatchesAnyPattern = True
-                Exit Function
-            End If
-        End If
-    Next i
-    Exit Function
-
-ErrorHandler:
-    MatchesAnyPattern = False
-End Function
-
-' True when el is a cell whose name matches sPattern (MatchesAnyPattern - wildcards + "|" alternation).
-Private Function IsMatchingCell(ByVal el As element, ByVal sPattern As String) As Boolean
-    On Error GoTo ErrorHandler
-
-    IsMatchingCell = False
-    If el Is Nothing Then Exit Function
-    If Not el.IsCellElement Then Exit Function
-    IsMatchingCell = MatchesAnyPattern(el.AsCellElement.Name, sPattern)
-    Exit Function
-
-ErrorHandler:
-    IsMatchingCell = False
-End Function
-
-' True when el carries a Level whose name matches sPattern (MatchesAnyPattern - wildcards + "|"
-' alternation). Unlike IsMatchingCell, NO element-type restriction: a Level can be carried by any graphical
-' element (Line, Arc, Shape, cell, text...), not just a cell - the whole point of Lvl* sources is to cover
-' the case where the group's authority is a plain geometry on a named level, not a named cell.
-Private Function IsMatchingLevel(ByVal el As element, ByVal sPattern As String) As Boolean
-    On Error GoTo ErrorHandler
-
-    IsMatchingLevel = False
-    If el Is Nothing Then Exit Function
-    If Not el.IsGraphical Then Exit Function
-    If el.Level Is Nothing Then Exit Function
-    IsMatchingLevel = MatchesAnyPattern(el.Level.Name, sPattern)
-    Exit Function
-
-ErrorHandler:
-    IsMatchingLevel = False
-End Function
-
-' Shared GROUP scan for every Lvl* source, mirroring FindFirstMatchingCellInGroup but matching on LEVEL
-' name instead of cell name.
-Private Function FindFirstMatchingLevelInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundEl As element, ByRef nMatch As Long) As Boolean
-    On Error GoTo ErrorHandler
-
-    FindFirstMatchingLevelInGroup = False
-    Set foundEl = Nothing
-    nMatch = 0
-
-    Dim cands() As element
-    cands = Link.GetLink(oEl, True)
-
-    If HasElements(cands) Then
-        Dim i As Long
-        For i = LBound(cands) To UBound(cands)
-            If IsMatchingLevel(cands(i), sPattern) Then
-                nMatch = nMatch + 1
-                If foundEl Is Nothing Then Set foundEl = cands(i)
-            End If
-        Next i
-    Else
-        ' Ungrouped bearing element: it is its own (single) candidate.
-        If IsMatchingLevel(oEl, sPattern) Then
-            nMatch = 1
-            Set foundEl = oEl
-        End If
-    End If
-
-    FindFirstMatchingLevelInGroup = Not (foundEl Is Nothing)
-    Exit Function
-
-ErrorHandler:
-    FindFirstMatchingLevelInGroup = False
-    Set foundEl = Nothing
-    nMatch = 0
-End Function
-
-' Every Lvl* source evaluation, unified: read kind off the first Level-matching group member. Uses its
-' OWN ReportMultipleLvlTriggers, not ReportMultipleTriggers - a Lvl* collision may involve no cell at all.
-Private Function EvaluateGroupLvlSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource) As String
-    On Error GoTo ErrorHandler
-
-    EvaluateGroupLvlSource = ""
-
-    Dim foundEl As element
-    Dim nMatch As Long
-    If FindFirstMatchingLevelInGroup(oEl, sPattern, foundEl, nMatch) Then
-        EvaluateGroupLvlSource = ReadLvlSourceValue(foundEl, kind)
-    End If
-    If nMatch >= 2 Then ReportMultipleLvlTriggers
-    Exit Function
-
-ErrorHandler:
-    EvaluateGroupLvlSource = ""
-End Function
-
-' csLvlColor/csLvlWeight: Color/LineWeight is a 3-state MicroStation value (explicit / ByLevel / ByCell).
-' Only ByLevel resolves here (via the element's own Level default); ByCell yields "" - never fabricate.
-' csLvlColor tests ResolveFillAwareColor's result, not .Color directly, so FillMode=2 is resolved first.
-' csLvlStyle has no ByLevel/ByCell equivalent (LineStyle is an object, not a sentinel) - reads it as-is.
-Private Function ReadLvlSourceValue(ByVal oFoundEl As element, ByVal kind As CalcSource) As String
-    On Error GoTo ErrorHandler
-
-    ReadLvlSourceValue = ""
-    Select Case kind
-        Case csLvlColor
-            Dim rawLvlColor As Long
-            rawLvlColor = ResolveFillAwareColor(oFoundEl)
-            If rawLvlColor = ByLevelColor Then
-                If Not oFoundEl.Level Is Nothing Then ReadLvlSourceValue = CStr(oFoundEl.Level.ElementColor)
-            ElseIf rawLvlColor = ByCellColor Then
-                ReadLvlSourceValue = ""                ' not resolvable from the Level - never fabricate
-            Else
-                ReadLvlSourceValue = CStr(rawLvlColor)
-            End If
-        Case csLvlStyle
-            If Not oFoundEl.LineStyle Is Nothing Then ReadLvlSourceValue = oFoundEl.LineStyle.Name
-        Case csLvlWeight
-            If oFoundEl.LineWeight = ByLevelLineWeight Then
-                If Not oFoundEl.Level Is Nothing Then ReadLvlSourceValue = CStr(oFoundEl.Level.ElementLineWeight)
-            ElseIf oFoundEl.LineWeight = ByCellLineWeight Then
-                ReadLvlSourceValue = ""                ' not resolvable from the Level - never fabricate
-            Else
-                ReadLvlSourceValue = CStr(oFoundEl.LineWeight)
-            End If
-    End Select
-    Exit Function
-
-ErrorHandler:
-    ReadLvlSourceValue = ""
-End Function
-
-'######################################################################################################################
-'                                          GROUP SOURCE - GroupColor (retired ONLY_COLOR hook parity)
-'######################################################################################################################
-
-' Shared FillMode=2-aware color resolution (GroupColor/CellColor/LvlColor): a ClosedElement in FillMode=2
-' reads its FILL color unless that fill is literally 0/255, falling back to .Color. Callers that care
-' about the ByLevel/ByCell sentinel test THIS function's result, not el.Color directly.
-Private Function ResolveFillAwareColor(ByVal el As element) As Long
-    On Error GoTo ErrorHandler
-
-    ResolveFillAwareColor = el.Color
-    If el.IsClosedElement Then
-        If el.AsClosedElement.FillMode = 2 Then
-            Dim fc As Long
-            fc = el.AsClosedElement.fillcolor
-            If fc = 0 Or fc = 255 Then
-                ResolveFillAwareColor = el.Color
-            Else
-                ResolveFillAwareColor = fc
-            End If
-        End If
-    End If
-    Exit Function
-
-ErrorHandler:
-    ResolveFillAwareColor = el.Color
-End Function
-
-' GroupColor: unlike every other GROUP source, SELF-EXCLUDED (no ReturnMe:=True) - Color has no type
-' filter to protect a self-match the way GroupLength's IsLengthCapableType does, so self-inclusion would
-' make a bearing text match itself instead of its linked geometry. No name/level pattern - first linked
-' element wins. >= 2 candidates -> CalculationMultipleColorCandidates (discloses the pick, doesn't change it).
-Private Function EvaluateGroupColor(ByVal oEl As element) As String
-    On Error GoTo ErrorHandler
-
-    EvaluateGroupColor = ""
-
-    Dim cands() As element
-    cands = Link.GetLink(oEl)                      ' NO ReturnMe:=True - see rationale above
-    If Not HasElements(cands) Then Exit Function
-
-    Dim candidate As element
-    Set candidate = cands(LBound(cands))
-    If Not candidate Is Nothing Then
-        EvaluateGroupColor = CStr(ResolveFillAwareColor(candidate))
-    End If
-
-    If UBound(cands) > LBound(cands) Then ReportMultipleColorCandidates
-    Exit Function
-
-ErrorHandler:
-    EvaluateGroupColor = ""
-End Function
-
-' True when at least one calc rule uses GroupColor. Gates ElementChangeHandler's Branch 2 (mirrors
-' HasGroupLengthRules): GroupColor has no name/level "trigger" pattern, so it needs every sibling
-' re-evaluated inline when the linked element changes - Branch 2 already does that.
-Public Function HasGroupColorRules() As Boolean
-    On Error GoTo ErrorHandler
-
-    HasGroupColorRules = False
-    If Not IsEnabled Then Exit Function
-
-    EnsureCalcRulesParsed
-    Dim i As Long
-    For i = 0 To mnCalcCount - 1
-        If mCalcRules(i).SourceKind = csGroupColor Then
-            HasGroupColorRules = True
-            Exit Function
-        End If
-    Next i
-    Exit Function
-
-ErrorHandler:
-    HasGroupColorRules = False
-End Function
-
-'######################################################################################################################
-'                                          ENGINE - TRIGGER-CELL PASS
-'######################################################################################################################
-
-' True for the Cell* source kinds that are STABLE-PUSHED (CellText/CellCoord/CellLvl/CellColor/CellStyle/
-' CellWeight): a change on the matching cell can leave its group siblings un-re-queued (a cell is a
-' Branch-1/text-cell element in ElementChangeHandler; no automatic group-wide re-queue), so the trigger-cell
-' pass must push. CellId is excluded - an ID can never change, so it never needs a push (see IsTriggerCell).
-Private Function IsPushableCellSourceKind(ByVal kind As CalcSource) As Boolean
-    IsPushableCellSourceKind = (kind = csCellText Or kind = csCellCoord Or kind = csCellLvl Or _
-                                 kind = csCellColor Or kind = csCellStyle Or kind = csCellWeight)
-End Function
-
-' Trigger-cell pass: pushes oCell's attributes to OTHER group members whose first-matching rule for their
-' target P is fed by oCell's name (AC3 first-match guard). Each SourceKind is read at most once per call
-' (cached by enum ordinal). No carrying member -> CalculationNoTarget; two competing cells -> Multiple.
-Private Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
-    On Error GoTo ErrorHandler
-
-    Dim members() As element
-    members = Link.GetLink(oCell)                 ' OTHER members (self handled by the bearing pass)
-    If Not HasElements(members) Then Exit Sub
-
-    Dim sName As String
-    sName = oCell.AsCellElement.Name
-
-    ' Lazy per-SourceKind cache, indexed by the CalcSource enum ordinal (csGroupLength is the highest).
-    Dim cacheVal(0 To csGroupLength) As String
-    Dim cacheReady(0 To csGroupLength) As Boolean
-
-    Dim i As Long, ri As Long, kIdx As Long
-    Dim m As element
-    Dim P As String
-    Dim nCarried As Long
-    nCarried = 0
-    For i = LBound(members) To UBound(members)
-        Set m = members(i)
-        If Not m Is Nothing Then
-            For ri = 0 To mnCalcCount - 1
-                If IsPushableCellSourceKind(mCalcRules(ri).SourceKind) Then
-                    If MatchesAnyPattern(sName, mCalcRules(ri).SourceArg) Then
-                        P = mCalcRules(ri).TargetProp
-                        If CustomPropertyHandler.IsItemAttachedToElement(m, P) Then
-                            nCarried = nCarried + 1
-                            ' First-match guard (AC3): push only where THIS rule governs m's P.
-                            If FindCalcRuleForProperty(P, m) = ri Then
-                                kIdx = CLng(mCalcRules(ri).SourceKind)
-                                If Not cacheReady(kIdx) Then
-                                    cacheVal(kIdx) = ReadCellSourceValue(oCell, mCalcRules(ri).SourceKind)
-                                    cacheReady(kIdx) = True
-                                End If
-                                ApplyValueToSibling m, P, cacheVal(kIdx)
-                            End If
-                        End If
-                    End If
-                End If
-            Next ri
-        End If
-    Next i
-
-    ' Discoverability: siblings match a rule but NONE carry its target -> attach never happened.
-    If nCarried = 0 Then ReportNoTarget
-
-    ' Multi-trigger: another cell in the group also feeds one of the pushed targets (last-processed wins).
-    If GroupHasCompetingTrigger(oCell) Then ReportMultipleTriggers
-    Exit Sub
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.PushCellDerivedValuesToMembers"
-End Sub
-
-' True when oCell's graphic group holds at least one OTHER cell that also matches some pushable Cell*
-' source's pattern (i.e. two label/anchor cells could feed the same target) - the multi-trigger condition.
-' Read-only.
-Private Function GroupHasCompetingTrigger(ByVal oCell As element) As Boolean
-    On Error GoTo ErrorHandler
-
-    GroupHasCompetingTrigger = False
-
-    Dim members() As element
-    members = Link.GetLink(oCell)                 ' OTHER members only
-    If Not HasElements(members) Then Exit Function
-
-    Dim i As Long
-    For i = LBound(members) To UBound(members)
-        If Not members(i) Is Nothing Then
-            If members(i).IsCellElement Then
-                If AnyPushableSourcePatternMatches(members(i).AsCellElement.Name) Then
-                    GroupHasCompetingTrigger = True
-                    Exit Function
-                End If
-            End If
-        End If
-    Next i
-    Exit Function
-
-ErrorHandler:
-    GroupHasCompetingTrigger = False
-End Function
-
-' True when sName matches a pushable Cell* source's pattern of at least one calc rule (assumes the cache is
-' parsed). CellId is excluded - it is never pushed (see IsPushableCellSourceKind/IsTriggerCell), so a cell
-' that only feeds a CellId rule must not be treated as a trigger.
-Private Function AnyPushableSourcePatternMatches(ByVal sName As String) As Boolean
-    On Error GoTo ErrorHandler
-
-    AnyPushableSourcePatternMatches = False
-    Dim i As Long
-    For i = 0 To mnCalcCount - 1
-        If IsPushableCellSourceKind(mCalcRules(i).SourceKind) Then
-            If MatchesAnyPattern(sName, mCalcRules(i).SourceArg) Then
-                AnyPushableSourcePatternMatches = True
-                Exit Function
-            End If
-        End If
-    Next i
-    Exit Function
-
-ErrorHandler:
-    AnyPushableSourcePatternMatches = False
-End Function
-
-'######################################################################################################################
-'                                          ENGINE - TRIGGER-LEVEL PASS
-'######################################################################################################################
-
-' Parallel trigger/push pass for Lvl* sources, deliberately DUPLICATED rather than folded into Cell*: the
-' trigger predicate differs structurally (Cell* = a cell whose NAME matches; Lvl* = any element whose
-' LEVEL matches). KNOWN LIMITATION: a competing Cell*-trigger and Lvl*-trigger for the same target are not
-' cross-detected (each family only scans its own kind) - the write itself stays safe (first-match-guarded).
-
-' True for the Lvl* source kinds. Unlike Cell*, there is no LvlId to exclude - all three are pushable.
-Private Function IsPushableLvlSourceKind(ByVal kind As CalcSource) As Boolean
-    IsPushableLvlSourceKind = (kind = csLvlColor Or kind = csLvlStyle Or kind = csLvlWeight)
-End Function
-
-' Trigger test, mirrors IsTriggerCell but for a LEVEL match instead of a CELL-name match: oEl is a trigger
-' when its OWN Level's name matches a pushable Lvl* source's pattern of at least one calc rule. NO element-
-' type restriction (unlike IsTriggerCell's IsCellElement gate) - a Line/Arc on a matching level is a trigger
-' just as much as a cell would be.
-Public Function IsTriggerLevel(ByVal oEl As element) As Boolean
-    On Error GoTo ErrorHandler
-
-    IsTriggerLevel = False
-    If oEl Is Nothing Then Exit Function
-    If Not oEl.IsGraphical Then Exit Function
-    If oEl.Level Is Nothing Then Exit Function
-    If oEl.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then Exit Function
-
-    EnsureCalcRulesParsed
-    If mnCalcCount = 0 Then Exit Function
-
-    IsTriggerLevel = AnyPushableLvlSourcePatternMatches(oEl.Level.Name)
-    Exit Function
-
-ErrorHandler:
-    IsTriggerLevel = False
-End Function
-
-' Trigger-level pass: oTriggerEl is a trigger whose color/style/weight may have changed while its group
-' members were NOT re-queued. Mirrors PushCellDerivedValuesToMembers exactly, substituting the level-name
-' match for the cell-name match and ReadLvlSourceValue for ReadCellSourceValue.
-Private Sub PushLvlDerivedValuesToMembers(ByVal oTriggerEl As element)
-    On Error GoTo ErrorHandler
-
-    Dim members() As element
-    members = Link.GetLink(oTriggerEl)             ' OTHER members (self handled by the bearing pass)
-    If Not HasElements(members) Then Exit Sub
-
-    Dim sLevelName As String
-    sLevelName = oTriggerEl.Level.Name
-
-    ' Lazy per-SourceKind cache, indexed by the CalcSource enum ordinal (csGroupLength is the highest).
-    Dim cacheVal(0 To csGroupLength) As String
-    Dim cacheReady(0 To csGroupLength) As Boolean
-
-    Dim i As Long, ri As Long, kIdx As Long
-    Dim m As element
-    Dim P As String
-    Dim nCarried As Long
-    nCarried = 0
-    For i = LBound(members) To UBound(members)
-        Set m = members(i)
-        If Not m Is Nothing Then
-            For ri = 0 To mnCalcCount - 1
-                If IsPushableLvlSourceKind(mCalcRules(ri).SourceKind) Then
-                    If MatchesAnyPattern(sLevelName, mCalcRules(ri).SourceArg) Then
-                        P = mCalcRules(ri).TargetProp
-                        If CustomPropertyHandler.IsItemAttachedToElement(m, P) Then
-                            nCarried = nCarried + 1
-                            ' First-match guard (AC3): push only where THIS rule governs m's P.
-                            If FindCalcRuleForProperty(P, m) = ri Then
-                                kIdx = CLng(mCalcRules(ri).SourceKind)
-                                If Not cacheReady(kIdx) Then
-                                    cacheVal(kIdx) = ReadLvlSourceValue(oTriggerEl, mCalcRules(ri).SourceKind)
-                                    cacheReady(kIdx) = True
-                                End If
-                                ApplyValueToSibling m, P, cacheVal(kIdx)
-                            End If
-                        End If
-                    End If
-                End If
-            Next ri
-        End If
-    Next i
-
-    ' Discoverability: siblings match a rule but NONE carry its target -> attach never happened.
-    If nCarried = 0 Then ReportNoTarget
-
-    ' Multi-trigger: another LEVEL-matching element in the group also feeds one of the pushed targets
-    ' (last-processed wins). Own DISTINCT status (ReportMultipleLvlTriggers, not ReportMultipleTriggers):
-    ' this collision may be pure Lvl-vs-Lvl, involving no cell at all - the message must not claim "cells".
-    ' See the KNOWN LIMITATION note above the section header - cross-family (Cell-vs-Lvl) competition is
-    ' still not detected here (a distinct, accepted gap, not this wording fix).
-    If GroupHasCompetingLvlTrigger(oTriggerEl) Then ReportMultipleLvlTriggers
-    Exit Sub
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.PushLvlDerivedValuesToMembers"
-End Sub
-
-' True when oTriggerEl's graphic group holds at least one OTHER element whose Level also matches some
-' pushable Lvl* source's pattern - the multi-trigger condition, mirrors GroupHasCompetingTrigger. NO
-' element-type restriction (mirrors IsTriggerLevel).
-Private Function GroupHasCompetingLvlTrigger(ByVal oTriggerEl As element) As Boolean
-    On Error GoTo ErrorHandler
-
-    GroupHasCompetingLvlTrigger = False
-
-    Dim members() As element
-    members = Link.GetLink(oTriggerEl)             ' OTHER members only
-    If Not HasElements(members) Then Exit Function
-
-    Dim i As Long
-    For i = LBound(members) To UBound(members)
-        If Not members(i) Is Nothing Then
-            If members(i).IsGraphical Then
-                If Not members(i).Level Is Nothing Then
-                    If AnyPushableLvlSourcePatternMatches(members(i).Level.Name) Then
-                        GroupHasCompetingLvlTrigger = True
-                        Exit Function
-                    End If
-                End If
-            End If
-        End If
-    Next i
-    Exit Function
-
-ErrorHandler:
-    GroupHasCompetingLvlTrigger = False
-End Function
-
-' True when sLevelName matches a pushable Lvl* source's pattern of at least one calc rule (assumes the
-' cache is parsed). Mirrors AnyPushableSourcePatternMatches.
-Private Function AnyPushableLvlSourcePatternMatches(ByVal sLevelName As String) As Boolean
-    On Error GoTo ErrorHandler
-
-    AnyPushableLvlSourcePatternMatches = False
-    Dim i As Long
-    For i = 0 To mnCalcCount - 1
-        If IsPushableLvlSourceKind(mCalcRules(i).SourceKind) Then
-            If MatchesAnyPattern(sLevelName, mCalcRules(i).SourceArg) Then
-                AnyPushableLvlSourcePatternMatches = True
-                Exit Function
-            End If
-        End If
-    Next i
-    Exit Function
-
-ErrorHandler:
-    AnyPushableLvlSourcePatternMatches = False
-End Function
-
-'######################################################################################################################
-'                                          GEOMETRY - Coord ANCHOR CASCADE
-'######################################################################################################################
-
-' Deterministic anchor point for Coord/CellCoord. The Range centre is seeded FIRST and a type-specific
-' anchor overrides it only on success, so a per-branch geometry fault degrades to the Range centre, never
-' to a fabricated (0,0,0). False only when even the Range seed fails.
-Private Function GetElementAnchorPoint(ByVal oEl As element, ByRef pt As Point3d) As Boolean
-    On Error GoTo ErrorHandler
-
-    GetElementAnchorPoint = False
-    If oEl Is Nothing Then Exit Function
-    If Not oEl.IsGraphical Then Exit Function
-
-    ' Seed = the universal Range centre. If even this faults (Range raises when not graphical - gated above),
-    ' we have NO anchor and return False.
-    Dim rng As Range3d
-    rng = oEl.Range
-    pt = Point3dFromXYZ((rng.Low.X + rng.High.X) / 2#, _
-                        (rng.Low.Y + rng.High.Y) / 2#, _
-                        (rng.Low.Z + rng.High.Z) / 2#)
-    GetElementAnchorPoint = True                  ' at least the Range-centre seed is valid
-
-    ' A type-specific anchor overrides the seed ONLY on success; a fault leaves the seed standing.
-    Dim ptSpecific As Point3d
-    If TryGetSpecificAnchor(oEl, ptSpecific) Then pt = ptSpecific
-    Exit Function
-
-ErrorHandler:
-    ' Even the Range seed faulted -> no valid anchor (the caller yields "" + logs), never a fabricated coord.
-    GetElementAnchorPoint = False
-End Function
-
-' Type-specific anchor per element type (cell/text/line Origin, arc/ellipse CenterPoint, closed shape
-' Centroid - undocumented for closed elements, hence isolated here). False (-> caller keeps the Range
-' seed) when the element has no specific anchor or the read faults.
-Private Function TryGetSpecificAnchor(ByVal oEl As element, ByRef ptOut As Point3d) As Boolean
-    On Error GoTo ErrorHandler
-
-    Select Case True
-        Case oEl.IsCellElement
-            ptOut = oEl.AsCellElement.Origin
-        Case oEl.Type = msdElementTypeSharedCell
-            ptOut = oEl.AsSharedCellElement.Origin
-        Case oEl.IsTextElement
-            ptOut = oEl.AsTextElement.Origin
-        Case oEl.IsTextNodeElement
-            ptOut = oEl.AsTextNodeElement.Origin
-        Case oEl.Type = msdElementTypeLine
-            ptOut = oEl.AsLineElement.Origin
-        Case oEl.Type = msdElementTypeArc
-            ptOut = oEl.AsArcElement.CenterPoint
-        Case oEl.Type = msdElementTypeEllipse
-            ptOut = oEl.AsEllipseElement.CenterPoint
-        Case oEl.IsClosedElement
-            ptOut = oEl.AsClosedElement.Centroid
-        Case Else
-            TryGetSpecificAnchor = False
-            Exit Function                          ' no specific anchor -> the caller uses the Range seed
-    End Select
-
-    TryGetSpecificAnchor = True
-    Exit Function
-
-ErrorHandler:
-    ' Silent (no log): a specific-anchor read faulted -> no specific anchor; the caller keeps the Range-
-    ' centre seed. The anomaly is logged once by EvaluateSource only if even the seed is unavailable.
-    TryGetSpecificAnchor = False
-End Function
-
-' Format a point as "X;Y" with dec decimals, mirroring Auto_Lengths.cls CStr(Round(...)). The decimal
-' separator is locale-dependent (a comma-decimal locale yields "1,5;2,5" - the ";" field separator does
-' not collide). dec is clamped so VBA Round never faults on an absurd count.
-Private Function FormatCoord(ByRef pt As Point3d, ByVal dec As Long) As String
-    On Error GoTo ErrorHandler
-
-    Dim d As Long
-    d = dec
-    If d < 0 Then d = 0
-    If d > SOURCE_ROUND_CLAMP Then d = SOURCE_ROUND_CLAMP
-
-    FormatCoord = CStr(Round(pt.X, d)) & ";" & CStr(Round(pt.Y, d))
-    Exit Function
-
-ErrorHandler:
-    FormatCoord = ""
-End Function
-
-'######################################################################################################################
-'                                          GEOMETRY - LENGTH SOURCES (Length / GroupLength)
-'######################################################################################################################
-
-' True when oEl is one of the types Length.GetLength actually measures (Line/Arc/Shape/ComplexShape/
-' ComplexString - the same set Auto_Lengths.GetLinkedElements filters for). A cell/text/other element is
-' NOT length-capable - never call Length.GetLength on it (it would yield 0 + a noisy status line).
-Private Function IsLengthCapableType(ByVal oEl As element) As Boolean
-    On Error GoTo ErrorHandler
-
-    IsLengthCapableType = False
-    If oEl Is Nothing Then Exit Function
-    IsLengthCapableType = oEl.IsLineElement Or oEl.IsArcElement Or oEl.IsShapeElement Or _
-                           oEl.IsComplexShapeElement Or oEl.IsComplexStringElement
-    Exit Function
-
-ErrorHandler:
-    IsLengthCapableType = False
-End Function
-
-' Length evaluation: the bearing element's OWN geometry length (Length.GetLength), ONLY when it is itself
-' length-capable; "" otherwise (never a fabricated 0 - the same "no value rather than a wrong value"
-' philosophy as Coord). dec is clamped so VBA Round never faults on an absurd count (mirrors FormatCoord).
-Private Function EvaluateOwnLength(ByVal oEl As element, ByVal dec As Long) As String
-    On Error GoTo ErrorHandler
-
-    EvaluateOwnLength = ""
-    If oEl Is Nothing Then Exit Function
-    If Not IsLengthCapableType(oEl) Then Exit Function
-
-    Dim d As Long
-    d = dec
-    If d < 0 Then d = 0
-    If d > SOURCE_ROUND_CLAMP Then d = SOURCE_ROUND_CLAMP
-
-    EvaluateOwnLength = CStr(Length.GetLength(oEl, CByte(d)))
-    Exit Function
-
-ErrorHandler:
-    EvaluateOwnLength = ""
-End Function
-
-' Shared GROUP scan for GroupLength: first length-capable member by scan order (no name pattern -
-' geometry has none, unlike Cell*). Mirrors FindFirstMatchingCellInGroup.
-Private Function FindFirstLengthCapableInGroup(ByVal oEl As element, ByRef foundGeo As element, ByRef nMatch As Long) As Boolean
-    On Error GoTo ErrorHandler
-
-    FindFirstLengthCapableInGroup = False
-    Set foundGeo = Nothing
-    nMatch = 0
-
-    Dim cands() As element
-    cands = Link.GetLink(oEl, True)
-
-    If HasElements(cands) Then
-        Dim i As Long
-        For i = LBound(cands) To UBound(cands)
-            If IsLengthCapableType(cands(i)) Then
-                nMatch = nMatch + 1
-                If foundGeo Is Nothing Then Set foundGeo = cands(i)
-            End If
-        Next i
-    Else
-        If IsLengthCapableType(oEl) Then
-            nMatch = 1
-            Set foundGeo = oEl
-        End If
-    End If
-
-    FindFirstLengthCapableInGroup = Not (foundGeo Is Nothing)
-    Exit Function
-
-ErrorHandler:
-    FindFirstLengthCapableInGroup = False
-    Set foundGeo = Nothing
-    nMatch = 0
-End Function
-
-' GroupLength: length of the FIRST length-capable member found (self-included scan order); "" when none.
-' WARNS on multiple candidates - GroupLength replaced Auto Lengths, which refused to choose silently when
-' several geometries were measurable, so this makes the same arbitrary pick visible rather than silent.
-Private Function EvaluateGroupLength(ByVal oEl As element, ByVal dec As Long) As String
-    On Error GoTo ErrorHandler
-
-    EvaluateGroupLength = ""
-
-    Dim foundGeo As element
-    Dim nMatch As Long
-    If FindFirstLengthCapableInGroup(oEl, foundGeo, nMatch) Then
-        EvaluateGroupLength = EvaluateOwnLength(foundGeo, dec)
-        If nMatch >= 2 Then ReportMultipleGeometries
-    End If
-    Exit Function
-
-ErrorHandler:
-    EvaluateGroupLength = ""
-End Function
-
-' Default decimals for a bare Length/GroupLength source = the Auto Lengths rounding convention
-' ARES_Length_Round (distinct from ARES_Round, used by Coord). Fail-closed to 2 on any nil; lazy ARESConfig
-' init like the other readers.
-Private Function GetLengthDefaultDecimals() As Long
-    On Error GoTo ErrorHandler
-
-    GetLengthDefaultDecimals = 2
-    If ARESConfig Is Nothing Then Exit Function
-    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_LENGTH_ROUND Is Nothing Then Exit Function
-    GetLengthDefaultDecimals = CLng(ARESConfig.ARES_LENGTH_ROUND.Value)
-    Exit Function
-
-ErrorHandler:
-    GetLengthDefaultDecimals = 2
-End Function
-
-' True when at least one parsed calc rule uses GroupLength. Consulted by ElementChangeHandler's geometric
-' Branch 2 gate: a GroupLength rule needs every OTHER group member re-queued when the linked geometry itself
-' changes, same as Auto Lengths' own ARES_Update_Lengths gate - but must work even with Auto Lengths OFF.
-' Public so ElementChangeHandler can short-circuit without duplicating the calc-rules cache.
-Public Function HasGroupLengthRules() As Boolean
-    On Error GoTo ErrorHandler
-
-    HasGroupLengthRules = False
-    If Not IsEnabled Then Exit Function
-
-    EnsureCalcRulesParsed
-    Dim i As Long
-    For i = 0 To mnCalcCount - 1
-        If mCalcRules(i).SourceKind = csGroupLength Then
-            HasGroupLengthRules = True
-            Exit Function
-        End If
-    Next i
-    Exit Function
-
-ErrorHandler:
-    HasGroupLengthRules = False
-End Function
-
 '######################################################################################################################
 '                                          LOW-LEVEL HELPERS
 '######################################################################################################################
@@ -1854,22 +1049,6 @@ ErrorHandler:
     DistinctTargets = out
 End Function
 
-' Default decimals for a bare Coord source = the existing rounding convention ARES_Round (2). Fail-closed
-' to 2 on any nil; lazy ARESConfig init like the other readers.
-Private Function GetCoordDefaultDecimals() As Long
-    On Error GoTo ErrorHandler
-
-    GetCoordDefaultDecimals = 2
-    If ARESConfig Is Nothing Then Exit Function
-    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_ROUNDS Is Nothing Then Exit Function
-    GetCoordDefaultDecimals = CLng(ARESConfig.ARES_ROUNDS.Value)
-    Exit Function
-
-ErrorHandler:
-    GetCoordDefaultDecimals = 2
-End Function
-
 ' Raw ARES_Calc_Rules value ("" when unset). Lazily initialises ARESConfig like the other modules.
 Private Function GetCalcRulesRaw() As String
     On Error GoTo ErrorHandler
@@ -1892,8 +1071,9 @@ End Function
 ' Frontier + compare-before-write on one sibling (loop-safety). Returns True when P is already attached
 ' (write attempted or not). Never attaches/detaches directly: an emptying (non-empty -> empty) TRANSITION
 ' either clears the value or, with ARES_Calc_Detach_Empty ON, delegates a detach to the tagger - the ONLY
-' detach path, gated on the transition so a re-attaching rule cannot oscillate it.
-Private Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVal value As String) As Boolean
+' detach path, gated on the transition so a re-attaching rule cannot oscillate it. Public: called from
+' Module C (TriggerPush)'s Push*DerivedValuesToMembers, and from BearingPass here.
+Public Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVal value As String) As Boolean
     On Error GoTo ErrorHandler
 
     ApplyValueToSibling = False
@@ -1979,8 +1159,9 @@ Private Sub ReportRejected()
     End If
 End Sub
 
-' A trigger cell fired but no sibling carried its target property. Status-only, no log.
-Private Sub ReportNoTarget()
+' A trigger cell fired but no sibling carried its target property. Status-only, no log. Public: called
+' from Module C (TriggerPush)'s Push*DerivedValuesToMembers.
+Public Sub ReportNoTarget()
     On Error Resume Next
     If Not mbNoTargetShown Then
         LangManager.ShowStatusT "CalculationNoTarget"
@@ -1988,8 +1169,10 @@ Private Sub ReportNoTarget()
     End If
 End Sub
 
-' Two competing trigger cells for one target. Status-only, no log. Last-processed wins.
-Private Sub ReportMultipleTriggers()
+' Two competing trigger cells for one target. Status-only, no log. Last-processed wins. Public: called
+' from Module B (SourceEval)'s EvaluateGroupCellSource and Module C (TriggerPush)'s
+' PushCellDerivedValuesToMembers.
+Public Sub ReportMultipleTriggers()
     On Error Resume Next
     If Not mbMultiShown Then
         LangManager.ShowStatusT "CalculationMultipleTriggers"
@@ -1998,8 +1181,8 @@ Private Sub ReportMultipleTriggers()
 End Sub
 
 ' Own key, not a reuse of ReportMultipleTriggers: that message names "cells", but a Lvl*-collision may
-' involve no cell at all.
-Private Sub ReportMultipleLvlTriggers()
+' involve no cell at all. Public: called from Module B (SourceEval) and Module C (TriggerPush).
+Public Sub ReportMultipleLvlTriggers()
     On Error Resume Next
     If Not mbMultiLvlShown Then
         LangManager.ShowStatusT "CalculationMultipleLvlTriggers"
@@ -2007,8 +1190,9 @@ Private Sub ReportMultipleLvlTriggers()
     End If
 End Sub
 
-' Own key: this ambiguity is between LINKED elements, not cells or levels by name.
-Private Sub ReportMultipleColorCandidates()
+' Own key: this ambiguity is between LINKED elements, not cells or levels by name. Public: called from
+' Module B (SourceEval)'s EvaluateGroupColor.
+Public Sub ReportMultipleColorCandidates()
     On Error Resume Next
     If Not mbMultiColorShown Then
         LangManager.ShowStatusT "CalculationMultipleColorCandidates"
@@ -2017,7 +1201,8 @@ Private Sub ReportMultipleColorCandidates()
 End Sub
 
 ' Own key: the ambiguity is between measurable GEOMETRIES (first in scan order wins), not trigger cells.
-Private Sub ReportMultipleGeometries()
+' Public: called from Module B (SourceEval)'s EvaluateGroupLength.
+Public Sub ReportMultipleGeometries()
     On Error Resume Next
     If Not mbMultiGeoShown Then
         LangManager.ShowStatusT "CalculationMultipleGeometries"
@@ -2026,8 +1211,9 @@ Private Sub ReportMultipleGeometries()
 End Sub
 
 ' Safe "array has at least one element" check (mirrors ElementChangeHandler.HasElements). UBound
-' returns -1 for an empty array and raises for an uninitialised one.
-Private Function HasElements(ByRef arr() As element) As Boolean
+' returns -1 for an empty array and raises for an uninitialised one. Public: called from Module B
+' (SourceEval)'s group scans.
+Public Function HasElements(ByRef arr() As element) As Boolean
     On Error Resume Next
     HasElements = False
     If UBound(arr) <> -1 Then HasElements = True

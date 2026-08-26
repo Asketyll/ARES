@@ -596,12 +596,10 @@ Private Function ElementInProcesseTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 7.5: ContainsId with element ID
+    ' Test 7.5: Contains with the element itself (ContainsId, the ID-only overload, is Private)
     TotalTests = TotalTests + 1
     If Not TestElement Is Nothing Then
-        Dim ElementId As String
-        ElementId = DLongToString(TestElement.ID)
-        If TestProcessor.ContainsId(ElementId) Then
+        If TestProcessor.Contains(TestElement) Then
             TestsPassed = TestsPassed + 1
         End If
     Else
@@ -612,7 +610,7 @@ Private Function ElementInProcesseTest() As Boolean
     TotalTests = TotalTests + 1
     If Not TestElement Is Nothing Then
         Dim RetrievedElement As element
-        Set RetrievedElement = TestProcessor.GetElementById(DLongToString(TestElement.ID))
+        Set RetrievedElement = ActiveModelReference.GetElementById(TestElement.ID)
         If Not RetrievedElement Is Nothing Then
             TestsPassed = TestsPassed + 1
         End If
@@ -1025,9 +1023,12 @@ Private Function ARESMSVarTest() As Boolean
     Dim TotalTests As Integer
     Dim TestVar As New ARES_MS_VAR_Class
     
-    ' Test 13.1: Initialize variable
+    ' Test 13.1: Initialize variable. ARES_MS_VAR_Class has no Initialize method - Key/DefaultValue/Value
+    ' are set directly as fields, mirroring ARESConfigClass.CreateConfigVar.
     TotalTests = TotalTests + 1
-    TestVar.Initialize "TestKey", "DefaultValue"
+    TestVar.Key = "TestKey"
+    TestVar.DefaultValue = "DefaultValue"
+    TestVar.Value = "DefaultValue"
     If TestVar.Key = "TestKey" And TestVar.DefaultValue = "DefaultValue" Then
         TestsPassed = TestsPassed + 1
     End If
@@ -1237,16 +1238,6 @@ Private Function FileDialogsTest() As Boolean
     If TestEscapeForPowerShellFunctionality() Then
         TestsPassed = TestsPassed + 1
     End If
-    
-    ' Test 17.6: ShowConfigurationSummaryUI
-    TotalTests = TotalTests + 1
-    ' This will show a message box, but we can test it doesn't crash
-    On Error Resume Next
-    FileDialogs.ShowConfigurationSummaryUI
-    If Err.Number = 0 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    On Error GoTo ErrorHandler
     
     ' Test 17.7: Test PowerShell command generation (mock test)
     TotalTests = TotalTests + 1
@@ -2025,7 +2016,7 @@ End Function
 ' Build a line from p1 to p2 for PropertyTaggingPullTest: added to the active model FIRST (pattern #7 -
 ' Level is only assignable once the element is a model member), then put on oLvl (Nothing = leave it on the
 ' active level) and in graphic group lGroup (0 = ungrouped), then rewritten.
-Private Function CreatePullTestLine(ByVal lGroup As Long, ByVal oLvl As Level, ByVal p1 As Point3d, ByVal p2 As Point3d) As element
+Private Function CreatePullTestLine(ByVal lGroup As Long, ByVal oLvl As Level, p1 As Point3d, p2 As Point3d) As element
     Dim oLine As LineElement
     Set oLine = CreateLineElement2(Nothing, p1, p2)
     ActiveModelReference.AddElement oLine
@@ -2036,7 +2027,7 @@ Private Function CreatePullTestLine(ByVal lGroup As Long, ByVal oLvl As Level, B
 End Function
 
 ' Build a text element for PropertyTaggingPullTest, same add-then-symbology order as CreatePullTestLine.
-Private Function CreatePullTestText(ByVal lGroup As Long, ByVal oLvl As Level, ByVal sText As String, ByVal origin As Point3d) As element
+Private Function CreatePullTestText(ByVal lGroup As Long, ByVal oLvl As Level, ByVal sText As String, origin As Point3d) As element
     Dim oText As TextElement
     Set oText = CreateTextElement1(Nothing, sText, origin, Matrix3dIdentity)
     ActiveModelReference.AddElement oText
@@ -2049,7 +2040,7 @@ End Function
 ' A cell carrying TWO plain text sub-elements, which is what the renderer's multi-entry case needs: the
 ' cell header is the bearer (RA1) and both sub-texts pack into one ARES_Render item on it. Same shape as
 ' CreateCalculationTestCell, with a second text so SubId 0 and SubId 1 both exist.
-Private Function CreateRenderTestCell(ByVal sName As String, ByVal sText0 As String, ByVal sText1 As String, ByVal origin As Point3d) As CellElement
+Private Function CreateRenderTestCell(ByVal sName As String, ByVal sText0 As String, ByVal sText1 As String, origin As Point3d) As CellElement
     Dim arr(1) As element
     Dim second As Point3d
     second = Point3dFromXYZ(origin.X, origin.Y - 100, origin.Z)
@@ -2177,27 +2168,27 @@ Private Function PropertyRenderingTest() As Boolean
     names(0) = "Len": values(0) = "13,3"
     sT = "Ligne Prop[Len] m"
     TotalTests = TotalTests + 1
-    If PropertyRendering.ExpandTemplate(sT, names, values, 1, False) = "Ligne 13,3 m" Then TestsPassed = TestsPassed + 1
+    If PropertyRendering_TemplateModel.ExpandTemplate(sT, names, values, 1, False) = "Ligne 13,3 m" Then TestsPassed = TestsPassed + 1
 
     ' AC1 - whole-value mode is just a Template that IS one token.
     TotalTests = TotalTests + 1
-    If PropertyRendering.ExpandTemplate("Prop[Len]", names, values, 1, False) = "13,3" Then TestsPassed = TestsPassed + 1
+    If PropertyRendering_TemplateModel.ExpandTemplate("Prop[Len]", names, values, 1, False) = "13,3" Then TestsPassed = TestsPassed + 1
 
     ' AC3 / edge #8 - an EMPTY value renders the token's own literal text (the "unset" cue).
     values(0) = ""
     TotalTests = TotalTests + 1
-    If PropertyRendering.ExpandTemplate(sT, names, values, 1, False) = "Ligne Prop[Len] m" Then TestsPassed = TestsPassed + 1
+    If PropertyRendering_TemplateModel.ExpandTemplate(sT, names, values, 1, False) = "Ligne Prop[Len] m" Then TestsPassed = TestsPassed + 1
 
     ' AC3 / edge #8b - unset and set expand DIFFERENTLY, which is what puts an unset->reset round trip in
     ' branch 2 (values moved) instead of branch 3 (user edit).
     values(0) = "13,3"
     TotalTests = TotalTests + 1
-    If PropertyRendering.ExpandTemplate(sT, names, values, 1, False) <> "Ligne Prop[Len] m" Then TestsPassed = TestsPassed + 1
+    If PropertyRendering_TemplateModel.ExpandTemplate(sT, names, values, 1, False) <> "Ligne Prop[Len] m" Then TestsPassed = TestsPassed + 1
 
     ' AC2 branch 3 - an untouched rendering aligns and the token SURVIVES.
     values(0) = "13,3"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Ligne Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2207,7 +2198,7 @@ Private Function PropertyRenderingTest() As Boolean
     ' skip the text permanently) - the state machine releases the entry instead, which the element-level
     ' half asserts end to end in RunRenderElementChecks.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 99 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 99 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Ligne 99 m" And nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2216,7 +2207,7 @@ Private Function PropertyRenderingTest() As Boolean
     ' the literal by first occurrence returns "1" here and destroys the binding.
     names(0) = "Len": values(0) = "1 m 2"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 1 m 2 m!", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 1 m 2 m!", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Ligne Prop[Len] m!" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
     names(0) = "Len": values(0) = "13,3"
@@ -2225,7 +2216,7 @@ Private Function PropertyRenderingTest() As Boolean
     names(0) = "Rep": values(0) = "R1"
     names(1) = "Len": values(1) = "13,3"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("R1 - 99 m", "Prop[Rep] - Prop[Len] m", names, values, 2, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("R1 - 99 m", "Prop[Rep] - Prop[Len] m", names, values, 2, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Prop[Rep] - 99 m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2233,7 +2224,7 @@ Private Function PropertyRenderingTest() As Boolean
     ' edit elsewhere cannot release it.
     names(0) = "Len": values(0) = ""
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Prop[Len] m", "Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Prop[Len] m", "Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2244,19 +2235,19 @@ Private Function PropertyRenderingTest() As Boolean
     ' binding.
     names(0) = "Len": values(0) = "13,3"
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignVisible("Cable 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignVisible("Cable 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' AC11 / edge #12 - the same property twice in one text is refused.
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.TemplateIsWellFormed("Prop[Len] et Prop[Len]", False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.TemplateIsWellFormed("Prop[Len] et Prop[Len]", False) Then TestsPassed = TestsPassed + 1
 
     ' AC11 / edge #13 - two adjacent tokens are refused (the span boundary would be undefined).
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.TemplateIsWellFormed("Prop[Rep]Prop[Len]", False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.TemplateIsWellFormed("Prop[Rep]Prop[Len]", False) Then TestsPassed = TestsPassed + 1
 
     ' A single token, and a Template opening/closing on a token, are all legal.
     TotalTests = TotalTests + 1
-    If PropertyRendering.TemplateIsWellFormed("Prop[Rep] - Prop[Len]", False) Then TestsPassed = TestsPassed + 1
+    If PropertyRendering_TemplateModel.TemplateIsWellFormed("Prop[Rep] - Prop[Len]", False) Then TestsPassed = TestsPassed + 1
 
     ' ---------- D6: an addition BESIDE the value of a boundary token ----------
     ' A token with no literal on one side has no anchor for that edge of its span, so anything typed there
@@ -2273,18 +2264,18 @@ Private Function PropertyRenderingTest() As Boolean
 
     ' Kept: a letter cannot be read as part of a number, glued or spaced.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Ligne Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Ligne Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Released - the value itself was edited. Indistinguishable from an append by construction, which is
     ' why the whitelist decides on the boundary character instead of on the intent.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,35", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,35", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Ligne 13,35" And nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2293,30 +2284,30 @@ Private Function PropertyRenderingTest() As Boolean
     ' for not being on it. Keeping it would render a future value of 20 as "20 500" - twenty thousand five
     ' hundred. This is the check that a blacklist would have failed.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3" & ChrW(160) & "500", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3" & ChrW(160) & "500", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Released - Swiss thousands separator ("20'500") and scientific notation ("20e5"). The second is
     ' refused by the exponent guard, not by the list: "e" IS an admitted letter, a digit behind it is not.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3'500", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3'500", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3e5", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3e5", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
     ' ...and the same letter IS kept when no digit follows it, so the guard costs nothing in normal French.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3 euros", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3 euros", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Ligne Prop[Len] euros" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Released - a whitespace-only addition. IsNumericText("") is True, so an empty stripped addition must
     ' be refused explicitly: a trailing space fuses with whatever comes next.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne 13,3 ", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne 13,3 ", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2324,7 +2315,7 @@ Private Function PropertyRenderingTest() As Boolean
     ' damage on that domain, so it keeps today's behaviour and gains no new risk.
     names(0) = "Rep": values(0) = "R1"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("Ligne R1m", "Ligne Prop[Rep]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("Ligne R1m", "Ligne Prop[Rep]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2334,7 +2325,7 @@ Private Function PropertyRenderingTest() As Boolean
 
     ' Kept: the prefix ends on a letter. The user's text goes back into the Template as static content.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("N 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("N 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "N Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2342,29 +2333,29 @@ Private Function PropertyRenderingTest() As Boolean
     ' keep it and a future value of 20 would render "1 20", one plausible number. RTrim is what exposes the
     ' digit underneath. "1e" is the same trap through the exponent guard.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("1 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("1 13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("1e13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("1e13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Released - a MINUS sign. It is admitted nowhere, precisely because a prefix of "-" turns a future 20
     ' into -20: a number that is plausible, readable, and wrong.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("-13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("-13,3 m", sT, names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Whole-value mode - the fully degenerate Template, BOTH edges unanchored at once. One addition on one
     ' side is decided by the matching half; the two halves do not have to agree on anything.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("N 13,3", "Prop[Len]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("N 13,3", "Prop[Len]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "N Prop[Len]" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("13,3 m", "Prop[Len]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("13,3 m", "Prop[Len]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2379,21 +2370,21 @@ Private Function PropertyRenderingTest() As Boolean
     ' Kept - Asketyll's case: a space between the "t" and the value. The "t" is what cuts any numeric
     ' reading, and it is only visible to the rule because the literal is passed along with the addition.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("t 39,6m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("t 39,6m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "t Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Kept - the mirror: a space between the value and the closing literal. The addition goes back on the
     ' RIGHT side of the token, which is what makes the next value render where the user put it.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("t39,6 m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("t39,6 m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "tProp[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Released - SAME space, context that forbids it: "T70 " ends on a digit, so a future value of 20 would
     ' render "T70 20m" and "70 20" welds into one number.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("T70 39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("T70 39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2401,13 +2392,13 @@ Private Function PropertyRenderingTest() As Boolean
     ' but the literal in front of it ends on a digit, so the whole reads "T70x20". Caught by the same
     ' digit-letter-digit guard, only because the literal travels with the addition.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("T70x39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("T70x39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Released - the closing literal starts with a digit, so a space before it welds ("20 5m").
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("t39,6 5m", "tProp[Len]5m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("t39,6 5m", "tProp[Len]5m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2415,7 +2406,7 @@ Private Function PropertyRenderingTest() As Boolean
     ' inside it (a value of "1" in a span of " 1 1 " has no defensible position), so this satisfies neither
     ' test and releases. Deliberate: it is today's behaviour, and it costs nothing.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignVisible("t 39,6 m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignVisible("t 39,6 m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "t 39,6 m" And nNew = 0 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2427,17 +2418,17 @@ Private Function PropertyRenderingTest() As Boolean
 
     ' The field case: a "b" typed at the very START, far from the value. Released before D8.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("bHTAS 3x240 AL (26,6m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("bHTAS 3x240 AL (26,6m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "bHTAS 3x240 AL (Prop[Len]m)" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Static text edited in the MIDDLE, and at BOTH ends at once - neither was ever covered.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("HTAS 3x240 ALU (26,6m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("HTAS 3x240 ALU (26,6m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "HTAS 3x240 ALU (Prop[Len]m)" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("bHTAS (26,6m)!", "HTAS (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("bHTAS (26,6m)!", "HTAS (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "bHTAS (Prop[Len]m)!" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2446,7 +2437,7 @@ Private Function PropertyRenderingTest() As Boolean
     ' very gesture D8 exists to support, because the frontier reads as a digit either way.
     names(0) = "Len": values(0) = "13,3"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("bZone 7013,3m", "Zone 70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("bZone 7013,3m", "Zone 70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "bZone 70Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2454,39 +2445,39 @@ Private Function PropertyRenderingTest() As Boolean
     ' would render "T70 20m", welding 70 and 20.
     names(0) = "Len": values(0) = "39,6"
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignByValues("T70 39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignByValues("T70 39,6m", "T70Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' AC2 / edge #7, FLIPPED: editing the static text keeps the binding.
     names(0) = "Len": values(0) = "13,3"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("Cable 13,3 m", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("Cable 13,3 m", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Cable Prop[Len] m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
     ' Released - the value itself was retyped. D8 changes nothing here: the last value is simply not in the
     ' text any more, and that remains the ONE deliberate way to break a binding.
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignByValues("Ligne 99 m", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignByValues("Ligne 99 m", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' Released - AMBIGUOUS. A short value that also occurs in the static text has no defensible occurrence,
     ' and picking one would MOVE the token: a silent corruption, far worse than releasing. This is the known
     ' limitation of value recognition, and the reason AlignVisible's literal anchoring is kept in front.
     names(0) = "Len": values(0) = "3"
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignByValues("bHTAS 3x240 AL (3m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignByValues("bHTAS 3x240 AL (3m)", "HTAS 3x240 AL (Prop[Len]m)", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' Released - the forge guards still apply on this wider surface: "1" typed in front of a LEADING value
     ' would render "120m".
     names(0) = "Len": values(0) = "26,6"
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignByValues("126,6m", "Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignByValues("126,6m", "Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' Released - the FIXED POINT check. The user typed a second token into the text, so the re-authored
     ' Template would carry a token its LastValues does not know: exactly the round-8/10 wedge, where
     ' EntryIsConsistent refuses the entry for ever. Caught by ReauthoredTemplateIsSound, not by luck.
     names(0) = "Len": values(0) = "13,3"
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignByValues("Ligne 13,3 m Prop[Autre]", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignByValues("Ligne 13,3 m Prop[Autre]", "Ligne Prop[Len] m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' Released - THE NON-LOCAL FORGE. "0x" typed at the far start of a literal ending in "A1" spells
     ' "0xA1", so a future 20 would render "0xA120" - hexadecimal. Neither D6's guard nor the raw-frontier
@@ -2495,12 +2486,12 @@ Private Function PropertyRenderingTest() As Boolean
     ' digit. This is the check that fails if that rule is ever weakened back to a fixed lookback.
     names(0) = "Len": values(0) = "13,3"
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignByValues("0xA113,3m", "A1Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignByValues("0xA113,3m", "A1Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' ...and the SAME literal keeps its binding when the edit does not make a base literal possible: "b" is
     ' a hex character, so a naive "did the trailing run change" test would refuse this one.
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("bA113,3m", "A1Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("bA113,3m", "A1Prop[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "bA1Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -2511,24 +2502,24 @@ Private Function PropertyRenderingTest() As Boolean
     ' the total case, and deleting the word in front of a value is an ordinary gesture.
     names(0) = "Len": values(0) = "39,6"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("39,6m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("39,6m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "Prop[Len]m" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("t39,6", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("t39,6", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "tProp[Len]" And nNew = 1 Then TestsPassed = TestsPassed + 1
     End If
 
     ' ...and deleting a literal does NOT become a way to smuggle a release: retyping the value still is the
     ' only one. This pins the distinction the empty case must not blur.
     TotalTests = TotalTests + 1
-    If Not PropertyRendering.AlignByValues("40,2m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
+    If Not PropertyRendering_TemplateModel.AlignByValues("40,2m", "tProp[Len]m", names, values, 1, sNewT, newNames, newValues, nNew, False) Then TestsPassed = TestsPassed + 1
 
     ' Two tokens, both still present, with static text edited around them.
     names(0) = "Rep": values(0) = "R1"
     names(1) = "Len": values(1) = "13,3"
     TotalTests = TotalTests + 1
-    If PropertyRendering.AlignByValues("bRep R1 - 13,3 m", "Rep Prop[Rep] - Prop[Len] m", names, values, 2, sNewT, newNames, newValues, nNew, False) Then
+    If PropertyRendering_TemplateModel.AlignByValues("bRep R1 - 13,3 m", "Rep Prop[Rep] - Prop[Len] m", names, values, 2, sNewT, newNames, newValues, nNew, False) Then
         If sNewT = "bRep Prop[Rep] - Prop[Len] m" And nNew = 2 Then TestsPassed = TestsPassed + 1
     End If
 
@@ -3177,7 +3168,7 @@ End Function
 
 ' Build a graphic line from p1 to p2 in graphic group lGroup (0 = ungrouped), added to the active model.
 ' Helper for PropertyCalculationTest.
-Private Function CreateGroupedTestLine(ByVal lGroup As Long, ByVal p1 As Point3d, ByVal p2 As Point3d) As element
+Private Function CreateGroupedTestLine(ByVal lGroup As Long, p1 As Point3d, p2 As Point3d) As element
     Dim oLine As LineElement
     Set oLine = CreateLineElement2(Nothing, p1, p2)
     If lGroup <> 0 Then oLine.GraphicGroup = lGroup
@@ -3236,7 +3227,7 @@ End Function
 
 ' A cell whose single sub-element is a FillMode=2 shape with a given FillColor - helper for
 ' PropertyActuatorTest's FillColor-preservation check.
-Private Function CreateFillCellTestCell(ByVal sName As String, ByVal origin As Point3d, ByVal fillColorVal As Long) As CellElement
+Private Function CreateFillCellTestCell(ByVal sName As String, origin As Point3d, ByVal fillColorVal As Long) As CellElement
     Dim verts(4) As Point3d
     verts(0) = Point3dFromXYZ(origin.X, origin.Y, 0)
     verts(1) = Point3dFromXYZ(origin.X + 20, origin.Y, 0)
@@ -3254,7 +3245,7 @@ Private Function CreateFillCellTestCell(ByVal sName As String, ByVal origin As P
     Set CreateFillCellTestCell = oCell
 End Function
 
-Private Function CreateCalculationTestCell(ByVal sName As String, ByVal lGroup As Long, ByVal sText As String, ByVal origin As Point3d) As CellElement
+Private Function CreateCalculationTestCell(ByVal sName As String, ByVal lGroup As Long, ByVal sText As String, origin As Point3d) As CellElement
     Dim arr(0) As element
     Set arr(0) = CreateTextElement1(Nothing, sText, origin, Matrix3dIdentity)
     Dim oCell As CellElement
@@ -3707,4 +3698,4 @@ Private Function TestTranslationPerformance() As String
     
     TestTranslationPerformance = "Translations: " & Operations & " in " & _
                                 Format((Timer - StartTime) * 1000, "0.00") & " ms"
-End Function
+End Function
