@@ -484,9 +484,17 @@ ErrorHandler:
     TryGetSpecificAnchor = False
 End Function
 
-' Format a point as "X;Y" with dec decimals, mirroring Auto_Lengths.cls CStr(Round(...)). The decimal
-' separator is locale-dependent (a comma-decimal locale yields "1,5;2,5" - the ";" field separator does
-' not collide). dec is clamped so VBA Round never faults on an absurd count.
+' CStr/Format are locale-dependent (a comma-decimal Windows locale, e.g. fr-FR, turns 1.5 into "1,5") -
+' VBA's Str() is documented to always use "." regardless of locale, at the cost of a leading space for a
+' non-negative number, hence Trim. Asketyll wants coordinates (native and geographic) always "." - decided
+' 2026-08-27, deliberately NOT applied to Length/GroupLength (those stay locale-native, unaffected).
+Private Function FormatDotDecimal(ByVal d As Double) As String
+    FormatDotDecimal = Trim(Str(d))
+End Function
+
+' Format a point as "X;Y" with dec decimals, mirroring Auto_Lengths.cls CStr(Round(...)) except the
+' decimal separator is forced to "." (FormatDotDecimal) regardless of locale - the ";" field separator
+' does not collide either way. dec is clamped so VBA Round never faults on an absurd count.
 Private Function FormatCoord(ByRef pt As Point3d, ByVal dec As Long) As String
     On Error GoTo ErrorHandler
 
@@ -495,7 +503,7 @@ Private Function FormatCoord(ByRef pt As Point3d, ByVal dec As Long) As String
     If d < 0 Then d = 0
     If d > SOURCE_ROUND_CLAMP Then d = SOURCE_ROUND_CLAMP
 
-    FormatCoord = CStr(Round(pt.X, d)) & ";" & CStr(Round(pt.Y, d))
+    FormatCoord = FormatDotDecimal(Round(pt.X, d)) & ";" & FormatDotDecimal(Round(pt.Y, d))
     Exit Function
 
 ErrorHandler:
@@ -567,18 +575,19 @@ End Function
 ' Formats a GeoPoint2D as "Latitude;Longitude" - NOT FormatCoord's "X;Y": a different domain (degrees, not
 ' master units), a different default (full precision when sDec is "", vs FormatCoord's always-rounded
 ' default), and a confirmed field order that is not the same axis order as pt.X;pt.Y. Explicit digits (sDec
-' non-empty) round exactly like FormatCoord, same SOURCE_ROUND_CLAMP-guarded Round.
+' non-empty) round exactly like FormatCoord, same SOURCE_ROUND_CLAMP-guarded Round. Decimal separator forced
+' to "." via FormatDotDecimal, same as FormatCoord (2026-08-27) - locale-independent regardless of digit count.
 Private Function FormatGeoPoint(ByRef geo As GeoPoint2D, ByVal sDec As String) As String
     On Error GoTo ErrorHandler
 
     If Len(sDec) = 0 Then
-        FormatGeoPoint = CStr(geo.Latitude) & ";" & CStr(geo.Longitude)
+        FormatGeoPoint = FormatDotDecimal(geo.Latitude) & ";" & FormatDotDecimal(geo.Longitude)
     Else
         Dim d As Long
         d = CLng(sDec)
         If d < 0 Then d = 0
         If d > SOURCE_ROUND_CLAMP Then d = SOURCE_ROUND_CLAMP
-        FormatGeoPoint = CStr(Round(geo.Latitude, d)) & ";" & CStr(Round(geo.Longitude, d))
+        FormatGeoPoint = FormatDotDecimal(Round(geo.Latitude, d)) & ";" & FormatDotDecimal(Round(geo.Longitude, d))
     End If
     Exit Function
 
