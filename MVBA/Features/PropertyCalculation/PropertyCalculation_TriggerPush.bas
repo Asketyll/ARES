@@ -50,6 +50,9 @@ Public Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
     Dim rule As CalcRuleInfo
     Dim nCarried As Long
     nCarried = 0
+    ' Target properties oCell actually pushed a value to (post AC3 guard) - the only props for which
+    ' another trigger cell in the group can be a REAL competitor. See GroupHasCompetingTrigger.
+    Dim pushedTargets As New Collection
     For i = LBound(members) To UBound(members)
         Set m = members(i)
         If Not m Is Nothing Then
@@ -81,6 +84,7 @@ Public Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
                                     sPushVal = cacheVal(kIdx)
                                 End If
                                 PropertyCalculation.ApplyValueToSibling m, P, sPushVal
+                                If Not CollectionContainsString(pushedTargets, P) Then pushedTargets.Add P
                             End If
                         End If
                     End If
@@ -92,21 +96,24 @@ Public Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
     ' Discoverability: siblings match a rule but NONE carry its target -> attach never happened.
     If nCarried = 0 Then PropertyCalculation.ReportNoTarget
 
-    ' Multi-trigger: another cell in the group also feeds one of the pushed targets (last-processed wins).
-    If GroupHasCompetingTrigger(oCell) Then PropertyCalculation.ReportMultipleTriggers
+    ' Multi-trigger: another cell in the group also feeds one of oCell's OWN pushed targets (last-processed
+    ' wins). Restricted to pushedTargets - two cells feeding two DIFFERENT properties are not competitors.
+    If GroupHasCompetingTrigger(oCell, pushedTargets) Then PropertyCalculation.ReportMultipleTriggers
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_TriggerPush.PushCellDerivedValuesToMembers"
 End Sub
 
-' True when oCell's graphic group holds at least one OTHER cell that also matches some pushable Cell*
-' source's pattern (i.e. two label/anchor cells could feed the same target) - the multi-trigger condition.
-' Read-only.
-Private Function GroupHasCompetingTrigger(ByVal oCell As element) As Boolean
+' True when oCell's graphic group holds at least one OTHER cell that ALSO matches a pushable Cell* source
+' feeding one of pushedTargets - the properties oCell itself just pushed a value to. Restricted to
+' pushedTargets (not "any pushable rule") so that two cells feeding two DIFFERENT properties are not
+' reported as competing - only a real collision on the SAME target property is. Read-only.
+Private Function GroupHasCompetingTrigger(ByVal oCell As element, ByVal pushedTargets As Collection) As Boolean
     On Error GoTo ErrorHandler
 
     GroupHasCompetingTrigger = False
+    If pushedTargets.Count = 0 Then Exit Function
 
     Dim members() As element
     members = Link.GetLink(oCell)                 ' OTHER members only
@@ -116,7 +123,7 @@ Private Function GroupHasCompetingTrigger(ByVal oCell As element) As Boolean
     For i = LBound(members) To UBound(members)
         If Not members(i) Is Nothing Then
             If members(i).IsCellElement Then
-                If AnyPushableSourcePatternMatches(members(i).AsCellElement.Name) Then
+                If AnyPushableSourcePatternMatchesTarget(members(i).AsCellElement.Name, pushedTargets) Then
                     GroupHasCompetingTrigger = True
                     Exit Function
                 End If
@@ -127,6 +134,45 @@ Private Function GroupHasCompetingTrigger(ByVal oCell As element) As Boolean
 
 ErrorHandler:
     GroupHasCompetingTrigger = False
+End Function
+
+' True when sName matches a pushable Cell* source's pattern of at least one calc rule whose TargetProp is
+' in pushedTargets - the real competing-trigger predicate (see GroupHasCompetingTrigger).
+Private Function AnyPushableSourcePatternMatchesTarget(ByVal sName As String, ByVal pushedTargets As Collection) As Boolean
+    On Error GoTo ErrorHandler
+
+    AnyPushableSourcePatternMatchesTarget = False
+    Dim i As Long
+    Dim rule As CalcRuleInfo
+    For i = 0 To PropertyCalculation.RuleCount() - 1
+        rule = PropertyCalculation.GetRule(i)
+        If IsPushableCellSourceKind(rule.SourceKind) Then
+            If PropertyCalculation_SourceEval.MatchesAnyPattern(sName, rule.SourceArg) Then
+                If CollectionContainsString(pushedTargets, rule.TargetProp) Then
+                    AnyPushableSourcePatternMatchesTarget = True
+                    Exit Function
+                End If
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    AnyPushableSourcePatternMatchesTarget = False
+End Function
+
+' Linear membership check on a Collection of strings (dedup helper - Collection has no native Contains).
+' Case-insensitive (vbTextCompare), matching FindCalcRuleForProperty/DistinctTargets's TargetProp comparisons
+' elsewhere in the engine - a calc rule's target-property name is never case-sensitive.
+Private Function CollectionContainsString(ByVal col As Collection, ByVal s As String) As Boolean
+    Dim v As Variant
+    CollectionContainsString = False
+    For Each v In col
+        If StrComp(CStr(v), s, vbTextCompare) = 0 Then
+            CollectionContainsString = True
+            Exit Function
+        End If
+    Next v
 End Function
 
 ' True when sName matches a pushable Cell* source's pattern of at least one calc rule (assumes the cache is
@@ -193,6 +239,9 @@ Public Sub PushLvlDerivedValuesToMembers(ByVal oTriggerEl As element)
     Dim rule As CalcRuleInfo
     Dim nCarried As Long
     nCarried = 0
+    ' Target properties oTriggerEl actually pushed a value to (post AC3 guard) - the only props for which
+    ' another trigger element in the group can be a REAL competitor. See GroupHasCompetingLvlTrigger.
+    Dim pushedTargets As New Collection
     For i = LBound(members) To UBound(members)
         Set m = members(i)
         If Not m Is Nothing Then
@@ -211,6 +260,7 @@ Public Sub PushLvlDerivedValuesToMembers(ByVal oTriggerEl As element)
                                     cacheReady(kIdx) = True
                                 End If
                                 PropertyCalculation.ApplyValueToSibling m, P, cacheVal(kIdx)
+                                If Not CollectionContainsString(pushedTargets, P) Then pushedTargets.Add P
                             End If
                         End If
                     End If
@@ -222,25 +272,29 @@ Public Sub PushLvlDerivedValuesToMembers(ByVal oTriggerEl As element)
     ' Discoverability: siblings match a rule but NONE carry its target -> attach never happened.
     If nCarried = 0 Then PropertyCalculation.ReportNoTarget
 
-    ' Multi-trigger: another LEVEL-matching element in the group also feeds one of the pushed targets
-    ' (last-processed wins). Own DISTINCT status (ReportMultipleLvlTriggers, not ReportMultipleTriggers):
-    ' this collision may be pure Lvl-vs-Lvl, involving no cell at all - the message must not claim "cells".
-    ' See the KNOWN LIMITATION note above the section header - cross-family (Cell-vs-Lvl) competition is
-    ' still not detected here (a distinct, accepted gap, not this wording fix).
-    If GroupHasCompetingLvlTrigger(oTriggerEl) Then PropertyCalculation.ReportMultipleLvlTriggers
+    ' Multi-trigger: another LEVEL-matching element in the group also feeds one of oTriggerEl's OWN pushed
+    ' targets (last-processed wins). Restricted to pushedTargets - two elements feeding two DIFFERENT
+    ' properties are not competitors. Own DISTINCT status (ReportMultipleLvlTriggers, not
+    ' ReportMultipleTriggers): this collision may be pure Lvl-vs-Lvl, involving no cell at all - the message
+    ' must not claim "cells". See the KNOWN LIMITATION note above the section header - cross-family
+    ' (Cell-vs-Lvl) competition is still not detected here (a distinct, accepted gap, not this wording fix).
+    If GroupHasCompetingLvlTrigger(oTriggerEl, pushedTargets) Then PropertyCalculation.ReportMultipleLvlTriggers
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_TriggerPush.PushLvlDerivedValuesToMembers"
 End Sub
 
-' True when oTriggerEl's graphic group holds at least one OTHER element whose Level also matches some
-' pushable Lvl* source's pattern - the multi-trigger condition, mirrors GroupHasCompetingTrigger. NO
-' element-type restriction (mirrors IsTriggerLevel).
-Private Function GroupHasCompetingLvlTrigger(ByVal oTriggerEl As element) As Boolean
+' True when oTriggerEl's graphic group holds at least one OTHER element whose Level ALSO matches a
+' pushable Lvl* source feeding one of pushedTargets - the properties oTriggerEl itself just pushed a value
+' to. Restricted to pushedTargets (not "any pushable rule") so that two elements feeding two DIFFERENT
+' properties are not reported as competing - only a real collision on the SAME target property is. Mirrors
+' GroupHasCompetingTrigger. NO element-type restriction (mirrors IsTriggerLevel).
+Private Function GroupHasCompetingLvlTrigger(ByVal oTriggerEl As element, ByVal pushedTargets As Collection) As Boolean
     On Error GoTo ErrorHandler
 
     GroupHasCompetingLvlTrigger = False
+    If pushedTargets.Count = 0 Then Exit Function
 
     Dim members() As element
     members = Link.GetLink(oTriggerEl)             ' OTHER members only
@@ -251,7 +305,7 @@ Private Function GroupHasCompetingLvlTrigger(ByVal oTriggerEl As element) As Boo
         If Not members(i) Is Nothing Then
             If members(i).IsGraphical Then
                 If Not members(i).Level Is Nothing Then
-                    If AnyPushableLvlSourcePatternMatches(members(i).Level.Name) Then
+                    If AnyPushableLvlSourcePatternMatchesTarget(members(i).Level.Name, pushedTargets) Then
                         GroupHasCompetingLvlTrigger = True
                         Exit Function
                     End If
@@ -263,6 +317,31 @@ Private Function GroupHasCompetingLvlTrigger(ByVal oTriggerEl As element) As Boo
 
 ErrorHandler:
     GroupHasCompetingLvlTrigger = False
+End Function
+
+' True when sLevelName matches a pushable Lvl* source's pattern of at least one calc rule whose TargetProp
+' is in pushedTargets - the real competing-trigger predicate (see GroupHasCompetingLvlTrigger).
+Private Function AnyPushableLvlSourcePatternMatchesTarget(ByVal sLevelName As String, ByVal pushedTargets As Collection) As Boolean
+    On Error GoTo ErrorHandler
+
+    AnyPushableLvlSourcePatternMatchesTarget = False
+    Dim i As Long
+    Dim rule As CalcRuleInfo
+    For i = 0 To PropertyCalculation.RuleCount() - 1
+        rule = PropertyCalculation.GetRule(i)
+        If IsPushableLvlSourceKind(rule.SourceKind) Then
+            If PropertyCalculation_SourceEval.MatchesAnyPattern(sLevelName, rule.SourceArg) Then
+                If CollectionContainsString(pushedTargets, rule.TargetProp) Then
+                    AnyPushableLvlSourcePatternMatchesTarget = True
+                    Exit Function
+                End If
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    AnyPushableLvlSourcePatternMatchesTarget = False
 End Function
 
 ' True when sLevelName matches a pushable Lvl* source's pattern of at least one calc rule (assumes the
