@@ -32,6 +32,11 @@ Private Const PROP_KEYWORD As String = "PROP"
 ' Upper bound accepted for Coord[n]/Length[n]/GroupLength[n] decimal counts (syntactic; runtime formatting
 ' clamps to a sane max). Also within Length.GetLength's Byte RND range (255 is its reserved error sentinel).
 Private Const SOURCE_MAX_DECIMALS As Long = 254
+' Coord/CellCoord's SECOND, optional bracket group ([system,decimals]) - separator between the two options
+' inside that one group. The system name itself is NOT a fixed constant: any name MicroStation's own
+' GeographicCoordinateSystem library recognises is accepted syntactically here (see ParseGeoOptions) - only
+' resolved (Application.CreateGCSFromKeyName) at evaluation time, in Module B (SourceEval).
+Private Const GEO_OPTS_SEPARATOR As String = ","
 
 ' Source vocabulary of a calc rule's right-hand side. csCell*/csLvl* are GROUP sources (self-included
 ' member scan by cell name / level name); the rest are SELF sources except csGroupLength (GROUP, by
@@ -61,14 +66,25 @@ End Enum
 
 ' One parsed calc rule: Prop[TargetProp] [& conditions]* = Source. Conditions() (RuleGrammar.RuleCondition)
 ' is bounded by nCond. SourceArg holds the pattern (CellText/CellCoord/CellId), the fixed text (Value), the
-' decimals string (Coord[n]) - empty for Id and bare Coord. Public: Module B (SourceEval) and Module C
-' (TriggerPush) receive/return it across the module boundary.
+' decimals string (Coord[n]) - empty for Id and bare Coord. SourceSystem/SourceGeoDecimals are the
+' geo-output extension on Coord/CellCoord ONLY (see calc-rules-grammar.md's split-coordinate/geo-output
+' sections): "" SourceSystem = native DGN coordinates (unchanged behaviour); otherwise SourceSystem holds
+' the REQUESTED output system's name VERBATIM (e.g. "WGS84", "EPSG:4171", any MicroStation
+' GeographicCoordinateSystem key name - not restricted to a fixed list; resolved via
+' Application.CreateGCSFromKeyName only at evaluation time), with SourceGeoDecimals either "" (full
+' precision, no rounding - deliberately NOT the same as SourceArg's/GetCoordDefaultDecimals()'s
+' "omitted = default rounding" convention) or an explicit decimal count. SourceGeoDecimals exists as its
+' OWN field (not reusing SourceArg) because CellCoord's SourceArg is already the pattern - there is nowhere
+' else to put it. Public: Module B (SourceEval) and Module C (TriggerPush) receive/return it across the
+' module boundary.
 Public Type CalcRuleInfo
     TargetProp As String
     Conditions() As RuleGrammar.RuleCondition
     nCond As Long
     SourceKind As CalcSource
     SourceArg As String
+    SourceSystem As String
+    SourceGeoDecimals As String
 End Type
 
 Private mCalcRules() As CalcRuleInfo
@@ -85,6 +101,8 @@ Private mbMultiShown As Boolean
 Private mbMultiGeoShown As Boolean
 Private mbMultiLvlShown As Boolean
 Private mbMultiColorShown As Boolean
+Private mbNoGeoRefShown As Boolean
+Private mbUnknownGeoSystemShown As Boolean
 
 '######################################################################################################################
 '                                          PUBLIC SURFACE
@@ -229,6 +247,8 @@ Public Sub ProcessElement(ByVal oEl As element)
     mbMultiGeoShown = False
     mbMultiLvlShown = False
     mbMultiColorShown = False
+    mbNoGeoRefShown = False
+    mbUnknownGeoSystemShown = False
 
     If oEl Is Nothing Then Exit Sub
 
@@ -366,6 +386,8 @@ Private Function ParseCalcRule(ByVal sInput As String, ByRef r As CalcRuleInfo) 
     Erase r.Conditions
     r.SourceKind = csCellText
     r.SourceArg = ""
+    r.SourceSystem = ""
+    r.SourceGeoDecimals = ""
 
     Dim s As String
     s = Trim(sInput)
@@ -537,8 +559,8 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
     Dim src As String
     src = Trim(sRight)
 
-    Dim kw As String, arg As String
-    Dim bHasArg As Boolean
+    Dim kw As String, arg As String, arg2 As String
+    Dim bHasArg As Boolean, bHasArg2 As Boolean
     Dim nOpen As Long, nClose As Long
     nOpen = InStr(src, BRK_OPEN)
     If nOpen = 0 Then
@@ -549,10 +571,6 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
         nClose = InStr(src, BRK_CLOSE)
         If nClose <= nOpen Then
             ParseSource = "malformed source [...]"
-            Exit Function
-        End If
-        If nClose <> Len(src) Then
-            ParseSource = "unexpected text after ']' in source"
             Exit Function
         End If
         kw = Trim(Left(src, nOpen - 1))
@@ -566,6 +584,48 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
         If InStr(arg, BRK_OPEN) > 0 Then
             ParseSource = "'[' not allowed inside [...]"
             Exit Function
+        End If
+
+        ' Only CellCoord may carry a SECOND bracket group right after the first (the geo-output options
+        ' group, e.g. "[pattern][WGS84,6]" or "[pattern][EPSG:4171]") - its first group is always the
+        ' mandatory pattern, so the options need a group of their own. Coord has NO mandatory first group,
+        ' so its own geo-output options (if any) are classified INSIDE its single existing optional group
+        ' instead (see the "COORD" case below) - it never gets a second group. Every other keyword keeps
+        ' today's strict "nothing after the first ']'" rule unchanged (see calc-rules-grammar.md's
+        ' split-coordinate/geo-output sections).
+        Dim sAfterFirst As String
+        sAfterFirst = Mid(src, nClose + 1)
+        If Len(sAfterFirst) > 0 Then
+            If StrComp(kw, "CELLCOORD", vbTextCompare) = 0 Then
+                Dim nOpen2 As Long, nClose2 As Long
+                nOpen2 = InStr(sAfterFirst, BRK_OPEN)
+                If nOpen2 <> 1 Then
+                    ParseSource = "unexpected text after ']' in source"
+                    Exit Function
+                End If
+                nClose2 = InStr(sAfterFirst, BRK_CLOSE)
+                If nClose2 <= nOpen2 Then
+                    ParseSource = "malformed source [...]"
+                    Exit Function
+                End If
+                If nClose2 <> Len(sAfterFirst) Then
+                    ParseSource = "unexpected text after ']' in source"
+                    Exit Function
+                End If
+                arg2 = Mid(sAfterFirst, nOpen2 + 1, nClose2 - nOpen2 - 1)
+                bHasArg2 = True
+                If InStr(arg2, RULE_SEPARATOR) > 0 Then
+                    ParseSource = "';' not allowed inside [...]"
+                    Exit Function
+                End If
+                If InStr(arg2, BRK_OPEN) > 0 Then
+                    ParseSource = "'[' not allowed inside [...]"
+                    Exit Function
+                End If
+            Else
+                ParseSource = "unexpected text after ']' in source"
+                Exit Function
+            End If
         End If
     End If
 
@@ -587,6 +647,13 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
             r.SourceKind = csCellCoord
             r.SourceArg = pat
+            If bHasArg2 Then
+                Dim sGeoReasonCC As String
+                If Not ParseGeoOptions("CellCoord", arg2, r.SourceSystem, r.SourceGeoDecimals, sGeoReasonCC) Then
+                    ParseSource = sGeoReasonCC
+                    Exit Function
+                End If
+            End If
         Case "CELLID"
             If Not RequirePatternArg("CellId", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
@@ -660,11 +727,17 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             If bHasArg Then
                 Dim sN As String
                 sN = Trim(arg)
-                If Not IsNonNegIntInRange(sN, 0, SOURCE_MAX_DECIMALS) Then
-                    ParseSource = "Coord[n] needs an integer decimal count"
-                    Exit Function
+                If IsNonNegIntInRange(sN, 0, SOURCE_MAX_DECIMALS) Then
+                    r.SourceArg = sN                ' legacy Coord[n] - unchanged, native decimals
+                Else
+                    ' Not a bare integer -> try the geo-output options grammar in this SAME single group
+                    ' (Coord never gets a 2nd bracket group - see the pre-dispatch comment above).
+                    Dim sGeoReasonC As String
+                    If Not ParseGeoOptions("Coord", arg, r.SourceSystem, r.SourceGeoDecimals, sGeoReasonC) Then
+                        ParseSource = sGeoReasonC
+                        Exit Function
+                    End If
                 End If
-                r.SourceArg = sN
             End If
         Case "ID"
             If bHasArg Then
@@ -763,6 +836,60 @@ Private Function RequirePatternArg(ByVal sKeyword As String, ByVal bHasArg As Bo
     RequirePatternArg = True
 End Function
 
+' Parses Coord/CellCoord's geo-output options group content ("WGS84,6" / "6,EPSG:4171" / "WGS84" / "6" /
+' "") into outSystem/outDecimals. Content-driven, order-independent (see calc-rules-grammar.md): a token
+' that is a valid non-negative integer is the decimals; ANY OTHER non-empty token is a CANDIDATE output
+' SYSTEM NAME - not checked against a fixed list (ARES has no such list; any name MicroStation's own
+' GeographicCoordinateSystem library recognises is accepted here). Two tokens of the same kind, or an EMPTY
+' group ("[]", or a leading/trailing empty token like "WGS84,"), is rejected - mirrors Value[]'s "empty ...
+' invalid" refusal. Whether the system name actually resolves is checked ONLY at evaluation time
+' (Application.CreateGCSFromKeyName, a COM lookup) - this function is syntax only. outDecimals "" (no
+' decimals token supplied) means FULL PRECISION at evaluation time - deliberately NOT the same
+' "omitted = default rounding" convention as Coord[n]/Length[n]/GroupLength[n] (see
+' PropertyCalculation_SourceEval.FormatGeoPoint).
+Private Function ParseGeoOptions(ByVal sKeyword As String, ByVal sOpts As String, ByRef outSystem As String, ByRef outDecimals As String, ByRef sReason As String) As Boolean
+    ParseGeoOptions = False
+    outSystem = ""
+    outDecimals = ""
+
+    Dim toks() As String
+    toks = Split(sOpts, GEO_OPTS_SEPARATOR)
+
+    ' Classification here is SYNTACTIC ONLY: any token that is NOT a valid non-negative integer is a
+    ' CANDIDATE output-system name (e.g. "WGS84", "EPSG:4171", any MicroStation GCS key name - ARES does
+    ' not enumerate them). Whether that name actually resolves to a real GeographicCoordinateSystem is a
+    ' COM lookup (Application.CreateGCSFromKeyName) that can only happen at EVALUATION time, never here -
+    ' see PropertyCalculation_SourceEval.ConvertToGeoSystem and calc-rules-grammar.md.
+    Dim i As Long, tok As String
+    For i = LBound(toks) To UBound(toks)
+        tok = Trim(toks(i))
+        If Len(tok) = 0 Then
+            sReason = sKeyword & ": empty option in [...]"
+            Exit Function
+        End If
+        If IsNonNegIntInRange(tok, 0, SOURCE_MAX_DECIMALS) Then
+            If Len(outDecimals) > 0 Then
+                sReason = sKeyword & ": decimal count given twice"
+                Exit Function
+            End If
+            outDecimals = tok
+        Else
+            If Len(outSystem) > 0 Then
+                sReason = sKeyword & ": output system given twice"
+                Exit Function
+            End If
+            outSystem = tok
+        End If
+    Next i
+
+    If Len(outSystem) = 0 Then
+        sReason = sKeyword & ": [...] options given but no output system name found (expected e.g. WGS84)"
+        Exit Function
+    End If
+
+    ParseGeoOptions = True
+End Function
+
 ' True when s is a non-negative integer (all digits, at least one) whose value is in [lo, hi].
 Private Function IsNonNegIntInRange(ByVal s As String, ByVal lo As Long, ByVal hi As Long) As Boolean
     On Error GoTo ErrorHandler
@@ -817,6 +944,9 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
             SourceToCanonical = "CellText" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellCoord
             SourceToCanonical = "CellCoord" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            If Len(r.SourceSystem) > 0 Then
+                SourceToCanonical = SourceToCanonical & BRK_OPEN & GeoOptionsToCanonical(r) & BRK_CLOSE
+            End If
         Case csCellId
             SourceToCanonical = "CellId" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellLvl
@@ -836,7 +966,11 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
         Case csValue
             SourceToCanonical = "Value" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCoord
-            SourceToCanonical = OptionalArgKeywordToCanonical("Coord", r.SourceArg)
+            If Len(r.SourceSystem) > 0 Then
+                SourceToCanonical = "Coord" & BRK_OPEN & GeoOptionsToCanonical(r) & BRK_CLOSE
+            Else
+                SourceToCanonical = OptionalArgKeywordToCanonical("Coord", r.SourceArg)
+            End If
         Case csId
             SourceToCanonical = "Id"
         Case csLvl
@@ -865,6 +999,17 @@ Private Function OptionalArgKeywordToCanonical(ByVal sKeyword As String, ByVal s
         OptionalArgKeywordToCanonical = sKeyword & BRK_OPEN & sArg & BRK_CLOSE
     Else
         OptionalArgKeywordToCanonical = sKeyword
+    End If
+End Function
+
+' Canonical content of a Coord/CellCoord geo-output options group ("WGS84" or "WGS84,n", or any other
+' requested system name) - the r.SourceSystem side is mandatory when this is called (ParseGeoOptions never
+' leaves it empty on success), r.SourceGeoDecimals
+' is appended only when a decimal count was given (omitted = full precision, see the type's own comment).
+Private Function GeoOptionsToCanonical(ByRef r As CalcRuleInfo) As String
+    GeoOptionsToCanonical = r.SourceSystem
+    If Len(r.SourceGeoDecimals) > 0 Then
+        GeoOptionsToCanonical = GeoOptionsToCanonical & GEO_OPTS_SEPARATOR & r.SourceGeoDecimals
     End If
 End Function
 
@@ -1329,6 +1474,34 @@ Public Sub ReportMultipleGeometries()
     If Not mbMultiGeoShown Then
         LangManager.ShowStatusT "CalculationMultipleGeometries"
         mbMultiGeoShown = True
+    End If
+End Sub
+
+' A Coord/CellCoord[...][system,...] source ran but ActiveModelReference.GetGCS(True) returned Nothing - no
+' georeferencing is configured for this model (the ACTIVE model has no GCS at all - distinct from
+' ReportUnknownGeoSystem below, which is "the model HAS a GCS, but the REQUESTED system name doesn't
+' resolve"). Status-only, no log (an unconfigured GCS is an EXPECTED state on plenty of DGNs, not an
+' anomaly). ARES NEVER configures a GCS itself from this path (see the WGS84 plan's §1/§1.2) - the message
+' only points at MicroStation's own native command. Public: called from Module B (SourceEval)'s
+' ConvertToGeoSystem.
+Public Sub ReportNoGeoReference()
+    On Error Resume Next
+    If Not mbNoGeoRefShown Then
+        LangManager.ShowStatusT "CalculationNoGeoReference"
+        mbNoGeoRefShown = True
+    End If
+End Sub
+
+' A Coord/CellCoord[...][system,...] source ran, the active model DOES have a GCS, but the REQUESTED
+' system name (Application.CreateGCSFromKeyName) did not resolve to a real GeographicCoordinateSystem - a
+' typo'd or unrecognised key name, not an unconfigured model (see ReportNoGeoReference above - a distinct
+' cause, its own key, never conflated with this one). Status-only, no log (a bad rule, not a technical
+' anomaly). Public: called from Module B (SourceEval)'s ConvertToGeoSystem.
+Public Sub ReportUnknownGeoSystem()
+    On Error Resume Next
+    If Not mbUnknownGeoSystemShown Then
+        LangManager.ShowStatusT "CalculationUnknownGeoSystem"
+        mbUnknownGeoSystemShown = True
     End If
 End Sub
 

@@ -5,7 +5,9 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, PropertyRendering, Link,
 '               Length, ErrorHandlerClass (global ErrorHandler), PropertyCalculation (Core - Types,
-'               HasElements, ReportMultipleColorCandidates, ReportMultipleGeometries)
+'               HasElements, ReportMultipleColorCandidates, ReportMultipleGeometries, ReportNoGeoReference,
+'               ReportUnknownGeoSystem), ActiveModelReference/GeographicCoordinateSystem/
+'               Application.CreateGCSFromKeyName (geo output - see calc-rules-grammar.md)
 
 Option Explicit
 
@@ -23,8 +25,10 @@ Public Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As
 
     EvaluateSource = ""
     Select Case r.SourceKind
-        Case csCellText, csCellCoord, csCellId, csCellLvl, csCellColor, csCellStyle, csCellWeight
+        Case csCellText, csCellId, csCellLvl, csCellColor, csCellStyle, csCellWeight
             EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind)
+        Case csCellCoord
+            EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind, r.SourceSystem, r.SourceGeoDecimals)
         Case csLvlColor, csLvlStyle, csLvlWeight
             EvaluateSource = EvaluateGroupLvlSource(oEl, r.SourceArg, r.SourceKind)
         Case csValue
@@ -32,7 +36,16 @@ Public Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As
         Case csCoord
             Dim pt As Point3d
             If GetElementAnchorPoint(oEl, pt) Then
-                EvaluateSource = FormatCoord(pt, ResolveDecimals(r.SourceArg, GetCoordDefaultDecimals()))
+                If Len(r.SourceSystem) > 0 Then
+                    Dim sGeo As String
+                    If ConvertToGeoSystem(pt, r.SourceSystem, r.SourceGeoDecimals, sGeo) Then
+                        EvaluateSource = sGeo
+                    Else
+                        EvaluateSource = ""            ' one-shot status already reported by ConvertToGeoSystem
+                    End If
+                Else
+                    EvaluateSource = FormatCoord(pt, ResolveDecimals(r.SourceArg, GetCoordDefaultDecimals()))
+                End If
             Else
                 ' No valid anchor (a geometry fault, or a non-graphical bearing element) -> yield NO value
                 ' (never a fabricated "0;0"), the same "no value rather than a wrong value" philosophy as a
@@ -118,8 +131,10 @@ End Function
 ' Every Cell* source evaluation, unified: find the FIRST group cell matching sPattern (self-included via
 ' FindFirstMatchingCellInGroup) and read the attribute named by kind off THAT cell (ReadCellSourceValue); ""
 ' when no cell matches. >= 2 matches -> the multi-trigger warning (one-shot) - the same ambiguity regardless
-' of WHICH attribute is being read off the matching cell.
-Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource) As String
+' of WHICH attribute is being read off the matching cell. sSystem/sGeoDecimals are CellCoord's own
+' geo-output options (§2.3a of the WGS84 plan) - "" for every other kind, unused by ReadCellSourceValue in
+' that case.
+Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sGeoDecimals As String = "") As String
     On Error GoTo ErrorHandler
 
     EvaluateGroupCellSource = ""
@@ -127,7 +142,7 @@ Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As
     Dim foundCell As element
     Dim nMatch As Long
     If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
-        EvaluateGroupCellSource = ReadCellSourceValue(foundCell, kind)
+        EvaluateGroupCellSource = ReadCellSourceValue(foundCell, kind, sSystem, sGeoDecimals)
     End If
     If nMatch >= 2 Then PropertyCalculation.ReportMultipleTriggers
     Exit Function
@@ -138,10 +153,15 @@ End Function
 
 ' Read ONE attribute off a SPECIFIC cell element (already located - either by FindFirstMatchingCellInGroup
 ' during the bearing pass, or as the trigger cell itself during the push pass). Never fabricates a value:
-' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/CellCoord philosophy). Coordinates use
-' the default decimals (no [n] override on a Cell* source - the bracket already carries the pattern).
-' Public: also called directly by Module C (TriggerPush).
-Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSource) As String
+' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/CellCoord philosophy). Native CellCoord
+' (sSystem = "") uses the default decimals (no [n] override - the bracket already carries the pattern);
+' sSystem/sGeoDecimals (CellCoord's own geo-output options, see calc-rules-grammar.md) override that for the
+' geo-output case ONLY (sSystem non-empty) - every other kind ignores both params. Public: also called
+' directly by Module C
+' (TriggerPush), which MUST thread the same rule's SourceSystem/SourceGeoDecimals through here for CellCoord
+' - the bearing pass and the trigger-cell push pass would otherwise silently disagree on output format for
+' the same rule (see the WGS84 plan's §3.1).
+Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sGeoDecimals As String = "") As String
     On Error GoTo ErrorHandler
 
     ReadCellSourceValue = ""
@@ -160,7 +180,15 @@ Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSo
         Case csCellCoord
             Dim pt As Point3d
             If GetElementAnchorPoint(oCell, pt) Then
-                ReadCellSourceValue = FormatCoord(pt, GetCoordDefaultDecimals())
+                If Len(sSystem) > 0 Then
+                    Dim sGeo As String
+                    If ConvertToGeoSystem(pt, sSystem, sGeoDecimals, sGeo) Then
+                        ReadCellSourceValue = sGeo
+                    End If
+                    ' else: "" already set above; one-shot status already reported by ConvertToGeoSystem
+                Else
+                    ReadCellSourceValue = FormatCoord(pt, GetCoordDefaultDecimals())
+                End If
             Else
                 ErrorHandler.HandleError "Property calculation: no anchor point for CellCoord source", 0, "", "PropertyCalculation_SourceEval.ReadCellSourceValue"
             End If
@@ -472,6 +500,90 @@ Private Function FormatCoord(ByRef pt As Point3d, ByVal dec As Long) As String
 
 ErrorHandler:
     FormatCoord = ""
+End Function
+
+'######################################################################################################################
+'                                          GEOMETRY - GEOGRAPHIC OUTPUT (Coord/CellCoord[...][system,n])
+'######################################################################################################################
+
+' Converts a resolved DGN point to lat/long in the REQUESTED output system (sSystemName - "WGS84",
+' "EPSG:4171", any name MicroStation's GeographicCoordinateSystem library recognises; ARES does not
+' enumerate them, see calc-rules-grammar.md), and formats it "Latitude;Longitude" (confirmed field order).
+' Two DISTINCT failure causes, each with its OWN one-shot status (reported HERE, not by the caller, since
+' this is the only code that knows which of the two calls failed):
+'  1. ActiveModelReference.GetGCS(True) returns Nothing - the ACTIVE MODEL has no georeferencing at all, so
+'     there is no source datum to convert FROM (ReportNoGeoReference).
+'  2. Application.CreateGCSFromKeyName(sSystemName) does not resolve - the REQUESTED system name is not
+'     recognised (ReportUnknownGeoSystem) - a typo'd/unknown rule, not a model-configuration problem.
+' NEVER attempts to configure a GCS itself in either case: both GetGCS(True) and CreateGCSFromKeyName are
+' plain lookups (verified against mvba-docs - the official GeographicCoordinateSystem example uses
+' CreateGCSFromKeyName with no interactive side effect; its own On Error Resume Next around that call is
+' mirrored below, since the docs do not state whether an unresolved key name returns Nothing or raises).
+' ARES has NO role in configuring a GCS - that is MicroStation's own GEOCOORDINATE SELECT LIBRARY key-in,
+' run manually by the user; this module must NEVER call CadInputQueue.SendCommand or any other interactive
+' API from this path (decided, not a coding-phase detail - see the WGS84 plan's §1/§1.1/§1.2). sGeoDecimals
+' "" means FULL PRECISION (no Round call) - deliberately NOT the same "omitted = default rounding"
+' convention as Coord[n]/Length[n]/GroupLength[n], since degrees and DGN master units have unrelated
+' precision needs (decided by the lead, not guessed).
+Private Function ConvertToGeoSystem(ByRef pt As Point3d, ByVal sSystemName As String, ByVal sGeoDecimals As String, ByRef sOut As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    ConvertToGeoSystem = False
+    sOut = ""
+
+    Dim gcs As GeographicCoordinateSystem
+    Set gcs = ActiveModelReference.GetGCS(True)
+    If gcs Is Nothing Then
+        PropertyCalculation.ReportNoGeoReference
+        Exit Function                                ' no value - fail closed, no UI (see header comment)
+    End If
+
+    Dim otherGcs As GeographicCoordinateSystem
+    On Error Resume Next
+    Set otherGcs = Application.CreateGCSFromKeyName(sSystemName)
+    On Error GoTo ErrorHandler
+    If otherGcs Is Nothing Then
+        PropertyCalculation.ReportUnknownGeoSystem
+        Exit Function                                ' unrecognised system name - fail closed, no UI
+    End If
+
+    Dim p2d As Point2d
+    p2d.X = pt.X
+    p2d.y = pt.y
+
+    Dim geo As GeoPoint2D
+    geo = gcs.LatLongFromMasterUnits2d(p2d)          ' active model's own datum first
+    geo = gcs.LatLongFromLatLong2d(geo, otherGcs)     ' then reprojected to the REQUESTED system's datum
+
+    sOut = FormatGeoPoint(geo, sGeoDecimals)
+    ConvertToGeoSystem = True
+    Exit Function
+
+ErrorHandler:
+    ConvertToGeoSystem = False
+    sOut = ""
+End Function
+
+' Formats a GeoPoint2D as "Latitude;Longitude" - NOT FormatCoord's "X;Y": a different domain (degrees, not
+' master units), a different default (full precision when sDec is "", vs FormatCoord's always-rounded
+' default), and a confirmed field order that is not the same axis order as pt.X;pt.Y. Explicit digits (sDec
+' non-empty) round exactly like FormatCoord, same SOURCE_ROUND_CLAMP-guarded Round.
+Private Function FormatGeoPoint(ByRef geo As GeoPoint2D, ByVal sDec As String) As String
+    On Error GoTo ErrorHandler
+
+    If Len(sDec) = 0 Then
+        FormatGeoPoint = CStr(geo.Latitude) & ";" & CStr(geo.Longitude)
+    Else
+        Dim d As Long
+        d = CLng(sDec)
+        If d < 0 Then d = 0
+        If d > SOURCE_ROUND_CLAMP Then d = SOURCE_ROUND_CLAMP
+        FormatGeoPoint = CStr(Round(geo.Latitude, d)) & ";" & CStr(Round(geo.Longitude, d))
+    End If
+    Exit Function
+
+ErrorHandler:
+    FormatGeoPoint = ""
 End Function
 
 '######################################################################################################################

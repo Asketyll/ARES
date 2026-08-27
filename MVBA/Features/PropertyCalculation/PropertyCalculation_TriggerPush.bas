@@ -63,11 +63,24 @@ Public Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
                             ' First-match guard (AC3): push only where THIS rule governs m's P.
                             If PropertyCalculation.FindCalcRuleForProperty(P, m) = ri Then
                                 kIdx = CLng(rule.SourceKind)
-                                If Not cacheReady(kIdx) Then
-                                    cacheVal(kIdx) = PropertyCalculation_SourceEval.ReadCellSourceValue(oCell, rule.SourceKind)
-                                    cacheReady(kIdx) = True
+                                Dim sPushVal As String
+                                If Len(rule.SourceSystem) > 0 Then
+                                    ' A geo-output CellCoord rule (any requested system, or in principle any future rule carrying
+                                    ' its own extra params) - the kIdx-only cache assumes "same SourceKind
+                                    ' -> same value", which no longer holds once CellCoord rules can differ
+                                    ' by SourceSystem/SourceGeoDecimals (see the WGS84 plan's §3.1). Bypass
+                                    ' the shared cache entirely for this case and re-read every time;
+                                    ' correctness over the cache's micro-optimisation, and this only runs on
+                                    ' an actual trigger-cell edit, never a bulk hot path.
+                                    sPushVal = PropertyCalculation_SourceEval.ReadCellSourceValue(oCell, rule.SourceKind, rule.SourceSystem, rule.SourceGeoDecimals)
+                                Else
+                                    If Not cacheReady(kIdx) Then
+                                        cacheVal(kIdx) = PropertyCalculation_SourceEval.ReadCellSourceValue(oCell, rule.SourceKind)
+                                        cacheReady(kIdx) = True
+                                    End If
+                                    sPushVal = cacheVal(kIdx)
                                 End If
-                                PropertyCalculation.ApplyValueToSibling m, P, cacheVal(kIdx)
+                                PropertyCalculation.ApplyValueToSibling m, P, sPushVal
                             End If
                         End If
                     End If
