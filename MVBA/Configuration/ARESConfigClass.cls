@@ -92,6 +92,8 @@ Public ARES_REGIONSPLIT_COLLINEAR_TOL As ARES_MS_VAR_Class 'Default Value: 0.000
 Public ARES_REGIONSPLIT_KEEP_ORIGINAL As ARES_MS_VAR_Class 'Default Value: False                  True or False (Boolean)
 ' Used in RegionSplit module — max chordal deviation (master units) when densifying an arc boundary side into a polyline; smaller => more chords => closer-to-radial perpendicular and tighter entry foot
 Public ARES_REGIONSPLIT_STROKE_TOL As ARES_MS_VAR_Class 'Default Value: 0.01                       Stroke chordal tolerance in master units (Double, > 0)
+' Used in RegionMerge module — False = both originals are deleted after the merged region is written; True = both originals are kept alongside the merged result
+Public ARES_REGIONMERGE_KEEP_ORIGINALS As ARES_MS_VAR_Class 'Default Value: False                  True or False (Boolean)
 ' Used in PropertyTagging module — master switch for auto-attaching custom properties on element add/modify.
 Public ARES_AUTO_PROPERTIES As ARES_MS_VAR_Class 'Default Value: True                       True or False (Boolean)
 ' Used in PropertyTagging module — grammar v2 rules "[@]cond[&cond]*=prop|prop ; …" mapping elements to properties to attach
@@ -179,6 +181,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
     Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
     Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")
+    Set ARES_REGIONMERGE_KEEP_ORIGINALS = CreateConfigVar("ARES_RegionMerge_Keep_Originals", "False")
     Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
     Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
     Set ARES_CALC_RULES = CreateConfigVar("ARES_Calc_Rules", "")

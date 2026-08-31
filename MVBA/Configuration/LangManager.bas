@@ -49,6 +49,13 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_RegionSplitNoRegion", "No valid region selected"
     moTranslations.Add "EN_RegionSplitClickNotOnEdge", "Click is not on the region edge"
     moTranslations.Add "EN_RegionSplitCannotSplit", "Cannot split this region here"
+    moTranslations.Add "EN_MergeRegionSelectFirstC", "Merge regions"
+    moTranslations.Add "EN_MergeRegionSelectFirstP", "Click on the first region to merge"
+    moTranslations.Add "EN_MergeRegionSelectSecondP", "Click on the second region to merge"
+    moTranslations.Add "EN_MergeRegionNoRegion", "No valid region selected"
+    moTranslations.Add "EN_MergeRegionSameZone", "Cannot merge a region with itself -- click a different region"
+    moTranslations.Add "EN_MergeRegionCannotMerge", "Cannot merge these regions"
+    moTranslations.Add "EN_MergeRegionDisjoint", "These regions do not overlap or touch -- merge refused"
     moTranslations.Add "EN_ConfigExportTitle", "Export ARES Configuration"
     moTranslations.Add "EN_ConfigImportTitle", "Import ARES Configuration"
     moTranslations.Add "EN_ConfigBackupTitle", "Backup ARES Configuration"
@@ -269,6 +276,13 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_RegionSplitNoRegion", "Aucune région valide sélectionnée"
     moTranslations.Add "FR_RegionSplitClickNotOnEdge", "Le clic n'est pas sur le bord de la région"
     moTranslations.Add "FR_RegionSplitCannotSplit", "Impossible de diviser cette région ici"
+    moTranslations.Add "FR_MergeRegionSelectFirstC", "Fusionner des régions"
+    moTranslations.Add "FR_MergeRegionSelectFirstP", "Cliquer sur la première région à fusionner"
+    moTranslations.Add "FR_MergeRegionSelectSecondP", "Cliquer sur la seconde région à fusionner"
+    moTranslations.Add "FR_MergeRegionNoRegion", "Aucune région valide sélectionnée"
+    moTranslations.Add "FR_MergeRegionSameZone", "Impossible de fusionner une région avec elle-même -- cliquer une région différente"
+    moTranslations.Add "FR_MergeRegionCannotMerge", "Impossible de fusionner ces régions"
+    moTranslations.Add "FR_MergeRegionDisjoint", "Ces régions ne se touchent pas -- fusion refusée"
     moTranslations.Add "FR_ConfigExportTitle", "Exporter la Configuration ARES"
     moTranslations.Add "FR_ConfigImportTitle", "Importer la Configuration ARES"
     moTranslations.Add "FR_ConfigBackupTitle", "Sauvegarder la Configuration ARES"
@@ -609,4 +623,4 @@ Private Function PromptForLanguageSelection() As String
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.PromptForLanguageSelection"
     PromptForLanguageSelection = ""
-End Function
+End Function

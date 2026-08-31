@@ -273,7 +273,7 @@ ErrorHandler:
     ReportFailure "EditOutlineOptions", Err.Description, Err.Number, Err.Source
 End Sub
 
-' === REGION SPLIT COMMANDS ===
+' === REGION SPLIT/MERGE COMMANDS ===
 
 ' Split a closed region (Shape / ComplexShape) into two regions with a single datapoint
 ' on its boundary. The cut runs perpendicular to the local boundary segment at the clicked
@@ -293,6 +293,25 @@ Sub SplitRegion()
 
 ErrorHandler:
     ReportFailure "SplitRegion", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Merge two closed regions (Shape / ComplexShape) into a single region from two successive
+' datapoints. The merged region inherits the FIRST clicked region's level + symbology; both
+' originals are deleted (default) or kept (ARES_RegionMerge_Keep_Originals).
+Sub MergeRegion()
+    On Error GoTo ErrorHandler
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    CommandState.StartPrimitive New RegionMergeLocate
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "MergeRegion", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === TESTING COMMANDS ===
