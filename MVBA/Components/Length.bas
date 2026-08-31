@@ -109,8 +109,8 @@ Private Function LengthComplexShape(ByVal El As ComplexShapeElement, Optional By
     On Error GoTo ErrorHandler
     
     If LongestSideOnly Then
-        ' Find the longest sub-element
-        LengthComplexShape = GetLongestSideFromComplexShape(El)
+        ' Compute the conduit's run length (not the perimeter, not a single longest segment)
+        LengthComplexShape = GetConduitLengthFromComplexShape(El)
     Else
         ' Return the perimeter (default behavior)
         LengthComplexShape = El.Perimeter
@@ -172,13 +172,20 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.GetLongestSideFromShape"
 End Function
 
-' Helper function to get the longest side from a complex shape
-Private Function GetLongestSideFromComplexShape(ByVal El As ComplexShapeElement, Optional ByVal Depth As Integer = 0) As Double
+' Helper function to get a conduit's run length from a complex shape.
+' Assumes a 2-rail + 2-cap conduit topology (ATLAS-generated conduit outline); for a
+' non-conduit ComplexShapeElement the result has no physical meaning.
+' A conduit rail can be split into several consecutive sub-elements at bends, so the
+' longest single sub-element is only one segment of one rail, never the full run.
+' Instead: run length = (perimeter - sum of the 2 shortest sub-elements) / 2, since the
+' 2 shortest sub-elements are reliably the 2 end caps (conduits are always much longer
+' than wide).
+Private Function GetConduitLengthFromComplexShape(ByVal El As ComplexShapeElement, Optional ByVal Depth As Integer = 0) As Double
     On Error GoTo ErrorHandler
 
     Const MAX_DEPTH As Integer = 10
     If Depth > MAX_DEPTH Then
-        GetLongestSideFromComplexShape = 0
+        GetConduitLengthFromComplexShape = 0
         Exit Function
     End If
 
@@ -186,13 +193,20 @@ Private Function GetLongestSideFromComplexShape(ByVal El As ComplexShapeElement,
     Dim subel As element
     Dim ElementLength As Double
     Dim LongestSide As Double
+    Dim Smallest1 As Double
+    Dim Smallest2 As Double
+    Dim SubElementCount As Long
+    Dim ValidCount As Long
 
     LongestSide = 0
+    Smallest1 = -1
+    Smallest2 = -1
     Set ELEnum = El.GetSubElements
 
-    ' Iterate through sub-elements and find the longest one
+    ' Iterate through sub-elements once: track the longest (fallback) and the 2 shortest (caps)
     Do While ELEnum.MoveNext
         Set subel = ELEnum.Current
+        SubElementCount = SubElementCount + 1
         ElementLength = 0
 
         Select Case True
@@ -204,21 +218,37 @@ Private Function GetLongestSideFromComplexShape(ByVal El As ComplexShapeElement,
                 ' For nested shapes, get their longest side recursively
                 ElementLength = GetLongestSideFromShape(subel.AsShapeElement)
             Case subel.IsComplexShapeElement
-                ' For nested complex shapes, get their longest side recursively
-                ElementLength = GetLongestSideFromComplexShape(subel.AsComplexShapeElement, Depth + 1)
+                ' For nested complex shapes, get their conduit length recursively
+                ElementLength = GetConduitLengthFromComplexShape(subel.AsComplexShapeElement, Depth + 1)
         End Select
 
-        If ElementLength > LongestSide Then
-            LongestSide = ElementLength
+        If ElementLength > LongestSide Then LongestSide = ElementLength
+
+        If ElementLength > 0 Then
+            ValidCount = ValidCount + 1
+            If Smallest1 < 0 Or ElementLength < Smallest1 Then
+                Smallest2 = Smallest1
+                Smallest1 = ElementLength
+            ElseIf Smallest2 < 0 Or ElementLength < Smallest2 Then
+                Smallest2 = ElementLength
+            End If
         End If
     Loop
 
-    GetLongestSideFromComplexShape = LongestSide
+    If SubElementCount < 4 Or ValidCount < 2 Then
+        ' Too few segments to isolate 2 end caps (not a valid conduit topology) - fall
+        ' back to the longest single sub-element.
+        ShowStatus GetTranslation("LengthConduitFallbackToLongestSide", DLongToString(El.ID))
+        GetConduitLengthFromComplexShape = LongestSide
+    Else
+        GetConduitLengthFromComplexShape = (El.Perimeter - (Smallest1 + Smallest2)) / 2
+        If GetConduitLengthFromComplexShape < 0 Then GetConduitLengthFromComplexShape = 0
+    End If
     Exit Function
 
 ErrorHandler:
-    GetLongestSideFromComplexShape = 0
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.GetLongestSideFromComplexShape"
+    GetConduitLengthFromComplexShape = 0
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.GetConduitLengthFromComplexShape"
 End Function
 
 ' Private function to round the length to a specified number of decimal places
