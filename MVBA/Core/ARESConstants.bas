@@ -74,7 +74,9 @@ Public Const ARES_CONFIG_VERSION As String = "1.0.1"
 Public Const ARES_KNIFE_HALFWIDTH_FACTOR As Double = 10#
 ' Knife half-width / over-extension floor as a fraction of the region bbox diagonal, so the slot
 ' stays above GetRegionDifference's extent-scaled cleanup tolerance at every scale (large regions
-' otherwise collapse to a single region — "fewer than two regions (1)").
+' otherwise collapse to a single region — "fewer than two regions (1)"). CONFIRMED LOAD-BEARING
+' (2026-08-27): a near-zero test value reproduced exactly this failure ("Impossible de diviser
+' cette région ici") on live testing - do not shrink this without re-testing on a large region.
 Public Const ARES_KNIFE_HALFWIDTH_REL_FACTOR As Double = 0.000005
 ' Knife over-extension past each chord end, as a fraction of the chord length (fully severs the region).
 Public Const ARES_KNIFE_OVEREXTEND_FACTOR As Double = 0.01

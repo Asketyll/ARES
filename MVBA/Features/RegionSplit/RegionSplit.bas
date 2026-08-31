@@ -8,9 +8,14 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, Geometry, LangManager
 '
-' Mechanic shipped: a thin "knife" rectangle + GetRegionDifference, evaluated near the
-' origin (Zoning precision workaround). The knife half-width derives from
-' ARES_RegionSplit_Collinear_Tol (a config var, not a literal).
+' Mechanic shipped: a thin "knife" rectangle, offset ENTIRELY to one side of the cut chord
+' (not centered), subtracted from the region via GetRegionDifference -- evaluated near the
+' origin (Zoning precision workaround). Two independent calls are made, one knife offset to
+' each side, so BOTH kept halves get an edge that sits exactly on the cut chord (no gap
+' between them, unlike a centered knife which leaves both edges set back by the knife's
+' half-width). Each call's "exact edge" half is picked out of its raw GetRegionDifference
+' output by IsExactEdgePiece (its boundary passes through entryPt AND exitPt). The knife
+' half-width derives from ARES_RegionSplit_Collinear_Tol (a config var, not a literal).
 Option Explicit
 
 ' SplitElementAt
@@ -41,7 +46,6 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
     Dim entryPt    As Point3d   ' perpendicular foot of ClickPt on the closest segment
     Dim dirIn      As Point3d   ' unit-ish interior cut direction (perpendicular to segment)
     Dim exitPt     As Point3d   ' opposite-boundary crossing
-    Dim knifeEl    As Element   ' thin rectangle straddling entryPt -> exitPt
     Dim halves()   As Element   ' the two resulting region halves
     Dim nHalves    As Long
 
@@ -118,28 +122,20 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
         Exit Sub
     End If
 
-    ' --- Build the thin knife straddling entryPt -> exitPt ---
+    ' --- Boolean difference near the origin, via two offset knives → the two gapless halves ---
     ' Pass the region's bbox diagonal so the knife width scales with extent (else a large region
     ' collapses the slot below GetRegionDifference's tolerance -> single region).
     Dim oRng As Range3d
     oRng = oRegion.Range
-    Set knifeEl = BuildKnife(entryPt, exitPt, dCollinearTol, dStrokeTol, _
-                             Point3dDistanceXY(oRng.Low, oRng.High))
-    If knifeEl Is Nothing Then
-        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: failed to build the cut knife"
-        ErrorHandler.HandleError "BuildKnife returned Nothing", 0, "", "RegionSplit.SplitElementAt"
-        Exit Sub
-    End If
-
-    ' --- Boolean difference near the origin → the two halves ---
     nHalves = 0
-    If Not SplitByKnife(oRegion, knifeEl, halves, nHalves) Then
+    If Not SplitByOffsetKnives(oRegion, entryPt, exitPt, dCollinearTol, dStrokeTol, _
+                               Point3dDistanceXY(oRng.Low, oRng.High), halves, nHalves) Then
         ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: boolean split failed"
-        ErrorHandler.HandleError "GetRegionDifference failed during split", 0, "", "RegionSplit.SplitElementAt"
+        ErrorHandler.HandleError "SplitByOffsetKnives failed to produce two gapless regions", 0, "", "RegionSplit.SplitElementAt"
         Exit Sub
     End If
 
-    ' Must yield >= 2 non-empty regions, else abort with no model change.
+    ' SplitByOffsetKnives guarantees nHalves = 2 on True; defence-in-depth here too.
     If nHalves < 2 Then
         ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: split did not produce two regions"
         ErrorHandler.HandleError "Boolean split produced fewer than two regions (" & nHalves & ")", 0, "", "RegionSplit.SplitElementAt"
@@ -863,16 +859,22 @@ End Function
 ' ============================================================
 
 ' BuildKnife
-' Builds a thin closed rectangle (ShapeElement) straddling the chord entryPt -> exitPt:
-' offset the chord by a tiny half-width (ARES_KNIFE_HALFWIDTH_FACTOR * dCollinearTol, NOT a
-' literal) on each side, and over-extend slightly past each end so the difference fully
-' severs the region. Reuses the 4-point rectangle construction from BuildLineZone's
-' flat-cap branch (Zoning.bas:794-796).
+' Builds a closed rectangle (ShapeElement) covering a strip of half-width hw alongside the
+' chord entryPt -> exitPt, over-extended slightly past each end so the difference fully
+' severs the region. Reuses the 4-point rectangle construction from BuildLineZone's flat-cap
+' branch (Zoning.bas:794-796).
+' Unlike a centered knife (±hw around the chord), the strip is offset ENTIRELY to one side:
+' nSide = +1 covers [0, +2*hw] (near edge exactly on the chord, far edge at +2*hw); nSide = -1
+' covers [-2*hw, 0] (mirrored). The near edge -- built as p0/p1 with zero perpendicular offset,
+' identical formula and inputs in both branches -- is therefore bit-identical between the two
+' calls SplitByOffsetKnives makes (see its header comment): whichever half keeps that edge
+' picks up the exact same cut line, so the two final halves share it with no gap between them.
 Private Function BuildKnife(ByRef entryPt As Point3d, _
                             ByRef exitPt As Point3d, _
                             ByVal dCollinearTol As Double, _
                             ByVal dStrokeTol As Double, _
-                            ByVal dRegionDiag As Double) As Element
+                            ByVal dRegionDiag As Double, _
+                            ByVal nSide As Long) As Element
     On Error GoTo ErrorHandler
 
     Set BuildKnife = Nothing
@@ -909,20 +911,26 @@ Private Function BuildKnife(ByRef entryPt As Point3d, _
     If over < overMin Then over = overMin
     dirAxis = Point3dScale(Point3dSubtract(exitPt, entryPt), 1# / chordLen)
 
-    Dim p0 As Point3d   ' extended entry end
-    Dim p1 As Point3d   ' extended exit end
+    Dim p0 As Point3d   ' extended entry end, zero perpendicular offset (the near/shared edge)
+    Dim p1 As Point3d   ' extended exit end, zero perpendicular offset (the near/shared edge)
     p0 = Point3dAddScaled(entryPt, dirAxis, -over)
     p1 = Point3dAddScaled(exitPt, dirAxis, over)
 
-    ' Four rectangle corners (left side then right side), closed back to the first.
-    Dim L0 As Point3d, L1 As Point3d, R1 As Point3d, R0 As Point3d
-    L0 = Point3dAdd(p0, perp)
-    L1 = Point3dAdd(p1, perp)
-    R1 = Point3dSubtract(p1, perp)
-    R0 = Point3dSubtract(p0, perp)
+    ' Far edge: offset 2*hw from the near edge, on the side nSide selects.
+    Dim perpFar As Point3d
+    Dim F0 As Point3d, F1 As Point3d
+    perpFar = Point3dScale(perp, 2#)
+    If nSide > 0 Then
+        F0 = Point3dAdd(p0, perpFar)
+        F1 = Point3dAdd(p1, perpFar)
+    Else
+        F0 = Point3dSubtract(p0, perpFar)
+        F1 = Point3dSubtract(p1, perpFar)
+    End If
 
+    ' Four rectangle corners (near side then far side), closed back to the first.
     Dim rectPts(0 To 4) As Point3d
-    rectPts(0) = L0 : rectPts(1) = L1 : rectPts(2) = R1 : rectPts(3) = R0 : rectPts(4) = L0
+    rectPts(0) = p0 : rectPts(1) = p1 : rectPts(2) = F1 : rectPts(3) = F0 : rectPts(4) = p0
     Set BuildKnife = CreateShapeElement1(Nothing, rectPts)
     Exit Function
 
@@ -931,26 +939,92 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "RegionSplit.BuildKnife"
 End Function
 
-' SplitByKnife
-' Performs region = region - knife via GetRegionDifference, evaluated near the origin
-' (Zoning precision workaround): clone the region, translate clone + knife by
-' -region.Range.High, run the boolean, then translate each result back by +High.
-' Accumulates the resulting halves into outHalves(); returns False on a hard failure.
-Private Function SplitByKnife(ByVal oRegion As Element, _
-                              ByVal knifeEl As Element, _
-                              ByRef outHalves() As Element, _
-                              ByRef nHalves As Long) As Boolean
+' SplitByOffsetKnives
+' Performs the gapless split: two independent region = region - knife calls via
+' GetRegionDifference (each evaluated near the origin, Zoning precision workaround -- clone the
+' region, translate clone + knife by -oRegion.Range.High computed once on the untouched
+' original, run the boolean, translate results back by +High), one per side (BuildKnife
+' nSide = +1, then nSide = -1).
+'
+' Each knife covers a strip of half-width hw offset ENTIRELY to its side, so its far edge lets
+' GetRegionDifference sever the region same as the legacy centered knife, but its near edge
+' sits exactly on the cut chord (zero offset) -- untouched material on the OTHER side of that
+' near edge keeps its boundary there unchanged. IsExactEdgePiece picks that untouched piece out
+' of each call's raw output (which may contain more than 2 elements on a concave region, same
+' as the legacy single-call knife did): the one whose boundary passes through BOTH entryPt and
+' exitPt. Each call must yield EXACTLY ONE such piece -- 0 (edge not reproduced) or >= 2
+' (ambiguous) is treated as a hard failure, not guessed at. This is a stricter contract than the
+' legacy nHalves >= 2 (which let a concave region's boolean output, however many pieces, all be
+' written): a piece touching neither entryPt nor exitPt could otherwise only be discarded
+' silently, since it cannot be picked by either call, so this split now aborts cleanly instead
+' (decision 2026-08-31, confirmed by the maintainer -- no known caller relies on a > 2-piece
+' split result, and no unit test covers it).
+Private Function SplitByOffsetKnives(ByVal oRegion As Element, _
+                                     ByRef entryPt As Point3d, _
+                                     ByRef exitPt As Point3d, _
+                                     ByVal dCollinearTol As Double, _
+                                     ByVal dStrokeTol As Double, _
+                                     ByVal dRegionDiag As Double, _
+                                     ByRef outHalves() As Element, _
+                                     ByRef nHalves As Long) As Boolean
     On Error GoTo ErrorHandler
 
-    SplitByKnife = False
+    SplitByOffsetKnives = False
     nHalves = 0
 
-    ' Translate both operands near the origin (GetRegionDifference is unreliable at large
-    ' DGN coordinates — MicroStation bug). Mirror Zoning.bas:187-217 exactly.
+    Dim knifeA As Element   ' nSide = +1: near edge on the chord, far edge at +2*hw
+    Dim knifeB As Element   ' nSide = -1: near edge on the chord, far edge at -2*hw
+    Set knifeA = BuildKnife(entryPt, exitPt, dCollinearTol, dStrokeTol, dRegionDiag, 1)
+    If knifeA Is Nothing Then Exit Function
+    Set knifeB = BuildKnife(entryPt, exitPt, dCollinearTol, dStrokeTol, dRegionDiag, -1)
+    If knifeB Is Nothing Then Exit Function
+
+    ' Translation near the origin, computed once on the untouched original region (GetRegionDifference
+    ' is unreliable at large DGN coordinates — MicroStation bug). Mirror Zoning.bas:187-217.
     Dim toOrigin   As Point3d
     Dim fromOrigin As Point3d
     toOrigin = Point3dNegate(oRegion.Range.High)
     fromOrigin = Point3dNegate(toOrigin)
+
+    Dim halfA As Element
+    Dim halfB As Element
+    If Not RunKnifeDifference(oRegion, knifeA, toOrigin, fromOrigin, entryPt, exitPt, _
+                              dStrokeTol, dCollinearTol, halfA) Then Exit Function
+    If Not RunKnifeDifference(oRegion, knifeB, toOrigin, fromOrigin, entryPt, exitPt, _
+                              dStrokeTol, dCollinearTol, halfB) Then Exit Function
+
+    ReDim outHalves(0 To 1)
+    Set outHalves(0) = halfA
+    Set outHalves(1) = halfB
+    nHalves = 2
+
+    SplitByOffsetKnives = True
+    Exit Function
+
+ErrorHandler:
+    SplitByOffsetKnives = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "RegionSplit.SplitByOffsetKnives"
+End Function
+
+' RunKnifeDifference
+' Runs one region-clone = region-clone - knife GetRegionDifference call near the origin and
+' picks the single exact-edge piece (IsExactEdgePiece) out of its raw output. False -- with
+' outHalf left unset -- on any hard failure: no crossing produced, or the exact-edge piece is
+' not unique (0 or >= 2 matches). knifeEl is moved in place by toOrigin (caller-owned, built
+' fresh per call by SplitByOffsetKnives, not reused afterwards).
+Private Function RunKnifeDifference(ByVal oRegion As Element, _
+                                    ByVal knifeEl As Element, _
+                                    ByRef toOrigin As Point3d, _
+                                    ByRef fromOrigin As Point3d, _
+                                    ByRef entryPt As Point3d, _
+                                    ByRef exitPt As Point3d, _
+                                    ByVal dStrokeTol As Double, _
+                                    ByVal dCollinearTol As Double, _
+                                    ByRef outHalf As Element) As Boolean
+    On Error GoTo ErrorHandler
+
+    RunKnifeDifference = False
+    Set outHalf = Nothing
 
     Dim regionClone As Element
     Set regionClone = oRegion.Clone
@@ -966,23 +1040,87 @@ Private Function SplitByKnife(ByVal oRegion As Element, _
     Set oEnum = GetRegionDifference(solid, holes, Nothing, msdFillModeNotFilled)
     If oEnum Is Nothing Then Exit Function
 
-    Dim oHalf As Element
+    Dim oPiece    As Element
+    Dim nMatches  As Long
+    nMatches = 0
     Do While oEnum.MoveNext
-        Set oHalf = oEnum.Current
-        If Not oHalf Is Nothing Then
-            oHalf.Move fromOrigin
-            ReDim Preserve outHalves(0 To nHalves)
-            Set outHalves(nHalves) = oHalf
-            nHalves = nHalves + 1
+        Set oPiece = oEnum.Current
+        If Not oPiece Is Nothing Then
+            oPiece.Move fromOrigin
+            If IsExactEdgePiece(oPiece, entryPt, exitPt, dStrokeTol, dCollinearTol) Then
+                nMatches = nMatches + 1
+                If nMatches = 1 Then Set outHalf = oPiece
+            End If
         End If
     Loop
 
-    SplitByKnife = True
+    ' Exactly one exact-edge piece expected; 0 (edge not reproduced) or >= 2 (ambiguous) both
+    ' abort rather than guess (see SplitByOffsetKnives header comment).
+    If nMatches <> 1 Then
+        Set outHalf = Nothing
+        Exit Function
+    End If
+
+    RunKnifeDifference = True
     Exit Function
 
 ErrorHandler:
-    SplitByKnife = False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "RegionSplit.SplitByKnife"
+    RunKnifeDifference = False
+    Set outHalf = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "RegionSplit.RunKnifeDifference"
+End Function
+
+' IsExactEdgePiece
+' True if el's boundary passes within dCollinearTol of BOTH entryPt and exitPt -- the signature
+' of the piece that kept the knife's near (zero-offset) edge, i.e. the exact, gap-free cut line,
+' as opposed to the piece bounded by the knife's far edge (set back by 2*hw >> dCollinearTol) or
+' any other fragment produced by a concave region. Works on distance-to-SEGMENT, not just
+' vertices, since entryPt/exitPt generally fall mid-edge rather than on a vertex of the result.
+' el can be Shape or ComplexShape (whatever GetRegionDifference returns): GetBoundaryVertices is
+' already generic over both, so it is reused as-is here.
+Private Function IsExactEdgePiece(ByVal el As Element, _
+                                  ByRef entryPt As Point3d, _
+                                  ByRef exitPt As Point3d, _
+                                  ByVal dStrokeTol As Double, _
+                                  ByVal dCollinearTol As Double) As Boolean
+    On Error GoTo ErrorHandler
+    IsExactEdgePiece = False
+
+    Dim verts() As Point3d
+    verts = GetBoundaryVertices(el, dStrokeTol, dCollinearTol)
+    If Not HasAtLeast(verts, 2) Then Exit Function
+
+    IsExactEdgePiece = (MinDistToBoundary(verts, entryPt) <= dCollinearTol) And _
+                       (MinDistToBoundary(verts, exitPt) <= dCollinearTol)
+    Exit Function
+
+ErrorHandler:
+    IsExactEdgePiece = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "RegionSplit.IsExactEdgePiece"
+End Function
+
+' MinDistToBoundary
+' Shortest XY distance from pt to the closed polyline verts (consecutive segments
+' verts(i) -> verts(i+1)). verts(LBound) and verts(UBound) are assumed coincident (a closed
+' loop with a duplicated closing vertex), the same convention GetClosestSegmentIndex already
+' relies on elsewhere in this module, so no explicit wrap-around segment is needed here.
+' Reuses DistPointToSegmentXY per segment.
+Private Function MinDistToBoundary(ByRef verts() As Point3d, ByRef pt As Point3d) As Double
+    On Error GoTo ErrorHandler
+    Dim i    As Long
+    Dim d    As Double
+    Dim dMin As Double
+    dMin = 1E+30
+    For i = LBound(verts) To UBound(verts) - 1
+        d = DistPointToSegmentXY(pt, verts(i), verts(i + 1))
+        If d < dMin Then dMin = d
+    Next i
+    MinDistToBoundary = dMin
+    Exit Function
+
+ErrorHandler:
+    MinDistToBoundary = 1E+30
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "RegionSplit.MinDistToBoundary"
 End Function
 
 ' ============================================================
