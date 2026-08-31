@@ -40,12 +40,6 @@
 
 Option Explicit
 
-Private Const HEADER_STYLE      As String = "Line Style"
-Private Const HEADER_LEVEL      As String = "Level"
-Private Const HEADER_COLOR      As String = "Color"
-Private Const HEADER_LENGTH     As String = "Total Length (master units)"
-Private Const HEADER_ZONE       As String = "Zone"           ' per-zone split: column 1 header
-Private Const HEADER_ID         As String = "ID"             ' group-by = ID (DLong): column header
 Private Const KEY_SEP           As String = vbTab            ' composite key separator (zoneIndex & KEY_SEP & group-key)
 Private Const XL_OPENXML_FORMAT As Long   = 51   ' xlOpenXMLWorkbook (.xlsx)
 ' Late-bound Excel enum values (named xl* constants are unavailable under CreateObject).
@@ -101,8 +95,9 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     End If
 
     ' --- AC-7: zone level must exist ---
+    ' Status-bar only, not logged: a misconfigured/renamed level name is a user config
+    ' issue, not a fault worth an error-log entry.
     If Not GetElements.IsValidLevelName(ZoneLevel) Then
-        ErrorHandler.HandleError "Zone level not found in ActiveDesignFile.Levels: " & ZoneLevel, 0, "", "ExportLengthInRegion.ExportLengthInRegion"
 		ShowStatus GetTranslation("ZoneExportLevelNotFound", ZoneLevel)
         Exit Sub
     End If
@@ -118,7 +113,8 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     sLevelFilter = Trim(ARESConfig.ARES_ZONE_EXPORT_LEVEL.Value)
     nFilterLevels = ResolveFilterLevels(sLevelFilter, filterLevels, sIgnoredLevels)
     If Len(sIgnoredLevels) > 0 Then
-        ErrorHandler.HandleError "Ignored non-existent export filter level(s): " & sIgnoredLevels, 0, "", "ExportLengthInRegion.ExportLengthInRegion"
+        ' Status-bar only, not logged: a typo'd/renamed filter level name is a user config
+        ' issue, not a fault - the export still runs fine on the valid subset (or all levels).
         ShowStatus GetTranslation("ZoneExportFilterLevelsIgnored", sIgnoredLevels)
     End If
 
@@ -693,20 +689,23 @@ Private Sub WriteToExcel(ByRef oLevels As Object, ByVal Filepath As String, _
     xlSheet.Name = ARESConfig.ARES_ZONE_EXPORT_SHEET_NAME.Value
 
     ' (3) Headers (AC-15). Per-zone mode writes 3 columns; classic writes 2 (untouched).
-    '     Column 2's header is the group-by header in BOTH modes.
+    '     Column 2's header is the group-by header in BOTH modes. Translated via LangManager;
+    '     the length header interpolates the active design file's real master unit label.
+    Dim sHeaderLength As String
+    sHeaderLength = GetTranslation("ZoneExportHeaderLength", ResolveMasterUnitLabel())
     Select Case sGroupBy
-        Case "Level" : sGroupHeader = HEADER_LEVEL
-        Case "Color" : sGroupHeader = HEADER_COLOR
-        Case "ID"    : sGroupHeader = HEADER_ID
-        Case Else    : sGroupHeader = HEADER_STYLE
+        Case "Level" : sGroupHeader = GetTranslation("ZoneExportHeaderLevel")
+        Case "Color" : sGroupHeader = GetTranslation("ZoneExportHeaderColor")
+        Case "ID"    : sGroupHeader = GetTranslation("ZoneExportHeaderID")
+        Case Else    : sGroupHeader = GetTranslation("ZoneExportHeaderStyle")
     End Select
     If bLongFormat Then
-        xlSheet.Cells(1, 1).Value = HEADER_ZONE
+        xlSheet.Cells(1, 1).Value = GetTranslation("ZoneExportHeaderZone")
         xlSheet.Cells(1, 2).Value = sGroupHeader
-        xlSheet.Cells(1, 3).Value = HEADER_LENGTH
+        xlSheet.Cells(1, 3).Value = sHeaderLength
     Else
         xlSheet.Cells(1, 1).Value = sGroupHeader
-        xlSheet.Cells(1, 2).Value = HEADER_LENGTH
+        xlSheet.Cells(1, 2).Value = sHeaderLength
     End If
 
     ' (4) Sort keys case-insensitively (AC-12) and write data rows.
@@ -878,6 +877,27 @@ Private Function ZoneIndexOfKey(ByVal sKey As String) As Long
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ZoneIndexOfKey"
+End Function
+
+' ResolveMasterUnitLabel
+' Returns the active model's master unit label (e.g. "m", "ft"), read via
+' ActiveModelReference.MasterUnit.Label. Falls back to a translated generic label on any
+' error (e.g. no active model) so the export never fails over a cosmetic header.
+Private Function ResolveMasterUnitLabel() As String
+    On Error GoTo ErrorHandler
+
+    Dim oMaster As MeasurementUnit
+    oMaster = ActiveModelReference.MasterUnit
+    If Len(Trim(oMaster.Label)) > 0 Then
+        ResolveMasterUnitLabel = oMaster.Label
+    Else
+        ResolveMasterUnitLabel = GetTranslation("ZoneExportMasterUnitFallback")
+    End If
+    Exit Function
+
+ErrorHandler:
+    ResolveMasterUnitLabel = GetTranslation("ZoneExportMasterUnitFallback")
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ResolveMasterUnitLabel"
 End Function
 
 ' SortedKeysCI
