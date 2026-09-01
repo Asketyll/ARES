@@ -4,10 +4,12 @@
 '              Full grammar, engine passes and coupling doctrine: see _bmad/docs/calc-rules-grammar.md.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, PropertyRendering, Link,
-'               Length, ErrorHandlerClass (global ErrorHandler), PropertyCalculation (Core - Types,
-'               HasElements, ReportMultipleColorCandidates, ReportMultipleGeometries, ReportNoGeoReference,
-'               ReportUnknownGeoSystem), ActiveModelReference/GeographicCoordinateSystem/
-'               Application.CreateGCSFromKeyName (geo output - see calc-rules-grammar.md)
+'               Length, CustomPropertyHandler, ErrorHandlerClass (global ErrorHandler), PropertyCalculation
+'               (Core - Types, HasElements, CascadeTrigger, ReportMultipleColorCandidates,
+'               ReportMultiplePropCandidates, ReportMultipleGeometries, ReportNoGeoReference,
+'               ReportUnknownGeoSystem),
+'               ActiveModelReference/GeographicCoordinateSystem/Application.CreateGCSFromKeyName
+'               (geo output - see calc-rules-grammar.md)
 
 Option Explicit
 
@@ -70,6 +72,8 @@ Public Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As
             If oEl.IsGraphical Then EvaluateSource = CStr(oEl.LineWeight)
         Case csGroupColor
             EvaluateSource = EvaluateGroupColor(oEl)
+        Case csGroupProp
+            EvaluateSource = EvaluateGroupProp(oEl, r.SourceArg)
         Case csLength
             EvaluateSource = EvaluateOwnLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
         Case csGroupLength
@@ -388,6 +392,34 @@ ErrorHandler:
     ResolveFillAwareColor = el.Color
 End Function
 
+' FreshHandle - the one rule every PULL source (GroupProp/GroupColor/GroupLength) must follow when it reads a
+' scanned group member: if that member IS the element whose change started this cascade, read it through the
+' cascade's own trigger handle (PropertyCalculation.CascadeTrigger = the event's AfterChange), NOT through the
+' handle Link.GetLink's scan returned. Confirmed live 2026-09-01: a model scan run inside an element's own
+' ElementChanged callback still returns that element's PRE-change state (the model commits only after the
+' callback returns), so a member re-scanning its trigger reads it exactly one edit behind - which is what
+' made GroupProp propagate the PREVIOUS value. The push sources (Cell*/Lvl*) never had this problem because
+' they already read the trigger off its own handle and only scan to FIND members; this brings the pull
+' sources onto the same footing. The scan still decides membership - only the READ is redirected. Falls back
+' to the scanned handle when there is no cascade trigger (RecalculateSelection-free contexts, tests) or when
+' the trigger handle is no longer readable (deleted mid-cascade - .ID raises).
+Private Function FreshHandle(ByVal oCand As element) As element
+    On Error GoTo Fallback
+
+    Set FreshHandle = oCand
+    If oCand Is Nothing Then Exit Function
+
+    Dim oTrig As element
+    Set oTrig = PropertyCalculation.CascadeTrigger
+    If oTrig Is Nothing Then Exit Function
+
+    If DLongComp(oCand.ID, oTrig.ID) = 0 Then Set FreshHandle = oTrig
+    Exit Function
+
+Fallback:
+    Set FreshHandle = oCand
+End Function
+
 ' GroupColor: unlike every other GROUP source, SELF-EXCLUDED (no ReturnMe:=True) - Color has no type
 ' filter to protect a self-match the way GroupLength's IsLengthCapableType does, so self-inclusion would
 ' make a bearing text match itself instead of its linked geometry. No name/level pattern - first linked
@@ -402,7 +434,7 @@ Private Function EvaluateGroupColor(ByVal oEl As element) As String
     If Not PropertyCalculation.HasElements(cands) Then Exit Function
 
     Dim candidate As element
-    Set candidate = cands(LBound(cands))
+    Set candidate = FreshHandle(cands(LBound(cands)))   ' pull source: read the trigger off its fresh handle
     If Not candidate Is Nothing Then
         EvaluateGroupColor = CStr(ResolveFillAwareColor(candidate))
     End If
@@ -412,6 +444,57 @@ Private Function EvaluateGroupColor(ByVal oEl As element) As String
 
 ErrorHandler:
     EvaluateGroupColor = ""
+End Function
+
+' GroupProp[PropertyName]: self-EXCLUDED (no ReturnMe:=True), like GroupColor - a bearing element carrying
+' its OWN (still-empty, or stale) copy of PropertyName must never satisfy its own search, or it would read
+' back its own value forever instead of the linked element's. UNLIKE GroupColor, every candidate is filtered
+' by ATTACH STATE (IsItemAttachedToElement) AND by having a genuinely NON-EMPTY value - an attached-but-empty
+' candidate is itself an unresolved RECEIVER of this very rule (e.g. a text just fan-out-attached, waiting to
+' be filled), never a valid donor; accepting it would let an unfilled sibling's blank overwrite a real value
+' elsewhere (confirmed real-world 2026-09-01: an unconditioned rule shared by the donor and its receivers let
+' the donor's own bearing pass read an empty receiver and blank itself out, triggering ARES_Calc_Detach_Empty
+' on the DONOR - see calc-rules-grammar.md's GroupProp bullet for the required rule-conditioning fix; this
+' filter is a complementary hardening, not a full fix on its own). "" when ungrouped, no linked element
+' carries the property, or every carrying candidate is itself empty. >= 2 candidates with a REAL value ->
+' CalculationMultiplePropCandidates (an empty candidate is noise, not an ambiguity, so it is never counted) -
+' first genuinely non-empty match in scan order wins, same "first wins" doctrine as every other
+' multi-candidate case in this module.
+Private Function EvaluateGroupProp(ByVal oEl As element, ByVal sPropName As String) As String
+    On Error GoTo ErrorHandler
+
+    EvaluateGroupProp = ""
+    If Len(sPropName) = 0 Then Exit Function
+
+    Dim cands() As element
+    cands = Link.GetLink(oEl)                      ' NO ReturnMe:=True - see rationale above
+    If Not PropertyCalculation.HasElements(cands) Then Exit Function
+
+    Dim i        As Long
+    Dim nFound   As Long
+    Dim vVal     As Variant
+    Dim sVal     As String
+    Dim oRead    As element
+    nFound = 0
+    For i = LBound(cands) To UBound(cands)
+        Set oRead = FreshHandle(cands(i))          ' pull source: the scan found it, the fresh handle is read
+        If CustomPropertyHandler.IsItemAttachedToElement(oRead, sPropName) Then
+            vVal = CustomPropertyHandler.GetPropertyValueFromElement(oRead, sPropName, sPropName)
+            If Not IsNull(vVal) Then
+                sVal = CStr(vVal)
+                If Len(sVal) > 0 Then
+                    nFound = nFound + 1
+                    If nFound = 1 Then EvaluateGroupProp = sVal
+                End If
+            End If
+        End If
+    Next i
+
+    If nFound > 1 Then PropertyCalculation.ReportMultiplePropCandidates
+    Exit Function
+
+ErrorHandler:
+    EvaluateGroupProp = ""
 End Function
 
 '######################################################################################################################
@@ -684,7 +767,7 @@ Private Function EvaluateGroupLength(ByVal oEl As element, ByVal dec As Long) As
     Dim foundGeo As element
     Dim nMatch As Long
     If FindFirstLengthCapableInGroup(oEl, foundGeo, nMatch) Then
-        EvaluateGroupLength = EvaluateOwnLength(foundGeo, dec)
+        EvaluateGroupLength = EvaluateOwnLength(FreshHandle(foundGeo), dec)   ' pull source: fresh trigger handle
         If nMatch >= 2 Then PropertyCalculation.ReportMultipleGeometries
     End If
     Exit Function

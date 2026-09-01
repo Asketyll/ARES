@@ -1,7 +1,7 @@
 ' Module: GetElements
 ' Description: This module provides functions to get ElementEnumerator
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ErrorHandlerClass, ARESConstants, MicroStationDefinition
+' Dependencies: ErrorHandlerClass, ARESConstants, MicroStationDefinition, CustomPropertyHandler
 Option Explicit
 
 Public Function ByEE(Optional Levels As Variant, Optional Range As Variant, Optional CellName As String = Empty, Optional GraphicGroup As Long = -1, Optional AllowNoGraphicGroup As Boolean = False, Optional ElTypes As Variant, Optional Colors As Variant, Optional LineStyles As Variant, Optional LineWeights As Variant) As ElementEnumerator
@@ -243,6 +243,73 @@ ErrorHandler:
     Case Else
         ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "GetElements.IsValidLineStyleName"
     End Select
+End Function
+
+' FindNearestElement
+' Scans a bbox of SearchRadius (master units) around Pt for the closest candidate (by bbox-center
+' distance - generic, no per-type anchor cascade needed for a marker-cell lookup), optionally
+' restricted to ElTypes/Levels. When RequirePropertyName is non-empty, a candidate must carry a
+' non-Null, non-blank value for that custom property (CustomPropertyHandler.GetPropertyValueFromElement)
+' to qualify - without it, "nearest element of any kind" would catch unrelated annotation/symbol
+' cells sharing the radius in a real drawing. Returns Nothing when no qualifying candidate lies
+' within SearchRadius.
+Public Function FindNearestElement(ByRef Pt As Point3d, ByVal SearchRadius As Double, _
+                                   Optional ElTypes As Variant, _
+                                   Optional Levels As Variant, _
+                                   Optional RequirePropertyName As String = "") As Element
+    On Error GoTo ErrorHandler
+
+    Set FindNearestElement = Nothing
+    If SearchRadius <= 0 Then Exit Function
+
+    Dim oRange As Range3d
+    oRange = Range3dFromXYZXYZ(Pt.X - SearchRadius, Pt.Y - SearchRadius, Pt.Z - SearchRadius, _
+                               Pt.X + SearchRadius, Pt.Y + SearchRadius, Pt.Z + SearchRadius)
+
+    Dim ee As ElementEnumerator
+    Set ee = ByEE(Levels:=Levels, Range:=oRange, ElTypes:=ElTypes)
+    If ee Is Nothing Then Exit Function
+
+    Dim bRequireProp As Boolean
+    bRequireProp = (Len(Trim(RequirePropertyName)) > 0)
+
+    Dim oEl     As Element
+    Dim oBest   As Element
+    Dim dBest   As Double
+    Dim dDist   As Double
+    Dim rCand   As Range3d
+    Dim ptCand  As Point3d
+    Dim vProp   As Variant
+    Dim bQualifies As Boolean
+
+    dBest = SearchRadius
+    Do While ee.MoveNext
+        Set oEl = ee.Current
+        bQualifies = True
+        If bRequireProp Then
+            vProp = CustomPropertyHandler.GetPropertyValueFromElement(oEl, RequirePropertyName, RequirePropertyName)
+            bQualifies = Not IsNull(vProp)
+            If bQualifies Then bQualifies = (Len(Trim(CStr(vProp))) > 0)
+        End If
+        If bQualifies Then
+            rCand = oEl.Range
+            ptCand.X = (rCand.Low.X + rCand.High.X) / 2#
+            ptCand.Y = (rCand.Low.Y + rCand.High.Y) / 2#
+            ptCand.Z = (rCand.Low.Z + rCand.High.Z) / 2#
+            dDist = Point3dDistance(Pt, ptCand)
+            If dDist <= dBest Then
+                dBest = dDist
+                Set oBest = oEl
+            End If
+        End If
+    Loop
+
+    Set FindNearestElement = oBest
+    Exit Function
+
+ErrorHandler:
+    Set FindNearestElement = Nothing
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "GetElements.FindNearestElement"
 End Function
 
 Public Function GetLevel(ByVal LevelName As String, Optional CanCreateLevel As Boolean = True) As Level

@@ -32,6 +32,7 @@ User features — full key-in reference and configuration variables live in the 
 |:-------:|:------------|:----:|
 | Zoning | Buffer zone generation around elements (configurable distance, level, style, color, weight) | [EN](https://github.com/Asketyll/ARES/wiki/Zoning)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Zonage) |
 | Zone Export | Element lengths (partial or full) inside zone polygons, exported per group to Excel | [EN](https://github.com/Asketyll/ARES/wiki/Zone-Export)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Export-de-Zone) |
+| Cable Report | One Excel row per cable: end markers, nature, length, and trenching length per soil type (pivoted, summed) | [EN](https://github.com/Asketyll/ARES/wiki/Cable-Report)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Rapport-de-Cables) |
 | Region Split | Split a closed region into two with a single datapoint on its boundary | [EN](https://github.com/Asketyll/ARES/wiki/Region-Split)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Decoupe-de-Region) |
 | Region Merge | Fuse two closed regions into one with two successive datapoints | [EN](https://github.com/Asketyll/ARES/wiki/Region-Merge)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Fusion-de-Region) |
 | Property Calculation | Custom-property values calculated automatically per rules — from a label cell's text, a fixed value, the element's coordinates or its ID | [EN](https://github.com/Asketyll/ARES/wiki/Property-Calculation)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Calcul-de-Propriete) |

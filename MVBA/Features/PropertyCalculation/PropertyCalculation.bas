@@ -40,7 +40,8 @@ Private Const GEO_OPTS_SEPARATOR As String = ","
 
 ' Source vocabulary of a calc rule's right-hand side. csCell*/csLvl* are GROUP sources (self-included
 ' member scan by cell name / level name); the rest are SELF sources except csGroupLength (GROUP, by
-' TYPE) and csGroupColor (GROUP, self-EXCLUDED - see EvaluateGroupColor).
+' TYPE), csGroupColor (GROUP, self-EXCLUDED - see EvaluateGroupColor) and csGroupProp (GROUP,
+' self-EXCLUDED, filtered by attach state - see EvaluateGroupProp).
 Public Enum CalcSource
     csCellText
     csCellCoord
@@ -62,6 +63,7 @@ Public Enum CalcSource
     csGroupColor
     csLength
     csGroupLength
+    csGroupProp
 End Enum
 
 ' One parsed calc rule: Prop[TargetProp] [& conditions]* = Source. Conditions() (RuleGrammar.RuleCondition)
@@ -91,6 +93,20 @@ Private mCalcRules() As CalcRuleInfo
 Private mnCalcCount As Long
 Private mbCalcParsed As Boolean
 
+' The element whose change started the current Depth-0 cascade - i.e. IChangeTrackEvents_ElementChanged's
+' AfterChange (or the GetElementById re-fetch of an idle-queued element, or a RecalculateSelection pick).
+' Set/cleared by ElementChangeHandler.ProcessElement around every Depth-0 pass. WHY IT EXISTS (confirmed
+' live 2026-09-01): a model scan (Link.GetLink -> ActiveModelReference.Scan) run INSIDE an element's own
+' ElementChanged callback still returns that element's PRE-change state - the model is only committed once the
+' callback returns - whereas AfterChange is fresh (for a just-edited Item value: fresh at the second native
+' callback, action 17, not yet at Modify/3 - ElementChangeHandler routes both). The push sources (Cell*/Lvl*) never hit this: they
+' read the trigger through its own handle and only scan to FIND members. The pull sources (GroupProp/
+' GroupColor/GroupLength) do: a member rescans the group and reads the trigger off the scan, one edit behind.
+' PropertyCalculation_SourceEval.FreshHandle substitutes this handle for any scanned candidate with the same
+' ID, so a pull source reads the trigger exactly as a push source would. Cleared on every Depth-0 exit so a
+' stale reference to a possibly-deleted element never outlives its cascade.
+Private moCascadeTrigger As element
+
 ' One-shot guards so each calculation status surfaces only once per processed element; reset at the
 ' start of ProcessElement. The four "Multiple" guards are DELIBERATELY SEPARATE, not one shared flag: a
 ' group can hold competing trigger cells, trigger levels, GroupColor candidates and geometries all at
@@ -101,6 +117,7 @@ Private mbMultiShown As Boolean
 Private mbMultiGeoShown As Boolean
 Private mbMultiLvlShown As Boolean
 Private mbMultiColorShown As Boolean
+Private mbMultiPropShown As Boolean
 Private mbNoGeoRefShown As Boolean
 Private mbUnknownGeoSystemShown As Boolean
 
@@ -247,6 +264,7 @@ Public Sub ProcessElement(ByVal oEl As element)
     mbMultiGeoShown = False
     mbMultiLvlShown = False
     mbMultiColorShown = False
+    mbMultiPropShown = False
     mbNoGeoRefShown = False
     mbUnknownGeoSystemShown = False
 
@@ -293,6 +311,29 @@ ErrorHandler:
     HasGroupColorRules = False
 End Function
 
+' True when at least one calc rule uses GroupProp. Gates ElementChangeHandler's Branch 2 (mirrors
+' HasGroupColorRules): GroupProp has no name/level "trigger" pattern either, so it needs every sibling
+' re-evaluated inline when the linked element changes - Branch 2 already does that.
+Public Function HasGroupPropRules() As Boolean
+    On Error GoTo ErrorHandler
+
+    HasGroupPropRules = False
+    If Not IsEnabled Then Exit Function
+
+    EnsureCalcRulesParsed
+    Dim i As Long
+    For i = 0 To mnCalcCount - 1
+        If mCalcRules(i).SourceKind = csGroupProp Then
+            HasGroupPropRules = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    HasGroupPropRules = False
+End Function
+
 ' True when at least one parsed calc rule uses GroupLength. Consulted by ElementChangeHandler's geometric
 ' Branch 2 gate: a GroupLength rule needs every OTHER group member re-queued when the linked geometry itself
 ' changes, same as Auto Lengths' own ARES_Update_Lengths gate - but must work even with Auto Lengths OFF.
@@ -321,6 +362,20 @@ End Function
 ' mCalcRules()/mnCalcCount directly - added by the split (not in the original file).
 Public Function RuleCount() As Long
     RuleCount = mnCalcCount
+End Function
+
+' Cascade-trigger register (see moCascadeTrigger's declaration comment). Public: written by
+' ElementChangeHandler.ProcessElement at Depth 0, read by Module B (SourceEval)'s FreshHandle.
+Public Sub SetCascadeTrigger(ByVal oEl As element)
+    Set moCascadeTrigger = oEl
+End Sub
+
+Public Sub ClearCascadeTrigger()
+    Set moCascadeTrigger = Nothing
+End Sub
+
+Public Function CascadeTrigger() As element
+    Set CascadeTrigger = moCascadeTrigger
 End Function
 
 ' One parsed calc rule by index, returned BY VALUE. Public accessor so Module C (TriggerPush) never reads
@@ -781,6 +836,13 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
             r.SourceKind = csGroupColor
             r.SourceArg = ""
+        Case "GROUPPROP"
+            If Not RequirePatternArg("GroupProp", bHasArg, arg, pat, sPatReason) Then
+                ParseSource = sPatReason
+                Exit Function
+            End If
+            r.SourceKind = csGroupProp
+            r.SourceArg = pat
         Case "LENGTH"
             r.SourceKind = csLength
             r.SourceArg = ""
@@ -807,9 +869,9 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
         Case Else
             If Len(kw) = 0 Then
-                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/GroupProp/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             Else
-                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/GroupProp/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             End If
             Exit Function
     End Select
@@ -983,6 +1045,8 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
             SourceToCanonical = "Weight"
         Case csGroupColor
             SourceToCanonical = "GroupColor"
+        Case csGroupProp
+            SourceToCanonical = "GroupProp" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csLength
             SourceToCanonical = OptionalArgKeywordToCanonical("Length", r.SourceArg)
         Case csGroupLength
@@ -1464,6 +1528,16 @@ Public Sub ReportMultipleColorCandidates()
     If Not mbMultiColorShown Then
         LangManager.ShowStatusT "CalculationMultipleColorCandidates"
         mbMultiColorShown = True
+    End If
+End Sub
+
+' Own key: this ambiguity is between LINKED elements carrying the SAME custom property, not colors,
+' cells or levels. Public: called from Module B (SourceEval)'s EvaluateGroupProp.
+Public Sub ReportMultiplePropCandidates()
+    On Error Resume Next
+    If Not mbMultiPropShown Then
+        LangManager.ShowStatusT "CalculationMultiplePropCandidates"
+        mbMultiPropShown = True
     End If
 End Sub
 

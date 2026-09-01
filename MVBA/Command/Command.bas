@@ -1,12 +1,13 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering, CallStackClass
+' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering, CallStackClass, CableReport
 Option Explicit
 
 Private moZoningGUI          As Zoning_GUI_Options
 Private moOutlineGUI         As Outline_GUI_Options
 Private moZoneExportGUI      As ExportLengthInReg_GUI_Options
+Private moCableReportGUI     As CableReport_GUI_Options
 Private moPropertyTaggingGUI As PropertyTagging_GUI_Options
 Private moPropertyCalculationGUI     As PropertyCalculation_GUI_Options
 Private moPropertyRenderingGUI       As PropertyRendering_GUI_Options
@@ -225,6 +226,55 @@ Sub ExportLength()
 
 ErrorHandler:
     ReportFailure "ExportLength", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Export a cable-by-cable trenching report to Excel: end-cell markers (Repere), the linked text's
+' Nature/Longueur, and the trenching length broken down by soil type (Coupe_Type), pivoted into
+' one column per distinct value. Excel visibility is driven by ARES_CableReport_Excel_Visible.
+Sub ExportCableReport()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    Dim bVisible As Boolean
+    bVisible = (UCase(Trim(ARESConfig.ARES_CABLEREPORT_EXCEL_VISIBLE.Value)) = "TRUE")
+
+    CableReport.CableReport ExcelVisible:=bVisible
+    ReportIfLogged "ExportCableReport"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "ExportCableReport", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Open the CableReport options GUI
+Sub EditCableReportOptions()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moCableReportGUI Is Nothing Then
+        Set moCableReportGUI = New CableReport_GUI_Options
+    End If
+
+    moCableReportGUI.Show vbModeless
+    ReportIfLogged "EditCableReportOptions"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "EditCableReportOptions", Err.Description, Err.Number, Err.Source
+End Sub
+
+Public Sub OnCableReportGUIClosed()
+    Set moCableReportGUI = Nothing
 End Sub
 
 ' Open the Zoning options GUI
@@ -615,6 +665,51 @@ ErrorHandler:
     ReportFailure "BindPropertyRender", Err.Description, Err.Number, Err.Source
 End Sub
 
+' Key-in: force a full recalculation pass (Tagging -> Calculation -> Actuator -> Rendering, then the
+' geometric Branch 2 sibling propagation) on every selected element, exactly as ElementChangeHandler.
+' ProcessElement would run it from a native ElementChanged event - the manual entry point for when
+' automatic propagation raced a multi-step native commit and lost (confirmed real-world 2026-09-01: editing
+' a custom-property value via MicroStation's own Properties palette can fire several ElementChanged events
+' for ONE edit, and Branch 2's own fresh Link.GetLink re-read of the donor - a separate scan from the
+' always-fresh AfterChange event parameter - can read a not-yet-settled copy at full native speed, even on
+' the last/correct firing; a MicroStation timing characteristic on this specific edit path, not an ARES
+' logic bug). Called later as an independent, non-reentrant top-level action, this always reads the
+' fully-settled value. No feature-specific gate here: each pipeline stage already gates itself inside
+' ProcessElement, same as it would for a real event.
+Sub RecalculateSelection()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If Not ActiveModelReference.AnyElementsSelected Then
+        ShowStatusT "RecalculateNoSelection"
+        Exit Sub
+    End If
+
+    Dim oEnum As ElementEnumerator
+    Dim oEl As element
+    Dim nCount As Long
+
+    Set oEnum = ActiveModelReference.GetSelectedElements
+    Do While oEnum.MoveNext
+        Set oEl = oEnum.Current
+        ChangeHandler.ProcessElement oEl
+        nCount = nCount + 1
+    Loop
+
+    ShowStatus GetTranslation("RecalculateComplete", nCount)
+    ReportIfLogged "RecalculateSelection"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "RecalculateSelection", Err.Description, Err.Number, Err.Source
+End Sub
+
 ' Key-in: write the deepest/most recent ARES call-stack chain to the log, on demand, without any error
 ' involved. VBA/MicroStation is single-threaded and synchronous: no ARES procedure is ever still "on the
 ' stack" by the time a key-in runs (control has already returned to the user), so this cannot read a live
@@ -650,6 +745,7 @@ Public Sub SaveAllOpenFormPositions()
     If Not moZoningGUI Is Nothing Then FormPlacement.SaveFormPosition moZoningGUI, moZoningGUI.Name
     If Not moOutlineGUI Is Nothing Then FormPlacement.SaveFormPosition moOutlineGUI, moOutlineGUI.Name
     If Not moZoneExportGUI Is Nothing Then FormPlacement.SaveFormPosition moZoneExportGUI, moZoneExportGUI.Name
+    If Not moCableReportGUI Is Nothing Then FormPlacement.SaveFormPosition moCableReportGUI, moCableReportGUI.Name
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyTaggingGUI, moPropertyTaggingGUI.Name
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyCalculationGUI, moPropertyCalculationGUI.Name
     If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyRenderingGUI, moPropertyRenderingGUI.Name
@@ -669,6 +765,7 @@ Sub ResetFormPositions()
     If Not moZoningGUI Is Nothing Then FormPlacement.CenterForm moZoningGUI
     If Not moOutlineGUI Is Nothing Then FormPlacement.CenterForm moOutlineGUI
     If Not moZoneExportGUI Is Nothing Then FormPlacement.CenterForm moZoneExportGUI
+    If Not moCableReportGUI Is Nothing Then FormPlacement.CenterForm moCableReportGUI
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.CenterForm moPropertyTaggingGUI
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.CenterForm moPropertyCalculationGUI
     If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.CenterForm moPropertyRenderingGUI

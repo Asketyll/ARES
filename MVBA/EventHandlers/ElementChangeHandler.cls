@@ -6,6 +6,9 @@
 '              instead of queuing it for idle (False = older deferred fallback). Risk: a .Rewrite inside
 '              ProcessElement can make MicroStation reenter IChangeTrackEvents_ElementChanged before the
 '              outer call returns - mbProcessingDirect guards this by deferring the reentrant call instead.
+'              Item edits raise TWO native callbacks per edit - Modify (3), then the undocumented 17 - and
+'              only the second one sees the new Item value on AfterChange; both are routed through the
+'              Modify path (see CHANGE_TRACK_ACTION_ITEM_COMMITTED).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
@@ -19,6 +22,16 @@ Private moIdleHandler As IdleEventHandler       ' Single persistent idle handler
 Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle handler registrations
 Private moReRegHandler As ReRegisterIdleHandler ' Member-scoped ref to prevent premature VBA GC after bulk suspend
 Private mbProcessingDirect As Boolean           ' Reentrancy guard for ARES_DIRECT_PROCESSING mode - see class header
+
+' MsdChangeTrackAction value 17 - NOT in the documented enum (mvba-docs' MsdChangeTrackAction_Enum.md stops at
+' 10, version 08.00.04); a CONNECT-era addition. Observed live (2026-09-01) to follow every Item/XAttribute
+' write on an element, right after that element's msdChangeTrackActionModify (3), and - decisive - to be the
+' FIRST callback whose AfterChange actually carries a just-edited Item VALUE: at the Modify (3) callback
+' neither a model scan nor AfterChange itself reflects it yet (breakpoint-verified: 3 -> old value,
+' 17 -> new value, same edit). Named for what it was observed to be, not after an SDK identifier we cannot
+' verify. Routed through the Modify path below so a pull source (GroupProp/GroupColor/GroupLength) reading
+' the trigger via PropertyCalculation.CascadeTrigger gets the committed value synchronously.
+Private Const CHANGE_TRACK_ACTION_ITEM_COMMITTED As Long = 17
 
 ' Per-cascade "already processed" set - reset at the top of every Depth=0 ProcessElement entry, seeded with
 ' the trigger element's own ID, consulted/populated by Branch 2 in BOTH modes. Prevents a same-cascade cycle
@@ -88,7 +101,13 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
                 End If
             End If
 
-        Case msdChangeTrackActionModify
+        ' 17 (CHANGE_TRACK_ACTION_ITEM_COMMITTED) is handled exactly like Modify: it is the callback where a
+        ' just-edited Item value first becomes readable on AfterChange (see the constant's comment). Cost: a
+        ' user Item edit now gives its element two synchronous passes (at 3, then at 17) - the 3-pass reads the
+        ' old Item value and is compare-guarded into a no-op for it; the 17-pass is the one that propagates.
+        ' ARES's own Item writes raise 3+17 reentrantly too, but both land in the deferred queue (deduped per
+        ' ID by ElementInProcesse), so idle work is unchanged.
+        Case msdChangeTrackActionModify, CHANGE_TRACK_ACTION_ITEM_COMMITTED
             If Not AfterChange Is Nothing Then
                 If ShouldQueueElement(AfterChange) Then
                     QueueOrProcessDirect AfterChange
@@ -152,7 +171,10 @@ End Sub
 
 ' Processes one element synchronously, inline, from within IChangeTrackEvents_ElementChanged
 ' (ARES_DIRECT_PROCESSING). mbProcessingDirect is the reentrancy guard - see class header for why a
-' reentrant call falls back to the deferred queue instead of processing synchronously.
+' reentrant call falls back to the deferred queue instead of processing synchronously. That deferral is
+' NOT redundant even for ARES's own write-echoes: the idle pass runs AFTER the native callback returned,
+' i.e. after the model commit, which makes it the post-commit safety net (see the cascade-trigger note in
+' ProcessElement and plan-reentrancy-echo-suppression.md's 2026-09-01 correction) - do not drop it.
 Private Sub ProcessDirect(ByVal oElement As element)
     On Error GoTo ErrorHandler
 
@@ -262,6 +284,14 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     If Depth = 0 Then
         mnSeenIds = 0
         MarkIdSeenThisCascade oElement
+        ' Publish this cascade's trigger handle (= AfterChange on a native event, a GetElementById re-fetch
+        ' on an idle pass, the picked element on RecalculateSelection). A model scan run INSIDE an element's
+        ' own ElementChanged callback still returns its PRE-change state (confirmed live 2026-09-01), so the
+        ' pull sources (GroupProp/GroupColor/GroupLength) read the trigger through THIS handle instead - see
+        ' PropertyCalculation.moCascadeTrigger. Note: for a just-edited ITEM value even AfterChange is fresh
+        ' only at the second native callback (17, CHANGE_TRACK_ACTION_ITEM_COMMITTED), not at Modify (3) -
+        ' which is why 17 is routed through this pipeline at all. Cleared on every Depth-0 exit below.
+        PropertyCalculation.SetCascadeTrigger oElement
     End If
 
     ' Governed by bRunEngines, not "Depth = 0" any more (see header comment above), BEFORE the graphic-
@@ -285,6 +315,7 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
 
     ' Skip elements with the default graphic group (not part of ARES's group workflow)
     If oElement.GraphicGroup = ARES_DEFAULT_GRAPHIC_GROUP_ID Then
+        If Depth = 0 Then PropertyCalculation.ClearCascadeTrigger
         CallStack.Pop
         Exit Sub
     End If
@@ -292,6 +323,7 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     ' Text/cell elements have nothing left to do beyond the Depth-0 hooks above, and are not geometric
     ' so Branch 2 does not apply either.
     If IsTextOrCellElement(oElement) Then
+        If Depth = 0 Then PropertyCalculation.ClearCascadeTrigger
         CallStack.Pop
         Exit Sub
     End If
@@ -299,18 +331,20 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     ' ========================================
     ' BRANCH 2: GEOMETRIC ELEMENTS
     ' ========================================
-    ' Find linked text elements and trigger their update. Also covers GroupLength/GroupColor rules,
-    ' which have no name-pattern "trigger element" - re-evaluating every linked sibling here IS their
-    ' only propagation mechanism.
+    ' Find linked text elements and trigger their update. Also covers GroupLength/GroupColor/GroupProp
+    ' rules, which have no name-pattern "trigger element" - re-evaluating every linked sibling here IS
+    ' their only propagation mechanism.
     Dim bCalcEnabled As Boolean
     bCalcEnabled = PropertyCalculation.IsEnabled
-    If Not (bCalcEnabled And (PropertyCalculation.HasGroupLengthRules Or PropertyCalculation.HasGroupColorRules)) Then
+    If Not (bCalcEnabled And (PropertyCalculation.HasGroupLengthRules Or PropertyCalculation.HasGroupColorRules Or PropertyCalculation.HasGroupPropRules)) Then
+        If Depth = 0 Then PropertyCalculation.ClearCascadeTrigger
         CallStack.Pop
         Exit Sub
     End If
 
     els = Link.GetLink(oElement)
     If Not HasElements(els) Then
+        If Depth = 0 Then PropertyCalculation.ClearCascadeTrigger
         CallStack.Pop
         Exit Sub
     End If
@@ -369,11 +403,13 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     ' hook already ran) so nothing is left stale or leaks across batches.
     If PropertyRendering.IsEnabled Then PropertyRendering.DrainRepaintHop
 
+    If Depth = 0 Then PropertyCalculation.ClearCascadeTrigger
     CallStack.Pop
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ElementChangeHandler.ProcessElement"
+    If Depth = 0 Then PropertyCalculation.ClearCascadeTrigger
     If bStackPushed Then CallStack.Pop
     Err.Clear
 End Sub
