@@ -16,6 +16,15 @@
 '              are removed at the end, on the error path too. MS_DGNLIBLIST is only ever READ.
 '
 ' Usage: in the Immediate window, run ProbeConfigVarChaining and read the report there.
+'
+' RESULT on OpenCities Map PowerView 2023, 2026-09-02 - the route is DEAD, all three ways:
+'   0. raw and expanded reads of MS_DGNLIBLIST returned the SAME flattened string; the API never
+'      exposes the $(...) definition even though the .ucf still holds it.
+'   1. writing "$(ARES_PROBE_A);BBB" stored "AAA;BBB" - expanded on write.
+'   2. writing "$(ARES_PROBE_A);CCC" onto ARES_PROBE_A left the variable UNDEFINED. On
+'      MS_DGNLIBLIST that would have deleted the site's whole DGNLib list.
+' Kept in the repo as evidence, and to re-run on another MicroStation version before anyone
+' reopens the question.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: none (Application.ActiveWorkspace only - deliberately no ARES module, so the probe
 '               stays runnable on a station where ARES itself is misconfigured)
