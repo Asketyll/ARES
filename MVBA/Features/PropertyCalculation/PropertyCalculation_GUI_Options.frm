@@ -304,9 +304,7 @@ Private Sub UserForm_Initialize()
     Reset_Command.Caption = GetTranslation("FormResetDefaultsCaption")
     FormUXHelper.SetTip Reset_Command, "FormResetDefaultsTip"
 
-    ' Help button: the ComboBox tooltip has no room for the full calc-rules grammar reference - this opens
-    ' the wiki page instead. Do NOT load its "?" icon from code: a Win32 PICTDESC load was rejected here,
-    ' its struct layout differs 32/64-bit and a mistake is an access violation, not a catchable VBA error.
+    ' Help button: the ComboBox tooltip has no room for the full calc-rules grammar - it opens the wiki page.
     FormUXHelper.SetTip Help_Command, "FormHelpTip"
 
     SeedControls
