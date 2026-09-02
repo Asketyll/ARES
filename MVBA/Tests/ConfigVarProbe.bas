@@ -17,14 +17,17 @@
 '
 ' Usage: in the Immediate window, run ProbeConfigVarChaining and read the report there.
 '
-' RESULT on OpenCities Map PowerView 2023, 2026-09-02 - the route is DEAD, all three ways:
-'   0. raw and expanded reads of MS_DGNLIBLIST returned the SAME flattened string; the API never
-'      exposes the $(...) definition even though the .ucf still holds it.
-'   1. writing "$(ARES_PROBE_A);BBB" stored "AAA;BBB" - expanded on write.
-'   2. writing "$(ARES_PROBE_A);CCC" onto ARES_PROBE_A left the variable UNDEFINED. On
-'      MS_DGNLIBLIST that would have deleted the site's whole DGNLib list.
-' Kept in the repo as evidence, and to re-run on another MicroStation version before anyone
-' reopens the question.
+' RESULT on OpenCities Map PowerView 2023, 2026-09-02:
+'   0. PROVEN - raw and expanded reads of MS_DGNLIBLIST returned the SAME flattened string. The
+'      API never exposes the $(...) definition even though the .ucf still holds it, so any
+'      read-modify-write starts from already-flattened text.
+'   1. PROVEN - writing "$(ARES_PROBE_A);BBB" stored "AAA;BBB": expansion happens ON WRITE.
+'      This alone kills the idea, whatever step 2 says: the stored value can never keep a
+'      reference, only the flattened text of what it pointed at.
+'   2. NOT CONCLUSIVE - writing "$(ARES_PROBE_A);CCC" onto ARES_PROBE_A left the variable
+'      UNDEFINED, but the variable only existed in-session, so the self-reference had no
+'      lower-precedence definition to resolve to. MS_DGNLIBLIST does have one. Re-test with
+'      ProbeSelfRefPersistedSetup / ProbeSelfRefPersistedCheck below.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: none (Application.ActiveWorkspace only - deliberately no ARES module, so the probe
 '               stays runnable on a station where ARES itself is misconfigured)
@@ -127,4 +130,76 @@ Private Sub Cleanup()
     Application.ActiveWorkspace.RemoveConfigurationVariable PROBE_B
     On Error GoTo 0
     Debug.Print "probe variables removed."
+End Sub
+
+' ==================================================================================================
+'  SELF-REFERENCE, IN REAL CONDITIONS (two phases, a restart in between)
+' ==================================================================================================
+' Step 2 above wrote over a variable that existed only in this session, so "$(VAR);x" had nothing
+' underneath to resolve to. MS_DGNLIBLIST is not in that situation: it is defined in configuration
+' files read at startup, and a VBA write lands ON TOP of that. These two subs reproduce THAT.
+'
+' Phase 1 persists ARES_PROBE_A to the user configuration file, then you restart MicroStation so the
+' definition comes back from the file rather than from this session. Phase 2 writes the self-reference
+' over it and reports what survived.
+'
+' WHAT IT COSTS: phase 1 writes one line to Personal.ucf, and RemoveConfigurationVariable does NOT
+' delete it (documented: it never touches the user configuration file). Phase 2 prints the line to
+' delete by hand. It is a throwaway ARES_PROBE_A - never do this dance on a variable the site owns.
+'
+' NOTE ON WHAT IT CAN PROVE: at best it shows the self-reference resolves. It cannot rescue the idea,
+' because step 1 already showed the write expands - the site's $(...) would still end up frozen as
+' literal paths, one precedence level higher than the definition they came from.
+
+' Phase 1: persist the probe variable, then RESTART MicroStation before running phase 2.
+Public Sub ProbeSelfRefPersistedSetup()
+    On Error GoTo ErrorHandler
+
+    Application.ActiveWorkspace.AddConfigurationVariable PROBE_A, "AAA", True
+
+    Debug.Print String(80, "=")
+    Debug.Print PROBE_A & " written to the user configuration file with value AAA."
+    Debug.Print "NOW RESTART MicroStation, then run ProbeSelfRefPersistedCheck."
+    Debug.Print String(80, "=")
+    Exit Sub
+
+ErrorHandler:
+    Debug.Print "SETUP ERROR " & Err.Number & " - " & Err.Description
+End Sub
+
+' Phase 2: run AFTER restarting. Writes the self-reference over the file-defined variable.
+Public Sub ProbeSelfRefPersistedCheck()
+    On Error GoTo ErrorHandler
+
+    Dim sBefore As String
+    Dim sAfter  As String
+
+    sBefore = SafeValue(PROBE_A, True)
+    Debug.Print String(80, "=")
+    Debug.Print "before write : " & sBefore
+    If InStr(sBefore, "AAA") = 0 Then
+        Debug.Print "-> not defined from the file: run ProbeSelfRefPersistedSetup and RESTART first."
+        Debug.Print String(80, "=")
+        Exit Sub
+    End If
+
+    Application.ActiveWorkspace.AddConfigurationVariable PROBE_A, "$(" & PROBE_A & ");CCC", True
+    sAfter = SafeValue(PROBE_A, True)
+
+    Debug.Print "after write  : " & sAfter
+    If InStr(sAfter, "AAA") > 0 And InStr(sAfter, "CCC") > 0 Then
+        Debug.Print "-> the self-reference RESOLVES against a file-defined variable."
+        Debug.Print "   Still not usable: step 1 showed the write expands, so the stored value is the"
+        Debug.Print "   flattened text, not the reference."
+    Else
+        Debug.Print "-> the self-reference does NOT resolve even here. The route is dead outright."
+    End If
+    Debug.Print "CLEAN UP BY HAND: delete the '" & PROBE_A & "' lines from Personal.ucf."
+    Debug.Print String(80, "=")
+    Exit Sub
+
+ErrorHandler:
+    Debug.Print "CHECK ERROR " & Err.Number & " - " & Err.Description
+    Debug.Print "(an error here is itself an answer, and " & PROBE_A & " may now be undefined)"
+    Debug.Print "CLEAN UP BY HAND: delete the '" & PROBE_A & "' lines from Personal.ucf."
 End Sub
