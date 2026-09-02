@@ -228,6 +228,24 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.TextBox_SearchRadius_Exit"
 End Sub
 
+' Enter commits in place. Without this the key is not handled here at all: MSForms passes it on to the
+' next control (it lands on the Excel-visible CheckBox and toggles it), and the typed radius is only
+' written if the user happens to leave the box afterwards. KeyCode = 0 swallows the key so it cannot
+' reach that control. The reveal-style level boxes need no such handler - they run the shared
+' FormUXHelper arming dance, which an always-visible box does not require.
+Private Sub TextBox_SearchRadius_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    On Error GoTo ErrorHandler
+    Dim returnB As MSForms.ReturnBoolean
+    If KeyCode = vbKeyReturn And Shift = 0 Then
+        TextBox_SearchRadius_Exit returnB
+        KeyCode = 0
+    End If
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.TextBox_SearchRadius_KeyDown"
+End Sub
+
 ' ============================================================
 ' ROUNDING - SpinButton (0-10, identical pattern to ExportLengthInReg's Round_SpinButton)
 ' ============================================================
@@ -333,11 +351,17 @@ End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
     On Error GoTo ErrorHandler
+    Dim returnB As MSForms.ReturnBoolean
     If mbLocked Then
         Cancel = True
         If TextBox_CableLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_CableLevel
         If TextBox_ZoneLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_ZoneLevel
     Else
+        ' The radius box writes through on _Exit, which does NOT fire when the form is closed with the
+        ' caret still in it - commit here so a typed value is never silently lost. Idempotent: the
+        ' write itself is compare-guarded. The level boxes need no equivalent; mbLocked blocks the
+        ' close while one of them is open for editing.
+        TextBox_SearchRadius_Exit returnB
         FormPlacement.SaveFormPosition Me, Me.Name
     End If
     Exit Sub
