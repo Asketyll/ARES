@@ -194,8 +194,10 @@ End Function
 '     and workspace changes that those references exist precisely to follow.
 '   - measured, not theorised: doing it replaced the variable's user-level definition and the ARES
 '     append line the installer had written was gone from Personal.ucf afterwards.
-' The declaration belongs to the installer, which appends one line - "MS_DGNLIBLIST > C:/ARES/Rsc/
-' *.dgnlib" - the only non-destructive way to add to it.
+' The declaration belongs to the INSTALLER, which appends one line - "MS_DGNLIBLIST > C:/ARES/Rsc/
+' *.dgnlib" - to every Personal.ucf it finds; the append operator is the only non-destructive way to
+' add to a site list. Note that the in-app UPDATER is not the installer: it replaces files and never
+' touches configuration, so a station kept current through updates alone never gains a new config line.
 Public Function IsLibraryDeclared() As Boolean
     On Error GoTo ErrorHandler
 
@@ -220,7 +222,8 @@ Public Function IsLibraryDeclared() As Boolean
 
     ErrorHandler.HandleError "ARES DGNLib not declared in " & MS_DGNLIBLIST_VAR & " - custom properties " & _
                              "are unavailable. Repair: add the line 'MS_DGNLIBLIST > " & DGNLIB_FALLBACK_DIR & _
-                             "/*.dgnlib' to the user configuration file (.ucf), or reinstall ARES.", _
+                             "/*.dgnlib' to the user configuration file (.ucf), or re-run the ARES " & _
+                             "INSTALLER - the in-app updater only replaces files, it never writes config.", _
                              0, "CustomPropertyHandler", "CustomPropertyHandler.IsLibraryDeclared"
     Exit Function
 
