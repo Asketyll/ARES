@@ -67,7 +67,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 Entry point: **`BootLoader.OnProjectLoad`**
 
 1. `InitializeErrorHandler()` first (everything else logs through it).
-2. `CustomPropertyHandler.EnsureLibraryInDgnLibList()` — MicroStation loads Item Types only from the DGNLibs on `MS_DGNLIBLIST`, so a station where that variable ignores ARES sees no custom property at all. Appends the library folder when no existing entry resolves to it, appending the **raw definition** so a site's `$(VAR)` references survive; never replaces, and writes nothing when the list already covers it.
+2. `CustomPropertyHandler.IsLibraryDeclared()` — MicroStation loads Item Types only from the DGNLibs on `MS_DGNLIBLIST`, so a station where that variable ignores ARES has no custom properties at all. **Checks, never writes**: declaring it belongs to the installer, which appends one `MS_DGNLIBLIST > C:/ARES/Rsc/*.dgnlib` line to the user configuration file. A missing declaration is logged with its repair; boot continues.
 3. `InitializeDGNHandlers()` → `New DGNOpenClose` (wires `Application` open/close events).
 4. `InitializeInitialIdleHandler()` → an `IdleEventHandler`, flagged `MarkAsInitial`, that sets the caption, initializes translations + config, checks for updates, then removes itself. The flag is **per-instance on purpose**: dispatching on `LangManager.IsInit` ("translations loaded") instead silently skipped the entire boot sequence, because step 2's DGN-open status message loads translations before the first idle ever fires.
 

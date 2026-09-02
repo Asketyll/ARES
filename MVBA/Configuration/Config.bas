@@ -9,9 +9,7 @@ Option Explicit
 
 ' Function to get the value of a configuration variable
 ' Returns ARESConstants.ARES_NAVD if configuration variable is not defined.
-' bExpand:False returns the raw DEFINITION, with any $(OTHER_VAR) reference left intact - needed when
-' the value is written back somewhere, so a site's references survive instead of being flattened.
-Public Function GetVar(ByVal sKey As String, Optional ByVal bExpand As Boolean = True) As String
+Public Function GetVar(ByVal sKey As String) As String
     On Error GoTo ErrorHandler
 
     ' Validate input parameter
@@ -26,7 +24,7 @@ Public Function GetVar(ByVal sKey As String, Optional ByVal bExpand As Boolean =
     ' Check if the configuration variable is defined
     If Application.ActiveWorkspace.IsConfigurationVariableDefined(sKey) Then
         ' Retrieve the value of the configuration variable
-        GetVar = Application.ActiveWorkspace.ConfigurationVariableValue(sKey, bExpand)
+        GetVar = Application.ActiveWorkspace.ConfigurationVariableValue(sKey)
     End If
 
     Exit Function

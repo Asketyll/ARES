@@ -180,69 +180,53 @@ ErrorHandler:
     FindCustomPropertyLibraryPath = ""
 End Function
 
-' Makes sure MS_DGNLIBLIST declares the ARES DGNLib, and returns True when it does (already, or after
-' being added). MicroStation loads Item Type libraries ONLY from the DGNLibs on that list: on a station
-' where it was never set - or set by a workspace that knows nothing of ARES - no ARES property exists at
-' all, whatever the file on disk says.
+' True when MS_DGNLIBLIST declares the ARES DGNLib. MicroStation loads Item Types ONLY from the DGNLibs
+' on that list, so a False here means no ARES property exists on this station, whatever the file on disk
+' says. Logs the fault and how to repair it; the caller does not need to act.
 '
-' APPENDS, never replaces: the list is the site's, and ARES has no business dropping someone else's
-' libraries. Two reads, deliberately: the EXPANDED value to decide whether the library is already
-' covered (paths must resolve to be compared), and the RAW DEFINITION to append to, so that a site
-' writing "$(SOME_LIB_DIR)/*.dgnlib" keeps its reference live instead of having it frozen to whatever
-' it happened to expand to today.
-'
-' Nothing is written when an entry already resolves to the library (idempotent across sessions), nor
-' when the file is missing from the installer's folder - there would be nothing to declare. Note that
-' AddConfigurationVariable writes a User-level value, which takes precedence over a Project or System
-' definition of the same variable from then on; appending the raw definition is what keeps that
-' precedence harmless.
-'
-' Call at boot, BEFORE the DGN-open handler runs RefreshItemTypes - that key-in sandwich is what makes
-' MicroStation act on the change within the running session.
-Public Function EnsureLibraryInDgnLibList() As Boolean
+' READ-ONLY, AND IT MUST STAY THAT WAY. Writing this variable from VBA is not an option:
+'   - AddConfigurationVariable stores a User-level value, which OVERRIDES the System, System Env and
+'     Project definitions of the same variable - the site's whole DGNLib configuration, silently
+'     outranked by ours.
+'   - it writes a single flat string, while the real definition is a CHAIN of lines built with the
+'     append operator ">", each keeping its $(_USTN_...) references. Collapsing that chain freezes
+'     machine-specific absolute paths into the user configuration file, which then survives upgrades
+'     and workspace changes that those references exist precisely to follow.
+'   - measured, not theorised: doing it replaced the variable's user-level definition and the ARES
+'     append line the installer had written was gone from Personal.ucf afterwards.
+' The declaration belongs to the installer, which appends one line - "MS_DGNLIBLIST > C:/ARES/Rsc/
+' *.dgnlib" - the only non-destructive way to add to it.
+Public Function IsLibraryDeclared() As Boolean
     On Error GoTo ErrorHandler
 
-    EnsureLibraryInDgnLibList = False
+    IsLibraryDeclared = False
 
-    Dim sList  As String
-    Dim sRaw   As String
+    Dim sList As String
     Dim entries() As String
-    Dim i      As Long
-    Dim sEntry As String
+    Dim i As Long
 
     sList = Config.GetVar(MS_DGNLIBLIST_VAR)          ' expanded; ARES_NAVD when undefined
 
-    ' Already covered? Any entry that resolves to the library is enough - that is exactly what
-    ' MicroStation itself reads, so matching on the resolved file avoids duplicating an entry that
-    ' names the same folder in another form (trailing slash, wildcard, forward slashes).
+    ' Any entry that resolves to the library is enough - that is exactly what MicroStation reads.
     If sList <> ARESConstants.ARES_NAVD Then
         entries = Split(sList, DGNLIBLIST_SEPARATOR)
         For i = LBound(entries) To UBound(entries)
             If Len(ResolveDgnLibEntry(entries(i))) > 0 Then
-                EnsureLibraryInDgnLibList = True
+                IsLibraryDeclared = True
                 Exit Function
             End If
         Next i
     End If
 
-    ' Not declared anywhere. Only the installer's folder can be declared blindly - if the library is not
-    ' there either, stay silent rather than point the list at a file that does not exist.
-    If Len(LibraryFileIn(DGNLIB_FALLBACK_DIR)) = 0 Then Exit Function
-
-    ' Same wildcard form the installer writes, so an ARES-added entry is indistinguishable from its own.
-    sEntry = DGNLIB_FALLBACK_DIR & "\*.dgnlib"
-
-    sRaw = Config.GetVar(MS_DGNLIBLIST_VAR, False)
-    If sRaw = ARESConstants.ARES_NAVD Or Len(Trim(sRaw)) = 0 Then
-        EnsureLibraryInDgnLibList = Config.SetVar(MS_DGNLIBLIST_VAR, sEntry)
-    Else
-        EnsureLibraryInDgnLibList = Config.SetVar(MS_DGNLIBLIST_VAR, sRaw & DGNLIBLIST_SEPARATOR & sEntry)
-    End If
+    ErrorHandler.HandleError "ARES DGNLib not declared in " & MS_DGNLIBLIST_VAR & " - custom properties " & _
+                             "are unavailable. Repair: add the line 'MS_DGNLIBLIST > " & DGNLIB_FALLBACK_DIR & _
+                             "/*.dgnlib' to the user configuration file (.ucf), or reinstall ARES.", _
+                             0, "CustomPropertyHandler", "CustomPropertyHandler.IsLibraryDeclared"
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.EnsureLibraryInDgnLibList"
-    EnsureLibraryInDgnLibList = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.IsLibraryDeclared"
+    IsLibraryDeclared = False
 End Function
 
 ' Probe ONE MS_DGNLIBLIST entry for the ARES DGNLib. The entry is tried as a folder first, then as a file

@@ -32,11 +32,10 @@ Public Sub OnProjectLoad()
     ' Initialize the global error handler first (critical for other components)
     If Not InitializeErrorHandler() Then Exit Sub
 
-    ' Declare the ARES DGNLib in MS_DGNLIBLIST before anything reads Item Type state - MicroStation
-    ' loads Item Type libraries only from that list, and DGNOpenClose is about to act on it. Appends
-    ' only, and non-fatal: a station whose list cannot be written still runs, it just sees no custom
-    ' properties, which is what it saw before anyway.
-    CustomPropertyHandler.EnsureLibraryInDgnLibList
+    ' Check - never write - that the ARES DGNLib is declared in MS_DGNLIBLIST, since MicroStation
+    ' loads Item Types only from that list. Declaring it is the installer's job (one appended line);
+    ' a failure here is logged with the repair and ARES carries on without custom properties.
+    CustomPropertyHandler.IsLibraryDeclared
 
     ' Initialize core components in dependency order
     If Not InitializeDGNHandlers() Then Exit Sub
