@@ -61,6 +61,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs`, `FormUXHelper`, `FormPlacement`, `RuleGrammar`, `RuleEditorUX` | shared helpers (see [Shared components](#shared-components-key-apis)) |
 | **Update/** | `UpdateChecker.bas` | GitHub-releases self-update of every release asset (`.mvba` → C:\ARES, others → C:\ARES\Rsc) via elevated PowerShell; each asset SHA-256 verified on download AND at its target, version advanced only if every one landed, outcome logged to `C:ARESARES_update.log` + `HKCUSoftwareARESastupdate` |
 | **Tests/** | `UnitTesting.bas` | custom test harness (no native MVBA framework) — `RunARESTests`, real-DGN/real-element integration style |
+| | `ConfigVarProbe.bas` | one-off platform probe — `ProbeConfigVarChaining`: can VBA append to a chained config variable without flattening it? Session-only writes, `MS_DGNLIBLIST` read only |
 
 ## Boot & lifecycle
 
