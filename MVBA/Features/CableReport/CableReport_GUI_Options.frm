@@ -357,11 +357,6 @@ Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
         If TextBox_CableLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_CableLevel
         If TextBox_ZoneLevel.Visible Then FormUXHelper.NudgeActiveEdit TextBox_ZoneLevel
     Else
-        ' The radius box writes through on _Exit, which does NOT fire when the form is closed with the
-        ' caret still in it - commit here so a typed value is never silently lost. Idempotent: the
-        ' write itself is compare-guarded. The level boxes need no equivalent; mbLocked blocks the
-        ' close while one of them is open for editing.
-        TextBox_SearchRadius_Exit returnB
         FormPlacement.SaveFormPosition Me, Me.Name
     End If
     Exit Sub
@@ -391,9 +386,13 @@ Private Sub SeedControls()
     SeedPropertyCombo ComboBox_LongueurProperty, ARESConfig.ARES_CABLEREPORT_LONGUEUR_PROPERTY
     SeedPropertyCombo ComboBox_ZoneProperty, ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY
 
+    ' Val() on a dot-normalised string, NOT IsNumeric: the radius is stored with a dot decimal separator
+    ' on purpose (TextBox_SearchRadius_Exit normalises it, CableReport.bas reads it back with Val), but
+    ' IsNumeric follows the Windows locale - on a comma-decimal locale it rejects "1.5", so the field fell
+    ' back to the default on every reopen while the config held the real value. Same test as _Exit's.
     Dim sRadius As String
-    sRadius = ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.value
-    If Not IsNumeric(sRadius) Then sRadius = ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.DefaultValue
+    sRadius = Trim(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.value)
+    If Val(Replace(sRadius, ",", ".")) <= 0 Then sRadius = ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.DefaultValue
     TextBox_SearchRadius.value = sRadius
 
     Dim nRound As Integer
