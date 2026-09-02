@@ -82,8 +82,9 @@ End Function
 '                              ITEM TYPE STATE REFRESH (MicroStation side)
 '######################################################################################################################
 
-' Forces MicroStation to re-read Item Type state (it only scans MS_DGNLIBLIST at boot). Idempotent and
-' deliberately silent - a background consistency step, no status message.
+' Forces MicroStation to re-read Item Type state (it only scans MS_DGNLIBLIST at boot) AND attaches the
+' two ARES libraries to the active model. Idempotent and deliberately silent - a background consistency
+' step, no status message.
 Public Sub RefreshItemTypes()
     On Error GoTo ErrorHandler
 
@@ -91,6 +92,16 @@ Public Sub RefreshItemTypes()
     ' update / close sandwich. Works inline from the DGN-open event too.
     CadInputQueue.SendKeyin "DIALOG ITEMTYPE OPEN"
     CadInputQueue.SendKeyin "ITEMTYPE DIALOG UPDATEALL"
+
+    ' UPDATEALL only refreshes what the model already knows about: a DGN that has never seen the ARES
+    ' libraries still shows nothing. SELECT + SAVE brings each library INTO the active model, which is
+    ' what makes the properties usable there. Both are needed - ARES for the user-facing properties,
+    ' ARES_SYS for the render bindings - and both are re-run on every DGN open, harmlessly, because
+    ' the operation is idempotent and a file that already carries them is left as it is.
+    CadInputQueue.SendKeyin "ITEMTYPE DIALOG SELECT " & ARESConstants.ARES_NAME_LIBRARY_TYPE
+    CadInputQueue.SendKeyin "ITEMTYPE DIALOG SELECT " & ARESConstants.ARES_NAME_LIBRARY_SYS
+    CadInputQueue.SendKeyin "ITEMTYPE DIALOG SAVE"
+
     CadInputQueue.SendKeyin "DIALOG ITEMTYPE CLOSE"
 
     ' Restore the default command state after the key-ins (the documented SendKeyin pattern - see the
@@ -167,6 +178,71 @@ Public Function FindCustomPropertyLibraryPath() As String
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.FindCustomPropertyLibraryPath"
     FindCustomPropertyLibraryPath = ""
+End Function
+
+' Makes sure MS_DGNLIBLIST declares the ARES DGNLib, and returns True when it does (already, or after
+' being added). MicroStation loads Item Type libraries ONLY from the DGNLibs on that list: on a station
+' where it was never set - or set by a workspace that knows nothing of ARES - no ARES property exists at
+' all, whatever the file on disk says.
+'
+' APPENDS, never replaces: the list is the site's, and ARES has no business dropping someone else's
+' libraries. Two reads, deliberately: the EXPANDED value to decide whether the library is already
+' covered (paths must resolve to be compared), and the RAW DEFINITION to append to, so that a site
+' writing "$(SOME_LIB_DIR)/*.dgnlib" keeps its reference live instead of having it frozen to whatever
+' it happened to expand to today.
+'
+' Nothing is written when an entry already resolves to the library (idempotent across sessions), nor
+' when the file is missing from the installer's folder - there would be nothing to declare. Note that
+' AddConfigurationVariable writes a User-level value, which takes precedence over a Project or System
+' definition of the same variable from then on; appending the raw definition is what keeps that
+' precedence harmless.
+'
+' Call at boot, BEFORE the DGN-open handler runs RefreshItemTypes - that key-in sandwich is what makes
+' MicroStation act on the change within the running session.
+Public Function EnsureLibraryInDgnLibList() As Boolean
+    On Error GoTo ErrorHandler
+
+    EnsureLibraryInDgnLibList = False
+
+    Dim sList  As String
+    Dim sRaw   As String
+    Dim entries() As String
+    Dim i      As Long
+    Dim sEntry As String
+
+    sList = Config.GetVar(MS_DGNLIBLIST_VAR)          ' expanded; ARES_NAVD when undefined
+
+    ' Already covered? Any entry that resolves to the library is enough - that is exactly what
+    ' MicroStation itself reads, so matching on the resolved file avoids duplicating an entry that
+    ' names the same folder in another form (trailing slash, wildcard, forward slashes).
+    If sList <> ARESConstants.ARES_NAVD Then
+        entries = Split(sList, DGNLIBLIST_SEPARATOR)
+        For i = LBound(entries) To UBound(entries)
+            If Len(ResolveDgnLibEntry(entries(i))) > 0 Then
+                EnsureLibraryInDgnLibList = True
+                Exit Function
+            End If
+        Next i
+    End If
+
+    ' Not declared anywhere. Only the installer's folder can be declared blindly - if the library is not
+    ' there either, stay silent rather than point the list at a file that does not exist.
+    If Len(LibraryFileIn(DGNLIB_FALLBACK_DIR)) = 0 Then Exit Function
+
+    ' Same wildcard form the installer writes, so an ARES-added entry is indistinguishable from its own.
+    sEntry = DGNLIB_FALLBACK_DIR & "\*.dgnlib"
+
+    sRaw = Config.GetVar(MS_DGNLIBLIST_VAR, False)
+    If sRaw = ARESConstants.ARES_NAVD Or Len(Trim(sRaw)) = 0 Then
+        EnsureLibraryInDgnLibList = Config.SetVar(MS_DGNLIBLIST_VAR, sEntry)
+    Else
+        EnsureLibraryInDgnLibList = Config.SetVar(MS_DGNLIBLIST_VAR, sRaw & DGNLIBLIST_SEPARATOR & sEntry)
+    End If
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.EnsureLibraryInDgnLibList"
+    EnsureLibraryInDgnLibList = False
 End Function
 
 ' Probe ONE MS_DGNLIBLIST entry for the ARES DGNLib. The entry is tried as a folder first, then as a file
