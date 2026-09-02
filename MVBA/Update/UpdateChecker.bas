@@ -19,6 +19,20 @@ Private Const ARES_INSTALL_DIR As String = "C:\ARES"
 Private Const ARES_RSC_DIR As String = "C:\ARES\Rsc"
 Private Const MAX_ASSETS As Long = 31
 
+' The config lines the ARES INSTALLER ensures in every Personal.ucf, mirrored here byte for byte
+' (installer CONFIG_LINES, Bentleyproductselectionform.cs). The updater is not the installer, so a
+' station kept current through updates alone would otherwise never gain a config line it needs -
+' which is exactly how a station installed before installer-v1.2.0 ends up with the DGNLib deployed
+' but never declared, hence no custom properties at all.
+' They are APPENDED to the file and nothing else: not one existing byte is rewritten. Writing the
+' variable through AddConfigurationVariable instead is not an option - see the cheatsheet section on
+' shared configuration variables, and Tests/ConfigVarProbe.bas for the measurements.
+Private Const UCF_LINE_AUTOLOAD As String = "MS_VBAAUTOLOADPROJECTS > c:/ares/ares.mvba"
+Private Const UCF_LINE_DGNLIB As String = "MS_DGNLIBLIST > c:/ares/rsc/*.dgnlib"
+' MicroStation's own handle on the Personal.ucf it includes - resolved here, in the user's context,
+' rather than guessed by the elevated script, which may not run under the same profile.
+Private Const USER_CFG_VAR As String = "_USTN_USERCFG"
+
 ' One downloadable release asset (name + SHA-256 hex digest). URL is derived from the version + name.
 Private Type AssetInfo
     Name As String
@@ -256,6 +270,20 @@ ErrorHandler:
 End Function
 
 ' True only if the version string contains digits and dots exclusively (PS injection guard).
+' Path of the Personal.ucf MicroStation is actually including, or "" when it cannot be resolved.
+' Read here, in the user's own context: the install script runs elevated and may not see the same
+' profile, so it must be TOLD which file to touch rather than go looking for one.
+Private Function UserConfigFile() As String
+    On Error Resume Next
+
+    Dim s As String
+
+    UserConfigFile = ""
+    s = Config.GetVar(USER_CFG_VAR)
+    If s = ARESConstants.ARES_NAVD Then Exit Function
+    UserConfigFile = Trim(s)
+End Function
+
 Private Function IsValidVersion(ByVal sVersion As String) As Boolean
     Dim i As Integer
     Dim c As String
@@ -375,6 +403,8 @@ Public Sub DownloadAndInstall()
     Print #iFile, "$dir     = '" & sTempDir & "'"
     Print #iFile, "$version = '" & msLatestVersion & "'"
     Print #iFile, "$rsc     = '" & ARES_RSC_DIR & "'"
+    Print #iFile, "$ucf     = '" & Replace(UserConfigFile(), "'", "''") & "'"
+    Print #iFile, "$cfgLines = @('" & UCF_LINE_AUTOLOAD & "', '" & UCF_LINE_DGNLIB & "')"
     Print #iFile, "$assets = @("
 
     For i = 0 To mnAssetCount - 1
@@ -472,7 +502,27 @@ Public Sub DownloadAndInstall()
     Print #iFile, "}"
     Print #iFile, ""
 
-    ' [6] Record the outcome. The version advances ONLY on a fully verified install, so a partial one
+    ' [6] Ensure the installer's config lines are in the user configuration file - APPEND ONLY, and
+    ' only once everything landed. Not one existing byte is rewritten: the file is read to test for
+    ' the line, then the line is appended at the end, exactly what the ">" operator is for. This is
+    ' the updater covering what only the installer used to do - see the constants at the top.
+    Print #iFile, "if ($ko.Count -eq 0 -and $ucf -and (Test-Path -LiteralPath $ucf)) {"
+    Print #iFile, "    $enc  = New-Object System.Text.UTF8Encoding($false)"
+    Print #iFile, "    $have = @(Get-Content -LiteralPath $ucf)"
+    Print #iFile, "    foreach ($req in $cfgLines) {"
+    Print #iFile, "        if ($have | Where-Object { $_.Trim() -ieq $req }) { Note ('ucf ok           ' + $req); continue }"
+    Print #iFile, "        $raw = [System.IO.File]::ReadAllText($ucf)"
+    Print #iFile, "        $pre = ''"
+    Print #iFile, "        if ($raw.Length -gt 0 -and -not $raw.EndsWith([char]10)) { $pre = [char]13 + [char]10 }"
+    Print #iFile, "        [System.IO.File]::AppendAllText($ucf, ($pre + $req + [char]13 + [char]10), $enc)"
+    Print #iFile, "        Note ('ucf line ADDED  ' + $req)"
+    Print #iFile, "    }"
+    Print #iFile, "} elseif ($ko.Count -eq 0) {"
+    Print #iFile, "    Note ('ucf NOT FOUND    ' + $ucf + ' - config lines not checked')"
+    Print #iFile, "}"
+    Print #iFile, ""
+
+    ' [7] Record the outcome. The version advances ONLY on a fully verified install, so a partial one
     ' is re-offered at the next start instead of being written off as done.
     Print #iFile, "if (-not (Test-Path 'HKCU:\Software\ARES')) { New-Item -Path 'HKCU:\Software\ARES' -Force | Out-Null }"
     Print #iFile, "if ($ko.Count -eq 0) {"
