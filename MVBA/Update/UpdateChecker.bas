@@ -390,12 +390,34 @@ Public Sub DownloadAndInstall()
 
     Print #iFile, ")"
 
-    ' [1] Result log + message helpers. The log lives beside the install dir so it outlives BOTH the
+    ' [1] Result log + reporting helpers. The log lives beside the install dir so it outlives BOTH the
     ' temp cleanup and MicroStation itself - this script runs after Application.Quit, with no UI left
     ' to report into. Silence was the whole problem: a failed copy used to leave no trace anywhere.
-    Print #iFile, "$log = Join-Path (Split-Path $rsc -Parent) 'ARES_update.log'"
-    Print #iFile, "function Note($m) { ('{0:yyyy-MM-dd HH:mm:ss}  {1}' -f (Get-Date), $m) | Add-Content -LiteralPath $log }"
-    Print #iFile, "function Say($m) { Add-Type -AssemblyName System.Windows.Forms; [void][System.Windows.Forms.MessageBox]::Show($m, 'ARES') }"
+    ' Every Note line is kept in $report too, and THAT is what the closing dialog shows - the run's own
+    ' log, in English like every ARES log, rather than a two-language summary that said less.
+    Print #iFile, "Add-Type -AssemblyName System.Windows.Forms"
+    Print #iFile, "$log    = Join-Path (Split-Path $rsc -Parent) 'ARES_update.log'"
+    Print #iFile, "$report = @()"
+    Print #iFile, "function Note($m) {"
+    Print #iFile, "    $line = '{0:yyyy-MM-dd HH:mm:ss}  {1}' -f (Get-Date), $m"
+    Print #iFile, "    $line | Add-Content -LiteralPath $log"
+    Print #iFile, "    $script:report += $line"
+    Print #iFile, "}"
+
+    ' The dialog needs an owner it can come to the front of: with no owner it opens unfocused behind
+    ' whatever has the foreground, and Enter never reaches its OK button. A zero-opacity TopMost form
+    ' is that owner - shown, activated, and disposed straight after.
+    Print #iFile, "function Say($cap, $ico) {"
+    Print #iFile, "    $own = New-Object System.Windows.Forms.Form"
+    Print #iFile, "    $own.TopMost = $true; $own.ShowInTaskbar = $false; $own.Opacity = 0"
+    Print #iFile, "    $own.Show(); $own.Activate()"
+    Print #iFile, "    $btn = [System.Windows.Forms.MessageBoxButtons]::OK"
+    Print #iFile, "    $def = [System.Windows.Forms.MessageBoxDefaultButton]::Button1"
+    Print #iFile, "    [void][System.Windows.Forms.MessageBox]::Show($own, ($script:report -join [char]10), $cap, $btn, $ico, $def)"
+    Print #iFile, "    $own.Close(); $own.Dispose()"
+    Print #iFile, "}"
+    Print #iFile, "$iOk   = [System.Windows.Forms.MessageBoxIcon]::Information"
+    Print #iFile, "$iBad  = [System.Windows.Forms.MessageBoxIcon]::Error"
     Print #iFile, "Note ('=== update to ' + $version + ' - ' + $assets.Count + ' asset(s) ===')"
     Print #iFile, ""
 
@@ -404,23 +426,19 @@ Public Sub DownloadAndInstall()
     Print #iFile, "    $tmp = Join-Path $dir $a.Name"
     Print #iFile, "    try { Invoke-WebRequest -Uri $a.Url -OutFile $tmp -UseBasicParsing }"
     Print #iFile, "    catch {"
-    Print #iFile, "        Note ('DOWNLOAD FAILED ' + $a.Name + ' : ' + $_.Exception.Message)"
-    Print #iFile, "        $m = 'ARES : download failed. Update aborted.' + [char]10"
-    Print #iFile, "        $m = $m + 'ARES : t' + [char]233 + 'l' + [char]233 + 'chargement impossible. Mise ' + [char]224 + ' jour annul' + [char]233 + 'e.'"
-    Print #iFile, "        Say $m"
+    Print #iFile, "        Note ('DOWNLOAD FAILED  ' + $a.Name + ' : ' + $_.Exception.Message)"
+    Print #iFile, "        Say ('ARES ' + $version + ' - update aborted') $iBad"
     Print #iFile, "        Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
     Print #iFile, "        exit 1"
     Print #iFile, "    }"
     Print #iFile, "    $actual = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToLower()"
     Print #iFile, "    if ($a.Hash -ne $actual) {"
-    Print #iFile, "        Note ('HASH MISMATCH ' + $a.Name)"
-    Print #iFile, "        $m = 'ARES : hash verification failed. Update aborted.' + [char]10"
-    Print #iFile, "        $m = $m + 'ARES : v' + [char]233 + 'rification ' + [char]233 + 'chou' + [char]233 + 'e. Mise ' + [char]224 + ' jour annul' + [char]233 + 'e.'"
-    Print #iFile, "        Say $m"
+    Print #iFile, "        Note ('HASH MISMATCH    ' + $a.Name)"
+    Print #iFile, "        Say ('ARES ' + $version + ' - update aborted') $iBad"
     Print #iFile, "        Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
     Print #iFile, "        exit 1"
     Print #iFile, "    }"
-    Print #iFile, "    Note ('downloaded ' + $a.Name)"
+    Print #iFile, "    Note ('downloaded       ' + $a.Name)"
     Print #iFile, "}"
     Print #iFile, ""
 
@@ -440,7 +458,7 @@ Public Sub DownloadAndInstall()
     Print #iFile, "        $done = $true"
     Print #iFile, "    } catch { $done = $false; $why = $_.Exception.Message }"
     Print #iFile, "} while (-not $done -and $attempt -lt 30)"
-    Print #iFile, "Note ('copy: attempts=' + $attempt + ' done=' + $done + ' ' + $why)"
+    Print #iFile, "Note ('copy             attempts=' + $attempt + ' ok=' + $done + ' ' + $why)"
     Print #iFile, ""
 
     ' [5] Verify what actually LANDED at each target. The copy's own verdict is not enough: the set is
@@ -449,8 +467,8 @@ Public Sub DownloadAndInstall()
     Print #iFile, "foreach ($a in $assets) {"
     Print #iFile, "    $h = ''"
     Print #iFile, "    if (Test-Path $a.Target) { $h = (Get-FileHash -Path $a.Target -Algorithm SHA256).Hash.ToLower() }"
-    Print #iFile, "    if ($h -eq $a.Hash) { $ok += $a.Name; Note ('installed      ' + $a.Target) }"
-    Print #iFile, "    else { $ko += $a.Name; Note ('NOT INSTALLED  ' + $a.Target) }"
+    Print #iFile, "    if ($h -eq $a.Hash) { $ok += $a.Name; Note ('installed        ' + $a.Target) }"
+    Print #iFile, "    else { $ko += $a.Name; Note ('NOT INSTALLED    ' + $a.Target) }"
     Print #iFile, "}"
     Print #iFile, ""
 
@@ -460,15 +478,13 @@ Public Sub DownloadAndInstall()
     Print #iFile, "if ($ko.Count -eq 0) {"
     Print #iFile, "    Set-ItemProperty -Path 'HKCU:\Software\ARES' -Name 'Version' -Value $version"
     Print #iFile, "    Set-ItemProperty -Path 'HKCU:\Software\ARES' -Name 'LastUpdate' -Value ($version + '|OK|' + $ok.Count)"
-    Print #iFile, "    $m = 'ARES ' + $version + ' installed - ' + $ok.Count + ' file(s).' + [char]10"
-    Print #iFile, "    $m = $m + 'ARES ' + $version + ' install' + [char]233 + ' - ' + $ok.Count + ' fichier(s).'"
+    Print #iFile, "    Note ('=== done - ' + $ok.Count + ' file(s) installed ===')"
+    Print #iFile, "    Say ('ARES ' + $version + ' - update complete') $iOk"
     Print #iFile, "} else {"
     Print #iFile, "    Set-ItemProperty -Path 'HKCU:\Software\ARES' -Name 'LastUpdate' -Value ($version + '|FAIL|' + ($ko -join ','))"
-    Print #iFile, "    $m = 'ARES : update incomplete - ' + ($ko -join ', ') + [char]10"
-    Print #iFile, "    $m = $m + 'ARES : mise ' + [char]224 + ' jour incompl' + [char]232 + 'te. Voir ' + $log"
+    Print #iFile, "    Note ('=== INCOMPLETE - missing: ' + ($ko -join ', ') + ' - version not advanced ===')"
+    Print #iFile, "    Say ('ARES ' + $version + ' - update incomplete') $iBad"
     Print #iFile, "}"
-    Print #iFile, "Note $m.Replace([char]10, ' / ')"
-    Print #iFile, "Say $m"
     Print #iFile, "Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
 
     Close #iFile
