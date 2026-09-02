@@ -29,19 +29,6 @@ Attribute VB_Exposed = False
 '              form reuses the same code). This form stays a thin consumer: it runs its grammar
 '              (ValidateAndNormalizeRule + RuleHasNoEffect) and hands RuleEditorUX the render string +
 '              validity + red segments + bold-keyword list {Lvl,Cell,Type}; RuleEditorUX renders the runs.
-'
-'              DESIGNER (manual, Asketyll) - controls required with EXACTLY these names:
-'                Main_CheckBox (CheckBox, master), ComboBox_Rules (ComboBox,
-'                Style = 0 fmStyleDropDownCombo EDITABLE - the sole per-rule editor),
-'                Frame_RulePreview (Frame, render surface directly BELOW ComboBox_Rules for the runtime
-'                coloured preview - the coloured Labels are created at runtime, NONE in the designer),
-'                Reset_Command (CommandButton), Help_Command (CommandButton, opens the wiki page - placed
-'                beside Reset_Command). Help_Command's Picture (a "?" icon) and MousePointer (14 =
-'                fmMousePointerHelp) are set HERE IN THE DESIGNER, not in code - a Win32 icon-load from code
-'                was rejected as too risky for a cosmetic icon (see the comment beside
-'                FormUXHelper.SetTip Help_Command in UserForm_Initialize).
-'              StartUpPosition = 0 Manual. Tab order: master -> rules-combo -> reset -> help
-'              (Frame_RulePreview is a non-focusable container, not in the tab order).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, PropertyTagging, RuleEditorUX, FormUXHelper, FormPlacement, Command
 Option Explicit
@@ -262,10 +249,8 @@ Private Sub UserForm_Initialize()
     FormUXHelper.SetTip Reset_Command, "FormResetDefaultsTip"
 
     ' Help button: the ComboBox tooltip has no room for the full attach-rules grammar reference - this opens
-    ' the wiki page instead. Its Picture (a "?" icon) is set in the DESIGNER, not here - owned the same way
-    ' as MousePointer/tab order (a Win32 API icon load was considered and rejected: the PICTDESC struct
-    ' layout differs 32/64-bit and a mistake there is an unrecoverable access violation, not a catchable
-    ' VBA error - not worth the risk for a cosmetic icon that the designer sets safely in one click).
+    ' the wiki page instead. Do NOT load its "?" icon from code: a Win32 PICTDESC load was rejected here,
+    ' its struct layout differs 32/64-bit and a mistake is an access violation, not a catchable VBA error.
     FormUXHelper.SetTip Help_Command, "FormHelpTip"
 
     SeedControls

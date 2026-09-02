@@ -23,13 +23,6 @@ Attribute VB_Exposed = False
 '              ComboBox_ActuateColorProp, ActuateLevelProp_Label, ComboBox_ActuateLevelProp), if present,
 '              are unreferenced dead controls still in the designer/.frx - code cannot delete a visual
 '              control, remove them manually in the VBA IDE.
-'
-'              DESIGNER - controls required with EXACTLY these names: Main_CheckBox, Cell_CheckBox,
-'              TextBox_Cells_List (Visible=False), Edit_Cells_List_Command, ActuatorSection_Label (bold
-'              divider), ActuateColor_CheckBox, ActuateLevel_CheckBox, Reset_Command. Group
-'              ActuatorSection_Label + its 2 checkboxes visually apart from the render/ATLAS controls.
-'              StartUpPosition = 0 Manual. Tab order: master -> cell -> edit-cells -> actuate-color ->
-'              actuate-level -> reset.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, FormUXHelper, FormPlacement, Command,
 '               PropertyActuator
