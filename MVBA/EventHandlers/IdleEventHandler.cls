@@ -11,6 +11,20 @@ Implements IEnterIdleEvent
 
 ' === PRIVATE MEMBERS ===
 Private mbIsProcessing As Boolean    ' Flag to prevent re-entrance during element processing
+Private mbIsInitialHandler As Boolean ' True ONLY on the boot one-shot instance (see MarkAsInitial)
+
+' Flags this instance as the boot one-shot - the only one that must run HandleInitialIdle.
+' Set by BootLoader before registering, and cleared the moment it fires.
+'
+' Dispatching on a per-instance flag rather than on LangManager.IsInit is deliberate: IsInit means
+' "translations are loaded", NOT "the boot idle has not run yet". Any status message shown before
+' the first idle self-initialises translations - and DGNOpenClose.InitializeChangeHandler shows one
+' on every DGN open, which at MicroStation startup lands BETWEEN OnProjectLoad and the first idle.
+' The boot handler then took the element-processing branch and silently lost both the "- [ARES]"
+' caption and the startup update check.
+Public Sub MarkAsInitial()
+    mbIsInitialHandler = True
+End Sub
 
 ' Event handler for when MicroStation enters idle state
 Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
@@ -19,8 +33,10 @@ Private Sub IEnterIdleEvent_EnterIdle(ByVal Reserved As Long)
     ' Protection against re-entrance
     If mbIsProcessing Then Exit Sub
 
-    ' Check if this is the initial idle event (project load)
-    If Not LangManager.IsInit Then
+    ' The boot one-shot: cleared FIRST - HandleInitialIdle can show a modal (the update dialog),
+    ' and MicroStation keeps pumping idle events while it is up.
+    If mbIsInitialHandler Then
+        mbIsInitialHandler = False
         HandleInitialIdle
         Exit Sub
     End If

@@ -68,7 +68,7 @@ Entry point: **`BootLoader.OnProjectLoad`**
 
 1. `InitializeErrorHandler()` first (everything else logs through it).
 2. `InitializeDGNHandlers()` → `New DGNOpenClose` (wires `Application` open/close events).
-3. `InitializeInitialIdleHandler()` → an `IdleEventHandler` that sets the caption, initializes translations + config, checks for updates, then removes itself.
+3. `InitializeInitialIdleHandler()` → an `IdleEventHandler`, flagged `MarkAsInitial`, that sets the caption, initializes translations + config, checks for updates, then removes itself. The flag is **per-instance on purpose**: dispatching on `LangManager.IsInit` ("translations loaded") instead silently skipped the entire boot sequence, because step 2's DGN-open status message loads translations before the first idle ever fires.
 
 **Global objects** (declared in `BootLoader.bas`): `ChangeHandler` (ElementChangeHandler), `ErrorHandler` (ErrorHandlerClass), `ElementInProcesse` (ElementInProcesseClass), `ARESConfig` (ARESConfigClass), `CallStack` (CallStackClass, auto-instantiating).
 

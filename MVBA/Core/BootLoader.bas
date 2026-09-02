@@ -84,13 +84,15 @@ Private Function InitializeInitialIdleHandler() As Boolean
 
     Dim oInitialIdleHandler As IdleEventHandler
 
-    ' Create and register idle event handler for initial project setup
-    ' This handler will:
+    ' Create and register the idle event handler for initial project setup.
+    ' MarkAsInitial is what makes THIS instance - and only this one - run the boot sequence:
     '   1. Set the application caption
     '   2. Initialize translations
     '   3. Initialize ARESConfig
-    '   4. Remove itself after execution
+    '   4. Check for an available update
+    '   5. Remove itself after execution
     Set oInitialIdleHandler = New IdleEventHandler
+    oInitialIdleHandler.MarkAsInitial
     AddEnterIdleEventHandler oInitialIdleHandler
 
     InitializeInitialIdleHandler = True
