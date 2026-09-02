@@ -25,9 +25,8 @@ Attribute VB_Exposed = False
 '              editor uses - no divergence). This form stays a thin consumer: it runs the calc grammar
 '              (ValidateAndNormalizeCalcRule + CalcRuleHasNoEffect) and hands RuleEditorUX the render string
 '              + validity + red segments + the bold-keyword list (the target/condition keywords Prop/Lvl/
-'              Cell/Type AND the twenty-one source keywords CellText/CellCoord/CellId/CellLvl/CellColor/
-'              CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/Value/Coord/Id/Lvl/Color/Style/Weight/
-'              GroupColor/GroupProp/Length/GroupLength).
+'              Cell/Type AND every calc source keyword - the list itself is the kw() array in
+'              RenderCurrentCalcPreview; grammar reference: calc-rules-grammar.md).
 '
 '              DESIGNER (manual) - controls required with EXACTLY these names:
 '                Main_CheckBox (CheckBox, value master), DetachEmpty_CheckBox (CheckBox, detach-empty
@@ -235,11 +234,9 @@ End Sub
 
 ' Compute this grammar's preview data for the text currently in ComboBox_CalcRules and hand it to
 ' RuleEditorUX: validate + normalise -> canonical (valid) or raw (invalid); when valid, CalcRuleHasNoEffect
-' -> the red segments; the calc bold-keywords are the target/condition keywords AND the twenty-one sources
-' (RuleEditorUX bolds a bare keyword too, so the argument-less Coord/Id/Lvl/Color/Style/Weight/GroupColor
-' bold alongside CellText[..]/CellCoord[..]/CellId[..]/CellLvl[..]/CellColor[..]/CellStyle[..]/CellWeight[..]/
-' LvlColor[..]/LvlStyle[..]/LvlWeight[..]/Value[..]/Length[..]/GroupLength[..]/GroupProp[..]). RuleEditorUX
-' renders the coloured runs (read-only).
+' -> the red segments; kw() below is the bold-keyword list - target/condition keywords plus every calc
+' source, argument-less ones included (RuleEditorUX bolds a bare keyword too). It renders the coloured runs
+' read-only. Keep kw() in step with ParseSource's Case list when a source is added.
 Private Sub RenderCurrentCalcPreview()
     On Error GoTo ErrorHandler
 
