@@ -59,7 +59,7 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | | `PropertyRendering/PropertyActuator.bas` | the fourth engine (epic 16), the only one that WRITES a graphic attribute (`Color`/`Level`) FROM a property value — pure SELF reaction on its fixed reserved pilot properties `ARES_Color`/`ARES_Lvl`, no group logic of its own; hosted alongside `PropertyRendering.bas` (shared `PropertyRendering_GUI_Options` panel), but a fully separate logic/doctrine module. |
 | **Command/** | `Command.bas` | the key-in surface; each key-in inits config/lang, delegates |
 | **Components/** | `Geometry`, `Length`, `Link`, `StringsInEl`, `GetElements`, `CustomPropertyHandler`, `MicroStationDefinition`, `MSGraphicalInteraction`, `CellRedreaw`, `FileDialogs`, `FormUXHelper`, `FormPlacement`, `RuleGrammar`, `RuleEditorUX` | shared helpers (see [Shared components](#shared-components-key-apis)) |
-| **Update/** | `UpdateChecker.bas` | GitHub-releases self-update of every release asset (`.mvba` → C:\ARES, others → C:\ARES\Rsc) via elevated PowerShell + per-asset SHA-256 verify |
+| **Update/** | `UpdateChecker.bas` | GitHub-releases self-update of every release asset (`.mvba` → C:\ARES, others → C:\ARES\Rsc) via elevated PowerShell; each asset SHA-256 verified on download AND at its target, version advanced only if every one landed, outcome logged to `C:ARESARES_update.log` + `HKCUSoftwareARESastupdate` |
 | **Tests/** | `UnitTesting.bas` | custom test harness (no native MVBA framework) — `RunARESTests`, real-DGN/real-element integration style |
 
 ## Boot & lifecycle

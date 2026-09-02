@@ -153,7 +153,11 @@ Private Sub ParseAssets(ByVal sResponse As String)
             End If
         End If
 
-        nNamePos = nNextName
+        ' Do NOT advance nNamePos here. The InStr at the top of the loop is the ONLY advance: it
+        ' resumes from nNamePos + 1, so setting nNamePos = nNextName as well skipped one asset per
+        ' turn - the list kept the 1st, 3rd, 5th... and silently dropped every other one. A release
+        ' whose second asset is a resource then installed the .mvba alone, reported success and
+        ' advanced the registry version. nNextName stays what it is for: bounding the digest search.
     Loop While nNamePos < nAssetsEnd
 
     Exit Sub
@@ -386,39 +390,85 @@ Public Sub DownloadAndInstall()
 
     Print #iFile, ")"
 
-    ' [1] Download + verify every asset; abort all if any hash mismatches.
+    ' [1] Result log + message helpers. The log lives beside the install dir so it outlives BOTH the
+    ' temp cleanup and MicroStation itself - this script runs after Application.Quit, with no UI left
+    ' to report into. Silence was the whole problem: a failed copy used to leave no trace anywhere.
+    Print #iFile, "$log = Join-Path (Split-Path $rsc -Parent) 'ARES_update.log'"
+    Print #iFile, "function Note($m) { ('{0:yyyy-MM-dd HH:mm:ss}  {1}' -f (Get-Date), $m) | Add-Content -LiteralPath $log }"
+    Print #iFile, "function Say($m) { Add-Type -AssemblyName System.Windows.Forms; [void][System.Windows.Forms.MessageBox]::Show($m, 'ARES') }"
+    Print #iFile, "Note ('=== update to ' + $version + ' - ' + $assets.Count + ' asset(s) ===')"
+    Print #iFile, ""
+
+    ' [2] Download + verify every asset; abort the whole set if any download or hash check fails.
     Print #iFile, "foreach ($a in $assets) {"
     Print #iFile, "    $tmp = Join-Path $dir $a.Name"
-    Print #iFile, "    Invoke-WebRequest -Uri $a.Url -OutFile $tmp -UseBasicParsing"
-    Print #iFile, "    $actual = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToLower()"
-    Print #iFile, "    if ($a.Hash -ne $actual) {"
-    Print #iFile, "        Add-Type -AssemblyName System.Windows.Forms"
-    Print #iFile, "        [System.Windows.Forms.MessageBox]::Show('ARES : hash verification failed. Update aborted.`nARES : v" & Chr(233) & "rification du fichier " & Chr(233) & "chou" & Chr(233) & "e. Mise " & Chr(224) & " jour annul" & Chr(233) & "e.', 'ARES', 0, 48) | Out-Null"
+    Print #iFile, "    try { Invoke-WebRequest -Uri $a.Url -OutFile $tmp -UseBasicParsing }"
+    Print #iFile, "    catch {"
+    Print #iFile, "        Note ('DOWNLOAD FAILED ' + $a.Name + ' : ' + $_.Exception.Message)"
+    Print #iFile, "        $m = 'ARES : download failed. Update aborted.' + [char]10"
+    Print #iFile, "        $m = $m + 'ARES : t' + [char]233 + 'l' + [char]233 + 'chargement impossible. Mise ' + [char]224 + ' jour annul' + [char]233 + 'e.'"
+    Print #iFile, "        Say $m"
     Print #iFile, "        Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
     Print #iFile, "        exit 1"
     Print #iFile, "    }"
+    Print #iFile, "    $actual = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash.ToLower()"
+    Print #iFile, "    if ($a.Hash -ne $actual) {"
+    Print #iFile, "        Note ('HASH MISMATCH ' + $a.Name)"
+    Print #iFile, "        $m = 'ARES : hash verification failed. Update aborted.' + [char]10"
+    Print #iFile, "        $m = $m + 'ARES : v' + [char]233 + 'rification ' + [char]233 + 'chou' + [char]233 + 'e. Mise ' + [char]224 + ' jour annul' + [char]233 + 'e.'"
+    Print #iFile, "        Say $m"
+    Print #iFile, "        Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
+    Print #iFile, "        exit 1"
+    Print #iFile, "    }"
+    Print #iFile, "    Note ('downloaded ' + $a.Name)"
     Print #iFile, "}"
+    Print #iFile, ""
 
-    ' [2] Ensure the Rsc folder exists.
+    ' [3] Ensure the Rsc folder exists.
     Print #iFile, "if (-not (Test-Path $rsc)) { New-Item -ItemType Directory -Force -Path $rsc | Out-Null }"
+    Print #iFile, ""
 
-    ' [3] Copy the whole set, retrying while MicroStation still holds the file locks.
+    ' [4] Copy the whole set, retrying while MicroStation still holds the file locks.
     Print #iFile, "$attempt = 0"
     Print #iFile, "$done    = $false"
+    Print #iFile, "$why     = ''"
     Print #iFile, "do {"
     Print #iFile, "    Start-Sleep -Seconds 2"
     Print #iFile, "    $attempt++"
     Print #iFile, "    try {"
     Print #iFile, "        foreach ($a in $assets) { Copy-Item -Path (Join-Path $dir $a.Name) -Destination $a.Target -Force -ErrorAction Stop }"
     Print #iFile, "        $done = $true"
-    Print #iFile, "    } catch { $done = $false }"
+    Print #iFile, "    } catch { $done = $false; $why = $_.Exception.Message }"
     Print #iFile, "} while (-not $done -and $attempt -lt 30)"
+    Print #iFile, "Note ('copy: attempts=' + $attempt + ' done=' + $done + ' ' + $why)"
+    Print #iFile, ""
 
-    ' [4] Record the new version on success.
-    Print #iFile, "if ($done) {"
-    Print #iFile, "    if (-not (Test-Path 'HKCU:\Software\ARES')) { New-Item -Path 'HKCU:\Software\ARES' -Force | Out-Null }"
-    Print #iFile, "    Set-ItemProperty -Path 'HKCU:\Software\ARES' -Name 'Version' -Value $version"
+    ' [5] Verify what actually LANDED at each target. The copy's own verdict is not enough: the set is
+    ' all-or-nothing, so one locked resource leaves the .mvba swapped and the rest missing, unnoticed.
+    Print #iFile, "$ok = @(); $ko = @()"
+    Print #iFile, "foreach ($a in $assets) {"
+    Print #iFile, "    $h = ''"
+    Print #iFile, "    if (Test-Path $a.Target) { $h = (Get-FileHash -Path $a.Target -Algorithm SHA256).Hash.ToLower() }"
+    Print #iFile, "    if ($h -eq $a.Hash) { $ok += $a.Name; Note ('installed      ' + $a.Target) }"
+    Print #iFile, "    else { $ko += $a.Name; Note ('NOT INSTALLED  ' + $a.Target) }"
     Print #iFile, "}"
+    Print #iFile, ""
+
+    ' [6] Record the outcome. The version advances ONLY on a fully verified install, so a partial one
+    ' is re-offered at the next start instead of being written off as done.
+    Print #iFile, "if (-not (Test-Path 'HKCU:\Software\ARES')) { New-Item -Path 'HKCU:\Software\ARES' -Force | Out-Null }"
+    Print #iFile, "if ($ko.Count -eq 0) {"
+    Print #iFile, "    Set-ItemProperty -Path 'HKCU:\Software\ARES' -Name 'Version' -Value $version"
+    Print #iFile, "    Set-ItemProperty -Path 'HKCU:\Software\ARES' -Name 'LastUpdate' -Value ($version + '|OK|' + $ok.Count)"
+    Print #iFile, "    $m = 'ARES ' + $version + ' installed - ' + $ok.Count + ' file(s).' + [char]10"
+    Print #iFile, "    $m = $m + 'ARES ' + $version + ' install' + [char]233 + ' - ' + $ok.Count + ' fichier(s).'"
+    Print #iFile, "} else {"
+    Print #iFile, "    Set-ItemProperty -Path 'HKCU:\Software\ARES' -Name 'LastUpdate' -Value ($version + '|FAIL|' + ($ko -join ','))"
+    Print #iFile, "    $m = 'ARES : update incomplete - ' + ($ko -join ', ') + [char]10"
+    Print #iFile, "    $m = $m + 'ARES : mise ' + [char]224 + ' jour incompl' + [char]232 + 'te. Voir ' + $log"
+    Print #iFile, "}"
+    Print #iFile, "Note $m.Replace([char]10, ' / ')"
+    Print #iFile, "Say $m"
     Print #iFile, "Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue"
 
     Close #iFile
