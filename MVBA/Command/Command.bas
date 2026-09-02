@@ -665,17 +665,11 @@ ErrorHandler:
     ReportFailure "BindPropertyRender", Err.Description, Err.Number, Err.Source
 End Sub
 
-' Key-in: force a full recalculation pass (Tagging -> Calculation -> Actuator -> Rendering, then the
-' geometric Branch 2 sibling propagation) on every selected element, exactly as ElementChangeHandler.
-' ProcessElement would run it from a native ElementChanged event - the manual entry point for when
-' automatic propagation raced a multi-step native commit and lost (confirmed real-world 2026-09-01: editing
-' a custom-property value via MicroStation's own Properties palette can fire several ElementChanged events
-' for ONE edit, and Branch 2's own fresh Link.GetLink re-read of the donor - a separate scan from the
-' always-fresh AfterChange event parameter - can read a not-yet-settled copy at full native speed, even on
-' the last/correct firing; a MicroStation timing characteristic on this specific edit path, not an ARES
-' logic bug). Called later as an independent, non-reentrant top-level action, this always reads the
-' fully-settled value. No feature-specific gate here: each pipeline stage already gates itself inside
-' ProcessElement, same as it would for a real event.
+' Key-in: force a full pass (Tagging -> Calculation -> Actuator -> Rendering, then Branch 2's sibling
+' propagation) on every selected element, exactly as a native ElementChanged event would - the manual entry
+' point for whatever automatic propagation did not reach. Being an independent, non-reentrant top-level
+' call, it always runs on a fully-settled model. No feature-specific gate here: each pipeline stage already
+' gates itself inside ProcessElement, same as it would for a real event.
 Sub RecalculateSelection()
     On Error GoTo ErrorHandler
     ErrorHandler.ClearErrorFlag

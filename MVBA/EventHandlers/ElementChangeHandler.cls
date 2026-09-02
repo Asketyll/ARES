@@ -23,14 +23,11 @@ Private mbIdleHandlerRegistered As Boolean      ' Flag to prevent multiple idle 
 Private moReRegHandler As ReRegisterIdleHandler ' Member-scoped ref to prevent premature VBA GC after bulk suspend
 Private mbProcessingDirect As Boolean           ' Reentrancy guard for ARES_DIRECT_PROCESSING mode - see class header
 
-' MsdChangeTrackAction value 17 - NOT in the documented enum (mvba-docs' MsdChangeTrackAction_Enum.md stops at
-' 10, version 08.00.04); a CONNECT-era addition. Observed live (2026-09-01) to follow every Item/XAttribute
-' write on an element, right after that element's msdChangeTrackActionModify (3), and - decisive - to be the
-' FIRST callback whose AfterChange actually carries a just-edited Item VALUE: at the Modify (3) callback
-' neither a model scan nor AfterChange itself reflects it yet (breakpoint-verified: 3 -> old value,
-' 17 -> new value, same edit). Named for what it was observed to be, not after an SDK identifier we cannot
-' verify. Routed through the Modify path below so a pull source (GroupProp/GroupColor/GroupLength) reading
-' the trigger via PropertyCalculation.CascadeTrigger gets the committed value synchronously.
+' MsdChangeTrackAction 17 - absent from the documented enum (MsdChangeTrackAction_Enum.md stops at 10,
+' v08.00.04), a CONNECT-era addition, named here for what it was observed to be. It follows the Modify (3) of
+' an Item/XAttribute write and is the FIRST callback whose AfterChange carries the new Item value
+' (breakpoint-verified: 3 -> old, 17 -> new, same edit), so it is routed through the Modify path below -
+' without it no pull source could read a just-edited property value synchronously. See mvba-cheatsheet.md.
 Private Const CHANGE_TRACK_ACTION_ITEM_COMMITTED As Long = 17
 
 ' Per-cascade "already processed" set - reset at the top of every Depth=0 ProcessElement entry, seeded with
@@ -284,13 +281,9 @@ Public Sub ProcessElement(ByVal oElement As element, Optional ByVal Depth As Int
     If Depth = 0 Then
         mnSeenIds = 0
         MarkIdSeenThisCascade oElement
-        ' Publish this cascade's trigger handle (= AfterChange on a native event, a GetElementById re-fetch
-        ' on an idle pass, the picked element on RecalculateSelection). A model scan run INSIDE an element's
-        ' own ElementChanged callback still returns its PRE-change state (confirmed live 2026-09-01), so the
-        ' pull sources (GroupProp/GroupColor/GroupLength) read the trigger through THIS handle instead - see
-        ' PropertyCalculation.moCascadeTrigger. Note: for a just-edited ITEM value even AfterChange is fresh
-        ' only at the second native callback (17, CHANGE_TRACK_ACTION_ITEM_COMMITTED), not at Modify (3) -
-        ' which is why 17 is routed through this pipeline at all. Cleared on every Depth-0 exit below.
+        ' Publish this cascade's trigger handle: a scan run inside an element's own ElementChanged callback
+        ' sees its PRE-change state, so the pull sources read the trigger through THIS handle instead (see
+        ' PropertyCalculation.moCascadeTrigger). Cleared on every Depth-0 exit below.
         PropertyCalculation.SetCascadeTrigger oElement
     End If
 

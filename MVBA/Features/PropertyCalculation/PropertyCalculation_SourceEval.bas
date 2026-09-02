@@ -392,17 +392,12 @@ ErrorHandler:
     ResolveFillAwareColor = el.Color
 End Function
 
-' FreshHandle - the one rule every PULL source (GroupProp/GroupColor/GroupLength) must follow when it reads a
-' scanned group member: if that member IS the element whose change started this cascade, read it through the
-' cascade's own trigger handle (PropertyCalculation.CascadeTrigger = the event's AfterChange), NOT through the
-' handle Link.GetLink's scan returned. Confirmed live 2026-09-01: a model scan run inside an element's own
-' ElementChanged callback still returns that element's PRE-change state (the model commits only after the
-' callback returns), so a member re-scanning its trigger reads it exactly one edit behind - which is what
-' made GroupProp propagate the PREVIOUS value. The push sources (Cell*/Lvl*) never had this problem because
-' they already read the trigger off its own handle and only scan to FIND members; this brings the pull
-' sources onto the same footing. The scan still decides membership - only the READ is redirected. Falls back
-' to the scanned handle when there is no cascade trigger (RecalculateSelection-free contexts, tests) or when
-' the trigger handle is no longer readable (deleted mid-cascade - .ID raises).
+' FreshHandle - the rule every PULL source (GroupProp/GroupColor/GroupLength) follows when reading a scanned
+' group member: if that member IS this cascade's trigger, read it through the trigger's OWN handle
+' (PropertyCalculation.CascadeTrigger), not the one the scan returned - a scan run inside an element's own
+' ElementChanged callback still sees its PRE-change state, one edit behind (see mvba-cheatsheet.md). The scan
+' still decides membership; only the READ moves. Falls back to the scanned handle when there is no cascade
+' trigger, or when the trigger handle is no longer readable (deleted mid-cascade - .ID raises).
 Private Function FreshHandle(ByVal oCand As element) As element
     On Error GoTo Fallback
 
@@ -446,20 +441,13 @@ ErrorHandler:
     EvaluateGroupColor = ""
 End Function
 
-' GroupProp[PropertyName]: self-EXCLUDED (no ReturnMe:=True), like GroupColor - a bearing element carrying
-' its OWN (still-empty, or stale) copy of PropertyName must never satisfy its own search, or it would read
-' back its own value forever instead of the linked element's. UNLIKE GroupColor, every candidate is filtered
-' by ATTACH STATE (IsItemAttachedToElement) AND by having a genuinely NON-EMPTY value - an attached-but-empty
-' candidate is itself an unresolved RECEIVER of this very rule (e.g. a text just fan-out-attached, waiting to
-' be filled), never a valid donor; accepting it would let an unfilled sibling's blank overwrite a real value
-' elsewhere (confirmed real-world 2026-09-01: an unconditioned rule shared by the donor and its receivers let
-' the donor's own bearing pass read an empty receiver and blank itself out, triggering ARES_Calc_Detach_Empty
-' on the DONOR - see calc-rules-grammar.md's GroupProp bullet for the required rule-conditioning fix; this
-' filter is a complementary hardening, not a full fix on its own). "" when ungrouped, no linked element
-' carries the property, or every carrying candidate is itself empty. >= 2 candidates with a REAL value ->
-' CalculationMultiplePropCandidates (an empty candidate is noise, not an ambiguity, so it is never counted) -
-' first genuinely non-empty match in scan order wins, same "first wins" doctrine as every other
-' multi-candidate case in this module.
+' GroupProp[PropertyName]: self-EXCLUDED (no ReturnMe:=True) like GroupColor - a bearer carrying its own copy
+' of PropertyName must never satisfy its own search - and, unlike GroupColor, filtered on ATTACH STATE AND on
+' a genuinely NON-EMPTY value: an attached-but-empty candidate is an unresolved RECEIVER of this same rule
+' (a text just fan-out-attached), never a valid donor, and letting its blank win would overwrite a real value
+' elsewhere. "" when ungrouped, uncarried, or every carrier is empty; >= 2 real-valued candidates raise
+' CalculationMultiplePropCandidates, first non-empty in scan order winning. The donor/receiver
+' rule-conditioning doctrine this filter complements: see calc-rules-grammar.md's GroupProp bullet.
 Private Function EvaluateGroupProp(ByVal oEl As element, ByVal sPropName As String) As String
     On Error GoTo ErrorHandler
 

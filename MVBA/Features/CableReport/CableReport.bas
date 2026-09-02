@@ -1,62 +1,11 @@
 ' CableReport.bas
-' Description: For each HTAS cable (a Line element on a configured level), builds one Excel row
-' summarizing its end-cell markers (Repere-family property), its linked text's Nature/Longueur
-' (custom properties), and its trenching length broken down by soil-type zone (Coupe_Type-family
-' property), pivoted into one column per distinct soil-type value and summed when several zones
-' along the same cable share the same value.
-'
-' CABLE IDENTIFICATION  any element on ARES_CableReport_Cable_Level of a type supported by
-'                        Length.GetPartialLengthInsideZones (Line/Arc/LineString/Shape/
-'                        ComplexString/ComplexShape - same candidate set as ExportLengthInRegion).
-' REPERE                the configured property (default "Repere") read off the nearest
-'                        CellHeader within ARES_CableReport_Search_Radius of each endpoint
-'                        (start/end, geometric proximity - NOT graphic group). Only the 4 OPEN
-'                        types have two distinct ends (Line/Arc/LineString/ComplexString); a
-'                        closed Shape/ComplexShape gets no Repere (still counted for length).
-' NATURE / LONGUEUR     the configured properties (default "Nature"/"Longueur") read off whichever
-'                        graphic-group member(s) carry them (Link.GetLink, NOT type-filtered - a
-'                        Cell or any other grouped element qualifies, not just a Text), verbatim -
-'                        no parsing/reformatting. Each property is resolved independently, so
-'                        Nature and Longueur may even live on two different group members.
-'                        Longueur is written to Excel as a real NUMBER when it is purely numeric
-'                        (see TryAsNumber) - the content is still the property's, untouched, but a
-'                        String "493,6" assigned to .Value would be stored as TEXT (Excel's object
-'                        model parses an assigned string with the INVARIANT locale, not the user's),
-'                        which is what made some cells text and others numeric.
-' SOIL-TYPE BREAKDOWN   for each zone (Shape/ComplexShape on ARES_CableReport_Zone_Level) whose
-'                        partial length inside it (Length.GetPartialLengthInsideZones) is > 0, the
-'                        length is summed into a column keyed by that zone's configured property
-'                        value (default "Coupe_Type"). Two zones sharing the same value for the
-'                        same cable SUM into one column. Column order is alphabetical (case-
-'                        insensitive), not scan order - deterministic run to run.
-' SHARED TRENCH         a zone with >= 2 cables inside it (len > 0) is a shared trench, and it gets its
-'                        OWN pivot column: the column key is "<label> (n)" ("CH2C (2)") instead of the
-'                        plain "<label>", so a shared stretch reads as a column of its own next to the
-'                        ordinary one rather than silently inflating it. The column is keyed on the
-'                        SHARING GROUP, not just the count: two TA1 zones each shared by 2 cables but by
-'                        different pairs are two trenches, hence two columns ("TA1 (2)", "TA1 (2) #2");
-'                        two zones with the SAME members merge (two stretches of one shared trench add
-'                        up). Several can coexist ("CH2C", "CH2C (2)", "CH2C (3)"), and one cable can
-'                        appear in several - it may share its start with one cable and its end with
-'                        another. Per-cable rows are NOT touched
-'                        (each keeps its own length in that zone - cable-side truth); a 4th fixed column
-'                        "Shared with" cross-lists the OTHER cables (Repere, else "#<Excel row>"), and a
-'                        two-row FOOTER gives, per column, "Cable totals" (the rows added up as they
-'                        are) and "Trench to dig (deduplicated)" = sum over zones of the MAX in-zone
-'                        cable length - a zone is one trench segment, dug once, along its longest
-'                        occupant. ASSUMPTION: one common zone per shared trench (RunOutline/MergeRegion/
-'                        SplitRegion output); two DISTINCT zones overlapping each other are not detected,
-'                        and one zone deliberately spanning two side-by-side trenches would be
-'                        under-counted - both out of the confirmed use. Zone labels are read ONCE
-'                        (BuildZoneLabels); a blank label contributes to nothing.
-'
-' EXCEL COM CONTRACT  Late-bound via CreateObject/GetObject. bExcelStartedByUs prevents quitting a
-'   pre-existing user session. All COM refs released on every exit path. (Mirrors ExportLengthInRegion.)
-'
-' ENTRY POINT  Call CableReport([CableLevel], [ZoneLevel], [Filepath], [ExcelVisible])
-'   ZoneLevel empty -> ARES_Outline_Output_Level. Filepath empty -> Save-As dialog (cancel aborts).
-'   A missing linked text / end-cell is an expected drawing gap: the cell is left blank and the
-'   row counted incomplete, never logged - see the final status line.
+' Description: One Excel row per cable (levels in ARES_CableReport_Cable_Level): its end-cell Repere
+'              markers, the Nature/Longueur carried by its graphic group, and its trenching length
+'              pivoted per soil-type zone value - a zone shared by several cables getting its own
+'              "<value> (n)" column. Column model, shared-trench rules and the per-field resolution
+'              doctrine: see MVBA/README.md (Cable Report) and the wiki page of the same name.
+' ENTRY POINT  CableReport([CableLevel], [ZoneLevel], [Filepath], [ExcelVisible]) - ZoneLevel empty
+'              falls back to ARES_Outline_Output_Level, Filepath empty opens a Save-As (cancel aborts).
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, FileDialogs, GetElements, CustomPropertyHandler, Link, Length
 
@@ -152,19 +101,14 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     bHasZones = CollectZones(ZoneLevel, zones)
     If Not bHasZones Then ShowStatusT "CableReportNoZones"
 
-    ' --- Zone labels resolved ONCE (not per cable x zone): each zone's soil-type value, "" when the
-    ' property is absent/blank - a blank-labelled zone contributes to nothing (pivot, shared detection,
-    ' footers). nZones = 0 when there are no zones or no zone property to read. ---
+    ' --- Zone labels resolved ONCE (not per cable x zone); "" = the zone contributes to nothing ---
     Dim zoneLabels() As String
     Dim nZones       As Long
     nZones = 0
     If bHasZones And Len(sZoneProp) > 0 Then nZones = BuildZoneLabels(zones, sZoneProp, zoneLabels)
 
-    ' --- Accumulate one row per cable + the raw per-(zone, cable) lengths ---
-    ' The pivot COLUMNS cannot be decided here: a column key is "<label>" for a zone one cable runs
-    ' through and "<label> (n)" for a shared trench, and n is only known once every cable has been
-    ' measured against every zone. So this loop records raw lengths only; BuildPivotAndSharedTrenches
-    ' derives the columns, the pivot, the cross-marks and the footers from them in one post-pass.
+    ' --- One row per cable + the raw per-(zone, cable) lengths; the pivot columns cannot be decided
+    ' here (a shared-trench key needs the zone's cable count), so BuildPivotAndSharedTrenches does it ---
     Dim oRowData   As Object   ' Scripting.Dictionary: cableKey -> Array(sRepere, vNature, vLongueur)
     Dim oColumns   As Object   ' Scripting.Dictionary: column key -> True (presence only; sorted at write time)
     Dim oPivot     As Object   ' Scripting.Dictionary: cableKey & KEY_SEP & column key -> Double
@@ -371,13 +315,9 @@ ErrorHandler:
 End Function
 
 ' GetCableEndpoints
-' Returns True + the two endpoints for an OPEN candidate type (Line/Arc/LineString/ComplexString).
-' False for Shape/ComplexShape (closed - no two distinct ends to mark with a Repere) or any other
-' type. LineString goes through the VertexList interface (Set oVL = oEl; GetVertices; first/last
-' vertex) - the exact idiom Length.GetPartialLengthInsideZones already uses for this same type.
-' ComplexString's StartPoint/EndPoint come from the ChainableElement interface it implements
-' (confirmed: mvba-docs\02-objects\ChainableElement_Object.md documents the pair together; only
-' StartPoint was previously exercised in this codebase, via Length.bas's own ComplexString branch).
+' True + the two endpoints for an OPEN candidate type (Line/Arc/LineString/ComplexString); False for a
+' closed Shape/ComplexShape (no two distinct ends to mark) or any other type. LineString goes through
+' the VertexList interface, ComplexString through ChainableElement's StartPoint/EndPoint.
 Private Function GetCableEndpoints(ByVal oEl As Element, ByRef ptStart As Point3d, ByRef ptEnd As Point3d) As Boolean
     On Error GoTo ErrorHandler
 
@@ -441,11 +381,9 @@ ErrorHandler:
 End Function
 
 ' ResolveCableText
-' Scans oEl's WHOLE graphic group (Link.GetLink, no type filter) and reads Nature/Longueur off
-' whichever member(s) carry them, verbatim (no parsing/reformatting - the values are written to
-' Excel as-is). Each property is resolved INDEPENDENTLY (FindGroupPropertyValue), so they need not
-' share the same element. No group, or either value absent from every member: Null + bIncomplete -
-' an expected drawing gap, never logged.
+' Reads Nature/Longueur verbatim off whichever member of oEl's graphic group carries them, each
+' resolved INDEPENDENTLY (they need not share an element). Absent: Null + bIncomplete, never logged -
+' an expected drawing gap.
 Private Sub ResolveCableText(ByVal oEl As Element, ByVal sNatureProp As String, ByVal sLongueurProp As String, _
                              ByRef vNature As Variant, ByRef vLongueur As Variant, ByRef bIncomplete As Boolean)
     On Error GoTo ErrorHandler
@@ -499,13 +437,11 @@ End Function
 ' ============================================================
 
 ' RecordZoneLengths
-' Measures this cable against every LABELLED zone (Length.GetPartialLengthInsideZones, 1-element array -
-' the exact per-zone idiom ExportLengthInRegion.AggregateByZoneAndProperty already uses) and records each
-' > 0 result raw, in oZoneCable, keyed zoneIdx & KEY_SEP & cableKey (one entry per pair by construction).
-' NOTHING is aggregated here on purpose: a column key depends on how many cables share the zone, which is
-' only known once every cable has been measured - BuildPivotAndSharedTrenches does the aggregation.
-' Labels come pre-resolved from BuildZoneLabels; a blank label skips the zone entirely, geometry call
-' included (a data-quality gap in the drawing, not worth a status flicker per occurrence).
+' Measures this cable against every LABELLED zone (Length.GetPartialLengthInsideZones with a 1-element
+' array, the per-zone idiom ExportLengthInRegion already uses) and records each > 0 result raw, keyed
+' zoneIdx & KEY_SEP & cableKey. NOTHING is aggregated here on purpose: a column key depends on how many
+' cables share the zone, which is only known once every cable has been measured. A blank label skips the
+' zone, geometry call included.
 Private Sub RecordZoneLengths(ByVal oEl As Element, ByVal sCableKey As String, ByRef zones() As Element, _
                               ByRef zoneLabels() As String, ByRef oZoneCable As Object)
     On Error GoTo ErrorHandler
@@ -562,23 +498,12 @@ ErrorHandler:
 End Function
 
 ' BuildPivotAndSharedTrenches
-' Post-pass over the per-(zone, cable) lengths recorded by RecordZoneLengths. For every labelled zone,
-' the cables inside it (len > 0) are collected in row order, and the zone gets its COLUMN KEY:
-'   1 cable  -> "<label>"        (an ordinary stretch: this cable digs it alone; all solo zones of that
-'                                 soil type share the one column)
-'   n cables -> "<label> (n)"    (a SHARED TRENCH: one trench, n cables in it - e.g. "CH2C (2)"), keyed
-'                                 on the SHARING GROUP: zones with the same members merge (two stretches
-'                                 of the same shared trench add up), zones with the same label and count
-'                                 but DIFFERENT members do not - "TA1 (2)" for A+B and "TA1 (2) #2" for
-'                                 A+C are two distinct trenches and stay two distinct columns.
-' So a shared trench reads as its own column next to the ordinary one, instead of silently inflating it.
-' Several shared columns can coexist ("CH2C", "CH2C (2)", "CH2C (3)", "TRIC (2)"), and one cable can
-' appear in several of them - a cable can share its start with one cable and its end with another.
-' Per column key: oPivot(cable) += that cable's own length (rows stay cable-side truth), oCableTotal +=
-' every cable's length (what the rows add up to) and oTrench += the MAX length in the zone (the trench is
-' dug ONCE, along its longest occupant - one zone = one trench segment; see the module header for the
-' one-common-zone assumption). A shared zone also cross-marks each cable with the OTHER cables' Reperes
-' in oShared (deduplicated across zones, ", "-joined). Returns the number of shared zones.
+' Post-pass over the per-(zone, cable) lengths recorded by RecordZoneLengths: derives the pivot columns,
+' the pivot itself, the shared-trench cross-marks and the two footer series (see MVBA/README.md for the
+' column model). Column key = "<label>" for a solo zone, "<label> (n)" for a shared one, keyed on the
+' sharing GROUP so two same-count zones with different members stay two columns. Returns the number of
+' shared zones. ASSUMPTION: a shared trench is ONE common zone - two overlapping zones are not detected.
+' oTrench takes the MAX length per zone, not the sum: a zone is one trench segment, dug once.
 Private Function BuildPivotAndSharedTrenches(ByRef oZoneCable As Object, ByRef zoneLabels() As String, ByVal nZones As Long, _
                                              ByRef rowOrder() As String, ByRef oRowData As Object, _
                                              ByRef oColumns As Object, ByRef oPivot As Object, _
@@ -635,13 +560,9 @@ Private Function BuildPivotAndSharedTrenches(ByRef oZoneCable As Object, ByRef z
                     ' Ordinary stretch: every solo zone of this soil type shares the plain column.
                     sColKey = sLabel
                 Else
-                    ' Shared trench: the column identifies the SHARING GROUP, not just the count - two
-                    ' TA1 zones each shared by 2 cables but by DIFFERENT pairs (A+B here, A+C there) are
-                    ' two different trenches and must not merge. Group key = label + the member set (row
-                    ' indexes, ascending, so it is canonical); zones with the SAME members do merge, which
-                    ' is wanted (two stretches of the same shared trench add up). Same label AND same count
-                    ' but a different group -> the column carries a " #k" suffix, numbered in zone scan
-                    ' order; which cables belong to it is readable from the column's own filled rows.
+                    ' Group key = label + member set (row indexes, ascending, hence canonical): same
+                    ' members merge, different members get their own column - suffixed " #k" when the
+                    ' base "<label> (n)" is already taken by another group, numbered in zone scan order.
                     sGroupKey = sLabel & KEY_SEP
                     For k = 0 To nIn - 1
                         sGroupKey = sGroupKey & CStr(inZone(k)) & "|"
@@ -837,14 +758,9 @@ Private Function BuildDefaultFilename() As String
 End Function
 
 ' WriteToExcel
-' Late-binds Excel, writes fixed headers (Repere/Nature/Longueur/Shared with) + one alphabetically-sorted
-' pivot column per distinct column key - "<label>" for ordinary stretches, "<label> (n)" for a shared
-' trench (see BuildPivotAndSharedTrenches); sorting keeps "CH2C" and "CH2C (2)" adjacent. One row per
-' cable in scan order (rowOrder - no natural sort key for a Repere string). A pivot cell with no
-' contribution stays BLANK, never 0. When there are pivot columns, a two-row footer follows a blank row:
-' "Cable totals" (plain per-column sums, what the rows add up to) and "Trench to dig (deduplicated)"
-' (each zone counted once, at its longest occupant).
-'
+' 4 fixed headers (Repere/Nature/Longueur/Shared with) + one alphabetically-sorted pivot column per
+' column key (sorting keeps "CH2C" and "CH2C (2)" adjacent), one row per cable in scan order, then the
+' two footer rows when there are pivot columns. A pivot cell with no contribution stays BLANK, never 0.
 ' COM lifecycle: identical contract to ExportLengthInRegion.WriteToExcel (bExcelStartedByUs,
 ' always-attempted close on error, Quit gated on having started the session ourselves).
 Private Sub WriteToExcel(ByRef oRowData As Object, ByRef oColumns As Object, ByRef oPivot As Object, _
@@ -909,9 +825,7 @@ Private Sub WriteToExcel(ByRef oRowData As Object, ByRef oColumns As Object, ByR
         xlSheet.Cells(r, 1).Value = vRow(0)
         If Not IsNull(vRow(1)) Then xlSheet.Cells(r, 2).Value = vRow(1)
         If Not IsNull(vRow(2)) Then
-            ' Longueur: write a real Double when the property's value is purely numeric, so the column
-            ' is not half text / half number (see TryAsNumber and the module header). Anything else -
-            ' a unit suffix, a free-text value - stays verbatim.
+            ' Longueur as a real Double when it is purely numeric, else verbatim - see TryAsNumber.
             If TryAsNumber(vRow(2), dNum) Then
                 xlSheet.Cells(r, 3).Value = dNum
             Else
@@ -975,14 +889,11 @@ ErrorHandler:
 End Sub
 
 ' TryAsNumber
-' True + dOut when v is a purely numeric value: an already-numeric Variant, or a String that parses
-' cleanly - first with the station's OWN locale (IsNumeric/CDbl are locale-aware, so "493,6" parses on a
-' French host), then with the decimal separator swapped, so a value authored on a station using the other
-' convention still lands as a number. False for anything else (a unit suffix like "493,6m", an identifier,
-' Null/Empty/an array) - the caller then writes the value verbatim.
-' WHY: assigning a STRING to Excel's Range.Value goes through the object model's INVARIANT (en-US)
-' parsing, not the user's locale, so "493,6" is stored as TEXT; assigning a Double never is. That is what
-' made the Longueur column text while every ARES-computed cell was numeric.
+' True + dOut when v is purely numeric: an already-numeric Variant, or a String that parses cleanly -
+' with the station's OWN locale first (IsNumeric/CDbl are locale-aware), then with the decimal separator
+' swapped. False for anything else (a unit suffix like "493,6m", an identifier, Null/Empty/an array).
+' WHY it exists: a STRING assigned to Excel's Range.Value is parsed with the object model's INVARIANT
+' locale, so "493,6" lands as TEXT; a Double never does.
 Private Function TryAsNumber(ByVal v As Variant, ByRef dOut As Double) As Boolean
     On Error GoTo ErrorHandler
 

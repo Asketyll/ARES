@@ -93,18 +93,12 @@ Private mCalcRules() As CalcRuleInfo
 Private mnCalcCount As Long
 Private mbCalcParsed As Boolean
 
-' The element whose change started the current Depth-0 cascade - i.e. IChangeTrackEvents_ElementChanged's
-' AfterChange (or the GetElementById re-fetch of an idle-queued element, or a RecalculateSelection pick).
-' Set/cleared by ElementChangeHandler.ProcessElement around every Depth-0 pass. WHY IT EXISTS (confirmed
-' live 2026-09-01): a model scan (Link.GetLink -> ActiveModelReference.Scan) run INSIDE an element's own
-' ElementChanged callback still returns that element's PRE-change state - the model is only committed once the
-' callback returns - whereas AfterChange is fresh (for a just-edited Item value: fresh at the second native
-' callback, action 17, not yet at Modify/3 - ElementChangeHandler routes both). The push sources (Cell*/Lvl*) never hit this: they
-' read the trigger through its own handle and only scan to FIND members. The pull sources (GroupProp/
-' GroupColor/GroupLength) do: a member rescans the group and reads the trigger off the scan, one edit behind.
-' PropertyCalculation_SourceEval.FreshHandle substitutes this handle for any scanned candidate with the same
-' ID, so a pull source reads the trigger exactly as a push source would. Cleared on every Depth-0 exit so a
-' stale reference to a possibly-deleted element never outlives its cascade.
+' The element whose change started the current Depth-0 cascade (ElementChanged's AfterChange, the idle
+' re-fetch of a queued element, or a RecalculateSelection pick). Set/cleared by ElementChangeHandler.
+' ProcessElement around every Depth-0 pass, so a stale reference never outlives its cascade. Exists because a
+' scan run inside an element's own ElementChanged callback returns its PRE-change state, one edit behind,
+' while the trigger's own handle is fresh - PropertyCalculation_SourceEval.FreshHandle redirects a pull
+' source's READ to it. Full pitfall (including the action-17 Item callback): mvba-cheatsheet.md.
 Private moCascadeTrigger As element
 
 ' One-shot guards so each calculation status surfaces only once per processed element; reset at the
