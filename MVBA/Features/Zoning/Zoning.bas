@@ -1085,17 +1085,30 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     ' Fast path: one union for the whole set.
     UnionInto bufs, nBuf, outEls, nOutEls
 
-    ' Fallback: fold them in one at a time, on an EMPTY result ONLY.
+    ' Fallback: fold them one at a time when the whole-set union is provably wrong.
     '
-    ' A bounding-box coverage check sat here and was removed. Element.Range on the input buffers
-    ' includes their symbology stroke; the union results are fresh elements without one, so the output
-    ' box came back inset by a CONSTANT on all four sides - 0.144 master units on the drawing it was
-    ' measured on. The check read that as a loss and folded practically everything, turning 75 global
-    ' inputs into 1143 unmerged shapes. It compares a padded box to an unpadded one: no tolerance
-    ' rescues that, only a different invariant. A union that returns a genuinely TRUNCATED result
-    ' therefore still passes unnoticed - see complexstring id=157783.
+    ' TWO conditions, and both are counts - no geometry, no tolerance, nothing that depends on
+    ' symbology (an earlier bounding-box check did, and condemned sound unions wholesale: Range
+    ' includes the stroke on the inputs and not on the results, so every output box came back inset by
+    ' a constant - see the cheatsheet).
+    '
+    '   nOut = 0     - it returned nothing at all.
+    '   nOut > nBuf  - it returned MORE shapes than it was given, which no union can do: every output
+    '                  component must contain at least one input, so N inputs yield at most N
+    '                  components. More means it FRAGMENTED an input instead of merging it. Measured
+    '                  on a two-cable drawing: "global : 2 in -> 3 out", one cable's zone cut in two.
+    '
+    ' What it still cannot see: a union that returns a plausible COUNT while quietly truncating one of
+    ' the shapes (complexstring id=157783 loses the end of its zone at 52 in -> 1 out).
     If nOutEls = 0 Then
         If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
+        FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
+    ElseIf nOutEls > nBuf Then
+        If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union FRAGMENTED (" & nBuf & " in -> " & _
+                                  nOutEls & " out), folding one by one"
+        ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shapes from " & _
+                                 nBuf & " inputs; a union cannot add components, so it split one. " & _
+                                 "Folded one by one instead", 0, "", "Zoning.FuseRegions"
         FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
     End If
 
@@ -1190,6 +1203,10 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
         nTry = nAcc + 1
 
         UnionInto tryEls, nTry, res, nRes
+
+        ' Same count rule per step: a step that hands back more shapes than it was given has split
+        ' one, so treat it as a failed step rather than carry the fragments forward.
+        If nRes > nTry Then nRes = 0
 
         If nRes > 0 Then
             ReDim acc(0 To nRes - 1)
