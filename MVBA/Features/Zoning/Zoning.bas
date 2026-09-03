@@ -50,6 +50,13 @@ Private Const CAP_OVERLAP As Double = 0.001
 ' with margin; and a centimetre cannot swallow a vertex that carries real shape.
 Private Const VERTEX_MERGE_TOL As Double = 0.01
 
+' An arc sweeping less than this carries no shape and is dropped from a merged contour - see
+' DropFlatArcs. In DEGREES on purpose: the sweep is intrinsic to the arc, so unlike a length it
+' needs no calibration against the zone size or the offset distance.
+' Scale to judge it by: the 0.211 m sliver measured on a 2 m radius sweeps about 6 degrees, so it
+' is NOT caught at this setting. Raise it only on measurements.
+Private Const FLAT_ARC_DEG As Double = 1#
+
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -1122,6 +1129,7 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
         Set resEl = oEnum.Current
         resEl.Move fromOrigin                 ' restore to the original location
         Set resEl = CleanTinyVertices(resEl, VERTEX_MERGE_TOL)
+        Set resEl = DropFlatArcs(resEl, FLAT_ARC_DEG)
         ReDim Preserve outEls(0 To nOutEls)
         Set outEls(nOutEls) = resEl
         nOutEls = nOutEls + 1
@@ -1254,6 +1262,130 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
 
 ErrorHandler:
     ThinLineString = 0
+End Function
+
+' DropFlatArcs
+' ---------------------------------------------------------------------------
+' Rebuilds a merged shape without its flat arcs - the ones whose sweep is so small they carry no
+' shape at all - and returns it. Hands the shape back untouched when there is nothing to do or
+' anything goes wrong: cosmetic pass, it must never cost a zone.
+'
+' Asketyll's rule, and it is a better one than a length threshold: the sweep ANGLE is intrinsic to
+' the arc. A length tolerance has to be chosen against the zone size and the offset distance; an
+' angle does not - an arc sweeping a fraction of a degree is contour noise whatever its radius.
+'
+' Two guards make the stitching safe:
+'   - the arc is only dropped when BOTH its neighbours in the chain are straight (Line or
+'     LineString). Between two arcs it is left alone, because closing that gap would mean moving an
+'     arc's endpoint, and writing StartPoint/EndPoint on an ArcElement re-solves it through the new
+'     point - radius and sweep go wild, which is exactly how an earlier attempt produced arcs
+'     looping over themselves.
+'   - only the PREVIOUS neighbour is adjusted, never the next. One side moves, so no junction can be
+'     pulled twice. A Line is recreated (its endpoints are read-only); a LineString has its last
+'     vertex modified, ModifyVertex being zero-based like RemoveVertex.
+'
+' The gap being closed is the arc's own chord: radius x sweep, so under a degree it is sub-millimetre
+' on any zone this module produces.
+' ---------------------------------------------------------------------------
+Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set DropFlatArcs = oShape
+    If oShape Is Nothing Then Exit Function
+    If oShape.Type <> msdElementTypeComplexShape Then Exit Function
+
+    Dim subs()  As Element
+    Dim nSub    As Long
+    Dim oEE     As ElementEnumerator
+    Set oEE = oShape.AsComplexShapeElement.GetSubElements
+    nSub = 0
+    Do While oEE.MoveNext
+        ReDim Preserve subs(0 To nSub)
+        Set subs(nSub) = oEE.Current
+        nSub = nSub + 1
+    Loop
+    If nSub < 4 Then Exit Function
+
+    Dim dMaxRad As Double
+    dMaxRad = Abs(dMaxDeg) * Application.PI / 180#
+
+    Dim bDrop() As Boolean
+    ReDim bDrop(0 To nSub - 1)
+
+    Dim i     As Long
+    Dim iPrev As Long
+    Dim iNext As Long
+    Dim nGone As Long
+    nGone = 0
+
+    For i = 0 To nSub - 1
+        If subs(i).Type = msdElementTypeArc Then
+            If Abs(subs(i).AsArcElement.SweepAngle) <= dMaxRad Then
+                iPrev = (i + nSub - 1) Mod nSub
+                iNext = (i + 1) Mod nSub
+                If IsStraight(subs(iPrev)) And IsStraight(subs(iNext)) Then
+                    If Not bDrop(iPrev) And Not bDrop(iNext) Then
+                        Set subs(iPrev) = ExtendTo(subs(iPrev), subs(iNext).AsChainableElement.StartPoint)
+                        bDrop(i) = True
+                        nGone = nGone + 1
+                    End If
+                End If
+            End If
+        End If
+    Next i
+
+    If nGone = 0 Then Exit Function
+    If nSub - nGone < 3 Then Exit Function
+
+    Dim chain() As ChainableElement
+    Dim nKeep   As Long
+    ReDim chain(0 To nSub - nGone - 1)
+    nKeep = 0
+    For i = 0 To nSub - 1
+        If Not bDrop(i) Then
+            Set chain(nKeep) = subs(i)
+            nKeep = nKeep + 1
+        End If
+    Next i
+
+    Dim oNew As ComplexShapeElement
+    Set oNew = CreateComplexShapeElement1(chain, msdFillModeNotFilled)
+    If Not oNew Is Nothing Then Set DropFlatArcs = oNew
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.DropFlatArcs"
+    Set DropFlatArcs = oShape
+End Function
+
+' True for the contour edges whose end can be moved safely - the straight ones.
+Private Function IsStraight(ByVal oEl As Element) As Boolean
+    IsStraight = (oEl.Type = msdElementTypeLine Or oEl.Type = msdElementTypeLineString)
+End Function
+
+' ExtendTo
+' ---------------------------------------------------------------------------
+' Returns oEl ending at ptEnd. A Line is recreated, its endpoints being read-only; a LineString has
+' its LAST vertex modified in place. Only ever called on a straight edge - see IsStraight.
+' ---------------------------------------------------------------------------
+Private Function ExtendTo(ByVal oEl As Element, ByRef ptEnd As Point3d) As Element
+    On Error GoTo ErrorHandler
+
+    Set ExtendTo = oEl
+
+    Select Case oEl.Type
+        Case msdElementTypeLine
+            Set ExtendTo = CreateLineElement2(Nothing, oEl.AsLineElement.StartPoint, ptEnd)
+        Case msdElementTypeLineString
+            Dim oVL As VertexList
+            Set oVL = oEl
+            oVL.ModifyVertex oVL.VerticesCount - 1, ptEnd     ' zero-based, like RemoveVertex
+            Set ExtendTo = oEl
+    End Select
+    Exit Function
+
+ErrorHandler:
+    Set ExtendTo = oEl
 End Function
 
 ' WriteDebugClones
