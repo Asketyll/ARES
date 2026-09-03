@@ -1076,8 +1076,6 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Dim toOrigin   As Point3d
     Dim fromOrigin As Point3d
     Dim k          As Long
-    Dim dShort     As Double
-    Dim sWhy       As String
     toOrigin = Point3dNegate(bufs(0).Range.High)
     fromOrigin = Point3dNegate(toOrigin)
     For k = 0 To nBuf - 1
@@ -1087,17 +1085,17 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     ' Fast path: one union for the whole set.
     UnionInto bufs, nBuf, outEls, nOutEls
 
-    ' Fallback: fold them in one at a time. Triggered by an empty result, and equally by a result
-    ' that came back SHORT - see UnionCovers.
+    ' Fallback: fold them in one at a time, on an EMPTY result ONLY.
+    '
+    ' A bounding-box coverage check sat here and was removed. Element.Range on the input buffers
+    ' includes their symbology stroke; the union results are fresh elements without one, so the output
+    ' box came back inset by a CONSTANT on all four sides - 0.144 master units on the drawing it was
+    ' measured on. The check read that as a loss and folded practically everything, turning 75 global
+    ' inputs into 1143 unmerged shapes. It compares a padded box to an unpadded one: no tolerance
+    ' rescues that, only a different invariant. A union that returns a genuinely TRUNCATED result
+    ' therefore still passes unnoticed - see complexstring id=157783.
     If nOutEls = 0 Then
         If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
-        FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
-    ElseIf Not UnionCovers(bufs, nBuf, outEls, nOutEls, dShort, sWhy) Then
-        If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union came back SHORT by " & _
-                                  Format(dShort, "0.000000") & " " & sWhy & ", folding one by one"
-        ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shape(s) that do not " & _
-                                 "span its " & nBuf & " inputs; folded one by one instead", _
-                                 0, "", "Zoning.FuseRegions"
         FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
     End If
 
@@ -1154,96 +1152,6 @@ Failed:
     nOutEls = 0
 End Sub
 
-' UnionCovers
-' ---------------------------------------------------------------------------
-' True when the union results span the same extent as the shapes they were built from.
-'
-' GetRegionUnion does not only fail outright - it can also return a result that quietly omits part of
-' its input, and that one raises nothing and looks like a success (measured: complexstring id=157783,
-' 52 in, 1 out, and the end of the cable's zone simply missing from the drawing). A union covers all
-' of its inputs by definition, so its bounding box must equal theirs; a box that came back smaller is
-' proof that something was dropped.
-'
-' Bounding boxes only, so this catches a loss at an EDGE - which is what a truncated run looks like -
-' and not a hole punched in the middle. Tolerance is relative to the extent, since these are polygon
-' approximations of buffers, not exact geometry.
-' ---------------------------------------------------------------------------
-Private Function UnionCovers(ByRef inEls() As Element, ByVal nIn As Long, _
-                             ByRef outEls() As Element, ByVal nOut As Long, _
-                             Optional ByRef outShort As Double = 0, _
-                             Optional ByRef outWhy As String = "") As Boolean
-    On Error GoTo ErrorHandler
-
-    UnionCovers = True
-    If nIn <= 0 Or nOut <= 0 Then Exit Function
-
-    Dim rIn  As Range3d
-    Dim rOut As Range3d
-    rIn = CombinedRange(inEls, nIn)
-    rOut = CombinedRange(outEls, nOut)
-
-    Dim dTol As Double
-    dTol = (rIn.High.X - rIn.Low.X) + (rIn.High.Y - rIn.Low.Y)
-    dTol = dTol * 0.000001
-    If dTol < 0.000000001 Then dTol = 0.000000001
-
-    ' Worst shortfall on any side, reported so the tolerance can be judged on measurements rather
-    ' than picked: cleanup noise is millimetres, a dropped buffer is at least a buffer wide.
-    outShort = 0
-    If rIn.Low.X - rOut.Low.X < 0 Then outShort = MaxOf(outShort, rOut.Low.X - rIn.Low.X)
-    If rIn.Low.Y - rOut.Low.Y < 0 Then outShort = MaxOf(outShort, rOut.Low.Y - rIn.Low.Y)
-    outShort = MaxOf(outShort, rIn.High.X - rOut.High.X)
-    outShort = MaxOf(outShort, rIn.High.Y - rOut.High.Y)
-
-    If rOut.Low.X > rIn.Low.X + dTol Then UnionCovers = False
-    If rOut.Low.Y > rIn.Low.Y + dTol Then UnionCovers = False
-    If rOut.High.X < rIn.High.X - dTol Then UnionCovers = False
-    If rOut.High.Y < rIn.High.Y - dTol Then UnionCovers = False
-
-    ' Both boxes, spelled out on a rejection. An out-box of zeros means the union results simply do
-    ' not report a range yet - they are orphans until the caller writes them - and the check is
-    ' measuring nothing. A plausible box that is genuinely smaller is a real truncation. The two look
-    ' identical through the shortfall alone, and they call for opposite fixes.
-    If Not UnionCovers Then
-        outWhy = "in[" & Format(rIn.Low.X, "0.000") & "," & Format(rIn.Low.Y, "0.000") & " .. " & _
-                 Format(rIn.High.X, "0.000") & "," & Format(rIn.High.Y, "0.000") & "] out[" & _
-                 Format(rOut.Low.X, "0.000") & "," & Format(rOut.Low.Y, "0.000") & " .. " & _
-                 Format(rOut.High.X, "0.000") & "," & Format(rOut.High.Y, "0.000") & "]"
-    End If
-    Exit Function
-
-ErrorHandler:
-    ' Fail OPEN: a range we cannot read must not turn a good union into a rejected one.
-    UnionCovers = True
-End Function
-
-' Larger of two doubles. VBA has no Max.
-Private Function MaxOf(ByVal a As Double, ByVal b As Double) As Double
-    If a > b Then MaxOf = a Else MaxOf = b
-End Function
-
-' CombinedRange
-' ---------------------------------------------------------------------------
-' Bounding box of els(0 .. n-1) taken together.
-' ---------------------------------------------------------------------------
-Private Function CombinedRange(ByRef els() As Element, ByVal n As Long) As Range3d
-    Dim r As Range3d
-    Dim c As Range3d
-    Dim k As Long
-
-    r = els(0).Range
-    For k = 1 To n - 1
-        c = els(k).Range
-        If c.Low.X < r.Low.X Then r.Low.X = c.Low.X
-        If c.Low.Y < r.Low.Y Then r.Low.Y = c.Low.Y
-        If c.Low.Z < r.Low.Z Then r.Low.Z = c.Low.Z
-        If c.High.X > r.High.X Then r.High.X = c.High.X
-        If c.High.Y > r.High.Y Then r.High.Y = c.High.Y
-        If c.High.Z > r.High.Z Then r.High.Z = c.High.Z
-    Next k
-    CombinedRange = r
-End Function
-
 ' FoldOneByOne
 ' ---------------------------------------------------------------------------
 ' Folds the buffers into an accumulating set, one at a time. A buffer whose union fails is KEPT as
@@ -1267,8 +1175,6 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
     Dim k      As Long
     Dim j      As Long
     Dim nKept  As Long
-    Dim dStepShort As Double
-    Dim sStepWhy   As String
 
     ReDim acc(0 To 0)
     Set acc(0) = bufs(0)
@@ -1286,12 +1192,6 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
         UnionInto tryEls, nTry, res, nRes
 
         If nRes > 0 Then
-            ' A step that comes back short is a failed step: treat it as such rather than carry a
-            ' truncated accumulator forward, which would lose everything folded in before it.
-            If Not UnionCovers(tryEls, nTry, res, nRes, dStepShort, sStepWhy) Then nRes = 0
-        End If
-
-        If nRes > 0 Then
             ReDim acc(0 To nRes - 1)
             For j = 0 To nRes - 1
                 Set acc(j) = res(j)
@@ -1303,8 +1203,7 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
             Set acc(nAcc) = bufs(k)
             nAcc = nAcc + 1
             nKept = nKept + 1
-            If DebugMode Then DbgLine "FUSE " & sWhere & " : buffer " & k & _
-                " would not union (short by " & Format(dStepShort, "0.000000") & " " & sStepWhy & ") - kept unmerged"
+            If DebugMode Then DbgLine "FUSE " & sWhere & " : buffer " & k & " would not union - kept unmerged"
         End If
     Next k
 
