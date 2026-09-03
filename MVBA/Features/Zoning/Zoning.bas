@@ -1116,7 +1116,10 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
         outEls(k).Move fromOrigin                 ' restore to the original location
     Next k
 
-    If DebugMode Then DbgLine "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
+    If DebugMode Then
+        DbgLine "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
+        ReportUncovered bufs, nBuf, outEls, nOutEls, sWhere
+    End If
     Exit Sub
 
 ErrorHandler:
@@ -1126,6 +1129,100 @@ ErrorHandler:
                              Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
     If DebugMode Then DbgLine "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf
 End Sub
+
+' ReportUncovered
+' ---------------------------------------------------------------------------
+' Names the input buffers whose own middle does not land inside any result shape - i.e. the ones the
+' union quietly dropped. DebugMode only, read-only, and called AFTER the results are back at their
+' original location, so it works in the same frame as the inputs.
+'
+' A point test, deliberately: it is the only invariant here that is immune to the symbology padding
+' in Element.Range, which is what made an earlier bounding-box check reject sound unions. Its own
+' limit is that it samples ONE point per buffer - the centre of its range - so a buffer clipped only
+' at its tip still reads as covered.
+' ---------------------------------------------------------------------------
+Private Sub ReportUncovered(ByRef bufs() As Element, ByVal nBuf As Long, _
+                            ByRef outEls() As Element, ByVal nOut As Long, _
+                            ByVal sWhere As String)
+    On Error GoTo ErrorHandler
+    If nOut <= 0 Or nBuf <= 0 Then Exit Sub
+
+    Dim k      As Long
+    Dim j      As Long
+    Dim r      As Range3d
+    Dim pt     As Point3d
+    Dim bIn    As Boolean
+    Dim nLost  As Long
+
+    nLost = 0
+    For k = 0 To nBuf - 1
+        r = bufs(k).Range
+        pt.X = (r.Low.X + r.High.X) / 2#
+        pt.Y = (r.Low.Y + r.High.Y) / 2#
+        pt.Z = (r.Low.Z + r.High.Z) / 2#
+
+        bIn = False
+        For j = 0 To nOut - 1
+            If PointInShape(pt, outEls(j)) Then
+                bIn = True
+                Exit For
+            End If
+        Next j
+
+        If Not bIn Then
+            nLost = nLost + 1
+            If nLost <= 20 Then
+                DbgLine "FUSE " & sWhere & " : buffer " & k & " DROPPED - its centre " & _
+                        Format(pt.X, "0.000") & ";" & Format(pt.Y, "0.000") & " is in no result shape"
+            End If
+        End If
+    Next k
+
+    If nLost > 0 Then DbgLine "FUSE " & sWhere & " : " & nLost & " of " & nBuf & " buffer(s) dropped by the union"
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ReportUncovered"
+End Sub
+
+' PointInShape
+' ---------------------------------------------------------------------------
+' 2D ray cast: a horizontal ray from pt well past the shape's box, counting boundary crossings.
+' Odd = inside. Same technique as Length.PointInZone, which is Private to its own module.
+' ---------------------------------------------------------------------------
+Private Function PointInShape(ByRef pt As Point3d, ByVal oShape As Element) As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim r       As Range3d
+    Dim ptEnd   As Point3d
+    Dim oRay    As LineElement
+    Dim isect() As Point3d
+    Dim n       As Long
+
+    r = oShape.Range
+    If pt.X < r.Low.X Or pt.X > r.High.X Then Exit Function
+    If pt.Y < r.Low.Y Or pt.Y > r.High.Y Then Exit Function
+
+    ptEnd.X = r.High.X + (r.High.X - r.Low.X) + 1#
+    ptEnd.Y = pt.Y
+    ptEnd.Z = pt.Z
+    Set oRay = CreateLineElement2(Nothing, pt, ptEnd)
+
+    Dim oIsect As IntersectableElement
+    Set oIsect = oRay
+    On Error Resume Next
+    isect = oIsect.GetIntersectionPoints(oShape, Matrix3dIdentity)
+    n = -1
+    n = UBound(isect)
+    On Error GoTo ErrorHandler
+
+    If n < 0 Then Exit Function
+    PointInShape = (((n + 1) Mod 2) = 1)
+    Exit Function
+
+ErrorHandler:
+    PointInShape = False
+End Function
 
 ' UnionInto
 ' ---------------------------------------------------------------------------
