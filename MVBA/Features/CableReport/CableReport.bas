@@ -1149,3 +1149,110 @@ Public Sub DiagCableLengths()
 ErrorHandler:
     Debug.Print "DIAG ERROR " & Err.Number & " - " & Err.Description
 End Sub
+
+' Localises WHERE the per-zone sum and the union disagree, by growing the zone set one at a time.
+' For each labelled zone in turn: its own measured length, and how much it actually ADDS to the union
+' of everything before it. Equal means the zone contributes fresh cable. Less means that portion was
+' already covered - which is either an overlap with an earlier zone, or a defect in the multi-zone
+' path. Concentrated tiny deltas point at abutting zone joints; a few large ones point at something
+' structural. Read-only, and O(n) calls on a growing array, so it takes a moment on many zones.
+Public Sub DiagZoneOverlap()
+    On Error GoTo ErrorHandler
+
+    If Not Application.HasActiveModelReference Then
+        Debug.Print "DIAG: no active model reference."
+        Exit Sub
+    End If
+
+    Dim sCableLevel As String
+    Dim sZoneLevel  As String
+    sCableLevel = ARESConfig.ARES_CABLEREPORT_CABLE_LEVEL.value
+    sZoneLevel = ARESConfig.ARES_CABLEREPORT_ZONE_LEVEL.value
+    If Len(sZoneLevel) = 0 Then sZoneLevel = ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.value
+
+    Dim cableLevels() As String
+    Dim sIgnored      As String
+    If ResolveCableLevels(sCableLevel, cableLevels, sIgnored) = 0 Then Exit Sub
+
+    Dim sZoneProp As String
+    sZoneProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY.value, "Coupe_Type")
+
+    Dim cables() As Element
+    If Not CollectCables(cableLevels, cables) Then Exit Sub
+
+    Dim zones()      As Element
+    Dim zoneLabels() As String
+    Dim nZones       As Long
+    nZones = 0
+    If CollectZones(sZoneLevel, zones) And Len(sZoneProp) > 0 Then
+        nZones = BuildZoneLabels(zones, sZoneProp, zoneLabels)
+    End If
+    If nZones = 0 Then
+        Debug.Print "DIAG: no labelled zone."
+        Exit Sub
+    End If
+
+    Dim oEl As Element
+    Set oEl = cables(LBound(cables))
+
+    Dim grow()   As Element
+    Dim one(0 To 0) As Element
+    Dim k        As Long
+    Dim nUsed    As Long
+    Dim dOwn     As Double
+    Dim dUnion   As Double
+    Dim dPrev    As Double
+    Dim dInc     As Double
+    Dim dSumOwn  As Double
+    Dim dLost    As Double
+
+    ReDim grow(0 To nZones - 1)
+    nUsed = 0
+    dPrev = 0
+    dSumOwn = 0
+    dLost = 0
+
+    Debug.Print String(78, "=")
+    Debug.Print "ZONE OVERLAP DIAG - cable id=" & DLongToString(oEl.ID) & ", geom " & Format(Length.GetLength(oEl), "0.00")
+    Debug.Print "  zone : own   increment  lost"
+    Debug.Print String(78, "=")
+
+    For k = LBound(zones) To UBound(zones)
+        If Len(zoneLabels(k - LBound(zones))) > 0 Then
+            Set one(0) = zones(k)
+            dOwn = Length.GetPartialLengthInsideZones(oEl, one)
+
+            Set grow(nUsed) = zones(k)
+            nUsed = nUsed + 1
+
+            Dim probe() As Element
+            ReDim probe(0 To nUsed - 1)
+            Dim j As Long
+            For j = 0 To nUsed - 1
+                Set probe(j) = grow(j)
+            Next j
+            dUnion = Length.GetPartialLengthInsideZones(oEl, probe)
+
+            dInc = dUnion - dPrev
+            dPrev = dUnion
+            dSumOwn = dSumOwn + dOwn
+            If dOwn - dInc > 0.01 Then dLost = dLost + (dOwn - dInc)
+
+            If dOwn > 0 Then
+                Debug.Print "  " & Format(k - LBound(zones), "00") & " [" & zoneLabels(k - LBound(zones)) & "] : " & _
+                            Format(dOwn, "0.00") & "   " & Format(dInc, "0.00") & _
+                            IIf(dOwn - dInc > 0.01, "   LOST " & Format(dOwn - dInc, "0.00"), "")
+            End If
+        End If
+    Next k
+
+    Debug.Print String(78, "-")
+    Debug.Print "sum of own lengths : " & Format(dSumOwn, "0.00")
+    Debug.Print "final union        : " & Format(dPrev, "0.00")
+    Debug.Print "accounted as lost  : " & Format(dLost, "0.00")
+    Debug.Print String(78, "=")
+    Exit Sub
+
+ErrorHandler:
+    Debug.Print "DIAG ERROR " & Err.Number & " - " & Err.Description
+End Sub
