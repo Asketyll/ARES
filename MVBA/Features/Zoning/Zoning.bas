@@ -1053,9 +1053,16 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     ' Fast path: one union for the whole set.
     UnionInto bufs, nBuf, outEls, nOutEls
 
-    ' Fallback: fold them in one at a time so a single unusable buffer costs only itself.
+    ' Fallback: fold them in one at a time. Triggered by an empty result, and equally by a result
+    ' that came back SHORT - see UnionCovers.
     If nOutEls = 0 Then
         If DebugMode Then Debug.Print "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
+        FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
+    ElseIf Not UnionCovers(bufs, nBuf, outEls, nOutEls) Then
+        If DebugMode Then Debug.Print "FUSE " & sWhere & " : whole-set union came back SHORT, folding one by one"
+        ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shape(s) that do not " & _
+                                 "span its " & nBuf & " inputs; folded one by one instead", _
+                                 0, "", "Zoning.FuseRegions"
         FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
     End If
 
@@ -1112,6 +1119,70 @@ Failed:
     nOutEls = 0
 End Sub
 
+' UnionCovers
+' ---------------------------------------------------------------------------
+' True when the union results span the same extent as the shapes they were built from.
+'
+' GetRegionUnion does not only fail outright - it can also return a result that quietly omits part of
+' its input, and that one raises nothing and looks like a success (measured: complexstring id=157783,
+' 52 in, 1 out, and the end of the cable's zone simply missing from the drawing). A union covers all
+' of its inputs by definition, so its bounding box must equal theirs; a box that came back smaller is
+' proof that something was dropped.
+'
+' Bounding boxes only, so this catches a loss at an EDGE - which is what a truncated run looks like -
+' and not a hole punched in the middle. Tolerance is relative to the extent, since these are polygon
+' approximations of buffers, not exact geometry.
+' ---------------------------------------------------------------------------
+Private Function UnionCovers(ByRef inEls() As Element, ByVal nIn As Long, _
+                             ByRef outEls() As Element, ByVal nOut As Long) As Boolean
+    On Error GoTo ErrorHandler
+
+    UnionCovers = True
+    If nIn <= 0 Or nOut <= 0 Then Exit Function
+
+    Dim rIn  As Range3d
+    Dim rOut As Range3d
+    rIn = CombinedRange(inEls, nIn)
+    rOut = CombinedRange(outEls, nOut)
+
+    Dim dTol As Double
+    dTol = (rIn.High.X - rIn.Low.X) + (rIn.High.Y - rIn.Low.Y)
+    dTol = dTol * 0.000001
+    If dTol < 0.000000001 Then dTol = 0.000000001
+
+    If rOut.Low.X > rIn.Low.X + dTol Then UnionCovers = False
+    If rOut.Low.Y > rIn.Low.Y + dTol Then UnionCovers = False
+    If rOut.High.X < rIn.High.X - dTol Then UnionCovers = False
+    If rOut.High.Y < rIn.High.Y - dTol Then UnionCovers = False
+    Exit Function
+
+ErrorHandler:
+    ' Fail OPEN: a range we cannot read must not turn a good union into a rejected one.
+    UnionCovers = True
+End Function
+
+' CombinedRange
+' ---------------------------------------------------------------------------
+' Bounding box of els(0 .. n-1) taken together.
+' ---------------------------------------------------------------------------
+Private Function CombinedRange(ByRef els() As Element, ByVal n As Long) As Range3d
+    Dim r As Range3d
+    Dim c As Range3d
+    Dim k As Long
+
+    r = els(0).Range
+    For k = 1 To n - 1
+        c = els(k).Range
+        If c.Low.X < r.Low.X Then r.Low.X = c.Low.X
+        If c.Low.Y < r.Low.Y Then r.Low.Y = c.Low.Y
+        If c.Low.Z < r.Low.Z Then r.Low.Z = c.Low.Z
+        If c.High.X > r.High.X Then r.High.X = c.High.X
+        If c.High.Y > r.High.Y Then r.High.Y = c.High.Y
+        If c.High.Z > r.High.Z Then r.High.Z = c.High.Z
+    Next k
+    CombinedRange = r
+End Function
+
 ' FoldOneByOne
 ' ---------------------------------------------------------------------------
 ' Folds the buffers into an accumulating set, one at a time. A buffer whose union fails is KEPT as
@@ -1150,6 +1221,12 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
         nTry = nAcc + 1
 
         UnionInto tryEls, nTry, res, nRes
+
+        If nRes > 0 Then
+            ' A step that comes back short is a failed step: treat it as such rather than carry a
+            ' truncated accumulator forward, which would lose everything folded in before it.
+            If Not UnionCovers(tryEls, nTry, res, nRes) Then nRes = 0
+        End If
 
         If nRes > 0 Then
             ReDim acc(0 To nRes - 1)
