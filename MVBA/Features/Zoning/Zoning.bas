@@ -177,7 +177,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
         Dim mergedAll() As Element
         Dim nMergedAll  As Long
-        FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll
+        FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll, DebugMode, "global"
         For k = 0 To nMergedAll - 1
             WriteEl mergedAll(k), TargetLevel, Color, Style, Weight
         Next k
@@ -296,7 +296,7 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     ' Step 2: fuse the per-segment stadiums into clean region(s) and emit.
     Dim merged() As Element
     Dim nMerged  As Long
-    FuseRegions subBufs, nBuf, merged, nMerged
+    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "linestring id=" & DLongToString(oEl.ID)
     For j = 0 To nMerged - 1
         AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
@@ -440,7 +440,7 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
     ' Fuse all sub-element buffers into clean region(s) and emit.
     Dim merged() As Element
     Dim nMerged  As Long
-    FuseRegions subBufs, nBuf, merged, nMerged
+    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "complexstring id=" & DLongToString(oEl.ID)
     For j = 0 To nMerged - 1
         AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
@@ -1007,12 +1007,15 @@ End Function
 Private Sub FuseRegions(ByRef bufs() As Element, _
                         ByVal nBuf As Long, _
                         ByRef outEls() As Element, _
-                        ByRef nOutEls As Long)
+                        ByRef nOutEls As Long, _
+                        Optional ByVal DebugMode As Boolean = False, _
+                        Optional ByVal sWhere As String = "")
     On Error GoTo ErrorHandler
     nOutEls = 0
     If nBuf <= 0 Then Exit Sub
 
     If nBuf = 1 Then
+        If DebugMode Then Debug.Print "FUSE " & sWhere & " : 1 in -> 1 out (no union needed)"
         ReDim outEls(0 To 0)
         Set outEls(0) = bufs(0)
         nOutEls = 1
@@ -1040,7 +1043,10 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
 
     Dim oEnum As ElementEnumerator
     Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
-    If oEnum Is Nothing Then Exit Sub
+    If oEnum Is Nothing Then
+        If DebugMode Then Debug.Print "FUSE " & sWhere & " : " & nBuf & " in -> NOTHING (GetRegionUnion returned no enumerator)"
+        Exit Sub
+    End If
 
     Dim resEl As Element
     Do While oEnum.MoveNext
@@ -1050,6 +1056,11 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
         Set outEls(nOutEls) = resEl
         nOutEls = nOutEls + 1
     Loop
+
+    ' What comes OUT versus what went in. Disjoint buffers must survive as separate results: a call
+    ' reporting many in and one out means only the component containing region1 came back and every
+    ' buffer disjoint from it was dropped - which is exactly what an incomplete zoning looks like.
+    If DebugMode Then Debug.Print "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
     Exit Sub
 
 ErrorHandler:
