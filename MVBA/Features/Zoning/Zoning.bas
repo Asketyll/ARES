@@ -1076,6 +1076,7 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Dim toOrigin   As Point3d
     Dim fromOrigin As Point3d
     Dim k          As Long
+    Dim nLost      As Long
     toOrigin = Point3dNegate(bufs(0).Range.High)
     fromOrigin = Point3dNegate(toOrigin)
     For k = 0 To nBuf - 1
@@ -1110,12 +1111,19 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
                                  nBuf & " inputs; a union cannot add components, so it split one. " & _
                                  "Folded one by one instead", 0, "", "Zoning.FuseRegions"
         FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
+    Else
+        ' Third condition, and the only one that sees a union with a plausible count that dropped a
+        ' shape anyway: a buffer whose own middle lands in no result. Measured on complexstring
+        ' id=157783 - 52 in, 1 out, and buffer 51, the LAST one, gone: the missing end of that zone.
+        ' Compared BEFORE the restore, so inputs and results share the same near-origin frame.
+        nLost = CountUncovered(bufs, nBuf, outEls, nOutEls, sWhere, DebugMode)
+        If nLost > 0 Then
+            ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shape(s) but " & _
+                                     nLost & " of its " & nBuf & " buffers are not inside any of them; " & _
+                                     "folded one by one instead", 0, "", "Zoning.FuseRegions"
+            FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
+        End If
     End If
-
-    ' Measured BEFORE the restore: inputs and results must be compared in the SAME frame. Reporting
-    ' after the move compared near-origin buffers against real-world results and called every single
-    ' one dropped - 51 of 51, which is the shape of an instrument fault, not of a defect.
-    If DebugMode Then ReportUncovered bufs, nBuf, outEls, nOutEls, sWhere
 
     For k = 0 To nOutEls - 1
         outEls(k).Move fromOrigin                 ' restore to the original location
@@ -1147,11 +1155,12 @@ End Sub
 ' limit is that it samples ONE point per buffer - the centre of its range - so a buffer clipped only
 ' at its tip still reads as covered.
 ' ---------------------------------------------------------------------------
-Private Sub ReportUncovered(ByRef bufs() As Element, ByVal nBuf As Long, _
-                            ByRef outEls() As Element, ByVal nOut As Long, _
-                            ByVal sWhere As String)
+Private Function CountUncovered(ByRef bufs() As Element, ByVal nBuf As Long, _
+                                ByRef outEls() As Element, ByVal nOut As Long, _
+                                ByVal sWhere As String, ByVal DebugMode As Boolean) As Long
     On Error GoTo ErrorHandler
-    If nOut <= 0 Or nBuf <= 0 Then Exit Sub
+    CountUncovered = 0
+    If nOut <= 0 Or nBuf <= 0 Then Exit Function
 
     Dim k      As Long
     Dim j      As Long
@@ -1167,29 +1176,38 @@ Private Sub ReportUncovered(ByRef bufs() As Element, ByVal nBuf As Long, _
         pt.Y = (r.Low.Y + r.High.Y) / 2#
         pt.Z = (r.Low.Z + r.High.Z) / 2#
 
-        bIn = False
-        For j = 0 To nOut - 1
-            If PointInShape(pt, outEls(j)) Then
-                bIn = True
-                Exit For
-            End If
-        Next j
+        ' The sample must be usable before it can accuse anything: a range centre falls OUTSIDE a long
+        ' sinuous shape, and such a buffer would be reported lost while sitting there in plain sight.
+        ' Measured: the global fusion called both its inputs dropped, both being cable-long ribbons.
+        If PointInShape(pt, bufs(k)) Then
+            bIn = False
+            For j = 0 To nOut - 1
+                If PointInShape(pt, outEls(j)) Then
+                    bIn = True
+                    Exit For
+                End If
+            Next j
 
-        If Not bIn Then
-            nLost = nLost + 1
-            If nLost <= 20 Then
-                DbgLine "FUSE " & sWhere & " : buffer " & k & " DROPPED - its centre " & _
-                        Format(pt.X, "0.000") & ";" & Format(pt.Y, "0.000") & " is in no result shape"
+            If Not bIn Then
+                nLost = nLost + 1
+                If DebugMode And nLost <= 20 Then
+                    DbgLine "FUSE " & sWhere & " : buffer " & k & " DROPPED - its centre " & _
+                            Format(pt.X, "0.000") & ";" & Format(pt.Y, "0.000") & " is in no result shape"
+                End If
             End If
         End If
     Next k
 
-    If nLost > 0 Then DbgLine "FUSE " & sWhere & " : " & nLost & " of " & nBuf & " buffer(s) dropped by the union"
-    Exit Sub
+    If nLost > 0 And DebugMode Then
+        DbgLine "FUSE " & sWhere & " : " & nLost & " of " & nBuf & " buffer(s) dropped by the union"
+    End If
+    CountUncovered = nLost
+    Exit Function
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ReportUncovered"
-End Sub
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.CountUncovered"
+    CountUncovered = 0
+End Function
 
 ' PointInShape
 ' ---------------------------------------------------------------------------
