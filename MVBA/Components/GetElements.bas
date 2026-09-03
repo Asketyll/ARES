@@ -245,9 +245,33 @@ ErrorHandler:
     End Select
 End Function
 
+' DistanceToRange
+' Distance from a point to a range box - zero when the point is inside it.
+'
+' Measuring to the box, not to its centre, is what makes SearchRadius mean "how far from the element"
+' rather than "how far from its middle". A 6 x 4.5 m cell has its centre up to 3.75 m from its own
+' edge, so a cable end sitting INSIDE such a cell was rejected by a 1.5 m radius and its Repere came
+' out blank - while a small cell twice as far away would have been accepted. Enlarging the radius
+' hides that, it does not fix it: the radius would then have to grow with the biggest cell around.
+Private Function DistanceToRange(ByRef Pt As Point3d, ByRef r As Range3d) As Double
+    Dim dx As Double
+    Dim dy As Double
+    Dim dz As Double
+
+    If Pt.X < r.Low.X Then dx = r.Low.X - Pt.X
+    If Pt.X > r.High.X Then dx = Pt.X - r.High.X
+    If Pt.Y < r.Low.Y Then dy = r.Low.Y - Pt.Y
+    If Pt.Y > r.High.Y Then dy = Pt.Y - r.High.Y
+    If Pt.Z < r.Low.Z Then dz = r.Low.Z - Pt.Z
+    If Pt.Z > r.High.Z Then dz = Pt.Z - r.High.Z
+
+    DistanceToRange = Sqr(dx * dx + dy * dy + dz * dz)
+End Function
+
+
 ' FindNearestElement
-' Scans a bbox of SearchRadius (master units) around Pt for the closest candidate (by bbox-center
-' distance - generic, no per-type anchor cascade needed for a marker-cell lookup), optionally
+' Scans a bbox of SearchRadius (master units) around Pt for the closest candidate (by distance to
+' the candidate's EXTENT, zero when Pt is inside it - see DistanceToRange), optionally
 ' restricted to ElTypes/Levels. When RequirePropertyName is non-empty, a candidate must carry a
 ' non-Null, non-blank value for that custom property (CustomPropertyHandler.GetPropertyValueFromElement)
 ' to qualify - without it, "nearest element of any kind" would catch unrelated annotation/symbol
@@ -278,7 +302,6 @@ Public Function FindNearestElement(ByRef Pt As Point3d, ByVal SearchRadius As Do
     Dim dBest   As Double
     Dim dDist   As Double
     Dim rCand   As Range3d
-    Dim ptCand  As Point3d
     Dim vProp   As Variant
     Dim bQualifies As Boolean
 
@@ -293,10 +316,7 @@ Public Function FindNearestElement(ByRef Pt As Point3d, ByVal SearchRadius As Do
         End If
         If bQualifies Then
             rCand = oEl.Range
-            ptCand.X = (rCand.Low.X + rCand.High.X) / 2#
-            ptCand.Y = (rCand.Low.Y + rCand.High.Y) / 2#
-            ptCand.Z = (rCand.Low.Z + rCand.High.Z) / 2#
-            dDist = Point3dDistance(Pt, ptCand)
+            dDist = DistanceToRange(Pt, rCand)
             If dDist <= dBest Then
                 dBest = dDist
                 Set oBest = oEl
