@@ -25,17 +25,25 @@ Private Const DBG_FILE As String = "C:\ARES\ARES_zoning_debug.log"
 Private Const DBG_ECHO_MAX As Long = 120
 Private mnDbgShown As Long
 
-' Round end-caps are built ever so slightly wider than the offset they close.
+' Round end-caps are built one millimetre wider than the offset they close.
 '
 ' At exactly Dist the cap circle is TANGENT to the two offset lines and to the neighbouring buffer's
 ' flank: boundaries that coincide exactly, which is the case every boolean engine handles worst.
 ' GetRegionUnion was seen to drop such a cap outright (complexstring id=157783 lost its last buffer,
 ' and with it the end of its zone), to split a merged zone in two, and to leave a cap circle visible
-' inside the result. A hair of overlap gives it a real crossing to work with instead.
+' inside the result. All three went away at once when the cap was widened.
 '
-' 1.005 is 2.01 m for the 2 m zoning distance, 0.201 for the 0.2 m outline. The cost is that the cap
-' arc's endpoints no longer sit exactly on the offset lines' ends, by that same hair.
-Private Const CAP_RADIUS_FACTOR As Double = 1.005
+' ABSOLUTE, not a factor: the overlap has to clear the file's storage resolution, not scale with the
+' zone. MicroStation keeps coordinates as whole UORs, so a difference below the resolution - a
+' factor like 1.0000001 - rounds back onto the same UOR, the boundaries are exactly coincident
+' again and the bug returns. 1 mm sits well above any usual resolution and is invisible at plan
+' scale, where a 0.5% factor was not: it read as 10 mm on the 2 m zoning distance.
+'
+' The cost, unchanged: the cap arc's endpoints no longer land exactly on the offset lines' ends, by
+' that same millimetre. The clean answer to that is an ELLIPSE - minor axis Dist so the ends still
+' meet, major axis Dist + overlap so the belly still crosses the neighbour - which needs a rotation
+' matrix aligning the primary axis with the segment. Worth doing if the millimetre ever shows.
+Private Const CAP_OVERLAP As Double = 0.001
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -756,13 +764,13 @@ Private Function BuildLineZone(ByVal oEl As Element, _
     Dim comps(0 To 3) As ChainableElement
     Set comps(0) = CreateLineElement2(Nothing, L0, L1)                                                  ' left side
     If roundEnd Then
-        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist * CAP_RADIUS_FACTOR, Dist * CAP_RADIUS_FACTOR, Matrix3dIdentity, Point3dPolarAngle(perp), -Application.PI)
+        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist + CAP_OVERLAP, Dist + CAP_OVERLAP, Matrix3dIdentity, Point3dPolarAngle(perp), -Application.PI)
     Else
         Set comps(1) = CreateLineElement2(Nothing, L1, R1)                                              ' flat end cap (chord)
     End If
     Set comps(2) = CreateLineElement2(Nothing, R1, R0)                                                  ' right side
     If roundStart Then
-        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist * CAP_RADIUS_FACTOR, Dist * CAP_RADIUS_FACTOR, Matrix3dIdentity, Point3dPolarAngle(Point3dNegate(perp)), -Application.PI)
+        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist + CAP_OVERLAP, Dist + CAP_OVERLAP, Matrix3dIdentity, Point3dPolarAngle(Point3dNegate(perp)), -Application.PI)
     Else
         Set comps(3) = CreateLineElement2(Nothing, R0, L0)                                              ' flat start cap (chord)
     End If
