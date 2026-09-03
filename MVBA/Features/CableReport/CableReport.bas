@@ -986,3 +986,166 @@ Private Function SortedKeysCI(ByRef oDict As Object) As String()
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.SortedKeysCI"
 End Function
+
+' ============================================================
+'  DIAGNOSTIC
+' ============================================================
+
+' Prints what every trench column is built from, so the two numbers that disagree in the sheet can be
+' traced to their source. Read-only: it measures and prints, it changes nothing.
+'
+' The sheet's "Longueur" is the cable's own Longueur PROPERTY, while the trench columns are GEOMETRY
+' measured zone by zone. They share no origin, so when they disagree only these four figures say which
+' one is wrong:
+'   geom total   - the cable's real length (Length.GetLength). Compare it to the property: a gap here
+'                  means the property is stale or was calculated from something else.
+'   sum of zones - what the columns add up to, one GetPartialLengthInsideZones call per zone, exactly
+'                  as RecordZoneLengths does it.
+'   union        - the same call with EVERY labelled zone at once. PointInAnyZone treats the array as
+'                  a union, so a portion crossed by two OVERLAPPING zones counts once here and twice
+'                  in the sum. sum > union is therefore proof that zones overlap.
+'   per end      - what each cable end resolved to, with its coordinates, for a Repere that came out
+'                  empty on one side.
+Public Sub DiagCableLengths()
+    On Error GoTo ErrorHandler
+
+    If Not Application.HasActiveModelReference Then
+        Debug.Print "DIAG: no active model reference."
+        Exit Sub
+    End If
+
+    Dim sCableLevel As String
+    Dim sZoneLevel  As String
+    sCableLevel = ARESConfig.ARES_CABLEREPORT_CABLE_LEVEL.value
+    sZoneLevel = ARESConfig.ARES_CABLEREPORT_ZONE_LEVEL.value
+    If Len(sZoneLevel) = 0 Then sZoneLevel = ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.value
+
+    Dim cableLevels()  As String
+    Dim sIgnored       As String
+    If ResolveCableLevels(sCableLevel, cableLevels, sIgnored) = 0 Then
+        Debug.Print "DIAG: no usable cable level in '" & sCableLevel & "'."
+        Exit Sub
+    End If
+
+    Dim sRepereProp   As String
+    Dim sLongueurProp As String
+    Dim sZoneProp     As String
+    sRepereProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_REPERE_PROPERTY.value, "Repere")
+    sLongueurProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_LONGUEUR_PROPERTY.value, "Longueur")
+    sZoneProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY.value, "Coupe_Type")
+
+    Dim cables() As Element
+    If Not CollectCables(cableLevels, cables) Then
+        Debug.Print "DIAG: no cable found on " & sCableLevel
+        Exit Sub
+    End If
+
+    Dim zones()      As Element
+    Dim zoneLabels() As String
+    Dim nZones       As Long
+    nZones = 0
+    If CollectZones(sZoneLevel, zones) And Len(sZoneProp) > 0 Then
+        nZones = BuildZoneLabels(zones, sZoneProp, zoneLabels)
+    End If
+
+    ' Every labelled zone in one array - the union reference the per-zone sum is compared against.
+    Dim labelled() As Element
+    Dim nLab       As Long
+    nLab = 0
+    If nZones > 0 Then
+        ReDim labelled(0 To nZones - 1)
+        Dim k As Long
+        For k = LBound(zones) To UBound(zones)
+            If Len(zoneLabels(k - LBound(zones))) > 0 Then
+                Set labelled(nLab) = zones(k)
+                nLab = nLab + 1
+            End If
+        Next k
+        If nLab > 0 Then ReDim Preserve labelled(0 To nLab - 1)
+    End If
+
+    Dim dRadius As Double
+    dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.value)
+    If dRadius <= 0 Then dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.DefaultValue)
+
+    Debug.Print String(78, "=")
+    Debug.Print "CABLE REPORT DIAG - " & (UBound(cables) - LBound(cables) + 1) & " cable(s), " & _
+                nLab & " labelled zone(s), radius " & dRadius
+    Debug.Print String(78, "=")
+
+    Dim i        As Long
+    Dim oEl      As Element
+    Dim oneZone(0 To 0) As Element
+    Dim z        As Long
+    Dim dLen     As Double
+    Dim dSum     As Double
+    Dim dUnion   As Double
+    Dim dGeom    As Double
+    Dim ptS      As Point3d
+    Dim ptE      As Point3d
+    Dim bInc     As Boolean
+    Dim vProp    As Variant
+    Dim sProp    As String
+
+    For i = LBound(cables) To UBound(cables)
+        Set oEl = cables(i)
+        Debug.Print "cable #" & (i - LBound(cables) + 1) & "  id=" & DLongToString(oEl.ID) & "  type=" & oEl.Type
+
+        ' --- ends / Repere ---
+        If GetCableEndpoints(oEl, ptS, ptE) Then
+            bInc = False
+            Debug.Print "   end A " & Format(ptS.X, "0.000") & ";" & Format(ptS.Y, "0.000") & _
+                        "  -> [" & ResolveEndCellLabel(ptS, sRepereProp, dRadius, bInc) & "]"
+            Debug.Print "   end B " & Format(ptE.X, "0.000") & ";" & Format(ptE.Y, "0.000") & _
+                        "  -> [" & ResolveEndCellLabel(ptE, sRepereProp, dRadius, bInc) & "]"
+        Else
+            Debug.Print "   ends   : closed type, no two ends"
+        End If
+
+        ' --- property vs geometry ---
+        vProp = CustomPropertyHandler.GetPropertyValueFromElement(oEl, sLongueurProp, sLongueurProp)
+        dGeom = Length.GetLength(oEl)
+        sProp = "<none>"
+        If Not IsArray(vProp) Then
+            If Not IsNull(vProp) Then
+                If Not IsEmpty(vProp) Then sProp = CStr(vProp)
+            End If
+        End If
+        Debug.Print "   Longueur property : [" & sProp & "]"
+        Debug.Print "   geom total        : " & Format(dGeom, "0.00")
+
+        ' --- per zone, exactly as RecordZoneLengths measures ---
+        dSum = 0
+        If nZones > 0 Then
+            For z = LBound(zones) To UBound(zones)
+                If Len(zoneLabels(z - LBound(zones))) > 0 Then
+                    Set oneZone(0) = zones(z)
+                    dLen = Length.GetPartialLengthInsideZones(oEl, oneZone)
+                    If dLen > 0 Then
+                        dSum = dSum + dLen
+                        Debug.Print "     zone " & (z - LBound(zones)) & " [" & zoneLabels(z - LBound(zones)) & "] : " & Format(dLen, "0.00")
+                    End If
+                End If
+            Next z
+        End If
+
+        dUnion = 0
+        If nLab > 0 Then dUnion = Length.GetPartialLengthInsideZones(oEl, labelled)
+
+        Debug.Print "   sum of zones      : " & Format(dSum, "0.00")
+        Debug.Print "   union of zones    : " & Format(dUnion, "0.00")
+        If dSum - dUnion > 0.01 Then
+            Debug.Print "   -> OVERLAP: the sum counts " & Format(dSum - dUnion, "0.00") & " m twice or more."
+        End If
+        If dUnion - dGeom > 0.01 Then
+            Debug.Print "   -> union EXCEEDS the cable itself by " & Format(dUnion - dGeom, "0.00") & " m."
+        End If
+        Debug.Print
+    Next i
+
+    Debug.Print String(78, "=")
+    Exit Sub
+
+ErrorHandler:
+    Debug.Print "DIAG ERROR " & Err.Number & " - " & Err.Description
+End Sub
