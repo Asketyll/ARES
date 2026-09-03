@@ -1086,6 +1086,7 @@ Public Sub DiagCableLengths()
     Dim bInc     As Boolean
     Dim vProp    As Variant
     Dim sProp    As String
+    Dim linked() As Element
 
     For i = LBound(cables) To UBound(cables)
         Set oEl = cables(i)
@@ -1103,7 +1104,12 @@ Public Sub DiagCableLengths()
         End If
 
         ' --- property vs geometry ---
-        vProp = CustomPropertyHandler.GetPropertyValueFromElement(oEl, sLongueurProp, sLongueurProp)
+        ' Read it the way the export does - across the graphic GROUP, not on the cable itself. The
+        ' tagging rules attach Longueur to a linked element, so asking the cable directly answers
+        ' "<none>" on a drawing where the sheet shows the value perfectly well.
+        vProp = Null
+        linked = Link.GetLink(oEl)
+        If HasElements(linked) Then vProp = FindGroupPropertyValue(linked, sLongueurProp)
         dGeom = Length.GetLength(oEl)
         sProp = "<none>"
         If Not IsArray(vProp) Then
