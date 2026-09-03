@@ -999,10 +999,18 @@ End Function
 '
 ' GetRegionUnion is unreliable at large DGN coordinates (a MicroStation precision bug), so every
 ' buffer is first translated near the origin, unioned, then each result is translated back.
-'   - nBuf <= 0 → no output.
-'   - nBuf  = 1 → the single buffer is returned as-is (no union needed).
+'   - nBuf <= 0 -> no output.
+'   - nBuf  = 1 -> the single buffer is returned as-is (no union needed).
 ' NOTE: the input buffers are moved in place (near origin) as part of the workaround; callers
 ' must not reuse bufs() afterwards.
+'
+' ONE BAD BUFFER MUST NOT COST THE WHOLE SET. GetRegionUnion is all-or-nothing: handed 19 buffers of
+' which one is degenerate, it fails and returns nothing, and that cable's entire zone silently
+' vanished from the drawing while every other element merged fine (measured: complexstring id=156357,
+' 19 in, 0 out). The single call therefore stays the fast path, and when it yields nothing the
+' buffers are folded in one at a time instead: a buffer that will not union is KEPT as its own shape
+' rather than dropped, so the area stays drawn - unmerged at that spot - instead of disappearing.
+' Every rejection is logged, because an unmerged spot points at source geometry worth looking at.
 ' ---------------------------------------------------------------------------
 Private Sub FuseRegions(ByRef bufs() As Element, _
                         ByVal nBuf As Long, _
@@ -1031,40 +1039,25 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Dim toOrigin   As Point3d
     Dim fromOrigin As Point3d
     Dim k          As Long
-    toOrigin   = Point3dNegate(bufs(0).Range.High)
+    toOrigin = Point3dNegate(bufs(0).Range.High)
     fromOrigin = Point3dNegate(toOrigin)
     For k = 0 To nBuf - 1
         bufs(k).Move toOrigin
     Next k
 
-    ' GetRegionUnion expects region1 = a 1-element array (first shape) and region2 = the rest.
-    Dim region1(0 To 0) As Element
-    Set region1(0) = bufs(0)
-    Dim region2() As Element
-    ReDim region2(0 To nBuf - 2)
-    For k = 1 To nBuf - 1
-        Set region2(k - 1) = bufs(k)
-    Next k
+    ' Fast path: one union for the whole set.
+    UnionInto bufs, nBuf, outEls, nOutEls
 
-    Dim oEnum As ElementEnumerator
-    Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
-    If oEnum Is Nothing Then
-        If DebugMode Then Debug.Print "FUSE " & sWhere & " : " & nBuf & " in -> NOTHING (GetRegionUnion returned no enumerator)"
-        Exit Sub
+    ' Fallback: fold them in one at a time so a single unusable buffer costs only itself.
+    If nOutEls = 0 Then
+        If DebugMode Then Debug.Print "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
+        FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
     End If
 
-    Dim resEl As Element
-    Do While oEnum.MoveNext
-        Set resEl = oEnum.Current
-        resEl.Move fromOrigin                 ' restore to the original location
-        ReDim Preserve outEls(0 To nOutEls)
-        Set outEls(nOutEls) = resEl
-        nOutEls = nOutEls + 1
-    Loop
+    For k = 0 To nOutEls - 1
+        outEls(k).Move fromOrigin                 ' restore to the original location
+    Next k
 
-    ' What comes OUT versus what went in. Disjoint buffers must survive as separate results: a call
-    ' reporting many in and one out means only the component containing region1 came back and every
-    ' buffer disjoint from it was dropped - which is exactly what an incomplete zoning looks like.
     If DebugMode Then Debug.Print "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
     Exit Sub
 
@@ -1073,8 +1066,117 @@ ErrorHandler:
     ' so a partial result here is a silently incomplete zoning.
     ErrorHandler.HandleError sWhere & " - " & nBuf & " in, " & nOutEls & " collected when it failed - " & _
                              Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
-    If DebugMode Then Debug.Print "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf & _
-                                  " - err " & Err.Number & " [" & Err.Description & "]"
+    If DebugMode Then Debug.Print "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf
+End Sub
+
+' UnionInto
+' ---------------------------------------------------------------------------
+' Unions els(0 .. n-1) in ONE GetRegionUnion call and collects the results, still near the origin.
+' Returns 0 results on any failure: it is a probe, so it swallows rather than raises.
+' ---------------------------------------------------------------------------
+Private Sub UnionInto(ByRef els() As Element, _
+                      ByVal n As Long, _
+                      ByRef outEls() As Element, _
+                      ByRef nOutEls As Long)
+    On Error GoTo Failed
+    nOutEls = 0
+    If n <= 0 Then Exit Sub
+
+    ' GetRegionUnion expects region1 = a 1-element array (first shape) and region2 = the rest.
+    Dim region1(0 To 0) As Element
+    Set region1(0) = els(0)
+    Dim region2() As Element
+    Dim k         As Long
+    ReDim region2(0 To n - 2)
+    For k = 1 To n - 1
+        Set region2(k - 1) = els(k)
+    Next k
+
+    Dim oEnum As ElementEnumerator
+    Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
+    If oEnum Is Nothing Then Exit Sub
+
+    Do While oEnum.MoveNext
+        ReDim Preserve outEls(0 To nOutEls)
+        Set outEls(nOutEls) = oEnum.Current
+        nOutEls = nOutEls + 1
+    Loop
+    Exit Sub
+
+Failed:
+    nOutEls = 0
+End Sub
+
+' FoldOneByOne
+' ---------------------------------------------------------------------------
+' Folds the buffers into an accumulating set, one at a time. A buffer whose union fails is KEPT as
+' its own shape: the area it covers stays drawn, merely unmerged, which is what makes a degenerate
+' buffer cost itself instead of the whole element. Results stay near the origin; the caller restores.
+' ---------------------------------------------------------------------------
+Private Sub FoldOneByOne(ByRef bufs() As Element, _
+                         ByVal nBuf As Long, _
+                         ByRef outEls() As Element, _
+                         ByRef nOutEls As Long, _
+                         ByVal DebugMode As Boolean, _
+                         ByVal sWhere As String)
+    On Error GoTo ErrorHandler
+
+    Dim acc()  As Element
+    Dim nAcc   As Long
+    Dim tryEls() As Element
+    Dim nTry   As Long
+    Dim res()  As Element
+    Dim nRes   As Long
+    Dim k      As Long
+    Dim j      As Long
+    Dim nKept  As Long
+
+    ReDim acc(0 To 0)
+    Set acc(0) = bufs(0)
+    nAcc = 1
+    nKept = 0
+
+    For k = 1 To nBuf - 1
+        ReDim tryEls(0 To nAcc)
+        For j = 0 To nAcc - 1
+            Set tryEls(j) = acc(j)
+        Next j
+        Set tryEls(nAcc) = bufs(k)
+        nTry = nAcc + 1
+
+        UnionInto tryEls, nTry, res, nRes
+
+        If nRes > 0 Then
+            ReDim acc(0 To nRes - 1)
+            For j = 0 To nRes - 1
+                Set acc(j) = res(j)
+            Next j
+            nAcc = nRes
+        Else
+            ' Will not union with the rest: keep it standing on its own rather than lose its area.
+            ReDim Preserve acc(0 To nAcc)
+            Set acc(nAcc) = bufs(k)
+            nAcc = nAcc + 1
+            nKept = nKept + 1
+            If DebugMode Then Debug.Print "FUSE " & sWhere & " : buffer " & k & " would not union - kept unmerged"
+        End If
+    Next k
+
+    If nKept > 0 Then
+        ErrorHandler.HandleError sWhere & " - " & nKept & " of " & nBuf & " buffer(s) would not union and were kept " & _
+                                 "unmerged; the zone is drawn but not clean at those spots", _
+                                 0, "", "Zoning.FoldOneByOne"
+    End If
+
+    ReDim outEls(0 To nAcc - 1)
+    For j = 0 To nAcc - 1
+        Set outEls(j) = acc(j)
+    Next j
+    nOutEls = nAcc
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.FoldOneByOne"
 End Sub
 
 ' WriteDebugClones
