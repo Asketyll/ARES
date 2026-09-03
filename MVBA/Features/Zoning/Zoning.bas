@@ -1012,6 +1012,11 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
                         Optional ByVal sWhere As String = "")
     On Error GoTo ErrorHandler
     nOutEls = 0
+
+    ' Announced on ENTRY as well as on exit: a call that fails never reaches its closing line, so
+    ' without this the guilty one is simply absent from the log and cannot be told from a call that
+    ' never happened.
+    If DebugMode Then Debug.Print "FUSE " & sWhere & " : " & nBuf & " in ..."
     If nBuf <= 0 Then Exit Sub
 
     If nBuf = 1 Then
@@ -1064,7 +1069,12 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
+    ' Name the call and how far it got: the caller keeps whatever was collected before the failure,
+    ' so a partial result here is a silently incomplete zoning.
+    ErrorHandler.HandleError sWhere & " - " & nBuf & " in, " & nOutEls & " collected when it failed - " & _
+                             Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
+    If DebugMode Then Debug.Print "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf & _
+                                  " - err " & Err.Number & " [" & Err.Description & "]"
 End Sub
 
 ' WriteDebugClones
