@@ -1112,14 +1112,16 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
         FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
     End If
 
+    ' Measured BEFORE the restore: inputs and results must be compared in the SAME frame. Reporting
+    ' after the move compared near-origin buffers against real-world results and called every single
+    ' one dropped - 51 of 51, which is the shape of an instrument fault, not of a defect.
+    If DebugMode Then ReportUncovered bufs, nBuf, outEls, nOutEls, sWhere
+
     For k = 0 To nOutEls - 1
         outEls(k).Move fromOrigin                 ' restore to the original location
     Next k
 
-    If DebugMode Then
-        DbgLine "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
-        ReportUncovered bufs, nBuf, outEls, nOutEls, sWhere
-    End If
+    If DebugMode Then DbgLine "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
     Exit Sub
 
 ErrorHandler:
@@ -1133,8 +1135,12 @@ End Sub
 ' ReportUncovered
 ' ---------------------------------------------------------------------------
 ' Names the input buffers whose own middle does not land inside any result shape - i.e. the ones the
-' union quietly dropped. DebugMode only, read-only, and called AFTER the results are back at their
-' original location, so it works in the same frame as the inputs.
+' union quietly dropped. DebugMode only, read-only, and called BEFORE the results are moved back, so
+' inputs and results are in the same (near-origin) frame - and near the origin, where the ray cast is
+' not fighting the precision problem that the whole translation workaround exists for.
+'
+' A caveat when reading it: the fold keeps unusable buffers as their own result, so those buffers ARE
+' their own result shape and trivially test as covered.
 '
 ' A point test, deliberately: it is the only invariant here that is immune to the symbology padding
 ' in Element.Range, which is what made an earlier bounding-box check reject sound unions. Its own
