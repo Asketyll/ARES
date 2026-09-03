@@ -20,6 +20,11 @@
 
 Option Explicit
 
+' Fusion trace (DebugMode only): the file keeps every line, the Immediate window shows the first ones.
+Private Const DBG_FILE As String = "C:\ARES\ARES_zoning_debug.log"
+Private Const DBG_ECHO_MAX As Long = 120
+Private mnDbgShown As Long
+
 ' Generates offset zones around elements on the specified source levels.
 '
 ' Parameters (all optional — ARESConfig values are used when omitted):
@@ -52,6 +57,10 @@ Public Sub Zoning(Optional Lvls As Variant, _
                   Optional RoundCaps As Boolean = True)
 
     On Error GoTo ErrorHandler
+
+    ' Each run starts its own echo budget and its own block in the trace file.
+    mnDbgShown = 0
+    If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
     Dim TargetLevel As Level
     Dim Elements()  As Element
@@ -991,6 +1000,29 @@ End Function
 '  OUTPUT HELPERS
 ' ============================================================
 
+' DbgLine
+' ---------------------------------------------------------------------------
+' Debug output for the fusion trace. Goes to a FILE first and to the Immediate window only for the
+' first lines of each run: a drawing that folds a thousand buffers floods the Immediate window's
+' buffer and pushes the beginning - where the useful part is - out of reach.
+' ---------------------------------------------------------------------------
+Private Sub DbgLine(ByVal sMsg As String)
+    On Error Resume Next
+
+    Dim f As Integer
+    f = FreeFile
+    Open DBG_FILE For Append As #f
+    Print #f, Format(Now, "hh:nn:ss") & "  " & sMsg
+    Close #f
+
+    mnDbgShown = mnDbgShown + 1
+    If mnDbgShown <= DBG_ECHO_MAX Then
+        Debug.Print sMsg
+    ElseIf mnDbgShown = DBG_ECHO_MAX + 1 Then
+        Debug.Print "... rest of the trace in " & DBG_FILE
+    End If
+End Sub
+
 ' FuseRegions
 ' ---------------------------------------------------------------------------
 ' Fuses a set of region elements into clean merged outline(s) and returns them in outEls()/
@@ -1029,11 +1061,11 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     ' Announced on ENTRY as well as on exit: a call that fails never reaches its closing line, so
     ' without this the guilty one is simply absent from the log and cannot be told from a call that
     ' never happened.
-    If DebugMode Then Debug.Print "FUSE " & sWhere & " : " & nBuf & " in ..."
+    If DebugMode Then DbgLine "FUSE " & sWhere & " : " & nBuf & " in ..."
     If nBuf <= 0 Then Exit Sub
 
     If nBuf = 1 Then
-        If DebugMode Then Debug.Print "FUSE " & sWhere & " : 1 in -> 1 out (no union needed)"
+        If DebugMode Then DbgLine "FUSE " & sWhere & " : 1 in -> 1 out (no union needed)"
         ReDim outEls(0 To 0)
         Set outEls(0) = bufs(0)
         nOutEls = 1
@@ -1044,6 +1076,7 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Dim toOrigin   As Point3d
     Dim fromOrigin As Point3d
     Dim k          As Long
+    Dim dShort     As Double
     toOrigin = Point3dNegate(bufs(0).Range.High)
     fromOrigin = Point3dNegate(toOrigin)
     For k = 0 To nBuf - 1
@@ -1056,10 +1089,11 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     ' Fallback: fold them in one at a time. Triggered by an empty result, and equally by a result
     ' that came back SHORT - see UnionCovers.
     If nOutEls = 0 Then
-        If DebugMode Then Debug.Print "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
+        If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
         FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
-    ElseIf Not UnionCovers(bufs, nBuf, outEls, nOutEls) Then
-        If DebugMode Then Debug.Print "FUSE " & sWhere & " : whole-set union came back SHORT, folding one by one"
+    ElseIf Not UnionCovers(bufs, nBuf, outEls, nOutEls, dShort) Then
+        If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union came back SHORT by " & _
+                                      Format(dShort, "0.000000") & ", folding one by one"
         ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shape(s) that do not " & _
                                  "span its " & nBuf & " inputs; folded one by one instead", _
                                  0, "", "Zoning.FuseRegions"
@@ -1070,7 +1104,7 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
         outEls(k).Move fromOrigin                 ' restore to the original location
     Next k
 
-    If DebugMode Then Debug.Print "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
+    If DebugMode Then DbgLine "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
     Exit Sub
 
 ErrorHandler:
@@ -1078,7 +1112,7 @@ ErrorHandler:
     ' so a partial result here is a silently incomplete zoning.
     ErrorHandler.HandleError sWhere & " - " & nBuf & " in, " & nOutEls & " collected when it failed - " & _
                              Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
-    If DebugMode Then Debug.Print "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf
+    If DebugMode Then DbgLine "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf
 End Sub
 
 ' UnionInto
@@ -1134,7 +1168,8 @@ End Sub
 ' approximations of buffers, not exact geometry.
 ' ---------------------------------------------------------------------------
 Private Function UnionCovers(ByRef inEls() As Element, ByVal nIn As Long, _
-                             ByRef outEls() As Element, ByVal nOut As Long) As Boolean
+                             ByRef outEls() As Element, ByVal nOut As Long, _
+                             Optional ByRef outShort As Double = 0) As Boolean
     On Error GoTo ErrorHandler
 
     UnionCovers = True
@@ -1150,6 +1185,14 @@ Private Function UnionCovers(ByRef inEls() As Element, ByVal nIn As Long, _
     dTol = dTol * 0.000001
     If dTol < 0.000000001 Then dTol = 0.000000001
 
+    ' Worst shortfall on any side, reported so the tolerance can be judged on measurements rather
+    ' than picked: cleanup noise is millimetres, a dropped buffer is at least a buffer wide.
+    outShort = 0
+    If rIn.Low.X - rOut.Low.X < 0 Then outShort = MaxOf(outShort, rOut.Low.X - rIn.Low.X)
+    If rIn.Low.Y - rOut.Low.Y < 0 Then outShort = MaxOf(outShort, rOut.Low.Y - rIn.Low.Y)
+    outShort = MaxOf(outShort, rIn.High.X - rOut.High.X)
+    outShort = MaxOf(outShort, rIn.High.Y - rOut.High.Y)
+
     If rOut.Low.X > rIn.Low.X + dTol Then UnionCovers = False
     If rOut.Low.Y > rIn.Low.Y + dTol Then UnionCovers = False
     If rOut.High.X < rIn.High.X - dTol Then UnionCovers = False
@@ -1159,6 +1202,11 @@ Private Function UnionCovers(ByRef inEls() As Element, ByVal nIn As Long, _
 ErrorHandler:
     ' Fail OPEN: a range we cannot read must not turn a good union into a rejected one.
     UnionCovers = True
+End Function
+
+' Larger of two doubles. VBA has no Max.
+Private Function MaxOf(ByVal a As Double, ByVal b As Double) As Double
+    If a > b Then MaxOf = a Else MaxOf = b
 End Function
 
 ' CombinedRange
@@ -1206,6 +1254,7 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
     Dim k      As Long
     Dim j      As Long
     Dim nKept  As Long
+    Dim dStepShort As Double
 
     ReDim acc(0 To 0)
     Set acc(0) = bufs(0)
@@ -1225,7 +1274,7 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
         If nRes > 0 Then
             ' A step that comes back short is a failed step: treat it as such rather than carry a
             ' truncated accumulator forward, which would lose everything folded in before it.
-            If Not UnionCovers(tryEls, nTry, res, nRes) Then nRes = 0
+            If Not UnionCovers(tryEls, nTry, res, nRes, dStepShort) Then nRes = 0
         End If
 
         If nRes > 0 Then
@@ -1240,7 +1289,8 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
             Set acc(nAcc) = bufs(k)
             nAcc = nAcc + 1
             nKept = nKept + 1
-            If DebugMode Then Debug.Print "FUSE " & sWhere & " : buffer " & k & " would not union - kept unmerged"
+            If DebugMode Then DbgLine "FUSE " & sWhere & " : buffer " & k & _
+                " would not union (short by " & Format(dStepShort, "0.000000") & ") - kept unmerged"
         End If
     Next k
 
