@@ -53,9 +53,9 @@ Private Const VERTEX_MERGE_TOL As Double = 0.01
 ' An arc sweeping less than this carries no shape and is dropped from a merged contour - see
 ' DropFlatArcs. In DEGREES on purpose: the sweep is intrinsic to the arc, so unlike a length it
 ' needs no calibration against the zone size or the offset distance.
-' Scale to judge it by: the 0.211 m sliver measured on a 2 m radius sweeps about 6 degrees, so it
-' is NOT caught at this setting. Raise it only on measurements.
-Private Const FLAT_ARC_DEG As Double = 1#
+' 6 degrees is Asketyll's measured setting: the 0.211 m sliver on a 2 m radius sweeps about that
+' much. Real zone arcs are half-circle caps at 180 degrees and bend fillets, so the margin is wide.
+Private Const FLAT_ARC_DEG As Double = 6#
 
 
 ' Generates offset zones around elements on the specified source levels.
@@ -1230,7 +1230,7 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
     verts = oVL.GetVertices
     Dim nV As Long
     nV = UBound(verts) - LBound(verts) + 1
-    If nV < 4 Then Exit Function              ' 3 vertices or fewer: nothing interior worth dropping
+    If nV < 3 Then Exit Function              ' two vertices: a plain segment, no interior to drop
 
     ' Forward pass against the last KEPT vertex, so a run of micro-segments collapses to one point
     ' instead of surviving as a chain of pairs each just under the tolerance.
@@ -1250,10 +1250,36 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
             iLast = i
         End If
     Next i
-    If nDrop = 0 Then Exit Function
 
-    ' Highest index first: removing a low one would shift every index after it.
-    For i = nDrop - 1 To 0 Step -1
+    ' The LAST segment needs its own test, and it is the one that was being missed. Walking forward
+    ' only ever measures a vertex against what precedes it, so a short final segment - the last kept
+    ' vertex sitting a millimetre from the endpoint - is never seen: the endpoint is excluded as a
+    ' junction, and its predecessor looked fine when measured from the other side.
+    ' The fix keeps the endpoint exactly where it is and drops its PREDECESSOR instead, so the
+    ' contour runs straight into the junction and the short segment is not rebuilt.
+    If iLast > LBound(verts) Then
+        If Point3dDistance(verts(UBound(verts)), verts(iLast)) < dTol Then
+            drop(nDrop) = iLast - LBound(verts)
+            nDrop = nDrop + 1
+        End If
+    End If
+
+    If nDrop = 0 Then Exit Function
+    If nV - nDrop < 2 Then Exit Function      ' never leave fewer than the two endpoints
+
+    ' Highest index first: removing a low one would shift every index after it. The closing test
+    ' appends an index that is lower than the ones before it, so sort before removing.
+    Dim j As Long
+    Dim t As Long
+    For i = 0 To nDrop - 2
+        For j = 0 To nDrop - 2 - i
+            If drop(j) < drop(j + 1) Then
+                t = drop(j) : drop(j) = drop(j + 1) : drop(j + 1) = t
+            End If
+        Next j
+    Next i
+
+    For i = 0 To nDrop - 1
         oVL.RemoveVertex drop(i)
     Next i
 
