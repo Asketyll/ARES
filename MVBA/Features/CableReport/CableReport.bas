@@ -125,15 +125,8 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.Value)
     If dRadius <= 0 Then dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.DefaultValue)
 
-    ' Below this, a cable CROSSES the zone rather than occupying it. Zero disables the filter; a
-    ' negative or unreadable setting falls back to the default. Val on a dot-normalised string, never
-    ' IsNumeric - see the locale rule in mvba-cheatsheet.
     Dim dMinLen As Double
-    Dim sMinLen As String
-    sMinLen = Trim(ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.Value)
-    If Len(sMinLen) = 0 Then sMinLen = ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.DefaultValue
-    dMinLen = Val(Replace(sMinLen, ",", "."))
-    If dMinLen < 0 Then dMinLen = Val(Replace(ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.DefaultValue, ",", "."))
+    dMinLen = CrossThreshold()
 
     Dim i             As Long
     Dim oEl           As Element
@@ -296,6 +289,35 @@ End Function
 ' ============================================================
 '  PER-CABLE FIELD RESOLUTION
 ' ============================================================
+' Length below which a cable is CROSSING a zone rather than occupying it, in master units.
+'
+' It follows the trench instead of being an absolute: where two trenches intersect, each holds the
+' other's cable for width / sin(angle), and the width IS 2 x ARES_Outline_Distance. The configured
+' factor multiplies that distance, so the default 2 is exactly one trench width - the value of a
+' PERPENDICULAR crossing, which is why the caller tests STRICTLY greater. An oblique crossing
+' overshoots it: 0.5 m was measured at roughly 53 degrees with a 0.2 distance, against a 0.4
+' threshold, so that one still counts as occupation. Raising the factor is the answer on a site whose
+' cables cross at shallow angles; a factor of 0 disables the filter entirely.
+Private Function CrossThreshold() As Double
+    On Error GoTo ErrorHandler
+
+    Dim dFactor As Double
+    Dim dDist   As Double
+
+    dFactor = Val(Replace(Trim(ARESConfig.ARES_CABLEREPORT_CROSS_FACTOR.Value), ",", "."))
+    If dFactor < 0 Then dFactor = Val(Replace(ARESConfig.ARES_CABLEREPORT_CROSS_FACTOR.DefaultValue, ",", "."))
+
+    dDist = Val(Replace(Trim(ARESConfig.ARES_OUTLINE_DISTANCE.Value), ",", "."))
+    If dDist <= 0 Then dDist = Val(Replace(ARESConfig.ARES_OUTLINE_DISTANCE.DefaultValue, ",", "."))
+
+    CrossThreshold = dFactor * dDist
+    Exit Function
+
+ErrorHandler:
+    CrossThreshold = 0
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.CrossThreshold"
+End Function
+
 
 ' ResolveCableRepere
 ' Returns "<start label> - <end label>" using the Line's own geometric StartPoint/EndPoint order.
@@ -451,9 +473,10 @@ End Function
 ' array, the per-zone idiom ExportLengthInRegion already uses) and records each > 0 result raw, keyed
 ' zoneIdx & KEY_SEP & cableKey. NOTHING is aggregated here on purpose: a column key depends on how many
 ' cables share the zone, which is only known once every cable has been measured. A blank label skips the
-' zone, geometry call included. A result below dMinLen is DROPPED, not recorded as a small occupation:
-' where two trenches cross, each holds the other's cable for about its own width, and treating that as
-' occupation invented a shared trench of half a metre between cables that merely cross.
+' zone, geometry call included. A result that does not EXCEED dMinLen is dropped rather than recorded
+' as a small occupation: where two trenches cross, each holds the other's cable for about its own
+' width, and treating that as occupation invented a shared trench of half a metre between cables that
+' merely cross. The test is strictly greater because dMinLen is itself a crossing's own value.
 Private Sub RecordZoneLengths(ByVal oEl As Element, ByVal sCableKey As String, ByRef zones() As Element, _
                               ByRef zoneLabels() As String, ByRef oZoneCable As Object, ByVal dMinLen As Double)
     On Error GoTo ErrorHandler
@@ -470,7 +493,7 @@ Private Sub RecordZoneLengths(ByVal oEl As Element, ByVal sCableKey As String, B
         If Len(zoneLabels(z)) > 0 Then
             Set oneZone(0) = zones(i)
             dLen = Length.GetPartialLengthInsideZones(oEl, oneZone)
-            If dLen > 0 And dLen >= dMinLen Then oZoneCable.Add CStr(z) & KEY_SEP & sCableKey, dLen
+            If dLen > dMinLen Then oZoneCable.Add CStr(z) & KEY_SEP & sCableKey, dLen
         End If
     Next i
     Exit Sub
@@ -1081,7 +1104,7 @@ Public Sub DiagCableLengths()
     If dRadius <= 0 Then dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.DefaultValue)
 
     Dim dMinLen As Double
-    dMinLen = Val(Replace(Trim(ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.value), ",", "."))
+    dMinLen = CrossThreshold()
 
     Debug.Print String(78, "=")
     Debug.Print "CABLE REPORT DIAG - " & (UBound(cables) - LBound(cables) + 1) & " cable(s), " & _
@@ -1145,7 +1168,7 @@ Public Sub DiagCableLengths()
                     If dLen > 0 Then
                         dSum = dSum + dLen
                         Debug.Print "     zone " & (z - LBound(zones)) & " [" & zoneLabels(z - LBound(zones)) & "] : " & _
-                                    Format(dLen, "0.00") & IIf(dLen < dMinLen, "   (below " & Format(dMinLen, "0.00") & " - dropped as a crossing)", "")
+                                    Format(dLen, "0.00") & IIf(dLen <= dMinLen, "   (not above " & Format(dMinLen, "0.00") & " - dropped as a crossing)", "")
                     End If
                 End If
             Next z
