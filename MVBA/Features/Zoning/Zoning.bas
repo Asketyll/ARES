@@ -1004,13 +1004,18 @@ End Function
 ' NOTE: the input buffers are moved in place (near origin) as part of the workaround; callers
 ' must not reuse bufs() afterwards.
 '
-' ONE BAD BUFFER MUST NOT COST THE WHOLE SET. GetRegionUnion is all-or-nothing: handed 19 buffers of
-' which one is degenerate, it fails and returns nothing, and that cable's entire zone silently
-' vanished from the drawing while every other element merged fine (measured: complexstring id=156357,
-' 19 in, 0 out). The single call therefore stays the fast path, and when it yields nothing the
-' buffers are folded in one at a time instead: a buffer that will not union is KEPT as its own shape
-' rather than dropped, so the area stays drawn - unmerged at that spot - instead of disappearing.
-' Every rejection is logged, because an unmerged spot points at source geometry worth looking at.
+' A WHOLE-SET UNION THAT FAILS MUST NOT COST THE ELEMENT'S ZONE. GetRegionUnion is all-or-nothing and
+' it does fail on some sets: complexstring id=156357 gave 19 in, 0 out, and that cable's entire zone
+' was absent from the drawing while all 48 other elements merged cleanly.
+'
+' It is NOT a degenerate buffer. Folding the same 19 buffers in one at a time unions every one of
+' them - not a single rejection - and yields 2 shapes. So the same geometry that defeats one call
+' succeeds in nineteen, and the trigger is the set as a whole, not any member of it. Nor is it
+' disjointness on its own: the global fusion happily returns 12 shapes from 75 buffers.
+'
+' The single call therefore stays the fast path, and an empty result falls back to folding. A buffer
+' that will not union even then is KEPT as its own shape rather than dropped, so the area stays drawn
+' - unmerged at that spot - instead of disappearing, and the rejection is logged.
 ' ---------------------------------------------------------------------------
 Private Sub FuseRegions(ByRef bufs() As Element, _
                         ByVal nBuf As Long, _
