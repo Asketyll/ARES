@@ -136,11 +136,12 @@ Public ARES_CABLEREPORT_SEARCH_RADIUS As ARES_MS_VAR_Class 'Default Value: 2.0  
 ' Used in CableReport module — decimal places applied to the pivoted soil-type length sums
 ' Multiplies ARES_Outline_Distance to give the length below which a cable is CROSSING a zone rather
 ' than occupying it. Two trenches that intersect leave each other's cable inside for width/sin(angle),
-' and the width IS 2 x that distance - so the default 2 is exactly one trench width, the value of a
-' PERPENDICULAR crossing, and the test is strictly greater. An oblique crossing overshoots it (0.5 m
-' measured at ~53 deg with a 0.2 distance, against a 0.4 threshold): raise the factor on a site whose
-' cables cross at shallow angles. Zero disables the filter.
-Public ARES_CABLEREPORT_CROSS_FACTOR As ARES_MS_VAR_Class 'Default Value: 2   Multiplier on ARES_Outline_Distance (Double)
+' and the width IS 2 x that distance - so a factor of 2 is exactly one trench width, a PERPENDICULAR
+' crossing's own value, and the test is strictly greater so that such a crossing is excluded exactly.
+' The default 3.5 leaves room for oblique ones, which measure width/sin(angle) and so overshoot a
+' single width: 0.5 m was measured at ~53 deg with a 0.2 distance, and 3.5 puts the threshold at
+' 0.7 m. Raise it further on a site whose cables cross at very shallow angles; 0 disables the filter.
+Public ARES_CABLEREPORT_CROSS_FACTOR As ARES_MS_VAR_Class 'Default Value: 3.5   Multiplier on ARES_Outline_Distance (Double)
 Public ARES_CABLEREPORT_ROUND As ARES_MS_VAR_Class 'Default Value: 2   Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
 ' Used in CableReport module — open the workbook in Excel after export when True; False = headless silent export
 Public ARES_CABLEREPORT_EXCEL_VISIBLE As ARES_MS_VAR_Class 'Default Value: false   True or False (Boolean)
@@ -225,7 +226,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CABLEREPORT_LONGUEUR_PROPERTY = CreateConfigVar("ARES_CableReport_Longueur_Property", "Longueur")
     Set ARES_CABLEREPORT_ZONE_PROPERTY = CreateConfigVar("ARES_CableReport_Zone_Property", "Coupe_Type")
     Set ARES_CABLEREPORT_SEARCH_RADIUS = CreateConfigVar("ARES_CableReport_Search_Radius", "2.0")
-    Set ARES_CABLEREPORT_CROSS_FACTOR = CreateConfigVar("ARES_CableReport_Cross_Factor", "2")
+    Set ARES_CABLEREPORT_CROSS_FACTOR = CreateConfigVar("ARES_CableReport_Cross_Factor", "3.5")
     Set ARES_CABLEREPORT_ROUND = CreateConfigVar("ARES_CableReport_Round", "2")
     Set ARES_CABLEREPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_CableReport_Excel_Visible", "False")
     CreateConfigVariables = True

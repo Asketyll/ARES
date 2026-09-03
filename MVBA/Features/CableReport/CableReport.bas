@@ -293,11 +293,11 @@ End Function
 '
 ' It follows the trench instead of being an absolute: where two trenches intersect, each holds the
 ' other's cable for width / sin(angle), and the width IS 2 x ARES_Outline_Distance. The configured
-' factor multiplies that distance, so the default 2 is exactly one trench width - the value of a
-' PERPENDICULAR crossing, which is why the caller tests STRICTLY greater. An oblique crossing
-' overshoots it: 0.5 m was measured at roughly 53 degrees with a 0.2 distance, against a 0.4
-' threshold, so that one still counts as occupation. Raising the factor is the answer on a site whose
-' cables cross at shallow angles; a factor of 0 disables the filter entirely.
+' factor multiplies that distance, so a factor of 2 is exactly one trench width - a PERPENDICULAR
+' crossing's own value, which is why the caller tests STRICTLY greater and excludes such a crossing
+' exactly. Oblique crossings overshoot a single width (0.5 m measured at roughly 53 degrees with a
+' 0.2 distance), hence the default of 3.5: 0.7 m there, which clears them. Raise it further on a site
+' whose cables cross at very shallow angles; a factor of 0 disables the filter entirely.
 Private Function CrossThreshold() As Double
     On Error GoTo ErrorHandler
 
@@ -476,7 +476,8 @@ End Function
 ' zone, geometry call included. A result that does not EXCEED dMinLen is dropped rather than recorded
 ' as a small occupation: where two trenches cross, each holds the other's cable for about its own
 ' width, and treating that as occupation invented a shared trench of half a metre between cables that
-' merely cross. The test is strictly greater because dMinLen is itself a crossing's own value.
+' merely cross. The test is strictly greater so that a factor of 2 - one trench width - excludes a
+' perpendicular crossing exactly, on its own measured value.
 Private Sub RecordZoneLengths(ByVal oEl As Element, ByVal sCableKey As String, ByRef zones() As Element, _
                               ByRef zoneLabels() As String, ByRef oZoneCable As Object, ByVal dMinLen As Double)
     On Error GoTo ErrorHandler
