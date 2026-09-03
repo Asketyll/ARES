@@ -1077,6 +1077,7 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Dim fromOrigin As Point3d
     Dim k          As Long
     Dim dShort     As Double
+    Dim sWhy       As String
     toOrigin = Point3dNegate(bufs(0).Range.High)
     fromOrigin = Point3dNegate(toOrigin)
     For k = 0 To nBuf - 1
@@ -1091,9 +1092,9 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     If nOutEls = 0 Then
         If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
         FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
-    ElseIf Not UnionCovers(bufs, nBuf, outEls, nOutEls, dShort) Then
+    ElseIf Not UnionCovers(bufs, nBuf, outEls, nOutEls, dShort, sWhy) Then
         If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union came back SHORT by " & _
-                                      Format(dShort, "0.000000") & ", folding one by one"
+                                  Format(dShort, "0.000000") & " " & sWhy & ", folding one by one"
         ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shape(s) that do not " & _
                                  "span its " & nBuf & " inputs; folded one by one instead", _
                                  0, "", "Zoning.FuseRegions"
@@ -1169,7 +1170,8 @@ End Sub
 ' ---------------------------------------------------------------------------
 Private Function UnionCovers(ByRef inEls() As Element, ByVal nIn As Long, _
                              ByRef outEls() As Element, ByVal nOut As Long, _
-                             Optional ByRef outShort As Double = 0) As Boolean
+                             Optional ByRef outShort As Double = 0, _
+                             Optional ByRef outWhy As String = "") As Boolean
     On Error GoTo ErrorHandler
 
     UnionCovers = True
@@ -1197,6 +1199,17 @@ Private Function UnionCovers(ByRef inEls() As Element, ByVal nIn As Long, _
     If rOut.Low.Y > rIn.Low.Y + dTol Then UnionCovers = False
     If rOut.High.X < rIn.High.X - dTol Then UnionCovers = False
     If rOut.High.Y < rIn.High.Y - dTol Then UnionCovers = False
+
+    ' Both boxes, spelled out on a rejection. An out-box of zeros means the union results simply do
+    ' not report a range yet - they are orphans until the caller writes them - and the check is
+    ' measuring nothing. A plausible box that is genuinely smaller is a real truncation. The two look
+    ' identical through the shortfall alone, and they call for opposite fixes.
+    If Not UnionCovers Then
+        outWhy = "in[" & Format(rIn.Low.X, "0.000") & "," & Format(rIn.Low.Y, "0.000") & " .. " & _
+                 Format(rIn.High.X, "0.000") & "," & Format(rIn.High.Y, "0.000") & "] out[" & _
+                 Format(rOut.Low.X, "0.000") & "," & Format(rOut.Low.Y, "0.000") & " .. " & _
+                 Format(rOut.High.X, "0.000") & "," & Format(rOut.High.Y, "0.000") & "]"
+    End If
     Exit Function
 
 ErrorHandler:
@@ -1255,6 +1268,7 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
     Dim j      As Long
     Dim nKept  As Long
     Dim dStepShort As Double
+    Dim sStepWhy   As String
 
     ReDim acc(0 To 0)
     Set acc(0) = bufs(0)
@@ -1274,7 +1288,7 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
         If nRes > 0 Then
             ' A step that comes back short is a failed step: treat it as such rather than carry a
             ' truncated accumulator forward, which would lose everything folded in before it.
-            If Not UnionCovers(tryEls, nTry, res, nRes, dStepShort) Then nRes = 0
+            If Not UnionCovers(tryEls, nTry, res, nRes, dStepShort, sStepWhy) Then nRes = 0
         End If
 
         If nRes > 0 Then
@@ -1290,7 +1304,7 @@ Private Sub FoldOneByOne(ByRef bufs() As Element, _
             nAcc = nAcc + 1
             nKept = nKept + 1
             If DebugMode Then DbgLine "FUSE " & sWhere & " : buffer " & k & _
-                " would not union (short by " & Format(dStepShort, "0.000000") & ") - kept unmerged"
+                " would not union (short by " & Format(dStepShort, "0.000000") & " " & sStepWhy & ") - kept unmerged"
         End If
     Next k
 
