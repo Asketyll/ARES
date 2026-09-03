@@ -45,6 +45,11 @@ Private mnDbgShown As Long
 ' matrix aligning the primary axis with the segment. Worth doing if the millimetre ever shows.
 Private Const CAP_OVERLAP As Double = 0.001
 
+' Interior vertices closer than this to the previous one are the zigzags that same overlap leaves
+' along a merged contour - see CleanTinyVertices. Ten times the overlap, so it clears the artefact
+' with margin; and a centimetre cannot swallow a vertex that carries real shape.
+Private Const VERTEX_MERGE_TOL As Double = 0.01
+
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -1116,6 +1121,7 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Do While oEnum.MoveNext
         Set resEl = oEnum.Current
         resEl.Move fromOrigin                 ' restore to the original location
+        Set resEl = CleanTinyVertices(resEl, VERTEX_MERGE_TOL)
         ReDim Preserve outEls(0 To nOutEls)
         Set outEls(nOutEls) = resEl
         nOutEls = nOutEls + 1
@@ -1131,6 +1137,124 @@ ErrorHandler:
                              Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
     If DebugMode Then DbgLine "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf
 End Sub
+
+' CleanTinyVertices
+' ---------------------------------------------------------------------------
+' Rebuilds a merged shape with the micro-segments removed from INSIDE its linestrings, and returns
+' it. Hands the shape back untouched when there is nothing to do or anything goes wrong: this is a
+' cosmetic pass and must never cost a zone.
+'
+' Where they come from: the round caps are built CAP_OVERLAP wider than the offset they close (see
+' the constant), which is what stopped the union misbehaving on exactly coincident boundaries. The
+' overlap survives in the result as 1 mm zigzags along the contour.
+'
+' Two deliberate limits, both learned the hard way on this module:
+'   - ONLY interior vertices, never the first or the last. The endpoints are what join a linestring
+'     to its neighbours in the chain, so leaving them alone means the contour cannot open and no
+'     junction has to be stitched.
+'   - ARCS ARE NOT TOUCHED, at all. StartPoint/EndPoint are writable on an ArcElement but writing
+'     them does not move the arc: it re-solves it through the new point, and radius and sweep go
+'     wild. An earlier attempt did exactly that and produced arcs looping over themselves.
+'
+' RemoveVertex is ZERO-based, unlike most indexes in this object library - the docs say so
+' explicitly. Vertices are dropped highest-index-first so the lower ones stay valid.
+' ---------------------------------------------------------------------------
+Private Function CleanTinyVertices(ByVal oShape As Element, ByVal dTol As Double) As Element
+    On Error GoTo ErrorHandler
+
+    Set CleanTinyVertices = oShape
+    If oShape Is Nothing Then Exit Function
+    If oShape.Type <> msdElementTypeComplexShape Then Exit Function
+
+    Dim subs()  As Element
+    Dim nSub    As Long
+    Dim oEE     As ElementEnumerator
+    Set oEE = oShape.AsComplexShapeElement.GetSubElements
+    nSub = 0
+    Do While oEE.MoveNext
+        ReDim Preserve subs(0 To nSub)
+        Set subs(nSub) = oEE.Current
+        nSub = nSub + 1
+    Loop
+    If nSub < 2 Then Exit Function
+
+    Dim i        As Long
+    Dim nDropped As Long
+    nDropped = 0
+    For i = 0 To nSub - 1
+        If subs(i).Type = msdElementTypeLineString Then
+            nDropped = nDropped + ThinLineString(subs(i), dTol)
+        End If
+    Next i
+    If nDropped = 0 Then Exit Function       ' nothing to gain: hand back the original
+
+    Dim chain() As ChainableElement
+    ReDim chain(0 To nSub - 1)
+    For i = 0 To nSub - 1
+        Set chain(i) = subs(i)
+    Next i
+
+    Dim oNew As ComplexShapeElement
+    Set oNew = CreateComplexShapeElement1(chain, msdFillModeNotFilled)
+    If Not oNew Is Nothing Then Set CleanTinyVertices = oNew
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.CleanTinyVertices"
+    Set CleanTinyVertices = oShape
+End Function
+
+' ThinLineString
+' ---------------------------------------------------------------------------
+' Drops the interior vertices that sit closer than dTol to the last one kept, and returns how many
+' went. The first and last vertices are never candidates. Modifies oEl in place; the caller rebuilds
+' the parent shape around it.
+' ---------------------------------------------------------------------------
+Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As Long
+    On Error GoTo ErrorHandler
+
+    ThinLineString = 0
+    If Not oEl.IsVertexList Then Exit Function
+
+    Dim oVL    As VertexList
+    Set oVL = oEl
+    Dim verts() As Point3d
+    verts = oVL.GetVertices
+    Dim nV As Long
+    nV = UBound(verts) - LBound(verts) + 1
+    If nV < 4 Then Exit Function              ' 3 vertices or fewer: nothing interior worth dropping
+
+    ' Forward pass against the last KEPT vertex, so a run of micro-segments collapses to one point
+    ' instead of surviving as a chain of pairs each just under the tolerance.
+    Dim drop()  As Long
+    Dim nDrop   As Long
+    Dim iLast   As Long
+    Dim i       As Long
+    ReDim drop(0 To nV - 1)
+    nDrop = 0
+    iLast = LBound(verts)
+
+    For i = LBound(verts) + 1 To UBound(verts) - 1
+        If Point3dDistance(verts(i), verts(iLast)) < dTol Then
+            drop(nDrop) = i - LBound(verts)   ' RemoveVertex is zero-based
+            nDrop = nDrop + 1
+        Else
+            iLast = i
+        End If
+    Next i
+    If nDrop = 0 Then Exit Function
+
+    ' Highest index first: removing a low one would shift every index after it.
+    For i = nDrop - 1 To 0 Step -1
+        oVL.RemoveVertex drop(i)
+    Next i
+
+    ThinLineString = nDrop
+    Exit Function
+
+ErrorHandler:
+    ThinLineString = 0
+End Function
 
 ' WriteDebugClones
 ' ---------------------------------------------------------------------------
