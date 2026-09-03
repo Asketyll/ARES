@@ -125,6 +125,16 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.Value)
     If dRadius <= 0 Then dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.DefaultValue)
 
+    ' Below this, a cable CROSSES the zone rather than occupying it. Zero disables the filter; a
+    ' negative or unreadable setting falls back to the default. Val on a dot-normalised string, never
+    ' IsNumeric - see the locale rule in mvba-cheatsheet.
+    Dim dMinLen As Double
+    Dim sMinLen As String
+    sMinLen = Trim(ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.Value)
+    If Len(sMinLen) = 0 Then sMinLen = ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.DefaultValue
+    dMinLen = Val(Replace(sMinLen, ",", "."))
+    If dMinLen < 0 Then dMinLen = Val(Replace(ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.DefaultValue, ",", "."))
+
     Dim i             As Long
     Dim oEl           As Element
     Dim sCableKey     As String
@@ -149,7 +159,7 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
         If bRowIncomplete Then nIncomplete = nIncomplete + 1
 
         If nZones > 0 Then
-            RecordZoneLengths oEl, sCableKey, zones, zoneLabels, oZoneCable
+            RecordZoneLengths oEl, sCableKey, zones, zoneLabels, oZoneCable, dMinLen
         End If
     Next i
 
@@ -441,9 +451,11 @@ End Function
 ' array, the per-zone idiom ExportLengthInRegion already uses) and records each > 0 result raw, keyed
 ' zoneIdx & KEY_SEP & cableKey. NOTHING is aggregated here on purpose: a column key depends on how many
 ' cables share the zone, which is only known once every cable has been measured. A blank label skips the
-' zone, geometry call included.
+' zone, geometry call included. A result below dMinLen is DROPPED, not recorded as a small occupation:
+' where two trenches cross, each holds the other's cable for about its own width, and treating that as
+' occupation invented a shared trench of half a metre between cables that merely cross.
 Private Sub RecordZoneLengths(ByVal oEl As Element, ByVal sCableKey As String, ByRef zones() As Element, _
-                              ByRef zoneLabels() As String, ByRef oZoneCable As Object)
+                              ByRef zoneLabels() As String, ByRef oZoneCable As Object, ByVal dMinLen As Double)
     On Error GoTo ErrorHandler
 
     If Not HasElements(zones) Then Exit Sub
@@ -458,7 +470,7 @@ Private Sub RecordZoneLengths(ByVal oEl As Element, ByVal sCableKey As String, B
         If Len(zoneLabels(z)) > 0 Then
             Set oneZone(0) = zones(i)
             dLen = Length.GetPartialLengthInsideZones(oEl, oneZone)
-            If dLen > 0 Then oZoneCable.Add CStr(z) & KEY_SEP & sCableKey, dLen
+            If dLen > 0 And dLen >= dMinLen Then oZoneCable.Add CStr(z) & KEY_SEP & sCableKey, dLen
         End If
     Next i
     Exit Sub
@@ -1068,6 +1080,9 @@ Public Sub DiagCableLengths()
     dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.value)
     If dRadius <= 0 Then dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.DefaultValue)
 
+    Dim dMinLen As Double
+    dMinLen = Val(Replace(Trim(ARESConfig.ARES_CABLEREPORT_MIN_LENGTH.value), ",", "."))
+
     Debug.Print String(78, "=")
     Debug.Print "CABLE REPORT DIAG - " & (UBound(cables) - LBound(cables) + 1) & " cable(s), " & _
                 nLab & " labelled zone(s), radius " & dRadius
@@ -1129,7 +1144,8 @@ Public Sub DiagCableLengths()
                     dLen = Length.GetPartialLengthInsideZones(oEl, oneZone)
                     If dLen > 0 Then
                         dSum = dSum + dLen
-                        Debug.Print "     zone " & (z - LBound(zones)) & " [" & zoneLabels(z - LBound(zones)) & "] : " & Format(dLen, "0.00")
+                        Debug.Print "     zone " & (z - LBound(zones)) & " [" & zoneLabels(z - LBound(zones)) & "] : " & _
+                                    Format(dLen, "0.00") & IIf(dLen < dMinLen, "   (below " & Format(dMinLen, "0.00") & " - dropped as a crossing)", "")
                     End If
                 End If
             Next z

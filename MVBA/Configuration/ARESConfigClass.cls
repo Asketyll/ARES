@@ -134,6 +134,11 @@ Public ARES_CABLEREPORT_ZONE_PROPERTY As ARES_MS_VAR_Class 'Default Value: Coupe
 ' Used in CableReport module — search radius (master units) for the nearest end-cell lookup around each cable endpoint
 Public ARES_CABLEREPORT_SEARCH_RADIUS As ARES_MS_VAR_Class 'Default Value: 2.0   Search radius in master units (Double)
 ' Used in CableReport module — decimal places applied to the pivoted soil-type length sums
+' Minimum length a cable must run inside a zone for that zone to count as occupied by it. Below it
+' the cable is merely CROSSING: two trenches that intersect leave each other's cable inside for
+' about the trench width (2 x ARES_Outline_Distance), and counting that as occupation declared a
+' 0.5 m "shared trench" between two cables that only cross - which does not exist on site.
+Public ARES_CABLEREPORT_MIN_LENGTH As ARES_MS_VAR_Class 'Default Value: 1.0   Minimum length inside a zone, master units (Double)
 Public ARES_CABLEREPORT_ROUND As ARES_MS_VAR_Class 'Default Value: 2   Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
 ' Used in CableReport module — open the workbook in Excel after export when True; False = headless silent export
 Public ARES_CABLEREPORT_EXCEL_VISIBLE As ARES_MS_VAR_Class 'Default Value: false   True or False (Boolean)
@@ -218,6 +223,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CABLEREPORT_LONGUEUR_PROPERTY = CreateConfigVar("ARES_CableReport_Longueur_Property", "Longueur")
     Set ARES_CABLEREPORT_ZONE_PROPERTY = CreateConfigVar("ARES_CableReport_Zone_Property", "Coupe_Type")
     Set ARES_CABLEREPORT_SEARCH_RADIUS = CreateConfigVar("ARES_CableReport_Search_Radius", "2.0")
+    Set ARES_CABLEREPORT_MIN_LENGTH = CreateConfigVar("ARES_CableReport_Min_Length", "1.0")
     Set ARES_CABLEREPORT_ROUND = CreateConfigVar("ARES_CableReport_Round", "2")
     Set ARES_CABLEREPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_CableReport_Excel_Visible", "False")
     CreateConfigVariables = True
