@@ -25,6 +25,18 @@ Private Const DBG_FILE As String = "C:\ARES\ARES_zoning_debug.log"
 Private Const DBG_ECHO_MAX As Long = 120
 Private mnDbgShown As Long
 
+' Round end-caps are built ever so slightly wider than the offset they close.
+'
+' At exactly Dist the cap circle is TANGENT to the two offset lines and to the neighbouring buffer's
+' flank: boundaries that coincide exactly, which is the case every boolean engine handles worst.
+' GetRegionUnion was seen to drop such a cap outright (complexstring id=157783 lost its last buffer,
+' and with it the end of its zone), to split a merged zone in two, and to leave a cap circle visible
+' inside the result. A hair of overlap gives it a real crossing to work with instead.
+'
+' 1.005 is 2.01 m for the 2 m zoning distance, 0.201 for the 0.2 m outline. The cost is that the cap
+' arc's endpoints no longer sit exactly on the offset lines' ends, by that same hair.
+Private Const CAP_RADIUS_FACTOR As Double = 1.005
+
 ' Generates offset zones around elements on the specified source levels.
 '
 ' Parameters (all optional — ARESConfig values are used when omitted):
@@ -744,13 +756,13 @@ Private Function BuildLineZone(ByVal oEl As Element, _
     Dim comps(0 To 3) As ChainableElement
     Set comps(0) = CreateLineElement2(Nothing, L0, L1)                                                  ' left side
     If roundEnd Then
-        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist, Dist, Matrix3dIdentity, Point3dPolarAngle(perp), -Application.PI)
+        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist * CAP_RADIUS_FACTOR, Dist * CAP_RADIUS_FACTOR, Matrix3dIdentity, Point3dPolarAngle(perp), -Application.PI)
     Else
         Set comps(1) = CreateLineElement2(Nothing, L1, R1)                                              ' flat end cap (chord)
     End If
     Set comps(2) = CreateLineElement2(Nothing, R1, R0)                                                  ' right side
     If roundStart Then
-        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist, Dist, Matrix3dIdentity, Point3dPolarAngle(Point3dNegate(perp)), -Application.PI)
+        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist * CAP_RADIUS_FACTOR, Dist * CAP_RADIUS_FACTOR, Matrix3dIdentity, Point3dPolarAngle(Point3dNegate(perp)), -Application.PI)
     Else
         Set comps(3) = CreateLineElement2(Nothing, R0, L0)                                              ' flat start cap (chord)
     End If
@@ -1036,18 +1048,11 @@ End Sub
 ' NOTE: the input buffers are moved in place (near origin) as part of the workaround; callers
 ' must not reuse bufs() afterwards.
 '
-' A WHOLE-SET UNION THAT FAILS MUST NOT COST THE ELEMENT'S ZONE. GetRegionUnion is all-or-nothing and
-' it does fail on some sets: complexstring id=156357 gave 19 in, 0 out, and that cable's entire zone
-' was absent from the drawing while all 48 other elements merged cleanly.
-'
-' It is NOT a degenerate buffer. Folding the same 19 buffers in one at a time unions every one of
-' them - not a single rejection - and yields 2 shapes. So the same geometry that defeats one call
-' succeeds in nineteen, and the trigger is the set as a whole, not any member of it. Nor is it
-' disjointness on its own: the global fusion happily returns 12 shapes from 75 buffers.
-'
-' The single call therefore stays the fast path, and an empty result falls back to folding. A buffer
-' that will not union even then is KEPT as its own shape rather than dropped, so the area stays drawn
-' - unmerged at that spot - instead of disappearing, and the rejection is logged.
+' Three guards once lived here - fall back to folding the buffers one at a time when the union
+' returned nothing, returned MORE shapes than it was given, or left a buffer inside none of its
+' results. All three are gone: they treated symptoms of a union that misbehaves on exactly
+' coincident boundaries, fixed nothing, and broke a zone that had been merging correctly. The cause
+' is upstream, in the buffer geometry itself. Git history has them if the question reopens.
 ' ---------------------------------------------------------------------------
 Private Sub FuseRegions(ByRef bufs() As Element, _
                         ByVal nBuf As Long, _
@@ -1076,58 +1081,36 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Dim toOrigin   As Point3d
     Dim fromOrigin As Point3d
     Dim k          As Long
-    Dim nLost      As Long
     toOrigin = Point3dNegate(bufs(0).Range.High)
     fromOrigin = Point3dNegate(toOrigin)
     For k = 0 To nBuf - 1
         bufs(k).Move toOrigin
     Next k
 
-    ' Fast path: one union for the whole set.
-    UnionInto bufs, nBuf, outEls, nOutEls
+    ' GetRegionUnion expects region1 = a 1-element array (first shape) and region2 = the rest.
+    Dim region1(0 To 0) As Element
+    Set region1(0) = bufs(0)
+    Dim region2() As Element
+    ReDim region2(0 To nBuf - 2)
+    For k = 1 To nBuf - 1
+        Set region2(k - 1) = bufs(k)
+    Next k
 
-    ' Fallback: fold them one at a time when the whole-set union is provably wrong.
-    '
-    ' TWO conditions, and both are counts - no geometry, no tolerance, nothing that depends on
-    ' symbology (an earlier bounding-box check did, and condemned sound unions wholesale: Range
-    ' includes the stroke on the inputs and not on the results, so every output box came back inset by
-    ' a constant - see the cheatsheet).
-    '
-    '   nOut = 0     - it returned nothing at all.
-    '   nOut > nBuf  - it returned MORE shapes than it was given, which no union can do: every output
-    '                  component must contain at least one input, so N inputs yield at most N
-    '                  components. More means it FRAGMENTED an input instead of merging it. Measured
-    '                  on a two-cable drawing: "global : 2 in -> 3 out", one cable's zone cut in two.
-    '
-    ' What it still cannot see: a union that returns a plausible COUNT while quietly truncating one of
-    ' the shapes (complexstring id=157783 loses the end of its zone at 52 in -> 1 out).
-    If nOutEls = 0 Then
-        If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union gave nothing, folding one by one"
-        FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
-    ElseIf nOutEls > nBuf Then
-        If DebugMode Then DbgLine "FUSE " & sWhere & " : whole-set union FRAGMENTED (" & nBuf & " in -> " & _
-                                  nOutEls & " out), folding one by one"
-        ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shapes from " & _
-                                 nBuf & " inputs; a union cannot add components, so it split one. " & _
-                                 "Folded one by one instead", 0, "", "Zoning.FuseRegions"
-        FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
-    Else
-        ' Third condition, and the only one that sees a union with a plausible count that dropped a
-        ' shape anyway: a buffer whose own middle lands in no result. Measured on complexstring
-        ' id=157783 - 52 in, 1 out, and buffer 51, the LAST one, gone: the missing end of that zone.
-        ' Compared BEFORE the restore, so inputs and results share the same near-origin frame.
-        nLost = CountUncovered(bufs, nBuf, outEls, nOutEls, sWhere, DebugMode)
-        If nLost > 0 Then
-            ErrorHandler.HandleError sWhere & " - the whole-set union returned " & nOutEls & " shape(s) but " & _
-                                     nLost & " of its " & nBuf & " buffers are not inside any of them; " & _
-                                     "folded one by one instead", 0, "", "Zoning.FuseRegions"
-            FoldOneByOne bufs, nBuf, outEls, nOutEls, DebugMode, sWhere
-        End If
+    Dim oEnum As ElementEnumerator
+    Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
+    If oEnum Is Nothing Then
+        If DebugMode Then DbgLine "FUSE " & sWhere & " : " & nBuf & " in -> NOTHING (GetRegionUnion returned no enumerator)"
+        Exit Sub
     End If
 
-    For k = 0 To nOutEls - 1
-        outEls(k).Move fromOrigin                 ' restore to the original location
-    Next k
+    Dim resEl As Element
+    Do While oEnum.MoveNext
+        Set resEl = oEnum.Current
+        resEl.Move fromOrigin                 ' restore to the original location
+        ReDim Preserve outEls(0 To nOutEls)
+        Set outEls(nOutEls) = resEl
+        nOutEls = nOutEls + 1
+    Loop
 
     If DebugMode Then DbgLine "FUSE " & sWhere & " : " & nBuf & " in -> " & nOutEls & " out"
     Exit Sub
@@ -1138,228 +1121,6 @@ ErrorHandler:
     ErrorHandler.HandleError sWhere & " - " & nBuf & " in, " & nOutEls & " collected when it failed - " & _
                              Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
     If DebugMode Then DbgLine "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf
-End Sub
-
-' ReportUncovered
-' ---------------------------------------------------------------------------
-' Names the input buffers whose own middle does not land inside any result shape - i.e. the ones the
-' union quietly dropped. DebugMode only, read-only, and called BEFORE the results are moved back, so
-' inputs and results are in the same (near-origin) frame - and near the origin, where the ray cast is
-' not fighting the precision problem that the whole translation workaround exists for.
-'
-' A caveat when reading it: the fold keeps unusable buffers as their own result, so those buffers ARE
-' their own result shape and trivially test as covered.
-'
-' A point test, deliberately: it is the only invariant here that is immune to the symbology padding
-' in Element.Range, which is what made an earlier bounding-box check reject sound unions. Its own
-' limit is that it samples ONE point per buffer - the centre of its range - so a buffer clipped only
-' at its tip still reads as covered.
-' ---------------------------------------------------------------------------
-Private Function CountUncovered(ByRef bufs() As Element, ByVal nBuf As Long, _
-                                ByRef outEls() As Element, ByVal nOut As Long, _
-                                ByVal sWhere As String, ByVal DebugMode As Boolean) As Long
-    On Error GoTo ErrorHandler
-    CountUncovered = 0
-    If nOut <= 0 Or nBuf <= 0 Then Exit Function
-
-    Dim k      As Long
-    Dim j      As Long
-    Dim r      As Range3d
-    Dim pt     As Point3d
-    Dim bIn    As Boolean
-    Dim nLost  As Long
-
-    nLost = 0
-    For k = 0 To nBuf - 1
-        r = bufs(k).Range
-        pt.X = (r.Low.X + r.High.X) / 2#
-        pt.Y = (r.Low.Y + r.High.Y) / 2#
-        pt.Z = (r.Low.Z + r.High.Z) / 2#
-
-        ' The sample must be usable before it can accuse anything: a range centre falls OUTSIDE a long
-        ' sinuous shape, and such a buffer would be reported lost while sitting there in plain sight.
-        ' Measured: the global fusion called both its inputs dropped, both being cable-long ribbons.
-        If PointInShape(pt, bufs(k)) Then
-            bIn = False
-            For j = 0 To nOut - 1
-                If PointInShape(pt, outEls(j)) Then
-                    bIn = True
-                    Exit For
-                End If
-            Next j
-
-            If Not bIn Then
-                nLost = nLost + 1
-                If DebugMode And nLost <= 20 Then
-                    DbgLine "FUSE " & sWhere & " : buffer " & k & " DROPPED - its centre " & _
-                            Format(pt.X, "0.000") & ";" & Format(pt.Y, "0.000") & " is in no result shape"
-                End If
-            End If
-        End If
-    Next k
-
-    If nLost > 0 And DebugMode Then
-        DbgLine "FUSE " & sWhere & " : " & nLost & " of " & nBuf & " buffer(s) dropped by the union"
-    End If
-    CountUncovered = nLost
-    Exit Function
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.CountUncovered"
-    CountUncovered = 0
-End Function
-
-' PointInShape
-' ---------------------------------------------------------------------------
-' 2D ray cast: a horizontal ray from pt well past the shape's box, counting boundary crossings.
-' Odd = inside. Same technique as Length.PointInZone, which is Private to its own module.
-' ---------------------------------------------------------------------------
-Private Function PointInShape(ByRef pt As Point3d, ByVal oShape As Element) As Boolean
-    On Error GoTo ErrorHandler
-
-    Dim r       As Range3d
-    Dim ptEnd   As Point3d
-    Dim oRay    As LineElement
-    Dim isect() As Point3d
-    Dim n       As Long
-
-    r = oShape.Range
-    If pt.X < r.Low.X Or pt.X > r.High.X Then Exit Function
-    If pt.Y < r.Low.Y Or pt.Y > r.High.Y Then Exit Function
-
-    ptEnd.X = r.High.X + (r.High.X - r.Low.X) + 1#
-    ptEnd.Y = pt.Y
-    ptEnd.Z = pt.Z
-    Set oRay = CreateLineElement2(Nothing, pt, ptEnd)
-
-    Dim oIsect As IntersectableElement
-    Set oIsect = oRay
-    On Error Resume Next
-    isect = oIsect.GetIntersectionPoints(oShape, Matrix3dIdentity)
-    n = -1
-    n = UBound(isect)
-    On Error GoTo ErrorHandler
-
-    If n < 0 Then Exit Function
-    PointInShape = (((n + 1) Mod 2) = 1)
-    Exit Function
-
-ErrorHandler:
-    PointInShape = False
-End Function
-
-' UnionInto
-' ---------------------------------------------------------------------------
-' Unions els(0 .. n-1) in ONE GetRegionUnion call and collects the results, still near the origin.
-' Returns 0 results on any failure: it is a probe, so it swallows rather than raises.
-' ---------------------------------------------------------------------------
-Private Sub UnionInto(ByRef els() As Element, _
-                      ByVal n As Long, _
-                      ByRef outEls() As Element, _
-                      ByRef nOutEls As Long)
-    On Error GoTo Failed
-    nOutEls = 0
-    If n <= 0 Then Exit Sub
-
-    ' GetRegionUnion expects region1 = a 1-element array (first shape) and region2 = the rest.
-    Dim region1(0 To 0) As Element
-    Set region1(0) = els(0)
-    Dim region2() As Element
-    Dim k         As Long
-    ReDim region2(0 To n - 2)
-    For k = 1 To n - 1
-        Set region2(k - 1) = els(k)
-    Next k
-
-    Dim oEnum As ElementEnumerator
-    Set oEnum = GetRegionUnion(region1, region2, Nothing, msdFillModeNotFilled)
-    If oEnum Is Nothing Then Exit Sub
-
-    Do While oEnum.MoveNext
-        ReDim Preserve outEls(0 To nOutEls)
-        Set outEls(nOutEls) = oEnum.Current
-        nOutEls = nOutEls + 1
-    Loop
-    Exit Sub
-
-Failed:
-    nOutEls = 0
-End Sub
-
-' FoldOneByOne
-' ---------------------------------------------------------------------------
-' Folds the buffers into an accumulating set, one at a time. A buffer whose union fails is KEPT as
-' its own shape: the area it covers stays drawn, merely unmerged, which is what makes a degenerate
-' buffer cost itself instead of the whole element. Results stay near the origin; the caller restores.
-' ---------------------------------------------------------------------------
-Private Sub FoldOneByOne(ByRef bufs() As Element, _
-                         ByVal nBuf As Long, _
-                         ByRef outEls() As Element, _
-                         ByRef nOutEls As Long, _
-                         ByVal DebugMode As Boolean, _
-                         ByVal sWhere As String)
-    On Error GoTo ErrorHandler
-
-    Dim acc()  As Element
-    Dim nAcc   As Long
-    Dim tryEls() As Element
-    Dim nTry   As Long
-    Dim res()  As Element
-    Dim nRes   As Long
-    Dim k      As Long
-    Dim j      As Long
-    Dim nKept  As Long
-
-    ReDim acc(0 To 0)
-    Set acc(0) = bufs(0)
-    nAcc = 1
-    nKept = 0
-
-    For k = 1 To nBuf - 1
-        ReDim tryEls(0 To nAcc)
-        For j = 0 To nAcc - 1
-            Set tryEls(j) = acc(j)
-        Next j
-        Set tryEls(nAcc) = bufs(k)
-        nTry = nAcc + 1
-
-        UnionInto tryEls, nTry, res, nRes
-
-        ' Same count rule per step: a step that hands back more shapes than it was given has split
-        ' one, so treat it as a failed step rather than carry the fragments forward.
-        If nRes > nTry Then nRes = 0
-
-        If nRes > 0 Then
-            ReDim acc(0 To nRes - 1)
-            For j = 0 To nRes - 1
-                Set acc(j) = res(j)
-            Next j
-            nAcc = nRes
-        Else
-            ' Will not union with the rest: keep it standing on its own rather than lose its area.
-            ReDim Preserve acc(0 To nAcc)
-            Set acc(nAcc) = bufs(k)
-            nAcc = nAcc + 1
-            nKept = nKept + 1
-            If DebugMode Then DbgLine "FUSE " & sWhere & " : buffer " & k & " would not union - kept unmerged"
-        End If
-    Next k
-
-    If nKept > 0 Then
-        ErrorHandler.HandleError sWhere & " - " & nKept & " of " & nBuf & " buffer(s) would not union and were kept " & _
-                                 "unmerged; the zone is drawn but not clean at those spots", _
-                                 0, "", "Zoning.FoldOneByOne"
-    End If
-
-    ReDim outEls(0 To nAcc - 1)
-    For j = 0 To nAcc - 1
-        Set outEls(j) = acc(j)
-    Next j
-    nOutEls = nAcc
-    Exit Sub
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.FoldOneByOne"
 End Sub
 
 ' WriteDebugClones
