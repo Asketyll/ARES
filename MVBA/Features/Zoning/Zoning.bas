@@ -45,10 +45,6 @@ Private mnDbgShown As Long
 ' matrix aligning the primary axis with the segment. Worth doing if the millimetre ever shows.
 Private Const CAP_OVERLAP As Double = 0.001
 
-' Contour edges shorter than this are slivers left by that overlap and are removed from the merged
-' shape, its neighbours being made to meet - see CleanTinyEdges. Well above CAP_OVERLAP, well below
-' the shortest edge a real zone can have.
-Private Const CAP_SLIVER_TOL As Double = 0.25
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -1120,7 +1116,6 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Do While oEnum.MoveNext
         Set resEl = oEnum.Current
         resEl.Move fromOrigin                 ' restore to the original location
-        Set resEl = CleanTinyEdges(resEl, CAP_SLIVER_TOL)
         ReDim Preserve outEls(0 To nOutEls)
         Set outEls(nOutEls) = resEl
         nOutEls = nOutEls + 1
@@ -1136,159 +1131,6 @@ ErrorHandler:
                              Err.Description, Err.Number, Err.Source, "Zoning.FuseRegions"
     If DebugMode Then DbgLine "FUSE " & sWhere & " : FAILED after " & nOutEls & " of " & nBuf
 End Sub
-
-' CleanTinyEdges
-' ---------------------------------------------------------------------------
-' Rebuilds a merged shape without the slivers the union leaves behind, and returns it. Returns the
-' shape untouched when it is not a complex shape, when nothing is short enough to remove, or on any
-' failure - it is a cosmetic pass and must never cost a zone.
-'
-' Where the slivers come from: the round caps are built CAP_OVERLAP wider than the offset they close
-' (see the constant), so the union has a real crossing to work with instead of two exactly coincident
-' boundaries. That overlap survives in the result as a tiny arc between two long edges - 0.211 m on a
-' 2 m zoning distance. Geometrically harmless, but it litters the contour with sub-elements.
-'
-' How it closes the gap: the sliver is dropped and its neighbours are made to meet. StartPoint and
-' EndPoint are read/write on an ArcElement and READ-ONLY on a LineElement, so a line is recreated at
-' its new endpoint rather than edited, and an arc is edited in place. In practice a sliver sits
-' between two offset lines, so it is a line that gets recreated.
-'
-' The tolerance must stay well above CAP_OVERLAP and well below the shortest edge a real zone can
-' have: a cable segment shorter than it would have its offset line removed and the contour pulled
-' straight across. 0.25 m against a 1 mm overlap leaves both margins wide.
-' ---------------------------------------------------------------------------
-Private Function CleanTinyEdges(ByVal oShape As Element, ByVal dTol As Double) As Element
-    On Error GoTo ErrorHandler
-
-    Set CleanTinyEdges = oShape
-    If oShape Is Nothing Then Exit Function
-    If oShape.Type <> msdElementTypeComplexShape Then Exit Function
-
-    ' --- collect the sub-elements -------------------------------------------------------------
-    Dim subs()  As Element
-    Dim nSub    As Long
-    Dim oEE     As ElementEnumerator
-    Set oEE = oShape.AsComplexShapeElement.GetSubElements
-    nSub = 0
-    Do While oEE.MoveNext
-        ReDim Preserve subs(0 To nSub)
-        Set subs(nSub) = oEE.Current
-        nSub = nSub + 1
-    Loop
-    If nSub < 4 Then Exit Function          ' nothing to gain, and too few edges to stay closed
-
-    ' --- keep everything that is long enough ---------------------------------------------------
-    Dim keep()  As Element
-    Dim nKeep   As Long
-    Dim i       As Long
-    nKeep = 0
-    ReDim keep(0 To nSub - 1)
-    For i = 0 To nSub - 1
-        If EdgeLength(subs(i)) >= dTol Then
-            Set keep(nKeep) = subs(i)
-            nKeep = nKeep + 1
-        End If
-    Next i
-
-    If nKeep = nSub Then Exit Function      ' no sliver: hand back the original untouched
-    If nKeep < 3 Then Exit Function         ' would not close: leave it alone
-
-    ' --- make the survivors meet ---------------------------------------------------------------
-    ' One pass joining each edge to the next, then the closing join from the last back to the first.
-    For i = 0 To nKeep - 2
-        Set keep(i + 1) = JoinTo(keep(i), keep(i + 1))
-    Next i
-    Set keep(nKeep - 1) = JoinBack(keep(nKeep - 1), keep(0))
-
-    ' --- rebuild --------------------------------------------------------------------------------
-    Dim chain() As ChainableElement
-    ReDim chain(0 To nKeep - 1)
-    For i = 0 To nKeep - 1
-        Set chain(i) = keep(i)
-    Next i
-
-    Dim oNew As ComplexShapeElement
-    Set oNew = CreateComplexShapeElement1(chain, msdFillModeNotFilled)
-    If Not oNew Is Nothing Then Set CleanTinyEdges = oNew
-    Exit Function
-
-ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.CleanTinyEdges"
-    Set CleanTinyEdges = oShape
-End Function
-
-' EdgeLength
-' ---------------------------------------------------------------------------
-' Length of one contour edge. An arc reports its own length: its CHORD would be a trap, since a
-' nearly closed arc has a tiny chord and a large length, and would be mistaken for a sliver.
-' ---------------------------------------------------------------------------
-Private Function EdgeLength(ByVal oEl As Element) As Double
-    On Error GoTo ErrorHandler
-    Select Case oEl.Type
-        Case msdElementTypeArc
-            EdgeLength = oEl.AsArcElement.Length
-        Case msdElementTypeLine
-            EdgeLength = Point3dDistance(oEl.AsLineElement.StartPoint, oEl.AsLineElement.EndPoint)
-        Case Else
-            EdgeLength = Point3dDistance(oEl.AsChainableElement.StartPoint, oEl.AsChainableElement.EndPoint)
-    End Select
-    Exit Function
-ErrorHandler:
-    EdgeLength = 1E+30      ' unreadable: treat as long, so it is never removed
-End Function
-
-' JoinTo
-' ---------------------------------------------------------------------------
-' Returns oNext moved so that it starts exactly where oPrev ends. A line is recreated (its endpoints
-' are read-only); an arc has its StartPoint written (that one is read/write).
-' ---------------------------------------------------------------------------
-Private Function JoinTo(ByVal oPrev As Element, ByVal oNext As Element) As Element
-    On Error GoTo ErrorHandler
-
-    Set JoinTo = oNext
-
-    Dim ptEnd As Point3d
-    ptEnd = oPrev.AsChainableElement.EndPoint
-    If Point3dDistance(ptEnd, oNext.AsChainableElement.StartPoint) <= 0.000000001 Then Exit Function
-
-    Select Case oNext.Type
-        Case msdElementTypeLine
-            Set JoinTo = CreateLineElement2(Nothing, ptEnd, oNext.AsLineElement.EndPoint)
-        Case msdElementTypeArc
-            oNext.AsArcElement.StartPoint = ptEnd
-            Set JoinTo = oNext
-    End Select
-    Exit Function
-
-ErrorHandler:
-    Set JoinTo = oNext
-End Function
-
-' JoinBack
-' ---------------------------------------------------------------------------
-' Closes the contour: returns oLast ending exactly where oFirst starts.
-' ---------------------------------------------------------------------------
-Private Function JoinBack(ByVal oLast As Element, ByVal oFirst As Element) As Element
-    On Error GoTo ErrorHandler
-
-    Set JoinBack = oLast
-
-    Dim ptStart As Point3d
-    ptStart = oFirst.AsChainableElement.StartPoint
-    If Point3dDistance(ptStart, oLast.AsChainableElement.EndPoint) <= 0.000000001 Then Exit Function
-
-    Select Case oLast.Type
-        Case msdElementTypeLine
-            Set JoinBack = CreateLineElement2(Nothing, oLast.AsLineElement.StartPoint, ptStart)
-        Case msdElementTypeArc
-            oLast.AsArcElement.EndPoint = ptStart
-            Set JoinBack = oLast
-    End Select
-    Exit Function
-
-ErrorHandler:
-    Set JoinBack = oLast
-End Function
 
 ' WriteDebugClones
 ' ---------------------------------------------------------------------------
