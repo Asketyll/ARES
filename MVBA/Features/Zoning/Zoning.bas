@@ -1301,14 +1301,15 @@ End Function
 ' angle does not - an arc sweeping a fraction of a degree is contour noise whatever its radius.
 '
 ' Two guards make the stitching safe:
-'   - the arc is only dropped when BOTH its neighbours in the chain are straight (Line or
-'     LineString). Between two arcs it is left alone, because closing that gap would mean moving an
-'     arc's endpoint, and writing StartPoint/EndPoint on an ArcElement re-solves it through the new
-'     point - radius and sweep go wild, which is exactly how an earlier attempt produced arcs
-'     looping over themselves.
-'   - only the PREVIOUS neighbour is adjusted, never the next. One side moves, so no junction can be
-'     pulled twice. A Line is recreated (its endpoints are read-only); a LineString has its last
-'     vertex modified, ModifyVertex being zero-based like RemoveVertex.
+'   - ONE straight neighbour (Line or LineString) is enough, and it is that side which moves, onto
+'     the vanishing arc's own far end. Between two ARCS the sliver is left alone: closing that gap
+'     would mean moving an arc's endpoint, and writing StartPoint/EndPoint on an ArcElement
+'     re-solves it through the new point - radius and sweep go wild, which is how an earlier attempt
+'     produced arcs looping over themselves.
+'   - exactly one side moves, so no junction is ever pulled from both ends. The previous neighbour
+'     is preferred; the next one is used when the previous is an arc. A Line is recreated (its
+'     endpoints are read-only), a LineString has the relevant end vertex modified, ModifyVertex
+'     being zero-based like RemoveVertex.
 '
 ' The gap being closed is the arc's own chord: radius x sweep, so under a degree it is sub-millimetre
 ' on any zone this module produces.
@@ -1349,12 +1350,19 @@ Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double) 
             If Abs(subs(i).AsArcElement.SweepAngle) <= dMaxRad Then
                 iPrev = (i + nSub - 1) Mod nSub
                 iNext = (i + 1) Mod nSub
-                If IsStraight(subs(iPrev)) And IsStraight(subs(iNext)) Then
-                    If Not bDrop(iPrev) And Not bDrop(iNext) Then
-                        Set subs(iPrev) = ExtendTo(subs(iPrev), subs(iNext).AsChainableElement.StartPoint)
-                        bDrop(i) = True
-                        nGone = nGone + 1
-                    End If
+
+                ' ONE straight neighbour is enough, and that is the side that moves. What must never
+                ' happen is moving an ARC's endpoint: writing StartPoint/EndPoint on an ArcElement
+                ' re-solves it through the new point and its radius and sweep go wild. So the gap is
+                ' always closed from the straight side, onto the vanishing arc's own far end.
+                If IsStraight(subs(iPrev)) And Not bDrop(iPrev) Then
+                    Set subs(iPrev) = ExtendTo(subs(iPrev), subs(i).AsChainableElement.EndPoint)
+                    bDrop(i) = True
+                    nGone = nGone + 1
+                ElseIf IsStraight(subs(iNext)) And Not bDrop(iNext) Then
+                    Set subs(iNext) = StartFrom(subs(iNext), subs(i).AsChainableElement.StartPoint)
+                    bDrop(i) = True
+                    nGone = nGone + 1
                 End If
             End If
         End If
@@ -1412,6 +1420,32 @@ Private Function ExtendTo(ByVal oEl As Element, ByRef ptEnd As Point3d) As Eleme
 
 ErrorHandler:
     Set ExtendTo = oEl
+End Function
+
+' StartFrom
+' ---------------------------------------------------------------------------
+' Returns oEl starting at ptStart - the mirror of ExtendTo, for when the straight neighbour is the
+' one AFTER the arc being removed. A Line is recreated, its endpoints being read-only; a LineString
+' has its FIRST vertex modified. Only ever called on a straight edge - see IsStraight.
+' ---------------------------------------------------------------------------
+Private Function StartFrom(ByVal oEl As Element, ByRef ptStart As Point3d) As Element
+    On Error GoTo ErrorHandler
+
+    Set StartFrom = oEl
+
+    Select Case oEl.Type
+        Case msdElementTypeLine
+            Set StartFrom = CreateLineElement2(Nothing, ptStart, oEl.AsLineElement.EndPoint)
+        Case msdElementTypeLineString
+            Dim oVL As VertexList
+            Set oVL = oEl
+            oVL.ModifyVertex 0, ptStart                       ' zero-based, like RemoveVertex
+            Set StartFrom = oEl
+    End Select
+    Exit Function
+
+ErrorHandler:
+    Set StartFrom = oEl
 End Function
 
 ' WriteDebugClones
