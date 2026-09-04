@@ -62,6 +62,12 @@ Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
 ' fix it leads to.
 Private Const DIAG_FLAT_ARC As Boolean = True
 
+' TEMPORARY - the same idea for the short SEGMENTS. Asketyll still sees 0.010 m ones, and there are
+' three ways a segment survives: it sits at the tolerance, it is the first or last one of a
+' linestring, or it is a Line of its own in the contour, which no pass touches at all. The trace
+' names which. Remove with the fix it leads to.
+Private Const DIAG_TINY_SEG As Boolean = True
+
 ' Interior vertices closer than this SHARE of the offset distance are the zigzags the cap overlap
 ' leaves along a merged contour - see CleanTinyVertices. 0.005 is 1 cm at the 2 m zoning distance,
 ' ten times the overlap that creates them.
@@ -1226,10 +1232,20 @@ Private Function CleanTinyVertices(ByVal oShape As Element, ByVal dTol As Double
 
     Dim i        As Long
     Dim nDropped As Long
+    Dim dLine    As Double
     nDropped = 0
+
+    If DIAG_TINY_SEG Then DbgLine "SEG  contour with " & nSub & " subs, tolerance " & Format(dTol, "0.0000") & " m"
+
     For i = 0 To nSub - 1
         If subs(i).Type = msdElementTypeLineString Then
             nDropped = nDropped + ThinLineString(subs(i), dTol)
+        ElseIf DIAG_TINY_SEG Then
+            If subs(i).Type = msdElementTypeLine Then
+                dLine = Point3dDistance(subs(i).AsLineElement.StartPoint, subs(i).AsLineElement.EndPoint)
+                If dLine < dTol * 5# Then _
+                    DbgLine "SEG  #" & i & " " & Format(dLine, "0.0000") & " m -> kept: a LINE of its own, no pass touches it"
+            End If
         End If
     Next i
     If nDropped = 0 Then Exit Function       ' nothing to gain: hand back the original
@@ -1268,6 +1284,9 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
     verts = oVL.GetVertices
     Dim nV As Long
     nV = UBound(verts) - LBound(verts) + 1
+
+    If DIAG_TINY_SEG Then DiagSegments verts, dTol, nV
+
     If nV < 3 Then Exit Function              ' two vertices: a plain segment, no interior to drop
 
     ' Forward pass against the last KEPT vertex, so a run of micro-segments collapses to one point
@@ -1321,12 +1340,38 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
         oVL.RemoveVertex drop(i)
     Next i
 
+    If DIAG_TINY_SEG Then DbgLine "SEG  linestring: " & nV & " vertices, " & nDrop & " dropped"
     ThinLineString = nDrop
     Exit Function
 
 ErrorHandler:
     ThinLineString = 0
 End Function
+
+' TEMPORARY - names every short segment of one linestring and why it is a candidate or not. Goes
+' with DIAG_TINY_SEG.
+Private Sub DiagSegments(ByRef verts() As Point3d, ByVal dTol As Double, ByVal nV As Long)
+    On Error Resume Next
+
+    Dim i     As Long
+    Dim d     As Double
+    Dim sWhat As String
+
+    For i = LBound(verts) + 1 To UBound(verts)
+        d = Point3dDistance(verts(i), verts(i - 1))
+        If d < dTol * 5# Then
+            If i = LBound(verts) + 1 Then
+                sWhat = "FIRST segment - its start vertex is a junction and is never dropped"
+            ElseIf i = UBound(verts) Then
+                sWhat = "LAST segment - its end vertex is a junction; the predecessor is what has to go"
+            Else
+                sWhat = "interior"
+            End If
+            DbgLine "SEG  v" & (i - LBound(verts)) & "/" & (nV - 1) & " " & Format(d, "0.0000") & " m, " & sWhat & _
+                    IIf(d < dTol, " [under tolerance]", " [AT OR OVER tolerance]")
+        End If
+    Next i
+End Sub
 
 ' DropFlatArcs
 ' ---------------------------------------------------------------------------
