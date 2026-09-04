@@ -56,6 +56,12 @@ Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 Private Const ENABLE_VERTEX_THINNING As Boolean = True
 Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
 
+' TEMPORARY - traces every arc DropFlatArcs looks at and why it was kept, into DBG_FILE, whether or
+' not the caller asked for debug output. There to answer one question: when a sliver survives, is it
+' the angle, the length, the neighbours, or is the pass not seeing the shape at all. Remove with the
+' fix it leads to.
+Private Const DIAG_FLAT_ARC As Boolean = True
+
 ' Interior vertices closer than this SHARE of the offset distance are the zigzags the cap overlap
 ' leaves along a merged contour - see CleanTinyVertices. 0.005 is 1 cm at the 2 m zoning distance,
 ' ten times the overlap that creates them.
@@ -108,7 +114,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' Each run starts its own echo budget and its own block in the trace file.
     mnDbgShown = 0
-    If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
+    If DebugMode Or DIAG_FLAT_ARC Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
     Dim TargetLevel As Level
     Dim Elements()  As Element
@@ -1185,7 +1191,10 @@ Private Function CleanTinyVertices(ByVal oShape As Element, ByVal dTol As Double
 
     Set CleanTinyVertices = oShape
     If oShape Is Nothing Then Exit Function
-    If oShape.Type <> msdElementTypeComplexShape Then Exit Function
+    If oShape.Type <> msdElementTypeComplexShape Then
+        If DIAG_FLAT_ARC Then DbgLine "ARC  SKIPPED: written shape is element type " & oShape.Type & ", not a complex shape"
+        Exit Function
+    End If
 
     Dim subs()  As Element
     Dim nSub    As Long
@@ -1345,26 +1354,36 @@ Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double, 
         Set subs(nSub) = oEE.Current
         nSub = nSub + 1
     Loop
-    If nSub < 4 Then Exit Function
-
-    Dim dMaxRad As Double
-    dMaxRad = Abs(dMaxDeg) * Application.PI / 180#
+    If nSub < 4 Then
+        If DIAG_FLAT_ARC Then DbgLine "ARC  SKIPPED: only " & nSub & " sub-element(s)"
+        Exit Function
+    End If
 
     Dim bDrop() As Boolean
     ReDim bDrop(0 To nSub - 1)
 
-    Dim i     As Long
-    Dim iPrev As Long
-    Dim iNext As Long
-    Dim nGone As Long
+    Dim i      As Long
+    Dim iPrev  As Long
+    Dim iNext  As Long
+    Dim nGone  As Long
+    Dim nArcs  As Long
+    Dim dDeg   As Double
+    Dim dLen   As Double
     nGone = 0
+    nArcs = 0
+
+    If DIAG_FLAT_ARC Then DbgLine "ARC  zone with " & nSub & " subs, limits " & _
+                                  Format(dMaxDeg, "0.##") & " deg and " & Format(dMaxLen, "0.###") & " m"
 
     For i = 0 To nSub - 1
         If subs(i).Type = msdElementTypeArc Then
+            nArcs = nArcs + 1
+            dDeg = Abs(subs(i).AsArcElement.SweepAngle) * 180# / Application.PI
+            dLen = subs(i).AsArcElement.Length
+
             ' Nearly flat AND short. The sweep says the arc carries no curvature worth keeping; the
             ' length says it is a sliver and not a gentle bend spread over a large radius.
-            If Abs(subs(i).AsArcElement.SweepAngle) <= dMaxRad And _
-               subs(i).AsArcElement.Length <= dMaxLen Then
+            If dDeg <= dMaxDeg And dLen <= dMaxLen Then
                 iPrev = (i + nSub - 1) Mod nSub
                 iNext = (i + 1) Mod nSub
 
@@ -1376,15 +1395,29 @@ Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double, 
                     Set subs(iPrev) = ExtendTo(subs(iPrev), subs(i).AsChainableElement.EndPoint)
                     bDrop(i) = True
                     nGone = nGone + 1
+                    If DIAG_FLAT_ARC Then DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> DROPPED, previous edge extended"
                 ElseIf IsStraight(subs(iNext)) And Not bDrop(iNext) Then
                     Set subs(iNext) = StartFrom(subs(iNext), subs(i).AsChainableElement.StartPoint)
                     bDrop(i) = True
                     nGone = nGone + 1
+                    If DIAG_FLAT_ARC Then DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> DROPPED, next edge pulled back"
+                ElseIf DIAG_FLAT_ARC Then
+                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: neighbours are types " & _
+                            subs(iPrev).Type & " and " & subs(iNext).Type & ", no straight side free"
+                End If
+            ElseIf DIAG_FLAT_ARC Then
+                If dDeg > dMaxDeg And dLen > dMaxLen Then
+                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: over BOTH limits"
+                ElseIf dDeg > dMaxDeg Then
+                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: over the ANGLE limit"
+                Else
+                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: over the LENGTH limit"
                 End If
             End If
         End If
     Next i
 
+    If DIAG_FLAT_ARC Then DbgLine "ARC  zone done: " & nArcs & " arc(s) seen, " & nGone & " dropped"
     If nGone = 0 Then Exit Function
     If nSub - nGone < 3 Then Exit Function
 
@@ -1407,6 +1440,13 @@ Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double, 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.DropFlatArcs"
     Set DropFlatArcs = oShape
+End Function
+
+' TEMPORARY - one arc, formatted for the DIAG trace. Goes with DIAG_FLAT_ARC.
+Private Function DiagArc(ByVal dDeg As Double, ByVal dLen As Double) As String
+    Dim dRad As Double
+    If dDeg > 0 Then dRad = dLen / (dDeg * Application.PI / 180#)
+    DiagArc = Format(dDeg, "0.000") & " deg, " & Format(dLen, "0.0000") & " m, radius " & Format(dRad, "0.000") & " m"
 End Function
 
 ' True for the contour edges whose end can be moved safely - the straight ones.
@@ -1537,8 +1577,11 @@ Private Sub WriteEl(ByVal oElement As Element, _
     ' that work away. One pass, on the final shape, whatever the depth of merging.
     ' Dist = 0 means "do not touch": that is how the debug clones of pre-merge buffers come through.
     If Dist > 0 Then
+        If DIAG_FLAT_ARC Then DbgLine "WRITE zone, Dist=" & Format(Dist, "0.###") & ", element type " & oElement.Type
         If ENABLE_VERTEX_THINNING Then Set oElement = CleanTinyVertices(oElement, Dist * VERTEX_MERGE_RATIO)
         If ENABLE_FLAT_ARC_DROP Then Set oElement = DropFlatArcs(oElement, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO)
+    ElseIf DIAG_FLAT_ARC Then
+        DbgLine "WRITE Dist=0 - no cleanup (debug clone of a pre-merge buffer)"
     End If
 
     ApplySym oElement, TargetLevel, Color, Style, Weight
