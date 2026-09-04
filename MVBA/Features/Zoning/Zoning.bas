@@ -39,7 +39,29 @@ Private mnDbgShown As Long
 ' coordinates as whole UORs and a difference below the resolution rounds back onto the same UOR,
 ' leaving the boundaries exactly coincident and the bug with them. Check ActiveModelReference's
 ' resolution before trusting this at a distance far below a metre.
-Private Const CAP_OVERLAP_RATIO As Double = 0.0005
+'
+' =====================================================================================
+'  TEMPORARY EXPERIMENT - 2026-09-04 - NOT A SHIPPING STATE
+'
+'  Asketyll's question: now that the arc caps finally carry the cap overlap, is the overlap still
+'  needed at all - and with it, the whole contour cleanup? Neither reading the code nor arguing from
+'  the history settles it, so this build measures it on his own corpus.
+'
+'  Three values are moved off their shipping settings, and they are ALL of the changes:
+'      CAP_OVERLAP_RATIO       0.0005  ->  0        (no overlap at all)
+'      ENABLE_VERTEX_THINNING  True    ->  False    (no micro-segment thinning)
+'      ENABLE_FLAT_ARC_DROP    True    ->  False    (no sliver dropping)
+'
+'  And the coverage pass becomes the instrument: EXPERIMENT_MEASURE_ONLY makes it report on every run
+'  without DebugMode, and stops it REPAIRING. That second half matters - a repairing pass would fill
+'  the holes and hand back clean zones, which is exactly the answer we must not get by accident.
+'
+'  Reading the result: a "covered" on every element of every file means the overlap and the cleanup
+'  can both go. A single "NOT COVERED" means the union still needs the overlap, and the answer is no.
+' =====================================================================================
+Private Const EXPERIMENT_MEASURE_ONLY As Boolean = True
+
+Private Const CAP_OVERLAP_RATIO As Double = 0#
 
 ' Contour cleanup, one switch per pass - they were tested together and did not behave the same way.
 '
@@ -53,8 +75,8 @@ Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 ' distance. With the length capped at a share of the offset, the endpoint being moved travels at most
 ' the sliver's own chord. It still touches a junction rather than the inside of a single edge, which
 ' is the riskier operation of the two - if zones start deforming again, this is the switch to flip.
-Private Const ENABLE_VERTEX_THINNING As Boolean = True
-Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
+Private Const ENABLE_VERTEX_THINNING As Boolean = False
+Private Const ENABLE_FLAT_ARC_DROP As Boolean = False
 
 ' The floor for a straight piece of contour, as a SHARE of the offset distance. It governs both the
 ' interior vertices of a linestring (CleanTinyVertices) and a straight edge standing on its own in
@@ -155,7 +177,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' Each run starts its own echo budget and its own block in the trace file.
     mnDbgShown = 0
-    If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
+    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
     Dim TargetLevel As Level
     Dim Elements()  As Element
@@ -310,7 +332,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
             ' Area is what separates "absorbed but did not bridge" from "silently dropped", and the
             ' two call for opposite fixes. A union that swallowed the patches grows by most of their
             ' area; one that ignored them comes back the same size it went in.
-            If DebugMode Then _
+            If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
                 DbgLine "COVER fusion: " & nBefore & " zone(s) " & Format(dBefore, "0.00") & " m2" & _
                         " + " & nRep & " patch(es) " & Format(dPatch, "0.00") & " m2" & _
                         " -> " & nMergedAll & " zone(s) " & Format(TotalArea(mergedAll, nMergedAll), "0.00") & " m2"
@@ -421,26 +443,33 @@ Private Sub RepairUncovered(ByRef Elements() As Element, _
                 If dIn < dTotal - dSlack Then
                     bMiss(i) = True
                     nMissing = nMissing + 1
-                    If DebugMode Then _
+                    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
                         DbgLine "COVER #" & i & " type " & Elements(i).Type & " : " & Format(dIn, "0.000") & _
-                                " m inside of " & Format(dTotal, "0.000") & " m -> REBUILD"
-                ElseIf DebugMode Then
+                                " m inside of " & Format(dTotal, "0.000") & " m -> NOT COVERED"
+                ElseIf DebugMode Or EXPERIMENT_MEASURE_ONLY Then
                     DbgLine "COVER #" & i & " type " & Elements(i).Type & " : " & Format(dIn, "0.000") & _
                             " m inside of " & Format(dTotal, "0.000") & " m -> covered"
                 End If
-            ElseIf DebugMode Then
+            ElseIf DebugMode Or EXPERIMENT_MEASURE_ONLY Then
                 DbgLine "COVER #" & i & " type " & Elements(i).Type & " : length " & Format(dTotal, "0.000") & _
                         " m is under the slack, skipped"
             End If
-        ElseIf DebugMode Then
+        ElseIf DebugMode Or EXPERIMENT_MEASURE_ONLY Then
             DbgLine "COVER #" & i & " type " & Elements(i).Type & " : not measurable, skipped"
         End If
     Next i
 
-    If DebugMode Then _
+    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
         DbgLine "COVER verdict: " & nMissing & " of " & nTested & " measurable element(s) short, against " & _
                 nZones & " zone(s)"
     If nMissing = 0 Then Exit Sub
+
+    ' EXPERIMENT: measure and stop. Repairing here would fill the holes and hand back clean zones,
+    ' which is precisely the answer the experiment must not produce by accident.
+    If EXPERIMENT_MEASURE_ONLY Then
+        DbgLine "COVER experiment: measure-only, nothing repaired"
+        Exit Sub
+    End If
 
     ' The share test needs a sample big enough for a share to mean something - see COVERAGE_SANITY_MIN.
     If nTested >= COVERAGE_SANITY_MIN And nMissing > nTested * COVERAGE_SANITY_SHARE Then
@@ -462,7 +491,7 @@ Private Sub RepairUncovered(ByRef Elements() As Element, _
         End If
     Next i
 
-    If DebugMode Then DbgLine "COVER rebuilt " & nRep & " buffer(s) to merge back in"
+    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then DbgLine "COVER rebuilt " & nRep & " buffer(s) to merge back in"
     Exit Sub
 
 ErrorHandler:
@@ -614,7 +643,7 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
     If buf Is Nothing Then
         ' The builder itself declined this piece. That is worth saying out loud: it means the hole
         ' was never a merge failure, and no amount of re-merging will close it.
-        If DebugMode Then _
+        If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
             DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
                     " m, " & Format(dIn, "0.000") & " m inside -> NO BUFFER BUILT"
         Exit Sub
@@ -624,7 +653,7 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
     Set repBufs(nRep) = buf
     nRep = nRep + 1
 
-    If DebugMode Then _
+    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
         DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
                 " m, " & Format(dIn, "0.000") & " m inside -> buffer rebuilt"
     Exit Sub
