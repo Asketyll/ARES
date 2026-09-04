@@ -25,6 +25,11 @@ Private Const DBG_FILE As String = "C:\ARES\ARES_zoning_debug.log"
 Private Const DBG_ECHO_MAX As Long = 120
 Private mnDbgShown As Long
 
+' The cleanup factor for the run in progress, read once from config by Zoning and used by the
+' cleanup passes, which are reached through WriteEl and have no parameter to carry it. Zero until a
+' run sets it, which is the safe default: no run, no cleanup.
+Private mdCleanupFactor As Double
+
 ' Round end-caps are built a hair wider than the offset they close, as a RATIO of that offset.
 '
 ' At exactly Dist the cap circle is TANGENT to the two offset lines and to the neighbouring buffer's
@@ -39,36 +44,6 @@ Private mnDbgShown As Long
 ' coordinates as whole UORs and a difference below the resolution rounds back onto the same UOR,
 ' leaving the boundaries exactly coincident and the bug with them. Check ActiveModelReference's
 ' resolution before trusting this at a distance far below a metre.
-'
-' =====================================================================================
-'  TEMPORARY EXPERIMENT - 2026-09-04 - NOT A SHIPPING STATE
-'
-'  Asketyll's question: now that the arc caps finally carry the cap overlap, is the overlap still
-'  needed at all - and with it, the whole contour cleanup?
-'
-'  HALF of that is already answered, and by measurement. The 12:06 run of 2026-09-04 WAS the
-'  no-overlap case for arcs: a 323 m chain came out as two zones with 8.3 m outside them, and the
-'  union ignored 114.38 m2 of correctly rebuilt patches. Setting CAP_OVERLAP_RATIO to 0 would only
-'  reproduce that, and would take the line caps down with it - both builders read the same constant,
-'  so there is no such thing here as "everything except the last fix".
-'
-'  So the overlap STAYS at its shipping value and the experiment narrows to the half that is still
-'  open: with the union working properly, does the contour still need cleaning?
-'
-'      ENABLE_VERTEX_THINNING  True    ->  False    (no micro-segment thinning)
-'      ENABLE_FLAT_ARC_DROP    True    ->  False    (no sliver dropping)
-'      CAP_OVERLAP_RATIO       0.0005            unchanged - load-bearing, proven twice
-'
-'  And the coverage pass becomes the instrument: EXPERIMENT_MEASURE_ONLY makes it report on every run
-'  without DebugMode, and stops it REPAIRING. That second half matters - a repairing pass would fill
-'  the holes and hand back clean zones, which is exactly the answer we must not get by accident.
-'
-'  Reading the result: the log answers COVERAGE, your eyes answer CONTOUR, and both must pass. A
-'  "covered" everywhere says the cleanup was never holding the zones together - it was only tidying
-'  them. Whether what is left is tidy enough is the part no log can settle.
-' =====================================================================================
-Private Const EXPERIMENT_MEASURE_ONLY As Boolean = True
-
 Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 
 ' Contour cleanup, one switch per pass - they were tested together and did not behave the same way.
@@ -83,9 +58,23 @@ Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 ' distance. With the length capped at a share of the offset, the endpoint being moved travels at most
 ' the sliver's own chord. It still touches a junction rather than the inside of a single edge, which
 ' is the riskier operation of the two - if zones start deforming again, this is the switch to flip.
-Private Const ENABLE_VERTEX_THINNING As Boolean = False
-Private Const ENABLE_FLAT_ARC_DROP As Boolean = False
+Private Const ENABLE_VERTEX_THINNING As Boolean = True
+Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
 
+' The four thresholds below are the cleanup's own settings, and each is multiplied by
+' ARES_Zoning_Cleanup_Factor (default 1.0) before use - see mdCleanupFactor. One knob instead of four
+' numbers: 0 turns the cleanup off without recompiling, 1 is what was measured on Asketyll's corpus,
+' above 1 is more aggressive. The values stay written here as themselves, so each still reads as
+' "2 cm at a 2 m offset" instead of becoming meaningless in isolation.
+'
+' Three things are deliberately NOT on that knob, and must not be:
+'   - CAP_OVERLAP_RATIO is a numerical necessity, not a matter of taste. It is what stops the union
+'     losing whole buffers - proven twice, on lines and on arcs - and a factor of 0 would quietly
+'     take zones with it.
+'   - SLIVER_SWEEPS is a safety cap on a loop, not a threshold.
+'   - COVERAGE_* is the instrument that checks the result. An instrument you can tune until it
+'     agrees with you has stopped being one.
+'
 ' The floor for a straight piece of contour, as a SHARE of the offset distance. It governs both the
 ' interior vertices of a linestring (CleanTinyVertices) and a straight edge standing on its own in
 ' the chain (DropSliverEdges) - the same length has to meet the same fate wherever it sits.
@@ -185,7 +174,14 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' Each run starts its own echo budget and its own block in the trace file.
     mnDbgShown = 0
-    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
+
+    ' Read once here rather than per zone: Val, not CDbl, because ARES stores dot-decimals and CDbl
+    ' is locale-aware - on a French install CDbl("0.5") is 5, which would multiply every cleanup
+    ' threshold by ten. A missing or unreadable value means 1, the normal behaviour.
+    mdCleanupFactor = Val(Replace(ARESConfig.ARES_ZONING_CLEANUP_FACTOR.Value, ",", "."))
+    If mdCleanupFactor < 0 Then mdCleanupFactor = 0
+    If Len(Trim(ARESConfig.ARES_ZONING_CLEANUP_FACTOR.Value)) = 0 Then mdCleanupFactor = 1
+    If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
     Dim TargetLevel As Level
     Dim Elements()  As Element
@@ -340,7 +336,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
             ' Area is what separates "absorbed but did not bridge" from "silently dropped", and the
             ' two call for opposite fixes. A union that swallowed the patches grows by most of their
             ' area; one that ignored them comes back the same size it went in.
-            If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
+            If DebugMode Then _
                 DbgLine "COVER fusion: " & nBefore & " zone(s) " & Format(dBefore, "0.00") & " m2" & _
                         " + " & nRep & " patch(es) " & Format(dPatch, "0.00") & " m2" & _
                         " -> " & nMergedAll & " zone(s) " & Format(TotalArea(mergedAll, nMergedAll), "0.00") & " m2"
@@ -451,33 +447,26 @@ Private Sub RepairUncovered(ByRef Elements() As Element, _
                 If dIn < dTotal - dSlack Then
                     bMiss(i) = True
                     nMissing = nMissing + 1
-                    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
+                    If DebugMode Then _
                         DbgLine "COVER #" & i & " type " & Elements(i).Type & " : " & Format(dIn, "0.000") & _
                                 " m inside of " & Format(dTotal, "0.000") & " m -> NOT COVERED"
-                ElseIf DebugMode Or EXPERIMENT_MEASURE_ONLY Then
+                ElseIf DebugMode Then
                     DbgLine "COVER #" & i & " type " & Elements(i).Type & " : " & Format(dIn, "0.000") & _
                             " m inside of " & Format(dTotal, "0.000") & " m -> covered"
                 End If
-            ElseIf DebugMode Or EXPERIMENT_MEASURE_ONLY Then
+            ElseIf DebugMode Then
                 DbgLine "COVER #" & i & " type " & Elements(i).Type & " : length " & Format(dTotal, "0.000") & _
                         " m is under the slack, skipped"
             End If
-        ElseIf DebugMode Or EXPERIMENT_MEASURE_ONLY Then
+        ElseIf DebugMode Then
             DbgLine "COVER #" & i & " type " & Elements(i).Type & " : not measurable, skipped"
         End If
     Next i
 
-    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
+    If DebugMode Then _
         DbgLine "COVER verdict: " & nMissing & " of " & nTested & " measurable element(s) short, against " & _
                 nZones & " zone(s)"
     If nMissing = 0 Then Exit Sub
-
-    ' EXPERIMENT: measure and stop. Repairing here would fill the holes and hand back clean zones,
-    ' which is precisely the answer the experiment must not produce by accident.
-    If EXPERIMENT_MEASURE_ONLY Then
-        DbgLine "COVER experiment: measure-only, nothing repaired"
-        Exit Sub
-    End If
 
     ' The share test needs a sample big enough for a share to mean something - see COVERAGE_SANITY_MIN.
     If nTested >= COVERAGE_SANITY_MIN And nMissing > nTested * COVERAGE_SANITY_SHARE Then
@@ -499,7 +488,7 @@ Private Sub RepairUncovered(ByRef Elements() As Element, _
         End If
     Next i
 
-    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then DbgLine "COVER rebuilt " & nRep & " buffer(s) to merge back in"
+    If DebugMode Then DbgLine "COVER rebuilt " & nRep & " buffer(s) to merge back in"
     Exit Sub
 
 ErrorHandler:
@@ -651,7 +640,7 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
     If buf Is Nothing Then
         ' The builder itself declined this piece. That is worth saying out loud: it means the hole
         ' was never a merge failure, and no amount of re-merging will close it.
-        If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
+        If DebugMode Then _
             DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
                     " m, " & Format(dIn, "0.000") & " m inside -> NO BUFFER BUILT"
         Exit Sub
@@ -661,7 +650,7 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
     Set repBufs(nRep) = buf
     nRep = nRep + 1
 
-    If DebugMode Or EXPERIMENT_MEASURE_ONLY Then _
+    If DebugMode Then _
         DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
                 " m, " & Format(dIn, "0.000") & " m inside -> buffer rebuilt"
     Exit Sub
@@ -2086,15 +2075,22 @@ Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Ele
     Dim k    As Long
 
     Set oOut = oEl
-    If ENABLE_VERTEX_THINNING Then Set oOut = CleanTinyVertices(oOut, Dist * VERTEX_MERGE_RATIO)
+    If mdCleanupFactor <= 0 Then
+        Set CleanContour = oOut          ' factor 0: the cleanup is off, hand the contour back as it is
+        Exit Function
+    End If
+
+    If ENABLE_VERTEX_THINNING Then _
+        Set oOut = CleanTinyVertices(oOut, Dist * VERTEX_MERGE_RATIO * mdCleanupFactor)
 
     ' Swept until it settles - see SLIVER_SWEEPS. Dropping a sliver frees its neighbours to become
     ' droppable in turn, and one sweep can only ever see the chain it started with.
     If ENABLE_FLAT_ARC_DROP Then
         For k = 1 To SLIVER_SWEEPS
             Set oWas = oOut
-            Set oOut = DropSliverEdges(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO, _
-                                       Dist * VERTEX_MERGE_RATIO)
+            Set oOut = DropSliverEdges(oOut, FLAT_ARC_DEG * mdCleanupFactor, _
+                                       Dist * FLAT_ARC_LEN_RATIO * mdCleanupFactor, _
+                                       Dist * VERTEX_MERGE_RATIO * mdCleanupFactor)
             ' The pass hands back the SAME object when it dropped nothing: that is the fixed point.
             If oOut Is oWas Then Exit For
         Next k
@@ -2147,7 +2143,7 @@ Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
     Dim dBiggest As Double
     Dim dArea    As Double
 
-    dMinArea = Dist * Dist * MIN_CELL_PART_AREA_RATIO
+    dMinArea = Dist * Dist * MIN_CELL_PART_AREA_RATIO * mdCleanupFactor
     dBiggest = BiggestPart(oCell)
     bRestore = ActiveAreaHole
 

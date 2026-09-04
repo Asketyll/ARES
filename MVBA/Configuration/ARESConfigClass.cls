@@ -56,6 +56,8 @@ Public ARES_ZONING_OUTPUT_STYLE As ARES_MS_VAR_Class 'Default Value: 0          
 Public ARES_ZONING_OUTPUT_WEIGHT As ARES_MS_VAR_Class 'Default Value: 4            MicroStation line weight index (Long)
 ' Used in Zoning module for default buffer distance
 Public ARES_ZONING_DISTANCE As ARES_MS_VAR_Class 'Default Value: 2.0              Buffer distance in master units (Double)
+' Used in Zoning module to scale the contour cleanup - one knob over every cleanup threshold
+Public ARES_ZONING_CLEANUP_FACTOR As ARES_MS_VAR_Class 'Default Value: 1.0        0 = no cleanup, 1 = normal, >1 = more aggressive (Double)
 ' === Outline (tight per-element zoning variant) — own option set ===
 ' Used in Outline module for source level names to process
 Public ARES_OUTLINE_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)          can a array use | (ARES_VAR_DELIMITER)
@@ -191,6 +193,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0")
     Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4")
     Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0")
+    Set ARES_ZONING_CLEANUP_FACTOR = CreateConfigVar("ARES_Zoning_Cleanup_Factor", "1.0")
     Set ARES_OUTLINE_LEVEL = CreateConfigVar("ARES_Outline_Level", "")
     Set ARES_OUTLINE_DISTANCE = CreateConfigVar("ARES_Outline_Distance", "0.2")
     Set ARES_OUTLINE_OUTPUT_LEVEL = CreateConfigVar("ARES_Outline_Output_Level", "ARES_Outline")
