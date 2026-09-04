@@ -56,18 +56,6 @@ Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 Private Const ENABLE_VERTEX_THINNING As Boolean = True
 Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
 
-' TEMPORARY - traces every arc DropSliverEdges looks at and why it was kept, into DBG_FILE, whether or
-' not the caller asked for debug output. There to answer one question: when a sliver survives, is it
-' the angle, the length, the neighbours, or is the pass not seeing the shape at all. Remove with the
-' fix it leads to.
-Private Const DIAG_FLAT_ARC As Boolean = True
-
-' TEMPORARY - the same idea for the short SEGMENTS. Asketyll still sees 0.010 m ones, and there are
-' three ways a segment survives: it sits at the tolerance, it is the first or last one of a
-' linestring, or it is a Line of its own in the contour, which no pass touches at all. The trace
-' names which. Remove with the fix it leads to.
-Private Const DIAG_TINY_SEG As Boolean = True
-
 ' The floor for a straight piece of contour, as a SHARE of the offset distance. It governs both the
 ' interior vertices of a linestring (CleanTinyVertices) and a straight edge standing on its own in
 ' the chain (DropSliverEdges) - the same length has to meet the same fate wherever it sits.
@@ -147,7 +135,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' Each run starts its own echo budget and its own block in the trace file.
     mnDbgShown = 0
-    If DebugMode Or DIAG_FLAT_ARC Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
+    If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
     Dim TargetLevel As Level
     Dim Elements()  As Element
@@ -1224,10 +1212,7 @@ Private Function CleanTinyVertices(ByVal oShape As Element, ByVal dTol As Double
 
     Set CleanTinyVertices = oShape
     If oShape Is Nothing Then Exit Function
-    If oShape.Type <> msdElementTypeComplexShape Then
-        If DIAG_FLAT_ARC Then DbgLine "ARC  SKIPPED: written shape is element type " & oShape.Type & ", not a complex shape"
-        Exit Function
-    End If
+    If oShape.Type <> msdElementTypeComplexShape Then Exit Function
 
     Dim subs()  As Element
     Dim nSub    As Long
@@ -1243,20 +1228,10 @@ Private Function CleanTinyVertices(ByVal oShape As Element, ByVal dTol As Double
 
     Dim i        As Long
     Dim nDropped As Long
-    Dim dLine    As Double
     nDropped = 0
-
-    If DIAG_TINY_SEG Then DbgLine "SEG  contour with " & nSub & " subs, tolerance " & Format(dTol, "0.0000") & " m"
-
     For i = 0 To nSub - 1
         If subs(i).Type = msdElementTypeLineString Then
             nDropped = nDropped + ThinLineString(subs(i), dTol)
-        ElseIf DIAG_TINY_SEG Then
-            If subs(i).Type = msdElementTypeLine Then
-                dLine = Point3dDistance(subs(i).AsLineElement.StartPoint, subs(i).AsLineElement.EndPoint)
-                If dLine < dTol * 5# Then _
-                    DbgLine "SEG  #" & i & " " & Format(dLine, "0.0000") & " m -> kept: a LINE of its own, no pass touches it"
-            End If
         End If
     Next i
     If nDropped = 0 Then Exit Function       ' nothing to gain: hand back the original
@@ -1296,19 +1271,9 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
     Dim nV As Long
     nV = UBound(verts) - LBound(verts) + 1
 
-    If DIAG_TINY_SEG Then DiagSegments verts, dTol, nV
-
-    If nV < 3 Then
-        ' Two vertices is a plain segment with no interior. Nothing here can shorten it, and nothing
-        ' anywhere else either: this is the same dead end as a Line standing on its own.
-        If DIAG_TINY_SEG Then
-            If Point3dDistance(verts(UBound(verts)), verts(LBound(verts))) < dTol * 5# Then _
-                DbgLine "SEG  linestring of 2 vertices, " & _
-                        Format(Point3dDistance(verts(UBound(verts)), verts(LBound(verts))), "0.0000") & _
-                        " m -> kept: no interior vertex, no pass can shorten it"
-        End If
-        Exit Function
-    End If
+    ' Two vertices is a plain segment with no interior to thin. It is not a dead end though: a
+    ' two-vertex linestring is a straight edge, and DropSliverEdges takes it from there.
+    If nV < 3 Then Exit Function
 
     ' Forward pass against the last KEPT vertex, so a run of micro-segments collapses to one point
     ' instead of surviving as a chain of pairs each just under the tolerance.
@@ -1342,17 +1307,10 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
         End If
     End If
 
-    If nDrop = 0 Then
-        If DIAG_TINY_SEG Then DbgLine "SEG  linestring: " & nV & " vertices, NOTHING droppable"
-        Exit Function
-    End If
-    If nV - nDrop < 2 Then
-        ' Every vertex is a candidate: a linestring that is nothing but micro-segments. Thinning it
-        ' would leave fewer than the two endpoints, so it survives whole - see the note in the header.
-        If DIAG_TINY_SEG Then DbgLine "SEG  linestring: " & nV & " vertices, " & nDrop & _
-                                      " candidates REFUSED - would leave fewer than two vertices"
-        Exit Function
-    End If
+    If nDrop = 0 Then Exit Function
+    ' Every vertex a candidate means a linestring that is nothing but micro-segments. Thinning it
+    ' would leave fewer than the two endpoints, so it survives whole and DropSliverEdges gets it.
+    If nV - nDrop < 2 Then Exit Function
 
     ' Highest index first: removing a low one would shift every index after it. The closing test
     ' appends an index that is lower than the ones before it, so sort before removing.
@@ -1370,38 +1328,12 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
         oVL.RemoveVertex drop(i)
     Next i
 
-    If DIAG_TINY_SEG Then DbgLine "SEG  linestring: " & nV & " vertices, " & nDrop & " dropped"
     ThinLineString = nDrop
     Exit Function
 
 ErrorHandler:
     ThinLineString = 0
 End Function
-
-' TEMPORARY - names every short segment of one linestring and why it is a candidate or not. Goes
-' with DIAG_TINY_SEG.
-Private Sub DiagSegments(ByRef verts() As Point3d, ByVal dTol As Double, ByVal nV As Long)
-    On Error Resume Next
-
-    Dim i     As Long
-    Dim d     As Double
-    Dim sWhat As String
-
-    For i = LBound(verts) + 1 To UBound(verts)
-        d = Point3dDistance(verts(i), verts(i - 1))
-        If d < dTol * 5# Then
-            If i = LBound(verts) + 1 Then
-                sWhat = "FIRST segment - removable, its END vertex is the droppable one"
-            ElseIf i = UBound(verts) Then
-                sWhat = "LAST segment - removable, its PREDECESSOR is the droppable one"
-            Else
-                sWhat = "interior"
-            End If
-            DbgLine "SEG  v" & (i - LBound(verts)) & "/" & (nV - 1) & " " & Format(d, "0.0000") & " m, " & sWhat & _
-                    IIf(d < dTol, " [under tolerance]", " [AT OR OVER tolerance]")
-        End If
-    Next i
-End Sub
 
 ' DropSliverEdges
 ' ---------------------------------------------------------------------------
@@ -1453,10 +1385,7 @@ Private Function DropSliverEdges(ByVal oShape As Element, _
         Set subs(nSub) = oEE.Current
         nSub = nSub + 1
     Loop
-    If nSub < 4 Then
-        If DIAG_FLAT_ARC Then DbgLine "ARC  SKIPPED: only " & nSub & " sub-element(s)"
-        Exit Function
-    End If
+    If nSub < 4 Then Exit Function
 
     Dim bDrop() As Boolean
     ReDim bDrop(0 To nSub - 1)
@@ -1468,12 +1397,7 @@ Private Function DropSliverEdges(ByVal oShape As Element, _
     Dim dDeg   As Double
     Dim dLen   As Double
     Dim bGo    As Boolean
-    Dim sTag   As String
     nGone = 0
-
-    If DIAG_FLAT_ARC Then DbgLine "EDGE zone with " & nSub & " subs, limits " & Format(dMaxDeg, "0.##") & _
-                                  " deg, " & Format(dMaxLen, "0.###") & " m of arc, " & _
-                                  Format(dMinEdge, "0.####") & " m of straight edge"
 
     For i = 0 To nSub - 1
         bGo = False
@@ -1483,20 +1407,10 @@ Private Function DropSliverEdges(ByVal oShape As Element, _
             Case msdElementTypeArc
                 dDeg = Abs(subs(i).AsArcElement.SweepAngle) * 180# / Application.PI
                 dLen = subs(i).AsArcElement.Length
-                sTag = "ARC  #" & i & " " & DiagArc(dDeg, dLen)
 
                 ' Nearly flat AND short. The sweep says the arc carries no curvature worth keeping;
                 ' the length says it is a sliver, not a gentle bend spread over a large radius.
                 bGo = (dDeg <= dMaxDeg And dLen <= dMaxLen)
-                If Not bGo And DIAG_FLAT_ARC Then
-                    If dDeg > dMaxDeg And dLen > dMaxLen Then
-                        DbgLine sTag & " -> kept: over BOTH limits"
-                    ElseIf dDeg > dMaxDeg Then
-                        DbgLine sTag & " -> kept: over the ANGLE limit"
-                    Else
-                        DbgLine sTag & " -> kept: over the LENGTH limit"
-                    End If
-                End If
 
             Case msdElementTypeLine, msdElementTypeLineString
                 ' A straight edge shorter than the thinning tolerance. The SAME length inside a
@@ -1505,11 +1419,6 @@ Private Function DropSliverEdges(ByVal oShape As Element, _
                 ' segments outlived every pass. One tolerance, one outcome, wherever the segment sits.
                 dLen = StraightSliver(subs(i))
                 bGo = (dLen >= 0# And dLen < dMinEdge)
-                ' Named apart in the trace only: a one-segment linestring is a Line geometrically and
-                ' is treated as one, but seeing which is which is what tells a report of "a polyline
-                ' survived" from a report of "a line survived".
-                sTag = "EDGE #" & i & " " & Format(dLen, "0.0000") & " m " & _
-                       IIf(subs(i).Type = msdElementTypeLine, "(Line)", "(1-segment linestring)")
 
         End Select
 
@@ -1525,20 +1434,14 @@ Private Function DropSliverEdges(ByVal oShape As Element, _
                 Set subs(iPrev) = ExtendTo(subs(iPrev), subs(i).AsChainableElement.EndPoint)
                 bDrop(i) = True
                 nGone = nGone + 1
-                If DIAG_FLAT_ARC Then DbgLine sTag & " -> DROPPED, previous edge extended"
             ElseIf IsStraight(subs(iNext)) And Not bDrop(iNext) Then
                 Set subs(iNext) = StartFrom(subs(iNext), subs(i).AsChainableElement.StartPoint)
                 bDrop(i) = True
                 nGone = nGone + 1
-                If DIAG_FLAT_ARC Then DbgLine sTag & " -> DROPPED, next edge pulled back"
-            ElseIf DIAG_FLAT_ARC Then
-                DbgLine sTag & " -> kept: neighbours are types " & subs(iPrev).Type & " and " & _
-                        subs(iNext).Type & ", no straight side free"
             End If
         End If
     Next i
 
-    If DIAG_FLAT_ARC Then DbgLine "EDGE zone done: " & nGone & " of " & nSub & " sub-element(s) dropped"
     If nGone = 0 Then Exit Function
     If nSub - nGone < 3 Then Exit Function
 
@@ -1561,13 +1464,6 @@ Private Function DropSliverEdges(ByVal oShape As Element, _
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.DropSliverEdges"
     Set DropSliverEdges = oShape
-End Function
-
-' TEMPORARY - one arc, formatted for the DIAG trace. Goes with DIAG_FLAT_ARC.
-Private Function DiagArc(ByVal dDeg As Double, ByVal dLen As Double) As String
-    Dim dRad As Double
-    If dDeg > 0 Then dRad = dLen / (dDeg * Application.PI / 180#)
-    DiagArc = Format(dDeg, "0.000") & " deg, " & Format(dLen, "0.0000") & " m, radius " & Format(dRad, "0.000") & " m"
 End Function
 
 ' StraightSliver
@@ -1739,12 +1635,6 @@ Private Function UnwrapLoneCell(ByVal oCell As Element) As Element
     If oOnly Is Nothing Then Exit Function
 
     Set UnwrapLoneCell = oOnly
-    If DIAG_FLAT_ARC Then
-        DbgLine "CELL unwrapped: one part left, written on its own"
-        ' Worth knowing if it ever happens: the part left standing should be the outline, and the
-        ' outline is a solid. A lone hole means something upstream kept the wrong part.
-        If HoleOf(oOnly) Then DbgLine "CELL unwrapped a part still flagged as a HOLE - look upstream"
-    End If
     Exit Function
 
 ErrorHandler:
@@ -1757,10 +1647,9 @@ End Function
 ' passes hand the element back untouched when they cannot help, so this is safe on anything.
 ' ---------------------------------------------------------------------------
 Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Element
-    Dim oOut     As Element
-    Dim oWas     As Element
-    Dim k        As Long
-    Dim bSettled As Boolean
+    Dim oOut As Element
+    Dim oWas As Element
+    Dim k    As Long
 
     Set oOut = oEl
     If ENABLE_VERTEX_THINNING Then Set oOut = CleanTinyVertices(oOut, Dist * VERTEX_MERGE_RATIO)
@@ -1773,18 +1662,8 @@ Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Ele
             Set oOut = DropSliverEdges(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO, _
                                        Dist * VERTEX_MERGE_RATIO)
             ' The pass hands back the SAME object when it dropped nothing: that is the fixed point.
-            If oOut Is oWas Then
-                bSettled = True
-                Exit For
-            End If
+            If oOut Is oWas Then Exit For
         Next k
-
-        ' Leaving on the cap rather than on a settled contour is not a failure - the result is still
-        ' cleaner than it was - but it means the sweeps ran out, not that there was nothing left to
-        ' find. Measured contours needed at most four; if this ever fires, the cap is the thing to
-        ' raise, and knowing it beats guessing at it.
-        If DIAG_FLAT_ARC And Not bSettled Then _
-            DbgLine "EDGE contour STILL CHANGING after " & SLIVER_SWEEPS & " sweeps - stopped by the cap"
     End If
 
     Set CleanContour = oOut
@@ -1849,8 +1728,6 @@ Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
                 ' A crumb: too small to mean anything, and not the part that carries the zone.
                 oCell.DeleteCurrentElement
                 nGone = nGone + 1
-                If DIAG_FLAT_ARC Then DbgLine "CELL part deleted: " & Format(dArea, "0.0000") & " m2, under the " & _
-                                              Format(dMinArea, "0.###") & " m2 floor"
 
             ElseIf oChild.Type = msdElementTypeComplexShape Then
                 ' The rebuilt shape inherits the ACTIVE area mode, so hand it the child's own.
@@ -1862,9 +1739,6 @@ Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
                     If SameHoleFlag(oChild, oNew) Then
                         oCell.ReplaceCurrentElement oNew
                         nDone = nDone + 1
-                    ElseIf DIAG_FLAT_ARC Then
-                        DbgLine "CELL child left alone: original is " & IIf(bHole, "a hole", "solid") & _
-                                ", the cleaned copy came back " & IIf(bHole, "solid", "a hole")
                     End If
                 End If
             End If
@@ -1872,8 +1746,6 @@ Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
     Loop
 
     SetActiveAreaHole bRestore
-
-    If DIAG_FLAT_ARC Then DbgLine "CELL zone: " & nSeen & " part(s) inside, " & nGone & " deleted, " & nDone & " replaced"
     Exit Sub
 
 ErrorHandler:
@@ -1980,7 +1852,6 @@ Private Sub WriteEl(ByVal oElement As Element, _
     ' that work away. One pass, on the final shape, whatever the depth of merging.
     ' Dist = 0 means "do not touch": that is how the debug clones of pre-merge buffers come through.
     If Dist > 0 Then
-        If DIAG_FLAT_ARC Then DbgLine "WRITE zone, Dist=" & Format(Dist, "0.###") & ", element type " & oElement.Type
         If oElement.Type = msdElementTypeCellHeader Then
             ' A zone that has a hole comes back from the union as a CELL holding the outline and its
             ' island(s), not as a complex shape. Its contours are cleaned inside the cell, and the
@@ -1990,8 +1861,6 @@ Private Sub WriteEl(ByVal oElement As Element, _
         Else
             Set oElement = CleanContour(oElement, Dist)
         End If
-    ElseIf DIAG_FLAT_ARC Then
-        DbgLine "WRITE Dist=0 - no cleanup (debug clone of a pre-merge buffer)"
     End If
 
     ApplySym oElement, TargetLevel, Color, Style, Weight
