@@ -56,7 +56,7 @@ Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 Private Const ENABLE_VERTEX_THINNING As Boolean = True
 Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
 
-' TEMPORARY - traces every arc DropFlatArcs looks at and why it was kept, into DBG_FILE, whether or
+' TEMPORARY - traces every arc DropSliverEdges looks at and why it was kept, into DBG_FILE, whether or
 ' not the caller asked for debug output. There to answer one question: when a sliver survives, is it
 ' the angle, the length, the neighbours, or is the pass not seeing the shape at all. Remove with the
 ' fix it leads to.
@@ -74,7 +74,7 @@ Private Const DIAG_TINY_SEG As Boolean = True
 Private Const VERTEX_MERGE_RATIO As Double = 0.005
 
 ' An arc is dropped from a merged contour only when it is BOTH nearly flat AND short - see
-' DropFlatArcs. Neither test works alone: the angle alone straightens a long, gentle cable curve
+' DropSliverEdges. Neither test works alone: the angle alone straightens a long, gentle cable curve
 ' (length is radius x sweep, so a few degrees on a large radius is a real bend); the length alone
 ' would flatten a genuinely tight little corner.
 '
@@ -1392,16 +1392,21 @@ Private Sub DiagSegments(ByRef verts() As Point3d, ByVal dTol As Double, ByVal n
     Next i
 End Sub
 
-' DropFlatArcs
+' DropSliverEdges
 ' ---------------------------------------------------------------------------
-' Rebuilds a merged shape without its sliver arcs and returns it. Hands the shape back untouched
+' Rebuilds a merged shape without its sliver edges and returns it. Hands the shape back untouched
 ' when there is nothing to do or anything goes wrong: cosmetic pass, it must never cost a zone.
 '
-' The test is BOTH nearly flat AND short. The sweep angle says the arc carries no curvature worth
-' keeping; the length says it is a sliver and not a gentle bend spread over a large radius. The angle
-' alone would damage real geometry - an arc's length is radius x sweep, so 6 degrees on a big radius
-' is a long, deliberate cable curve, and dropping it would straighten a bend the drawing meant to
-' have.
+' Two kinds of sliver, one stitching:
+'   - an ARC that is BOTH nearly flat AND short. The sweep says it carries no curvature worth
+'     keeping; the length says it is a sliver and not a gentle bend spread over a large radius. The
+'     angle alone would damage real geometry - length is radius x sweep, so a few degrees on a big
+'     radius is a long, deliberate cable curve, and dropping it would straighten a bend the drawing
+'     meant to have.
+'   - a STRAIGHT edge shorter than the thinning tolerance. The same length inside a linestring is a
+'     vertex CleanTinyVertices drops without hesitation; standing on its own in the chain there was
+'     nothing at all to remove it, and a measured run found 1 cm Lines outliving every pass. One
+'     tolerance, one outcome, wherever the segment happens to sit.
 '
 ' Two guards make the stitching safe:
 '   - ONE straight neighbour (Line or LineString) is enough, and it is that side which moves, onto
@@ -1414,13 +1419,16 @@ End Sub
 '     endpoints are read-only), a LineString has the relevant end vertex modified, ModifyVertex
 '     being zero-based like RemoveVertex.
 '
-' The gap being closed is the arc's own chord: radius x sweep, so under a degree it is sub-millimetre
-' on any zone this module produces.
+' The gap being closed is the vanishing edge's own chord, which is why both criteria are size
+' criteria: nothing is ever dropped that would move a junction further than the sliver was long.
 ' ---------------------------------------------------------------------------
-Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double, ByVal dMaxLen As Double) As Element
+Private Function DropSliverEdges(ByVal oShape As Element, _
+                              ByVal dMaxDeg As Double, _
+                              ByVal dMaxLen As Double, _
+                              ByVal dMinEdge As Double) As Element
     On Error GoTo ErrorHandler
 
-    Set DropFlatArcs = oShape
+    Set DropSliverEdges = oShape
     If oShape Is Nothing Then Exit Function
     If oShape.Type <> msdElementTypeComplexShape Then Exit Function
 
@@ -1446,58 +1454,76 @@ Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double, 
     Dim iPrev  As Long
     Dim iNext  As Long
     Dim nGone  As Long
-    Dim nArcs  As Long
     Dim dDeg   As Double
     Dim dLen   As Double
+    Dim bGo    As Boolean
+    Dim sTag   As String
     nGone = 0
-    nArcs = 0
 
-    If DIAG_FLAT_ARC Then DbgLine "ARC  zone with " & nSub & " subs, limits " & _
-                                  Format(dMaxDeg, "0.##") & " deg and " & Format(dMaxLen, "0.###") & " m"
+    If DIAG_FLAT_ARC Then DbgLine "EDGE zone with " & nSub & " subs, limits " & Format(dMaxDeg, "0.##") & _
+                                  " deg, " & Format(dMaxLen, "0.###") & " m of arc, " & _
+                                  Format(dMinEdge, "0.####") & " m of straight edge"
 
     For i = 0 To nSub - 1
-        If subs(i).Type = msdElementTypeArc Then
-            nArcs = nArcs + 1
-            dDeg = Abs(subs(i).AsArcElement.SweepAngle) * 180# / Application.PI
-            dLen = subs(i).AsArcElement.Length
+        bGo = False
 
-            ' Nearly flat AND short. The sweep says the arc carries no curvature worth keeping; the
-            ' length says it is a sliver and not a gentle bend spread over a large radius.
-            If dDeg <= dMaxDeg And dLen <= dMaxLen Then
-                iPrev = (i + nSub - 1) Mod nSub
-                iNext = (i + 1) Mod nSub
+        Select Case subs(i).Type
 
-                ' ONE straight neighbour is enough, and that is the side that moves. What must never
-                ' happen is moving an ARC's endpoint: writing StartPoint/EndPoint on an ArcElement
-                ' re-solves it through the new point and its radius and sweep go wild. So the gap is
-                ' always closed from the straight side, onto the vanishing arc's own far end.
-                If IsStraight(subs(iPrev)) And Not bDrop(iPrev) Then
-                    Set subs(iPrev) = ExtendTo(subs(iPrev), subs(i).AsChainableElement.EndPoint)
-                    bDrop(i) = True
-                    nGone = nGone + 1
-                    If DIAG_FLAT_ARC Then DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> DROPPED, previous edge extended"
-                ElseIf IsStraight(subs(iNext)) And Not bDrop(iNext) Then
-                    Set subs(iNext) = StartFrom(subs(iNext), subs(i).AsChainableElement.StartPoint)
-                    bDrop(i) = True
-                    nGone = nGone + 1
-                    If DIAG_FLAT_ARC Then DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> DROPPED, next edge pulled back"
-                ElseIf DIAG_FLAT_ARC Then
-                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: neighbours are types " & _
-                            subs(iPrev).Type & " and " & subs(iNext).Type & ", no straight side free"
+            Case msdElementTypeArc
+                dDeg = Abs(subs(i).AsArcElement.SweepAngle) * 180# / Application.PI
+                dLen = subs(i).AsArcElement.Length
+                sTag = "ARC  #" & i & " " & DiagArc(dDeg, dLen)
+
+                ' Nearly flat AND short. The sweep says the arc carries no curvature worth keeping;
+                ' the length says it is a sliver, not a gentle bend spread over a large radius.
+                bGo = (dDeg <= dMaxDeg And dLen <= dMaxLen)
+                If Not bGo And DIAG_FLAT_ARC Then
+                    If dDeg > dMaxDeg And dLen > dMaxLen Then
+                        DbgLine sTag & " -> kept: over BOTH limits"
+                    ElseIf dDeg > dMaxDeg Then
+                        DbgLine sTag & " -> kept: over the ANGLE limit"
+                    Else
+                        DbgLine sTag & " -> kept: over the LENGTH limit"
+                    End If
                 End If
+
+            Case msdElementTypeLine, msdElementTypeLineString
+                ' A straight edge shorter than the thinning tolerance. The SAME length inside a
+                ' linestring is a vertex CleanTinyVertices removes without a second thought; standing
+                ' on its own in the chain there was nothing at all to remove it, which is why 1 cm
+                ' segments outlived every pass. One tolerance, one outcome, wherever the segment sits.
+                dLen = StraightSliver(subs(i))
+                bGo = (dLen >= 0# And dLen < dMinEdge)
+                sTag = "EDGE #" & i & " " & Format(dLen, "0.0000") & " m"
+
+        End Select
+
+        If bGo Then
+            iPrev = (i + nSub - 1) Mod nSub
+            iNext = (i + 1) Mod nSub
+
+            ' ONE straight neighbour is enough, and that is the side that moves. What must never
+            ' happen is moving an ARC's endpoint: writing StartPoint/EndPoint on an ArcElement
+            ' re-solves it through the new point and its radius and sweep go wild. So the gap is
+            ' always closed from the straight side, onto the vanishing edge's own far end.
+            If IsStraight(subs(iPrev)) And Not bDrop(iPrev) Then
+                Set subs(iPrev) = ExtendTo(subs(iPrev), subs(i).AsChainableElement.EndPoint)
+                bDrop(i) = True
+                nGone = nGone + 1
+                If DIAG_FLAT_ARC Then DbgLine sTag & " -> DROPPED, previous edge extended"
+            ElseIf IsStraight(subs(iNext)) And Not bDrop(iNext) Then
+                Set subs(iNext) = StartFrom(subs(iNext), subs(i).AsChainableElement.StartPoint)
+                bDrop(i) = True
+                nGone = nGone + 1
+                If DIAG_FLAT_ARC Then DbgLine sTag & " -> DROPPED, next edge pulled back"
             ElseIf DIAG_FLAT_ARC Then
-                If dDeg > dMaxDeg And dLen > dMaxLen Then
-                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: over BOTH limits"
-                ElseIf dDeg > dMaxDeg Then
-                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: over the ANGLE limit"
-                Else
-                    DbgLine "ARC  #" & i & " " & DiagArc(dDeg, dLen) & " -> kept: over the LENGTH limit"
-                End If
+                DbgLine sTag & " -> kept: neighbours are types " & subs(iPrev).Type & " and " & _
+                        subs(iNext).Type & ", no straight side free"
             End If
         End If
     Next i
 
-    If DIAG_FLAT_ARC Then DbgLine "ARC  zone done: " & nArcs & " arc(s) seen, " & nGone & " dropped"
+    If DIAG_FLAT_ARC Then DbgLine "EDGE zone done: " & nGone & " of " & nSub & " sub-element(s) dropped"
     If nGone = 0 Then Exit Function
     If nSub - nGone < 3 Then Exit Function
 
@@ -1514,12 +1540,12 @@ Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double, 
 
     Dim oNew As ComplexShapeElement
     Set oNew = CreateComplexShapeElement1(chain, msdFillModeNotFilled)
-    If Not oNew Is Nothing Then Set DropFlatArcs = oNew
+    If Not oNew Is Nothing Then Set DropSliverEdges = oNew
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.DropFlatArcs"
-    Set DropFlatArcs = oShape
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.DropSliverEdges"
+    Set DropSliverEdges = oShape
 End Function
 
 ' TEMPORARY - one arc, formatted for the DIAG trace. Goes with DIAG_FLAT_ARC.
@@ -1527,6 +1553,33 @@ Private Function DiagArc(ByVal dDeg As Double, ByVal dLen As Double) As String
     Dim dRad As Double
     If dDeg > 0 Then dRad = dLen / (dDeg * Application.PI / 180#)
     DiagArc = Format(dDeg, "0.000") & " deg, " & Format(dLen, "0.0000") & " m, radius " & Format(dRad, "0.000") & " m"
+End Function
+
+' StraightSliver
+' ---------------------------------------------------------------------------
+' The length of a contour edge that is straight from end to end, or -1 for anything else.
+'
+' A Line qualifies outright. A LineString qualifies only with exactly TWO vertices, which makes it
+' the same thing geometrically - a longer one has interior vertices, and those belong to
+' CleanTinyVertices, which thins them without touching either junction.
+' ---------------------------------------------------------------------------
+Private Function StraightSliver(ByVal oEl As Element) As Double
+    On Error GoTo ErrorHandler
+
+    StraightSliver = -1#
+
+    If oEl.Type = msdElementTypeLine Then
+        StraightSliver = Point3dDistance(oEl.AsLineElement.StartPoint, oEl.AsLineElement.EndPoint)
+    ElseIf oEl.Type = msdElementTypeLineString Then
+        Dim oVL As VertexList
+        Set oVL = oEl
+        If oVL.VerticesCount = 2 Then _
+            StraightSliver = Point3dDistance(oEl.AsChainableElement.StartPoint, oEl.AsChainableElement.EndPoint)
+    End If
+    Exit Function
+
+ErrorHandler:
+    StraightSliver = -1#        ' unmeasurable: never a candidate
 End Function
 
 ' True for the contour edges whose end can be moved safely - the straight ones.
@@ -1692,7 +1745,8 @@ Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Ele
     Dim oOut As Element
     Set oOut = oEl
     If ENABLE_VERTEX_THINNING Then Set oOut = CleanTinyVertices(oOut, Dist * VERTEX_MERGE_RATIO)
-    If ENABLE_FLAT_ARC_DROP Then Set oOut = DropFlatArcs(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO)
+    If ENABLE_FLAT_ARC_DROP Then Set oOut = DropSliverEdges(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO, _
+                                                         Dist * VERTEX_MERGE_RATIO)
     Set CleanContour = oOut
 End Function
 
