@@ -1576,6 +1576,49 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.AddOrWrite"
 End Sub
 
+' UnwrapLoneCell
+' ---------------------------------------------------------------------------
+' Returns the single part of a cell that has only one left, and the cell untouched otherwise.
+'
+' A zone with a hole arrives as a cell grouping the outline and its island(s). Once the size floor
+' has taken the crumbs out there is often nothing left but the outline, and a cell wrapped around one
+' shape groups nothing: it just makes the zone awkward to select and to measure.
+'
+' Deleting the cell costs nothing here because it was never written - WriteEl adds the element it is
+' handed, so returning the part instead of the cell IS the deletion. Do not move this anywhere the
+' cell already lives in the file.
+' ---------------------------------------------------------------------------
+Private Function UnwrapLoneCell(ByVal oCell As Element) As Element
+    On Error GoTo ErrorHandler
+
+    Set UnwrapLoneCell = oCell
+
+    Dim oEE    As ElementEnumerator
+    Dim oOnly  As Element
+    Dim nParts As Long
+
+    Set oEE = oCell.AsCellElement.GetSubElements
+    Do While oEE.MoveNext
+        nParts = nParts + 1
+        If nParts > 1 Then Exit Function          ' still grouping something: the cell stays
+        Set oOnly = oEE.Current
+    Loop
+    If nParts <> 1 Then Exit Function
+    If oOnly Is Nothing Then Exit Function
+
+    Set UnwrapLoneCell = oOnly
+    If DIAG_FLAT_ARC Then
+        DbgLine "CELL unwrapped: one part left, written on its own"
+        ' Worth knowing if it ever happens: the part left standing should be the outline, and the
+        ' outline is a solid. A lone hole means something upstream kept the wrong part.
+        If HoleOf(oOnly) Then DbgLine "CELL unwrapped a part still flagged as a HOLE - look upstream"
+    End If
+    Exit Function
+
+ErrorHandler:
+    Set UnwrapLoneCell = oCell
+End Function
+
 ' CleanContour
 ' ---------------------------------------------------------------------------
 ' Runs whichever cleanup passes are enabled over ONE closed contour and returns the result. Both
@@ -1782,8 +1825,10 @@ Private Sub WriteEl(ByVal oElement As Element, _
         If DIAG_FLAT_ARC Then DbgLine "WRITE zone, Dist=" & Format(Dist, "0.###") & ", element type " & oElement.Type
         If oElement.Type = msdElementTypeCellHeader Then
             ' A zone that has a hole comes back from the union as a CELL holding the outline and its
-            ' island(s), not as a complex shape. Its contours are cleaned inside the cell.
+            ' island(s), not as a complex shape. Its contours are cleaned inside the cell, and the
+            ' cell is dropped when the size floor leaves nothing for it to group.
             CleanCellChildren oElement.AsCellElement, Dist
+            Set oElement = UnwrapLoneCell(oElement)
         Else
             Set oElement = CleanContour(oElement, Dist)
         End If
