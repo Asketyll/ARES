@@ -68,14 +68,21 @@ Private Const DIAG_FLAT_ARC As Boolean = True
 Private Const VERTEX_MERGE_RATIO As Double = 0.005
 
 ' An arc is dropped from a merged contour only when it is BOTH nearly flat AND short - see
-' DropFlatArcs. The angle alone is wrong in a way that damages real geometry: an arc's length is
-' radius x sweep, so 6 degrees on a large radius is a long, gentle cable curve, and removing it
-' would straighten a bend the drawing meant to have.
+' DropFlatArcs. Neither test works alone: the angle alone straightens a long, gentle cable curve
+' (length is radius x sweep, so a few degrees on a large radius is a real bend); the length alone
+' would flatten a genuinely tight little corner.
 '
-' The angle stays an ANGLE, independent of the zone size. The length is a SHARE of the offset
-' distance: 0.125 is 0.25 m at the 2 m zoning distance, comfortably above the 0.211 m sliver
-' measured there, and it scales down with the offset instead of having to be re-picked.
-Private Const FLAT_ARC_DEG As Double = 6#
+' The length is a SHARE of the offset distance - 0.125 is 0.25 m at the 2 m zoning distance - so it
+' follows the offset instead of having to be re-picked.
+'
+' The angle is what these two constants have to be read TOGETHER for. The slivers come from the cap
+' circles, whose radius is the offset distance itself, so a sliver at the length limit sweeps
+' FLAT_ARC_LEN_RATIO radians - 7.16 degrees at 0.125. An angle limit below that cuts before the
+' length ever binds, and 6 was below it: a measured run kept ten cap slivers of 0.21 to 0.25 m
+' purely on 6.1 to 7.1 degrees. At 10 the length is the binding test on anything as round as a cap,
+' and the angle is left doing the only job it is good at - refusing to straighten a tight corner,
+' which at the length limit means a radius under 1.43 m.
+Private Const FLAT_ARC_DEG As Double = 10#
 Private Const FLAT_ARC_LEN_RATIO As Double = 0.125
 
 
