@@ -85,6 +85,15 @@ Private Const VERTEX_MERGE_RATIO As Double = 0.005
 Private Const FLAT_ARC_DEG As Double = 10#
 Private Const FLAT_ARC_LEN_RATIO As Double = 0.125
 
+' A part of a cell smaller than this SHARE of the offset distance SQUARED is dropped from the zone -
+' 0.25 gives 1 m2 at the 2 m zoning distance. A share again, not a fixed area, so it follows the
+' zoning distance instead of having to be re-picked; being an area it goes with the square.
+'
+' The biggest part is never dropped, whatever its size. Everything else in a cell is a crumb the
+' union left behind - a hole barely wider than the overlap, a scrap of outline - but the biggest one
+' IS the zone, and a zone smaller than the threshold has to survive it.
+Private Const MIN_CELL_PART_AREA_RATIO As Double = 0.25
+
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -1592,6 +1601,12 @@ End Function
 ' here that recreates a grouped hole, and CreateCellElement would give back a plain cell whose
 ' island renders as a second solid instead of a hole.
 '
+' Two things happen to each part. A part under MIN_CELL_PART_AREA_RATIO is DELETED outright - the
+' crumbs the union leaves inside a cell, holes barely wider than the cap overlap - except the
+' biggest part, which is the zone itself and is never dropped whatever its size. Everything that
+' survives is cleaned like any other contour. DeleteCurrentElement leaves the marker on the element
+' BEFORE the one it removed, so deleting inside the walk is safe and skips nothing.
+'
 ' StepThroughNestingChanges is False. A nested cell is not something this module produces, and
 ' stepping into one would hand back children this code has no business rewriting.
 '
@@ -1607,33 +1622,49 @@ End Function
 Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
     On Error GoTo ErrorHandler
 
-    Dim oChild As Element
-    Dim oNew    As Element
-    Dim nSeen   As Long
-    Dim nDone   As Long
-    Dim bHole   As Boolean
+    Dim oChild   As Element
+    Dim oNew     As Element
+    Dim nSeen    As Long
+    Dim nDone    As Long
+    Dim nGone    As Long
+    Dim bHole    As Boolean
     Dim bRestore As Boolean
+    Dim dMinArea As Double
+    Dim dBiggest As Double
+    Dim dArea    As Double
 
+    dMinArea = Dist * Dist * MIN_CELL_PART_AREA_RATIO
+    dBiggest = BiggestPart(oCell)
     bRestore = ActiveAreaHole
 
     oCell.ResetElementEnumeration
     Do While oCell.MoveToNextElement(False)
         Set oChild = oCell.CopyCurrentElement
-        If oChild.Type = msdElementTypeComplexShape Then
+        If IsAreaPart(oChild) Then
             nSeen = nSeen + 1
+            dArea = AreaOf(oChild)
 
-            ' The rebuilt shape inherits the ACTIVE area mode, so hand it the child's own.
-            bHole = HoleOf(oChild)
-            SetActiveAreaHole bHole
+            If dArea < dMinArea And dArea < dBiggest Then
+                ' A crumb: too small to mean anything, and not the part that carries the zone.
+                oCell.DeleteCurrentElement
+                nGone = nGone + 1
+                If DIAG_FLAT_ARC Then DbgLine "CELL part deleted: " & Format(dArea, "0.0000") & " m2, under the " & _
+                                              Format(dMinArea, "0.###") & " m2 floor"
 
-            Set oNew = CleanContour(oChild, Dist)
-            If Not oNew Is oChild Then
-                If SameHoleFlag(oChild, oNew) Then
-                    oCell.ReplaceCurrentElement oNew
-                    nDone = nDone + 1
-                ElseIf DIAG_FLAT_ARC Then
-                    DbgLine "CELL child left alone: original is " & IIf(bHole, "a hole", "solid") & _
-                            ", the cleaned copy came back " & IIf(bHole, "solid", "a hole")
+            ElseIf oChild.Type = msdElementTypeComplexShape Then
+                ' The rebuilt shape inherits the ACTIVE area mode, so hand it the child's own.
+                bHole = HoleOf(oChild)
+                SetActiveAreaHole bHole
+
+                Set oNew = CleanContour(oChild, Dist)
+                If Not oNew Is oChild Then
+                    If SameHoleFlag(oChild, oNew) Then
+                        oCell.ReplaceCurrentElement oNew
+                        nDone = nDone + 1
+                    ElseIf DIAG_FLAT_ARC Then
+                        DbgLine "CELL child left alone: original is " & IIf(bHole, "a hole", "solid") & _
+                                ", the cleaned copy came back " & IIf(bHole, "solid", "a hole")
+                    End If
                 End If
             End If
         End If
@@ -1641,7 +1672,7 @@ Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
 
     SetActiveAreaHole bRestore
 
-    If DIAG_FLAT_ARC Then DbgLine "CELL zone: " & nSeen & " complex shape(s) inside, " & nDone & " replaced"
+    If DIAG_FLAT_ARC Then DbgLine "CELL zone: " & nSeen & " part(s) inside, " & nGone & " deleted, " & nDone & " replaced"
     Exit Sub
 
 ErrorHandler:
@@ -1656,6 +1687,48 @@ Private Function SameHoleFlag(ByVal oA As Element, ByVal oB As Element) As Boole
     Exit Function
 ErrorHandler:
     SameHoleFlag = False
+End Function
+
+' True for the cell parts that enclose an area, the ones the size floor applies to.
+Private Function IsAreaPart(ByVal oEl As Element) As Boolean
+    Select Case oEl.Type
+        Case msdElementTypeComplexShape, msdElementTypeShape, msdElementTypeEllipse
+            IsAreaPart = True
+    End Select
+End Function
+
+' The area of one closed part. An unreadable area comes back huge, never small: a part is only ever
+' deleted on a measurement that succeeded.
+Private Function AreaOf(ByVal oEl As Element) As Double
+    On Error GoTo ErrorHandler
+    AreaOf = oEl.AsClosedElement.Area
+    Exit Function
+ErrorHandler:
+    AreaOf = 1E+30
+End Function
+
+' The area of the largest part in a cell - the one the size floor must never remove. Read through
+' GetSubElements rather than the cell cursor, which the caller is about to walk itself.
+Private Function BiggestPart(ByVal oCell As CellElement) As Double
+    On Error GoTo ErrorHandler
+
+    Dim oEE   As ElementEnumerator
+    Dim dMax  As Double
+    Dim dArea As Double
+
+    Set oEE = oCell.GetSubElements
+    Do While oEE.MoveNext
+        If IsAreaPart(oEE.Current) Then
+            dArea = AreaOf(oEE.Current)
+            If dArea > dMax Then dMax = dArea
+        End If
+    Loop
+
+    BiggestPart = dMax
+    Exit Function
+
+ErrorHandler:
+    BiggestPart = 0
 End Function
 
 ' The hole flag of one closed element, False when it cannot be read. Only ever used to choose the
