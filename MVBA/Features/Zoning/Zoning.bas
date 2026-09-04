@@ -308,7 +308,18 @@ Public Sub Zoning(Optional Lvls As Variant, _
                 Set again(nMergedAll + k) = repBufs(k)
             Next k
             nAgain = nMergedAll + nRep
+
+            Dim nBefore As Long
+            nBefore = nMergedAll
             FuseRegions again, nAgain, mergedAll, nMergedAll, DebugMode, "coverage repair"
+
+            ' The decisive line, and the one that was missing: a patch can be correct, be handed to
+            ' the union, and still come back as its own separate shape. Fewer zones out than in means
+            ' it welded; the same count or more means the union refused it, and no better patch will
+            ' change that.
+            If DebugMode Or DIAG_COVER Then _
+                DbgLine "COVER fusion: " & nBefore & " zone(s) + " & nRep & " patch(es) -> " & _
+                        nMergedAll & " zone(s)"
         End If
 
         For k = 0 To nMergedAll - 1
