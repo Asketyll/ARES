@@ -104,6 +104,13 @@ Private Const FLAT_ARC_LEN_RATIO As Double = 0.125
 ' IS the zone, and a zone smaller than the threshold has to survive it.
 Private Const MIN_CELL_PART_AREA_RATIO As Double = 0.25
 
+' How many times the sliver pass may sweep one contour. It judges a sliver by its NEIGHBOURS, and it
+' judges them on the chain as it stands - so a sliver between two arcs is refused even when both of
+' those arcs are dropped by the very same sweep, which is what a measured run showed happening to
+' every straight sliver without exception. The next sweep sees the rebuilt chain, where the arcs are
+' gone and the neighbours are straight, and takes it. Sweeping stops as soon as one changes nothing.
+Private Const SLIVER_SWEEPS As Long = 4
+
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -1746,11 +1753,25 @@ End Function
 ' passes hand the element back untouched when they cannot help, so this is safe on anything.
 ' ---------------------------------------------------------------------------
 Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Element
-    Dim oOut As Element
+    Dim oOut  As Element
+    Dim oWas  As Element
+    Dim k     As Long
+
     Set oOut = oEl
     If ENABLE_VERTEX_THINNING Then Set oOut = CleanTinyVertices(oOut, Dist * VERTEX_MERGE_RATIO)
-    If ENABLE_FLAT_ARC_DROP Then Set oOut = DropSliverEdges(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO, _
-                                                         Dist * VERTEX_MERGE_RATIO)
+
+    ' Swept until it settles - see SLIVER_SWEEPS. Dropping a sliver frees its neighbours to become
+    ' droppable in turn, and one sweep can only ever see the chain it started with.
+    If ENABLE_FLAT_ARC_DROP Then
+        For k = 1 To SLIVER_SWEEPS
+            Set oWas = oOut
+            Set oOut = DropSliverEdges(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO, _
+                                       Dist * VERTEX_MERGE_RATIO)
+            ' The pass hands back the SAME object when it dropped nothing: that is the fixed point.
+            If oOut Is oWas Then Exit For
+        Next k
+    End If
+
     Set CleanContour = oOut
 End Function
 
