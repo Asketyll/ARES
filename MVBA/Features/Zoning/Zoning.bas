@@ -310,16 +310,24 @@ Public Sub Zoning(Optional Lvls As Variant, _
             nAgain = nMergedAll + nRep
 
             Dim nBefore As Long
+            Dim dBefore As Double
+            Dim dPatch  As Double
             nBefore = nMergedAll
+            dBefore = TotalArea(mergedAll, nMergedAll)
+            dPatch = TotalArea(repBufs, nRep)
             FuseRegions again, nAgain, mergedAll, nMergedAll, DebugMode, "coverage repair"
 
             ' The decisive line, and the one that was missing: a patch can be correct, be handed to
             ' the union, and still come back as its own separate shape. Fewer zones out than in means
             ' it welded; the same count or more means the union refused it, and no better patch will
             ' change that.
+            ' Area is what separates "absorbed but did not bridge" from "silently dropped", and the
+            ' two call for opposite fixes. A union that swallowed the patches grows by most of their
+            ' area; one that ignored them comes back the same size it went in.
             If DebugMode Or DIAG_COVER Then _
-                DbgLine "COVER fusion: " & nBefore & " zone(s) + " & nRep & " patch(es) -> " & _
-                        nMergedAll & " zone(s)"
+                DbgLine "COVER fusion: " & nBefore & " zone(s) " & Format(dBefore, "0.00") & " m2" & _
+                        " + " & nRep & " patch(es) " & Format(dPatch, "0.00") & " m2" & _
+                        " -> " & nMergedAll & " zone(s) " & Format(TotalArea(mergedAll, nMergedAll), "0.00") & " m2"
         End If
 
         For k = 0 To nMergedAll - 1
@@ -638,6 +646,18 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.TestAndBuffer"
 End Sub
+
+' TEMPORARY - the summed area of a set of zones, skipping any whose area cannot be read (AreaOf
+' returns a huge sentinel for those, which would swamp the total). Goes with DIAG_COVER.
+Private Function TotalArea(ByRef els() As Element, ByVal n As Long) As Double
+    On Error Resume Next
+    Dim k As Long
+    Dim d As Double
+    For k = 0 To n - 1
+        d = AreaOf(els(k))
+        If d < 1E+29 Then TotalArea = TotalArea + d
+    Next k
+End Function
 
 ' True for the element types the coverage check can judge: Length must be able to measure them end
 ' to end, AND DispatchElement must build a zone for them. Both halves matter.
