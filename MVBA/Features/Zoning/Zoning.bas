@@ -47,12 +47,14 @@ Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 ' endpoints that join it to its neighbours cannot move and the contour cannot open. Nothing it does
 ' can be undone by the next junction.
 '
-' Dropping flat arcs is OFF: it proved unstable across a set of real files, behaving on one drawing
-' and misbehaving on the next. It has to move a neighbour's endpoint to close the gap the arc leaves,
-' which touches a junction rather than the inside of a single edge - a different kind of operation,
-' and evidently a riskier one. The code stays, unused, rather than being carried in the output.
+' Dropping flat arcs is ON again, now that the criterion also bounds the arc's LENGTH. It was turned
+' off after behaving on one drawing and misbehaving on the next, and the angle-only test is the likely
+' reason: it selected long, gently curved arcs, so closing their gap dragged a junction across a real
+' distance. With the length capped at a share of the offset, the endpoint being moved travels at most
+' the sliver's own chord. It still touches a junction rather than the inside of a single edge, which
+' is the riskier operation of the two - if zones start deforming again, this is the switch to flip.
 Private Const ENABLE_VERTEX_THINNING As Boolean = True
-Private Const ENABLE_FLAT_ARC_DROP As Boolean = False
+Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
 
 ' Interior vertices closer than this SHARE of the offset distance are the zigzags the cap overlap
 ' leaves along a merged contour - see CleanTinyVertices. 0.005 is 1 cm at the 2 m zoning distance,
