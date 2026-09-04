@@ -1595,35 +1595,53 @@ End Function
 ' StepThroughNestingChanges is False. A nested cell is not something this module produces, and
 ' stepping into one would hand back children this code has no business rewriting.
 '
-' The hole flag is the one thing that cannot be carried across: IsHole is READ-ONLY on a closed
-' element, and a shape rebuilt by CreateComplexShapeElement1 takes the ACTIVE area mode instead of
-' the one it replaces. So the replacement is compared with the original and abandoned when the flag
-' differs - a tidier contour is never worth turning a hole into a solid.
+' The hole flag cannot be written onto a finished element - IsHole is READ-ONLY on a closed element.
+' A shape rebuilt by CreateComplexShapeElement1 takes the ACTIVE area mode instead, so the active
+' mode is set to match each child BEFORE cleaning it and restored on the way out. A first run without
+' this replaced the outline and refused all three holes of a zone, which is what the check below was
+' there to catch.
+'
+' The check stays regardless: the replacement is compared with the original and abandoned when the
+' flag differs. A tidier contour is never worth turning a hole into a solid.
 ' ---------------------------------------------------------------------------
 Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
     On Error GoTo ErrorHandler
 
     Dim oChild As Element
-    Dim oNew   As Element
-    Dim nSeen  As Long
+    Dim oNew    As Element
+    Dim nSeen   As Long
+    Dim nDone   As Long
+    Dim bHole   As Boolean
+    Dim bRestore As Boolean
+
+    bRestore = ActiveAreaHole
 
     oCell.ResetElementEnumeration
     Do While oCell.MoveToNextElement(False)
         Set oChild = oCell.CopyCurrentElement
         If oChild.Type = msdElementTypeComplexShape Then
             nSeen = nSeen + 1
+
+            ' The rebuilt shape inherits the ACTIVE area mode, so hand it the child's own.
+            bHole = HoleOf(oChild)
+            SetActiveAreaHole bHole
+
             Set oNew = CleanContour(oChild, Dist)
             If Not oNew Is oChild Then
                 If SameHoleFlag(oChild, oNew) Then
                     oCell.ReplaceCurrentElement oNew
+                    nDone = nDone + 1
                 ElseIf DIAG_FLAT_ARC Then
-                    DbgLine "CELL child left alone: the cleaned copy came back with the opposite hole flag"
+                    DbgLine "CELL child left alone: original is " & IIf(bHole, "a hole", "solid") & _
+                            ", the cleaned copy came back " & IIf(bHole, "solid", "a hole")
                 End If
             End If
         End If
     Loop
 
-    If DIAG_FLAT_ARC Then DbgLine "CELL zone: " & nSeen & " complex shape(s) inside, cleaned in place"
+    SetActiveAreaHole bRestore
+
+    If DIAG_FLAT_ARC Then DbgLine "CELL zone: " & nSeen & " complex shape(s) inside, " & nDone & " replaced"
     Exit Sub
 
 ErrorHandler:
@@ -1639,6 +1657,37 @@ Private Function SameHoleFlag(ByVal oA As Element, ByVal oB As Element) As Boole
 ErrorHandler:
     SameHoleFlag = False
 End Function
+
+' The hole flag of one closed element, False when it cannot be read. Only ever used to choose the
+' active area mode; SameHoleFlag is what actually authorises a replacement.
+Private Function HoleOf(ByVal oEl As Element) As Boolean
+    On Error Resume Next
+    HoleOf = oEl.AsClosedElement.IsHole
+End Function
+
+' ActiveAreaHole / SetActiveAreaHole
+' ---------------------------------------------------------------------------
+' The ACTIVE area mode - hole or solid - which is what a newly created shape inherits, there being
+' no way to set the flag on a finished element.
+'
+' Reached LATE, through an Object variable, on purpose: the module must still compile against a
+' MicroStation whose Settings object does not expose AreaModeHole. Where it is missing, both calls
+' do nothing, the rebuilt holes come back solid, and SameHoleFlag refuses them - the zone keeps the
+' contour it had instead of losing its hole.
+' ---------------------------------------------------------------------------
+Private Function ActiveAreaHole() As Boolean
+    On Error Resume Next
+    Dim oSettings As Object
+    Set oSettings = ActiveSettings
+    ActiveAreaHole = oSettings.AreaModeHole
+End Function
+
+Private Sub SetActiveAreaHole(ByVal bHole As Boolean)
+    On Error Resume Next
+    Dim oSettings As Object
+    Set oSettings = ActiveSettings
+    oSettings.AreaModeHole = bHole
+End Sub
 
 ' WriteEl
 ' Applies symbology and adds the element to the active model.
