@@ -123,6 +123,11 @@ Private Const COVERAGE_SANITY_MIN As Long = 5
 ' asked for DebugMode. Remove once the pass is confirmed on a real file.
 Private Const DIAG_COVER As Boolean = True
 
+' TEMPORARY - while DIAG_COVER is on, each patch buffer is also written as a visible clone in this
+' colour so it can be inspected on its own before the union swallows it. Any index that differs from
+' the zoning colour will do; 3 is red in the standard table.
+Private Const DIAG_COVER_COLOR As Long = 3
+
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -285,6 +290,11 @@ Public Sub Zoning(Optional Lvls As Variant, _
                         DebugMode, RoundCaps, repBufs, nRep
 
         If nRep > 0 Then
+            ' A visible copy of each patch, before the union absorbs it: the only way to tell a patch
+            ' that was never built from one that was built and then merged away.
+            If DebugMode Or DIAG_COVER Then _
+                WriteDebugClones repBufs, nRep, TargetLevel, DIAG_COVER_COLOR, Style, Weight
+
             ' Fused WITH the zones rather than beside them: a gap in the middle of a cable can bridge
             ' two zones that were never joined, or fill a hole inside one, and only the union knows
             ' which. Feeding the zones back in is what lets either happen.
@@ -436,11 +446,14 @@ Private Sub RepairUncovered(ByRef Elements() As Element, _
         Exit Sub
     End If
 
-    ' Rebuild through the very same dispatchers the first pass used.
+    ' Rebuilt PIECE BY PIECE, never through the dispatcher. Going back through the dispatcher
+    ' reproduces the defect exactly: a complex chain fuses its own sub-buffers before emitting, so a
+    ' sub-element already lost there is lost again, and the repair hands back the very shapes that
+    ' were missing the piece. Measured: a 323 m chain came back as the same two zones it went in as.
     For i = LBound(Elements) To UBound(Elements)
         If bMiss(i) Then
-            DispatchElement Elements(i), Dist, TargetLevel, Color, Style, Weight, _
-                            repBufs, nRep, DebugMode, RoundCaps
+            CollectUncoveredPieces Elements(i), zones, Dist, RoundCaps, dSlack, _
+                                   repBufs, nRep, DebugMode
         End If
     Next i
 
@@ -451,6 +464,168 @@ ErrorHandler:
     ' A failure here must not cost the zones that were already merged: hand back nothing to add.
     nRep = 0
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.RepairUncovered"
+End Sub
+
+' CollectUncoveredPieces
+' ---------------------------------------------------------------------------
+' Walks ONE source element down to the pieces its buffers are actually built from - a Line, an Arc,
+' one segment of a linestring - measures each against the zones, and appends a buffer for every piece
+' that is not inside them. Nothing is written; the caller merges what comes back.
+'
+' Asketyll's rule, and the reason it has to be the pieces and not the element: the arc in the middle
+' of a 323 m chain was the thing missing from the zones, and rebuilding the chain around it rebuilt
+' the same hole. Only the piece itself can be put back.
+'
+' Caps follow the SAME rule as the first pass - CapRoundAt against the chain's own free ends - rather
+' than being rounded for safety. A round cap at a genuine free end would push the zone out by the
+' whole offset distance, which on RunOutline's 0.2 m is a fifth of the zone and plainly visible.
+' ---------------------------------------------------------------------------
+Private Sub CollectUncoveredPieces(ByVal oEl As Element, _
+                                   ByRef zones() As Element, _
+                                   ByVal Dist As Double, _
+                                   ByVal RoundCaps As Boolean, _
+                                   ByVal dSlack As Double, _
+                                   ByRef repBufs() As Element, _
+                                   ByRef nRep As Long, _
+                                   ByVal DebugMode As Boolean)
+    On Error GoTo ErrorHandler
+
+    Dim gStart   As Point3d
+    Dim gEnd     As Point3d
+    Dim allRound As Boolean
+    Dim tol      As Double
+
+    tol = Dist * ARES_CAP_MATCH_FRAC
+
+    ' Same free-end reading as the builders: a closed chain has none, so every cap is rounded.
+    If oEl.Type = msdElementTypeComplexShape Or oEl.Type = msdElementTypeShape Then
+        allRound = True
+    Else
+        gStart = oEl.AsChainableElement.StartPoint
+        gEnd = oEl.AsChainableElement.EndPoint
+        allRound = RoundCaps Or Point3dEqualTolerance(gStart, gEnd, tol)
+    End If
+
+    WalkPieces oEl, zones, Dist, dSlack, gStart, gEnd, allRound, tol, repBufs, nRep, DebugMode
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.CollectUncoveredPieces"
+End Sub
+
+' WalkPieces
+' ---------------------------------------------------------------------------
+' The recursive half of CollectUncoveredPieces. Descends a chain into its sub-elements, a linestring
+' into its segments, and tests the leaves. The chain's global ends travel down unchanged so a cap is
+' decided on the WHOLE cable's geometry, never on the fragment's.
+' ---------------------------------------------------------------------------
+Private Sub WalkPieces(ByVal oEl As Element, _
+                       ByRef zones() As Element, _
+                       ByVal Dist As Double, _
+                       ByVal dSlack As Double, _
+                       ByRef gStart As Point3d, _
+                       ByRef gEnd As Point3d, _
+                       ByVal allRound As Boolean, _
+                       ByVal tol As Double, _
+                       ByRef repBufs() As Element, _
+                       ByRef nRep As Long, _
+                       ByVal DebugMode As Boolean)
+    On Error GoTo ErrorHandler
+
+    Dim oEE   As ElementEnumerator
+    Dim oVL   As VertexList
+    Dim verts() As Point3d
+    Dim j     As Long
+    Dim oSeg  As Element
+
+    Select Case oEl.Type
+
+        Case msdElementTypeComplexString, msdElementTypeComplexShape
+            Set oEE = oEl.AsComplexElement.GetSubElements
+            Do While oEE.MoveNext
+                WalkPieces oEE.Current, zones, Dist, dSlack, gStart, gEnd, allRound, tol, _
+                           repBufs, nRep, DebugMode
+            Loop
+
+        Case msdElementTypeLineString, msdElementTypeShape
+            Set oVL = oEl
+            verts = oVL.GetVertices
+            For j = LBound(verts) To UBound(verts) - 1
+                Set oSeg = CreateLineElement2(Nothing, verts(j), verts(j + 1))
+                TestAndBuffer oSeg, zones, Dist, dSlack, gStart, gEnd, allRound, tol, _
+                              repBufs, nRep, DebugMode
+            Next j
+
+        Case msdElementTypeLine, msdElementTypeArc
+            TestAndBuffer oEl, zones, Dist, dSlack, gStart, gEnd, allRound, tol, _
+                          repBufs, nRep, DebugMode
+
+    End Select
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.WalkPieces"
+End Sub
+
+' TestAndBuffer
+' ---------------------------------------------------------------------------
+' One leaf piece: measure how much of it lies inside the zones and, if it is short, build its buffer
+' with the builder the first pass would have used and append it.
+' ---------------------------------------------------------------------------
+Private Sub TestAndBuffer(ByVal oPiece As Element, _
+                          ByRef zones() As Element, _
+                          ByVal Dist As Double, _
+                          ByVal dSlack As Double, _
+                          ByRef gStart As Point3d, _
+                          ByRef gEnd As Point3d, _
+                          ByVal allRound As Boolean, _
+                          ByVal tol As Double, _
+                          ByRef repBufs() As Element, _
+                          ByRef nRep As Long, _
+                          ByVal DebugMode As Boolean)
+    On Error GoTo ErrorHandler
+
+    Dim dTotal As Double
+    Dim dIn    As Double
+    Dim buf    As Element
+
+    dTotal = Length.GetLength(oPiece, RndLength:=False)
+    If dTotal <= dSlack Then Exit Sub
+
+    dIn = Length.GetPartialLengthInsideZones(oPiece, zones)
+    If dIn >= dTotal - dSlack Then Exit Sub
+
+    Select Case oPiece.Type
+        Case msdElementTypeLine
+            Set buf = BuildLineZone(oPiece, Dist, _
+                        CapRoundAt(oPiece.AsChainableElement.StartPoint, gStart, gEnd, allRound, tol), _
+                        CapRoundAt(oPiece.AsChainableElement.EndPoint, gStart, gEnd, allRound, tol))
+        Case msdElementTypeArc
+            Set buf = BuildArcZone(oPiece, Dist, _
+                        CapRoundAt(oPiece.AsChainableElement.StartPoint, gStart, gEnd, allRound, tol), _
+                        CapRoundAt(oPiece.AsChainableElement.EndPoint, gStart, gEnd, allRound, tol))
+    End Select
+
+    If buf Is Nothing Then
+        ' The builder itself declined this piece. That is worth saying out loud: it means the hole
+        ' was never a merge failure, and no amount of re-merging will close it.
+        If DebugMode Or DIAG_COVER Then _
+            DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
+                    " m, " & Format(dIn, "0.000") & " m inside -> NO BUFFER BUILT"
+        Exit Sub
+    End If
+
+    ReDim Preserve repBufs(0 To nRep)
+    Set repBufs(nRep) = buf
+    nRep = nRep + 1
+
+    If DebugMode Or DIAG_COVER Then _
+        DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
+                " m, " & Format(dIn, "0.000") & " m inside -> buffer rebuilt"
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.TestAndBuffer"
 End Sub
 
 ' True for the element types the coverage check can judge: Length must be able to measure them end
