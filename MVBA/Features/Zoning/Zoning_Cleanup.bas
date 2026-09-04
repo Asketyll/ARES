@@ -14,18 +14,6 @@ Option Explicit
 ' run sets it, which is the safe default: no run, no cleanup.
 Private mdCleanupFactor As Double
 
-' SetCleanupFactor
-' ---------------------------------------------------------------------------
-' Hands the cleanup its scale for the run about to start. Public because the value is read from
-' config by Zoning, which owns the run, while everything that uses it lives here. A negative factor
-' is clamped rather than refused: it can only have come from a typo in a config variable, and no
-' cleanup is a better answer to that than a negative threshold.
-' ---------------------------------------------------------------------------
-Public Sub SetCleanupFactor(ByVal dFactor As Double)
-    If dFactor < 0 Then dFactor = 0
-    mdCleanupFactor = dFactor
-End Sub
-
 ' Contour cleanup, one switch per pass - they were tested together and did not behave the same way.
 '
 ' Thinning micro-segments is ON: it only ever removes INTERIOR vertices of a linestring, so the
@@ -100,6 +88,18 @@ Private Const MIN_CELL_PART_AREA_RATIO As Double = 0.25
 ' every straight sliver without exception. The next sweep sees the rebuilt chain, where the arcs are
 ' gone and the neighbours are straight, and takes it. Sweeping stops as soon as one changes nothing.
 Private Const SLIVER_SWEEPS As Long = 4
+
+' SetCleanupFactor
+' ---------------------------------------------------------------------------
+' Hands the cleanup its scale for the run about to start. Public because the value is read from
+' config by Zoning, which owns the run, while everything that uses it lives here. A negative factor
+' is clamped rather than refused: it can only have come from a typo in a config variable, and no
+' cleanup is a better answer to that than a negative threshold.
+' ---------------------------------------------------------------------------
+Public Sub SetCleanupFactor(ByVal dFactor As Double)
+    If dFactor < 0 Then dFactor = 0
+    mdCleanupFactor = dFactor
+End Sub
 
 ' CleanTinyVertices
 ' ---------------------------------------------------------------------------
