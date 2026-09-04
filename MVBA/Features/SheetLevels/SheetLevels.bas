@@ -171,6 +171,120 @@ ErrorHandler:
     End If
 End Function
 
+' Read-only measurement, writes nothing anywhere. For every matching sheet model it reports how many of
+' its levels are OFF on each of the three axes that gate visibility - global display, freeze, and (for the
+' ACTIVE model only, the sole one whose views MVBA can reach) per-view display. It exists because
+' ActivateLevels' own "0 level(s) switched on" is ambiguous: it means the same thing whether nothing was
+' off in the first place or every commit silently failed, and SafeRewrite deliberately does not log.
+' Output goes to the .log, in English, one line per model, plus the Immediate window - same shape as the
+' CableReport diagnostics. Key-in: DiagSheetLevels.
+Public Sub DiagnoseLevels()
+    On Error GoTo ErrorHandler
+
+    If Not ARESConfig.IsInitialized Then Exit Sub
+    If Not Application.HasActiveDesignFile Then
+        DiagLine "DIAG SheetLevels: no active design file."
+        Exit Sub
+    End If
+
+    Dim sPattern As String
+    sPattern = ResolvePattern()
+    DiagLine "DIAG SheetLevels: pattern=[" & sPattern & "]"
+
+    Dim oModel As ModelReference
+    For Each oModel In ActiveDesignFile.Models
+        If oModel.Type = msdModelTypeSheet Then
+            If RuleGrammar.LikeAnyInListCI(oModel.Name, sPattern) Then DiagModel oModel
+        End If
+    Next
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.DiagnoseLevels"
+End Sub
+
+' One measured line for one model. Counts are taken with no write and no Rewrite.
+Private Sub DiagModel(ByVal oModel As ModelReference)
+    On Error GoTo ErrorHandler
+
+    Dim oLevels   As Levels
+    Dim oLevel    As Level
+    Dim nTotal    As Long
+    Dim nGlobalOff As Long
+    Dim nFrozen   As Long
+
+    Set oLevels = oModel.Levels
+    If oLevels Is Nothing Then
+        DiagLine "  " & oModel.Name & " | LEVELS COLLECTION IS NOTHING"
+        Exit Sub
+    End If
+
+    For Each oLevel In oLevels
+        nTotal = nTotal + 1
+        If Not oLevel.IsDisplayed Then nGlobalOff = nGlobalOff + 1
+        If oLevel.IsFrozen Then nFrozen = nFrozen + 1
+    Next
+
+    DiagLine "  " & oModel.Name & _
+             " | active=" & CStr(oModel.IsActive) & _
+             " | readOnly=" & CStr(oModel.IsReadOnly) & _
+             " | levels=" & CStr(nTotal) & _
+             " | globalDisplayOFF=" & CStr(nGlobalOff) & _
+             " | frozen=" & CStr(nFrozen)
+
+    ' Per-view display is only measurable on the ACTIVE model: ActiveDesignFile.Views is the active view
+    ' group's, and MVBA offers no way to reach another model's. One line per open view.
+    If oModel.IsActive Then DiagActiveViews oLevels
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.DiagModel"
+End Sub
+
+' Per-view "off" counts for the active model's open views. Each view is read through its own guarded
+' helper so a view index that does not resolve cannot abort the measurement.
+Private Sub DiagActiveViews(ByVal oLevels As Levels)
+    On Error GoTo ErrorHandler
+
+    Dim i As Long
+    For i = 1 To 8
+        DiagOneView oLevels, i
+    Next i
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.DiagActiveViews"
+End Sub
+
+Private Sub DiagOneView(ByVal oLevels As Levels, ByVal nIndex As Long)
+    On Error GoTo ErrorHandler
+
+    Dim oView   As View
+    Dim oLevel  As Level
+    Dim nViewOff As Long
+
+    Set oView = ActiveDesignFile.Views(nIndex)
+    If oView Is Nothing Then Exit Sub
+    If Not oView.IsOpen Then Exit Sub
+
+    For Each oLevel In oLevels
+        If Not oLevel.IsDisplayedInView(oView) Then nViewOff = nViewOff + 1
+    Next
+
+    DiagLine "      view " & CStr(nIndex) & " (open) | viewDisplayOFF=" & CStr(nViewOff)
+    Exit Sub
+
+ErrorHandler:
+    ' A view index that does not resolve is not a fault worth logging - it is simply not there.
+End Sub
+
+' Diagnostic output: the .log (so it can be copied out of a session) and the Immediate window.
+Private Sub DiagLine(ByVal sText As String)
+    On Error Resume Next
+    Debug.Print sText
+    ErrorHandler.HandleError sText, 0, "", "SheetLevels.Diag"
+End Sub
+
 ' Commits a level collection, reporting whether it worked. It lives in its OWN procedure on purpose:
 ' it is also called from DisplayAllLevels' ErrorHandler block, where that procedure's handler is already
 ' active and an inline On Error Resume Next would not reliably be in force. A fresh frame never is.

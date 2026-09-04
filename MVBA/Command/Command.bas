@@ -388,6 +388,27 @@ ErrorHandler:
     ReportFailure "ActivateSheetLevels", Err.Description, Err.Number, Err.Source
 End Sub
 
+' Key-in: measure, WITHOUT writing anything, why ActivateSheetLevels did or did not have an effect.
+' For every matching sheet model it reports the level count and how many levels are off on each of the
+' three axes that gate visibility (global display, freeze, and - for the active model only - per-view
+' display). Lines go to the ARES log and to the VBE Immediate window.
+Sub DiagSheetLevels()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    SheetLevels.DiagnoseLevels
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "DiagSheetLevels", Err.Description, Err.Number, Err.Source
+End Sub
+
 ' === TESTING COMMANDS ===
 
 ' Run all unit tests
