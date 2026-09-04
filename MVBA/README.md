@@ -53,6 +53,8 @@ For the repository as a whole (installer), see the [main README](../README.md).
 | | `Zoning/Zoning_Builders.bas` | offset-buffer geometry + the round/flat cap rule |
 | | `Zoning/Zoning_Cleanup.bas` | contour cleanup passes + the cell walk for holed zones |
 | | `Zoning/Zoning_Coverage.bas` | final check that no cable ends up outside its zone |
+
+Zoning's design rationale — why the cap overlap exists, how the cleanup thresholds were settled, and the dead ends not to re-try — lives in `_bmad/docs/zoning-mechanics.md`, which the modules point at. The code comments carry only what helps read the code.
 | | `ZoneExport/ExportLengthInRegion.bas` | sum element length inside zones → Excel (`ExportLength`) |
 | | `CableReport/CableReport.bas` (+ `CableReport_GUI_Options`) | one Excel row per cable: Repere end-cells + Nature/Longueur off the group + trenching length pivoted per soil-type value (`ExportCableReport`, `EditCableReportOptions`) |
 | | `RegionSplit/RegionSplit.bas` + `RegionSplitLocate.cls` | knife-cut a region in two (`SplitRegion`) |

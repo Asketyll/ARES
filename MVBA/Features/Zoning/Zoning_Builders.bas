@@ -2,6 +2,7 @@
 ' Description: Offset-buffer builders for the Zoning split - one shape per element type, plus the
 '              rule that decides which caps are round. Pure geometry: no model access, no
 '              module state, nothing read from config.
+' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: Geometry, ARESConstants, ErrorHandler
 
@@ -9,19 +10,6 @@ Option Explicit
 
 
 ' Round end-caps are built a hair wider than the offset they close, as a RATIO of that offset.
-'
-' At exactly Dist the cap circle is TANGENT to the two offset lines and to the neighbouring buffer's
-' flank: boundaries that coincide exactly, which is the case every boolean engine handles worst.
-' GetRegionUnion was seen to drop such a cap outright and with it the end of a zone, to split a
-' merged zone in two, and to leave a cap circle visible inside the result. All three went away at
-' once when the cap was widened.
-'
-' 0.0005 is 1 mm at the 2 m zoning distance - the value measured to work - and scales from there, so
-' a 0.2 m outline gets 0.1 mm rather than the same millimetre. Worth knowing at small distances: what
-' the overlap really has to clear is the file's STORAGE RESOLUTION, since MicroStation keeps
-' coordinates as whole UORs and a difference below the resolution rounds back onto the same UOR,
-' leaving the boundaries exactly coincident and the bug with them. Check ActiveModelReference's
-' resolution before trusting this at a distance far below a metre.
 Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 
 ' ============================================================
@@ -35,42 +23,6 @@ Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 ' BuildCellZone
 ' ---------------------------------------------------------------------------
 ' Creates a rounded rectangle aligned with the cell's own rotation axis.
-'
-' CONSTRUCTION PIPELINE (all coordinates are in cell-local space until Step 5):
-'
-'   Step 1: Read the cell's world-space axis-aligned bounding box (Range3d).
-'           A Range3d is always axis-aligned in world space, so a rotated cell
-'           will have a larger bbox than its actual footprint.
-'
-'   Step 2: Transform the 4 bbox corners from world space to cell-local space
-'           by translating to the cell origin, then multiplying by the inverse
-'           rotation matrix.  This removes the cell's rotation so we work in a
-'           simple axis-aligned coordinate system.
-'
-'   Step 3: Find the local-space extents (xMin, xMax, yMin, yMax).
-'           Because a rotated bbox is larger than the actual footprint, we MUST
-'           project all 4 corners — any one of them could be the min or max.
-'
-'   Step 4: Build the 8-component rounded rectangle in local space.
-'           Arc centers sit at the 4 corners of the local bbox.
-'           Each arc has radius = Dist and sweeps PI/2 (quarter circle).
-'           The 4 straight sides connect adjacent arc endpoints.
-'
-'           Diagram (D = Dist, corners = arc centers):
-'
-'           (x0, y1+D) ────────── (x1, y1+D)
-'          /                                  \
-'   (x0-D, y1)  [TL arc]       [TR arc]  (x1+D, y1)
-'       |                                       |
-'   (x0-D, y0)  [BL arc]       [BR arc]  (x1+D, y0)
-'          \                                  /
-'           (x0, y0-D) ────────── (x1, y0-D)
-'
-'           Where x0=xMin, y0=yMin, x1=xMax, y1=yMax (local space).
-'
-'   Step 5: Apply the forward transform (Rotation * P_local + Origin) to bring
-'           the shape back into world space with the correct rotation and position.
-' ---------------------------------------------------------------------------
 Public Function BuildCellZone(ByVal oEl As Element, ByVal Dist As Double) As Element
     On Error GoTo ErrorHandler
 
@@ -157,22 +109,6 @@ End Function
 ' BuildLineZone
 ' ---------------------------------------------------------------------------
 ' Creates a buffer zone around a straight line segment.
-'
-' FLAT caps  : 4-point closed rectangle (ShapeElement).
-' ROUND caps : stadium shape — a ComplexShapeElement with:
-'                - 2 straight sides parallel to the segment (offset by Dist left/right)
-'                - 2 semicircular end-caps (radius = Dist), one at each endpoint.
-'
-'   Top view (round caps):
-'          L0                L1
-'          ╭────────────────╮
-'         ╰                  ╯
-'          ╰────────────────╯
-'          R0       S     E  R1
-'
-'   Where S = segment start, E = segment end,
-'   L = left side (offset by perp), R = right side (offset by -perp).
-' ---------------------------------------------------------------------------
 Public Function BuildLineZone(ByVal oEl As Element, _
                                ByVal Dist As Double, _
                                ByVal roundStart As Boolean, _
@@ -243,7 +179,6 @@ End Function
 ' buffers are not cropped at sharp intermediate angles. When globalRoundOrClosed is True (the
 ' user asked for round caps everywhere, or the element is a closed shape with no free end) every
 ' cap is rounded and gStart/gEnd are ignored.
-' ---------------------------------------------------------------------------
 Public Function CapRoundAt(ByRef pt As Point3d, _
                             ByRef gStart As Point3d, _
                             ByRef gEnd As Point3d, _
@@ -261,33 +196,6 @@ End Function
 ' BuildArcZone
 ' ---------------------------------------------------------------------------
 ' Creates a buffer zone around an arc element.
-'
-' The outer and inner buffer arcs are built by cloning the source arc and
-' uniformly scaling its radius around the arc center.
-'
-' CASE A — Annular sector (arc radius > Dist):
-'   Both outer and inner arcs exist.
-'   Shape = outerArc | cap_at_end | innerArc_reversed | cap_at_start
-'
-'   Top view (round caps):
-'       ╭─── outerArc ───╮
-'      ╰  cap           cap  ╯
-'       ╰─── innerArc ───╯
-'
-' CASE B — Pie sector (arc radius <= Dist):
-'   The inner arc collapses toward the center.
-'   Shape = outerArc | cap_at_end | line_near_center | cap_at_start
-'
-' CASE C — Overlapping caps (arc spans nearly 360°):
-'   The semicircular end-caps intersect each other. In that case the inner
-'   arc is omitted and the two caps are trimmed to their intersection point.
-'   Shape = outerArc | trimmedCapEnd | trimmedCapStart
-'
-' Cap selection is per-end:
-'   roundEnd   = True  → semicircular cap at the arc END   point; False → straight radial cap
-'   roundStart = True  → semicircular cap at the arc START point; False → straight radial cap
-' Case C (caps overlapping, arc near 360°) only applies when BOTH caps are round.
-' ---------------------------------------------------------------------------
 Public Function BuildArcZone(ByVal oEl As Element, _
                               ByVal Dist As Double, _
                               ByVal roundStart As Boolean, _

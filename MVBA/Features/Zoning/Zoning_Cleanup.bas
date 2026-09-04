@@ -3,6 +3,7 @@
 '              drawn, plus the cell walk for a zone that has a hole. Everything here is
 '              cosmetic and must never cost a zone: each pass hands its input back
 '              untouched when it cannot help or anything goes wrong.
+' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ErrorHandler
 
@@ -15,17 +16,6 @@ Option Explicit
 Private mdCleanupFactor As Double
 
 ' Contour cleanup, one switch per pass - they were tested together and did not behave the same way.
-'
-' Thinning micro-segments is ON: it only ever removes INTERIOR vertices of a linestring, so the
-' endpoints that join it to its neighbours cannot move and the contour cannot open. Nothing it does
-' can be undone by the next junction.
-'
-' Dropping flat arcs is ON again, now that the criterion also bounds the arc's LENGTH. It was turned
-' off after behaving on one drawing and misbehaving on the next, and the angle-only test is the likely
-' reason: it selected long, gently curved arcs, so closing their gap dragged a junction across a real
-' distance. With the length capped at a share of the offset, the endpoint being moved travels at most
-' the sliver's own chord. It still touches a junction rather than the inside of a single edge, which
-' is the riskier operation of the two - if zones start deforming again, this is the switch to flip.
 Private Const ENABLE_VERTEX_THINNING As Boolean = True
 
 Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
@@ -35,40 +25,12 @@ Private Const ENABLE_FLAT_ARC_DROP As Boolean = True
 ' numbers: 0 turns the cleanup off without recompiling, 1 is what was measured on Asketyll's corpus,
 ' above 1 is more aggressive. The values stay written here as themselves, so each still reads as
 ' "2 cm at a 2 m offset" instead of becoming meaningless in isolation.
-'
-' Three things are deliberately NOT on that knob, and must not be:
-'   - CAP_OVERLAP_RATIO (in Zoning_Builders) is a numerical necessity, not a matter of taste. It is
-'     what stops the union
-'     losing whole buffers - proven twice, on lines and on arcs - and a factor of 0 would quietly
-'     take zones with it.
-'   - SLIVER_SWEEPS is a safety cap on a loop, not a threshold.
-'   - COVERAGE_* is the instrument that checks the result. An instrument you can tune until it
-'     agrees with you has stopped being one.
-'
-' The floor for a straight piece of contour, as a SHARE of the offset distance. It governs both the
-' interior vertices of a linestring (CleanTinyVertices) and a straight edge standing on its own in
-' the chain (DropSliverEdges) - the same length has to meet the same fate wherever it sits.
-'
-' 0.01 is 2 cm at the 2 m zoning distance. It was 0.005, and a measured run showed exactly what that
-' left behind: vertices at 0.0103 to 0.0194 m and Lines at 0.0116 and 0.0136 m, all sitting just the
-' wrong side of a 1 cm floor. 2 cm clears that family and is still a hundredth of the zone's width.
 Private Const VERTEX_MERGE_RATIO As Double = 0.01
 
 ' An arc is dropped from a merged contour only when it is BOTH nearly flat AND short - see
 ' DropSliverEdges. Neither test works alone: the angle alone straightens a long, gentle cable curve
 ' (length is radius x sweep, so a few degrees on a large radius is a real bend); the length alone
 ' would flatten a genuinely tight little corner.
-'
-' The length is a SHARE of the offset distance - 0.125 is 0.25 m at the 2 m zoning distance - so it
-' follows the offset instead of having to be re-picked.
-'
-' The angle is what these two constants have to be read TOGETHER for. The slivers come from the cap
-' circles, whose radius is the offset distance itself, so a sliver at the length limit sweeps
-' FLAT_ARC_LEN_RATIO radians - 7.16 degrees at 0.125. An angle limit below that cuts before the
-' length ever binds, and 6 was below it: a measured run kept ten cap slivers of 0.21 to 0.25 m
-' purely on 6.1 to 7.1 degrees. At 10 the length is the binding test on anything as round as a cap,
-' and the angle is left doing the only job it is good at - refusing to straighten a tight corner,
-' which at the length limit means a radius under 1.43 m.
 Private Const FLAT_ARC_DEG As Double = 10#
 
 Private Const FLAT_ARC_LEN_RATIO As Double = 0.125
@@ -76,10 +38,6 @@ Private Const FLAT_ARC_LEN_RATIO As Double = 0.125
 ' A part of a cell smaller than this SHARE of the offset distance SQUARED is dropped from the zone -
 ' 0.25 gives 1 m2 at the 2 m zoning distance. A share again, not a fixed area, so it follows the
 ' zoning distance instead of having to be re-picked; being an area it goes with the square.
-'
-' The biggest part is never dropped, whatever its size. Everything else in a cell is a crumb the
-' union left behind - a hole barely wider than the overlap, a scrap of outline - but the biggest one
-' IS the zone, and a zone smaller than the threshold has to survive it.
 Private Const MIN_CELL_PART_AREA_RATIO As Double = 0.25
 
 ' How many times the sliver pass may sweep one contour. It judges a sliver by its NEIGHBOURS, and it
@@ -95,7 +53,6 @@ Private Const SLIVER_SWEEPS As Long = 4
 ' config by Zoning, which owns the run, while everything that uses it lives here. A negative factor
 ' is clamped rather than refused: it can only have come from a typo in a config variable, and no
 ' cleanup is a better answer to that than a negative threshold.
-' ---------------------------------------------------------------------------
 Public Sub SetCleanupFactor(ByVal dFactor As Double)
     If dFactor < 0 Then dFactor = 0
     mdCleanupFactor = dFactor
@@ -106,22 +63,6 @@ End Sub
 ' Rebuilds a merged shape with the micro-segments removed from INSIDE its linestrings, and returns
 ' it. Hands the shape back untouched when there is nothing to do or anything goes wrong: this is a
 ' cosmetic pass and must never cost a zone.
-'
-' Where they come from: the round caps are built CAP_OVERLAP wider than the offset they close (see
-' the constant), which is what stopped the union misbehaving on exactly coincident boundaries. The
-' overlap survives in the result as 1 mm zigzags along the contour.
-'
-' Two deliberate limits, both learned the hard way on this module:
-'   - ONLY interior vertices, never the first or the last. The endpoints are what join a linestring
-'     to its neighbours in the chain, so leaving them alone means the contour cannot open and no
-'     junction has to be stitched.
-'   - ARCS ARE NOT TOUCHED, at all. StartPoint/EndPoint are writable on an ArcElement but writing
-'     them does not move the arc: it re-solves it through the new point, and radius and sweep go
-'     wild. An earlier attempt did exactly that and produced arcs looping over themselves.
-'
-' RemoveVertex is ZERO-based, unlike most indexes in this object library - the docs say so
-' explicitly. Vertices are dropped highest-index-first so the lower ones stay valid.
-' ---------------------------------------------------------------------------
 Private Function CleanTinyVertices(ByVal oShape As Element, ByVal dTol As Double) As Element
     On Error GoTo ErrorHandler
 
@@ -172,7 +113,8 @@ End Function
 ' Drops the interior vertices that sit closer than dTol to the last one kept, and returns how many
 ' went. The first and last vertices are never candidates. Modifies oEl in place; the caller rebuilds
 ' the parent shape around it.
-' ---------------------------------------------------------------------------
+' RemoveVertex is ZERO-based, unlike most indexes in this library. Vertices are dropped
+' highest-index-first so the lower ones stay valid.
 Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As Long
     On Error GoTo ErrorHandler
 
@@ -254,32 +196,6 @@ End Function
 ' ---------------------------------------------------------------------------
 ' Rebuilds a merged shape without its sliver edges and returns it. Hands the shape back untouched
 ' when there is nothing to do or anything goes wrong: cosmetic pass, it must never cost a zone.
-'
-' Two kinds of sliver, one stitching:
-'   - an ARC that is BOTH nearly flat AND short. The sweep says it carries no curvature worth
-'     keeping; the length says it is a sliver and not a gentle bend spread over a large radius. The
-'     angle alone would damage real geometry - length is radius x sweep, so a few degrees on a big
-'     radius is a long, deliberate cable curve, and dropping it would straighten a bend the drawing
-'     meant to have.
-'   - a STRAIGHT edge shorter than the thinning tolerance. The same length inside a linestring is a
-'     vertex CleanTinyVertices drops without hesitation; standing on its own in the chain there was
-'     nothing at all to remove it, and a measured run found 1 cm Lines outliving every pass. One
-'     tolerance, one outcome, wherever the segment happens to sit.
-'
-' Two guards make the stitching safe:
-'   - ONE straight neighbour (Line or LineString) is enough, and it is that side which moves, onto
-'     the vanishing arc's own far end. Between two ARCS the sliver is left alone: closing that gap
-'     would mean moving an arc's endpoint, and writing StartPoint/EndPoint on an ArcElement
-'     re-solves it through the new point - radius and sweep go wild, which is how an earlier attempt
-'     produced arcs looping over themselves.
-'   - exactly one side moves, so no junction is ever pulled from both ends. The previous neighbour
-'     is preferred; the next one is used when the previous is an arc. A Line is recreated (its
-'     endpoints are read-only), a LineString has the relevant end vertex modified, ModifyVertex
-'     being zero-based like RemoveVertex.
-'
-' The gap being closed is the vanishing edge's own chord, which is why both criteria are size
-' criteria: nothing is ever dropped that would move a junction further than the sliver was long.
-' ---------------------------------------------------------------------------
 Private Function DropSliverEdges(ByVal oShape As Element, _
                               ByVal dMaxDeg As Double, _
                               ByVal dMaxLen As Double, _
@@ -384,11 +300,6 @@ End Function
 ' StraightSliver
 ' ---------------------------------------------------------------------------
 ' The length of a contour edge that is straight from end to end, or -1 for anything else.
-'
-' A Line qualifies outright. A LineString qualifies only with exactly TWO vertices, which makes it
-' the same thing geometrically - a longer one has interior vertices, and those belong to
-' CleanTinyVertices, which thins them without touching either junction.
-' ---------------------------------------------------------------------------
 Private Function StraightSliver(ByVal oEl As Element) As Double
     On Error GoTo ErrorHandler
 
@@ -417,7 +328,6 @@ End Function
 ' ---------------------------------------------------------------------------
 ' Returns oEl ending at ptEnd. A Line is recreated, its endpoints being read-only; a LineString has
 ' its LAST vertex modified in place. Only ever called on a straight edge - see IsStraight.
-' ---------------------------------------------------------------------------
 Private Function ExtendTo(ByVal oEl As Element, ByRef ptEnd As Point3d) As Element
     On Error GoTo ErrorHandler
 
@@ -443,7 +353,6 @@ End Function
 ' Returns oEl starting at ptStart - the mirror of ExtendTo, for when the straight neighbour is the
 ' one AFTER the arc being removed. A Line is recreated, its endpoints being read-only; a LineString
 ' has its FIRST vertex modified. Only ever called on a straight edge - see IsStraight.
-' ---------------------------------------------------------------------------
 Private Function StartFrom(ByVal oEl As Element, ByRef ptStart As Point3d) As Element
     On Error GoTo ErrorHandler
 
@@ -467,15 +376,8 @@ End Function
 ' UnwrapLoneCell
 ' ---------------------------------------------------------------------------
 ' Returns the single part of a cell that has only one left, and the cell untouched otherwise.
-'
-' A zone with a hole arrives as a cell grouping the outline and its island(s). Once the size floor
-' has taken the crumbs out there is often nothing left but the outline, and a cell wrapped around one
-' shape groups nothing: it just makes the zone awkward to select and to measure.
-'
-' Deleting the cell costs nothing here because it was never written - WriteEl adds the element it is
-' handed, so returning the part instead of the cell IS the deletion. Do not move this anywhere the
-' cell already lives in the file.
-' ---------------------------------------------------------------------------
+' Must stay on the caller's side of AddElement: returning the part INSTEAD of the cell is what
+' deletes the cell, and only works while the cell has not been written.
 Public Function UnwrapLoneCell(ByVal oCell As Element) As Element
     On Error GoTo ErrorHandler
 
@@ -505,7 +407,6 @@ End Function
 ' ---------------------------------------------------------------------------
 ' Runs whichever cleanup passes are enabled over ONE closed contour and returns the result. Both
 ' passes hand the element back untouched when they cannot help, so this is safe on anything.
-' ---------------------------------------------------------------------------
 Public Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Element
     Dim oOut As Element
     Dim oWas As Element
@@ -538,34 +439,12 @@ End Function
 
 ' CleanCellChildren
 ' ---------------------------------------------------------------------------
-' Cleans the contours held INSIDE a cell, in place. A zone with a hole is returned by the union as a
-' cell grouping two or more complex shapes - the outline and its island(s) - so it used to reach
-' WriteEl as element type 2 and both passes declined it on the spot, leaving those zones with every
-' sliver they were born with.
-'
-' The cell is walked with its OWN cursor - ResetElementEnumeration, MoveToNextElement,
-' CopyCurrentElement, ReplaceCurrentElement - and never rebuilt from its children: there is no API
-' here that recreates a grouped hole, and CreateCellElement would give back a plain cell whose
-' island renders as a second solid instead of a hole.
-'
-' Two things happen to each part. A part under MIN_CELL_PART_AREA_RATIO is DELETED outright - the
-' crumbs the union leaves inside a cell, holes barely wider than the cap overlap - except the
-' biggest part, which is the zone itself and is never dropped whatever its size. Everything that
-' survives is cleaned like any other contour. DeleteCurrentElement leaves the marker on the element
-' BEFORE the one it removed, so deleting inside the walk is safe and skips nothing.
-'
-' StepThroughNestingChanges is False. A nested cell is not something this module produces, and
-' stepping into one would hand back children this code has no business rewriting.
-'
-' The hole flag cannot be written onto a finished element - IsHole is READ-ONLY on a closed element.
-' A shape rebuilt by CreateComplexShapeElement1 takes the ACTIVE area mode instead, so the active
-' mode is set to match each child BEFORE cleaning it and restored on the way out. A first run without
-' this replaced the outline and refused all three holes of a zone, which is what the check below was
-' there to catch.
-'
-' The check stays regardless: the replacement is compared with the original and abandoned when the
-' flag differs. A tidier contour is never worth turning a hole into a solid.
-' ---------------------------------------------------------------------------
+' Cleans the contours held INSIDE a cell, in place - a zone with a hole comes back from the union as
+' a cell grouping the outline and its island(s), not as a complex shape.
+' Walked with the cell's own cursor and NEVER rebuilt: no API here recreates a grouped hole.
+' DeleteCurrentElement leaves the marker on the element BEFORE the one it removes, so deleting
+' inside the walk skips nothing. IsHole is READ-ONLY, so the active area mode is set to match each
+' child before it is rebuilt and the flag re-checked after.
 Public Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
     On Error GoTo ErrorHandler
 
@@ -682,12 +561,6 @@ End Function
 ' ---------------------------------------------------------------------------
 ' The ACTIVE area mode - hole or solid - which is what a newly created shape inherits, there being
 ' no way to set the flag on a finished element.
-'
-' Reached LATE, through an Object variable, on purpose: the module must still compile against a
-' MicroStation whose Settings object does not expose AreaModeHole. Where it is missing, both calls
-' do nothing, the rebuilt holes come back solid, and SameHoleFlag refuses them - the zone keeps the
-' contour it had instead of losing its hole.
-' ---------------------------------------------------------------------------
 Private Function ActiveAreaHole() As Boolean
     On Error Resume Next
     Dim oSettings As Object

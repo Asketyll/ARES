@@ -2,6 +2,7 @@
 ' Description: The final coverage check for the Zoning split - measures every source element
 '              against the zones that were actually produced and rebuilds the pieces that
 '              ended up outside them. The only check that looks at the finished product.
+' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: Length, Zoning (DbgLine), Zoning_Builders, Zoning_Cleanup (AreaOf), Zoning_Dispatchers
 
@@ -9,11 +10,6 @@ Option Explicit
 
 
 ' Final coverage check - see RepairUncovered.
-'
-' A source element counts as uncovered when more of it than this SHARE of the offset distance lies
-' outside the merged zones. 0.05 is 10 cm at the 2 m zoning distance: below that we are looking at
-' the measurement's own noise - the containment test rides on ray casts and, on arcs, on chord
-' midpoints - and not at a hole anyone will ever see.
 Private Const COVERAGE_SLACK_RATIO As Double = 0.05
 
 ' And the check refuses to act at all when it accuses more than this share of what it measured. A
@@ -33,22 +29,6 @@ Private Const COVERAGE_SANITY_MIN As Long = 5
 ' Measures every source element against the zones that were actually produced, and rebuilds the
 ' buffer of each one that is not fully inside them. The rebuilt buffers come back in repBufs()/nRep
 ' for the caller to merge; nothing is written here.
-'
-' Why it exists: the union is the one step that can silently lose coverage. A buffer that fails to
-' merge does not raise anything, it is simply absent from the result, and a cable then runs outside
-' its own zone with no trace anywhere. This is the only check that looks at the finished product.
-'
-' The instrument is Length.GetPartialLengthInsideZones, the same one that made the Cable Report agree
-' with MicroStation's own measurement to the millimetre on a 487 m cable. It is used through its
-' public face, not reimplemented: a second containment test would be a second thing to be wrong.
-'
-' Two things it deliberately does NOT do:
-'   - it skips what that instrument cannot measure, cells and ellipses among them. An element whose
-'     length cannot be read is left alone, never treated as uncovered: an unmeasurable element and an
-'     uncovered one are not the same claim, and confusing them would rebuild the entire drawing.
-'   - it refuses to act when it accuses more than COVERAGE_SANITY_SHARE of what it measured, and says
-'     so. A check that condemns most of what it looks at is reporting on itself.
-' ---------------------------------------------------------------------------
 Public Sub RepairUncovered(ByRef Elements() As Element, _
                             ByRef zones() As Element, _
                             ByVal nZones As Long, _
@@ -141,15 +121,6 @@ End Sub
 ' Walks ONE source element down to the pieces its buffers are actually built from - a Line, an Arc,
 ' one segment of a linestring - measures each against the zones, and appends a buffer for every piece
 ' that is not inside them. Nothing is written; the caller merges what comes back.
-'
-' Asketyll's rule, and the reason it has to be the pieces and not the element: the arc in the middle
-' of a 323 m chain was the thing missing from the zones, and rebuilding the chain around it rebuilt
-' the same hole. Only the piece itself can be put back.
-'
-' Caps follow the SAME rule as the first pass - CapRoundAt against the chain's own free ends - rather
-' than being rounded for safety. A round cap at a genuine free end would push the zone out by the
-' whole offset distance, which on RunOutline's 0.2 m is a fifth of the zone and plainly visible.
-' ---------------------------------------------------------------------------
 Private Sub CollectUncoveredPieces(ByVal oEl As Element, _
                                    ByRef zones() As Element, _
                                    ByVal Dist As Double, _
@@ -188,7 +159,6 @@ End Sub
 ' The recursive half of CollectUncoveredPieces. Descends a chain into its sub-elements, a linestring
 ' into its segments, and tests the leaves. The chain's global ends travel down unchanged so a cap is
 ' decided on the WHOLE cable's geometry, never on the fragment's.
-' ---------------------------------------------------------------------------
 Private Sub WalkPieces(ByVal oEl As Element, _
                        ByRef zones() As Element, _
                        ByVal Dist As Double, _
@@ -241,7 +211,6 @@ End Sub
 ' ---------------------------------------------------------------------------
 ' One leaf piece: measure how much of it lies inside the zones and, if it is short, build its buffer
 ' with the builder the first pass would have used and append it.
-' ---------------------------------------------------------------------------
 Private Sub TestAndBuffer(ByVal oPiece As Element, _
                           ByRef zones() As Element, _
                           ByVal Dist As Double, _
@@ -313,12 +282,6 @@ End Function
 
 ' True for the element types the coverage check can judge: Length must be able to measure them end
 ' to end, AND DispatchElement must build a zone for them. Both halves matter.
-'
-' A cell or an ellipse reads back as zero length, and zero length against a non-zero total would
-' accuse every one of them. A plain Shape measures fine but has no case in DispatchElement, so it
-' never receives a zone at all - and that is DELIBERATE (Asketyll, 2026-09-04: "Shape non zonne"),
-' not an oversight for this pass to repair. Flagging one would be an accusation nothing could act
-' on, repeated on every run.
 Private Function Measurable(ByVal oEl As Element) As Boolean
     Select Case oEl.Type
         Case msdElementTypeLine, msdElementTypeLineString, msdElementTypeArc, _

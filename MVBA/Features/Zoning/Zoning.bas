@@ -15,6 +15,7 @@
 '   2. Dispatch each element to its typed zone builder.
 '      Each builder returns an orphan closed shape — it is NOT added to the model.
 '   3. Accumulate all zones, fuse them into a single region with GetRegionUnion, then write the result.
+' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, Geometry, GetElements
 
@@ -26,26 +27,6 @@ Private Const DBG_ECHO_MAX As Long = 120
 Private mnDbgShown As Long
 
 ' Generates offset zones around elements on the specified source levels.
-'
-' Parameters (all optional — ARESConfig values are used when omitted):
-'   Lvls        : source level name(s).
-'                 Accepts: a single String, a String array, or omitted/empty
-'                 (falls back to ARES_ZONING_LEVEL config value).
-'   OutputLevel : name of the level that receives the new zone elements.
-'   Color       : color index for the zone elements  (-1 = use config default).
-'   Style       : line-style name for the zone elements ("" = use config default).
-'   Weight      : line weight for the zone elements   (-1 = use config default).
-'   Dist        : buffer distance in master units      (0  = use config default).
-'   MergeZones  : True  (default) → fuse all individual zones together with
-'                                   GetRegionUnion before writing to the model.
-'                 False           → write each element's zone separately.
-'   DebugMode   : True → write each individual zone shape to the model before
-'                 the final merge, making pre-merge buffers visible alongside
-'                 the merged result. Intended for geometry debugging. Default False.
-'   RoundCaps   : True  (default) → open buffers (line / arc / linestring /
-'                                   complexstring) get semicircular end-caps.
-'                 False           → open buffers get flat (square / radial) caps.
-'                 Closed elements (cell, ellipse) have no open cap and ignore this.
 Public Sub Zoning(Optional Lvls As Variant, _
                   Optional OutputLevel As String = "", _
                   Optional Color As Long = -1, _
@@ -248,7 +229,6 @@ End Sub
 ' Debug output for the fusion trace. Goes to a FILE first and to the Immediate window only for the
 ' first lines of each run: a drawing that folds a thousand buffers floods the Immediate window's
 ' buffer and pushes the beginning - where the useful part is - out of reach.
-' ---------------------------------------------------------------------------
 Public Sub DbgLine(ByVal sMsg As String)
     On Error Resume Next
 
@@ -271,20 +251,8 @@ End Sub
 ' Fuses a set of region elements into clean merged outline(s) and returns them in outEls()/
 ' nOutEls (0-based, nOutEls = count). Shared by every dispatcher that accumulates per-piece
 ' buffers (lines, stadiums, arc sectors) and needs a single union.
-'
-' GetRegionUnion is unreliable at large DGN coordinates (a MicroStation precision bug), so every
-' buffer is first translated near the origin, unioned, then each result is translated back.
-'   - nBuf <= 0 -> no output.
-'   - nBuf  = 1 -> the single buffer is returned as-is (no union needed).
-' NOTE: the input buffers are moved in place (near origin) as part of the workaround; callers
-' must not reuse bufs() afterwards.
-'
-' Three guards once lived here - fall back to folding the buffers one at a time when the union
-' returned nothing, returned MORE shapes than it was given, or left a buffer inside none of its
-' results. All three are gone: they treated symptoms of a union that misbehaves on exactly
-' coincident boundaries, fixed nothing, and broke a zone that had been merging correctly. The cause
-' is upstream, in the buffer geometry itself. Git history has them if the question reopens.
-' ---------------------------------------------------------------------------
+' The input buffers are MOVED IN PLACE (near origin, a precision workaround); callers must not
+' reuse bufs() afterwards. nBuf = 1 is returned as-is, no union.
 Public Sub FuseRegions(ByRef bufs() As Element, _
                         ByVal nBuf As Long, _
                         ByRef outEls() As Element, _
@@ -358,7 +326,6 @@ End Sub
 ' ---------------------------------------------------------------------------
 ' Writes a clone of each pre-merge buffer to the model so the individual zones are visible
 ' alongside the final merged result (DebugMode only).
-' ---------------------------------------------------------------------------
 Public Sub WriteDebugClones(ByRef bufs() As Element, _
                              ByVal nBuf As Long, _
                              ByVal TargetLevel As Level, _
@@ -379,14 +346,6 @@ End Sub
 ' AddOrWrite
 ' ---------------------------------------------------------------------------
 ' Central routing helper called by every dispatcher after building a zone.
-'
-' The nOut parameter acts as a sentinel to select the write strategy:
-'   nOut < 0  → write the element directly to the model right now.
-'               Used when MergeZones = False (no merging required).
-'   nOut >= 0 → append the element to outBufs() and increment nOut.
-'               The caller (Zoning) will later fuse all buffered zones with
-'               GetRegionUnion and write the merged result.
-' ---------------------------------------------------------------------------
 Public Sub AddOrWrite(ByVal oEl As Element, _
                        ByVal TargetLevel As Level, _
                        ByVal Color As Long, _

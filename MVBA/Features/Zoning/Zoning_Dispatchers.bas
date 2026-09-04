@@ -2,6 +2,7 @@
 ' Description: One dispatcher per element type for the Zoning split. Each calls the matching
 '              builder and hands the result to AddOrWrite, which decides whether it is
 '              stored for the global merge or written straight out.
+' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: Zoning (AddOrWrite, FuseRegions, WriteDebugClones), Zoning_Builders, ErrorHandler
 
@@ -13,7 +14,6 @@ Option Explicit
 ' Routes ONE source element to the dispatcher for its type. Extracted so the coverage repair can
 ' rebuild an element's buffer exactly the way the first pass built it - the alternative was a second
 ' decomposition of lines, arcs and chains living beside the first and drifting away from it.
-' ---------------------------------------------------------------------------
 Public Sub DispatchElement(ByVal oEl As Element, _
                             ByVal Dist As Double, _
                             ByVal TargetLevel As Level, _
@@ -84,17 +84,6 @@ End Sub
 
 ' ZoneFromLineString
 ' Handles a polyline element (msdElementTypeLineString).
-'
-' WHY NOT BUILD ONE SHAPE FOR THE WHOLE POLYLINE?
-' A single offset of a self-crossing polyline (figure-4, figure-8) produces
-' a self-intersecting outline. MicroStation's GetRegionUnion cannot fuse a
-' self-intersecting shape into a clean region.
-'
-' STRATEGY: treat each segment independently.
-'   1. Build a stadium (round-cap rectangle) for every segment.
-'   2. Fuse all stadiums with GetRegionUnion.
-' Because each stadium is a valid convex shape, GetRegionUnion always
-' produces a clean non-self-intersecting result.
 Private Sub ZoneFromLineString(ByVal oEl As Element, _
                                ByVal Dist As Double, _
                                ByVal TargetLevel As Level, _
@@ -190,15 +179,6 @@ End Sub
 ' ZoneFromComplexString
 ' Handles ComplexString and ComplexShape elements.
 ' These are chains of sub-elements (lines, arcs, and nested linestrings).
-'
-' STRATEGY: same per-segment fusion used by ZoneFromLineString.
-'   1. Iterate sub-elements via GetSubElements().
-'   2. For each sub-element:
-'      - Line   → one stadium.
-'      - Arc    → one sector.
-'      - LineString → expand further into per-segment stadiums
-'                     (same self-crossing protection as ZoneFromLineString).
-'   3. Fuse all results with GetRegionUnion.
 Private Sub ZoneFromComplexString(ByVal oEl As Element, _
                                   ByVal Dist As Double, _
                                   ByVal TargetLevel As Level, _
@@ -309,20 +289,6 @@ End Sub
 
 ' ZoneFromEllipse
 ' Handles EllipseElement (circles and ellipses — MicroStation stores both as EllipseElement).
-'
-' CASE A — Annular zone (both inner radii > 0):
-'   outer = (PrimaryRadius + Dist, SecondaryRadius + Dist)
-'   inner = (PrimaryRadius - Dist, SecondaryRadius - Dist)
-'   GetRegionDifference(outer, inner) → donut-shaped planar ComplexShapeElement.
-'
-' CASE B — Full zone (at least one inner radius <= 0):
-'   GetRegionDifference with an empty holes array returns a plain EllipseElement,
-'   not a ComplexShapeElement — no benefit over writing outerEl directly.
-'   The outer EllipseElement is already a closed planar element; written as-is.
-'
-' Approximation note: the exact offset curve of an ellipse is NOT an ellipse.
-' Expanding both radii by Dist gives a uniform offset only for a circle; for a
-' true ellipse the actual perimeter distance varies slightly. Acceptable for zoning.
 Private Sub ZoneFromEllipse(ByVal oEl As Element, _
                             ByVal Dist As Double, _
                             ByVal TargetLevel As Level, _
