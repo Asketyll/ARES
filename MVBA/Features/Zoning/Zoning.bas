@@ -1358,14 +1358,21 @@ Private Function BuildArcZone(ByVal oEl As Element, _
     capSweep = Sgn(sweepAngle) * Application.PI
 
     ' Build only the round caps that are actually requested.
+    '
+    ' Built CAP_OVERLAP_RATIO wider than the offset, exactly as BuildLineZone does, and for the same
+    ' reason: a cap of radius exactly Dist is tangent to the neighbouring buffer's flank at the shared
+    ' junction, and GetRegionUnion misbehaves on boundaries that touch without crossing. The line
+    ' builder was given that overlap when it fixed the incomplete IC/OL zoning; the arc builder was
+    ' not, and that asymmetry is measurable - a repair run fed the union two rebuilt ARC buffers of
+    ' 114.38 m2 and got back 1270.64 m2 in and 1270.64 m2 out, the arcs dropped without a word.
     ' capEnd   begins facing outward (toward ptOuterEnd) and sweeps a half circle toward the inner edge.
     ' capStart begins facing inward  (toward oCenter)    and sweeps a half circle back to the outer edge.
     If roundEnd Then
-        Set capEnd = CreateArcElement2(Nothing, ptArcEnd, Dist, Dist, Matrix3dIdentity, _
+        Set capEnd = CreateArcElement2(Nothing, ptArcEnd, Dist * (1 + CAP_OVERLAP_RATIO), Dist * (1 + CAP_OVERLAP_RATIO), Matrix3dIdentity, _
                                         Point3dPolarAngle(Point3dSubtract(ptOuterEnd, ptArcEnd)), capSweep)
     End If
     If roundStart Then
-        Set capStart = CreateArcElement2(Nothing, ptArcStart, Dist, Dist, Matrix3dIdentity, _
+        Set capStart = CreateArcElement2(Nothing, ptArcStart, Dist * (1 + CAP_OVERLAP_RATIO), Dist * (1 + CAP_OVERLAP_RATIO), Matrix3dIdentity, _
                                           Point3dPolarAngle(Point3dSubtract(oCenter, ptArcStart)), capSweep)
     End If
 
@@ -1394,9 +1401,9 @@ Private Function BuildArcZone(ByVal oEl As Element, _
             angCSS = Point3dPolarAngle(Point3dSubtract(ptIsect,      ptArcStart))
             angCSE = Point3dPolarAngle(Point3dSubtract(ptOuterStart, ptArcStart))
 
-            Set trimmedCapEnd   = CreateArcElement2(Nothing, ptArcEnd,   Dist, Dist, Matrix3dIdentity, _
+            Set trimmedCapEnd   = CreateArcElement2(Nothing, ptArcEnd,   Dist * (1 + CAP_OVERLAP_RATIO), Dist * (1 + CAP_OVERLAP_RATIO), Matrix3dIdentity, _
                                                      angCES, Geometry.NormalizeAngle(angCEE - angCES, capSweep))
-            Set trimmedCapStart = CreateArcElement2(Nothing, ptArcStart, Dist, Dist, Matrix3dIdentity, _
+            Set trimmedCapStart = CreateArcElement2(Nothing, ptArcStart, Dist * (1 + CAP_OVERLAP_RATIO), Dist * (1 + CAP_OVERLAP_RATIO), Matrix3dIdentity, _
                                                      angCSS, Geometry.NormalizeAngle(angCSE - angCSS, capSweep))
 
             Dim compsO(0 To 2) As ChainableElement
