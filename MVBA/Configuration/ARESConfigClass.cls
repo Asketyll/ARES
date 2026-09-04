@@ -147,6 +147,13 @@ Public ARES_CABLEREPORT_CROSS_FACTOR As ARES_MS_VAR_Class 'Default Value: 3.5   
 Public ARES_CABLEREPORT_ROUND As ARES_MS_VAR_Class 'Default Value: 2   Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
 ' Used in CableReport module — open the workbook in Excel after export when True; False = headless silent export
 Public ARES_CABLEREPORT_EXCEL_VISIBLE As ARES_MS_VAR_Class 'Default Value: false   True or False (Boolean)
+' === Sheet Levels (turn every level on in the "Folio" sheet models) ===
+' Used in SheetLevels module — the NAME pattern(s) selecting which Sheet ("Papier") models
+' ActivateSheetLevels acts on. Matched with RuleGrammar.LikeAnyInListCI: case-insensitive, */? wildcards,
+' WHOLE-name match — so "contains Folio" is spelled "*Folio*", which is the shipped default. Several
+' alternatives may be | -separated (each one trimmed). "[" / "]" are NOT supported in a pattern: Like
+' reads them as a character class. Empty, or nothing but delimiters = the key-in does nothing (fail-closed).
+Public ARES_SHEET_LEVELS_MODEL_NAME As ARES_MS_VAR_Class 'Default Value: *Folio*   |-separated wildcard patterns (ARES_VAR_DELIMITER)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -232,6 +239,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CABLEREPORT_CROSS_FACTOR = CreateConfigVar("ARES_CableReport_Cross_Factor", "3.5")
     Set ARES_CABLEREPORT_ROUND = CreateConfigVar("ARES_CableReport_Round", "2")
     Set ARES_CABLEREPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_CableReport_Excel_Visible", "False")
+    Set ARES_SHEET_LEVELS_MODEL_NAME = CreateConfigVar("ARES_Sheet_Levels_Model_Name", "*Folio*")
     CreateConfigVariables = True
     Exit Function
 

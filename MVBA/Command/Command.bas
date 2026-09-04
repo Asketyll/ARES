@@ -1,7 +1,7 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering, CallStackClass, CableReport
+' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering, CallStackClass, CableReport, SheetLevels
 Option Explicit
 
 Private moZoningGUI          As Zoning_GUI_Options
@@ -362,6 +362,30 @@ Sub MergeRegion()
 
 ErrorHandler:
     ReportFailure "MergeRegion", Err.Description, Err.Number, Err.Source
+End Sub
+
+' === SHEET LEVELS COMMANDS ===
+
+' Turn Global Display on for every level of every Sheet ("Papier") model of the active design file
+' whose name matches ARES_Sheet_Levels_Model_Name (default "*Folio*"; | -separated wildcard patterns,
+' case-insensitive). Freezing and per-view display are deliberately left untouched - see the
+' SheetLevels module header for why the per-view masks are out of reach from here.
+Sub ActivateSheetLevels()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    SheetLevels.ActivateLevels
+    ReportIfLogged "ActivateSheetLevels"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "ActivateSheetLevels", Err.Description, Err.Number, Err.Source
 End Sub
 
 ' === TESTING COMMANDS ===

@@ -1,7 +1,8 @@
 ' Module: RuleGrammar
 ' Description: Shared rule CONDITION grammar (Lvl/Cell/Type conditions, & AND, ! negation, */? wildcards via
-'              Like, contradiction reasoning, bracket-depth-aware split). Used by PropertyTagging (tag rules)
-'              and PropertyCalculation (calc rules, epic 14). Pure/stateless - no config, no cache, no model write.
+'              Like, contradiction reasoning, bracket-depth-aware split). Used by PropertyTagging (tag rules),
+'              PropertyCalculation (calc rules, epic 14) and SheetLevels (LikeAnyInListCI only, model-name
+'              matching). Pure/stateless - no config, no cache, no model write.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, MicroStationDefinition, ErrorHandlerClass
 
@@ -249,6 +250,11 @@ End Function
 
 ' Escape the only Like metacharacter that can appear literally in a name: "#" -> "[#]". "*"/"?" are kept
 ' as wildcards; "[" / "]" cannot occur in a name (grammar-forbidden), so nothing else needs escaping.
+' That premise holds for every pattern that came through ParseCondition. It does NOT hold for a pattern
+' read straight out of a config value (SheetLevels' model-name filter): there a "[" reaches Like as a
+' character class, and an unterminated one raises error 93 which LikeCI swallows into a silent False.
+' Such a caller must document the restriction rather than expect an escape here - widening this function
+' would retroactively change what the tag/calc grammars match.
 Private Function EscapeLikePattern(ByVal name As String) As String
     EscapeLikePattern = Replace(name, "#", "[#]")
 End Function
@@ -267,6 +273,40 @@ Public Function LikeCI(ByVal value As String, ByVal pattern As String) As Boolea
 
 ErrorHandler:
     LikeCI = False
+End Function
+
+' Case-insensitive Like match of value against any of sPattern's ARES_VAR_DELIMITER ("|") - separated
+' alternatives, read straight out of a DELIMITED STRING instead of a parsed names() array. Zero-length
+' parts are skipped, so a stray delimiter never turns into a match-everything; empty / delimiters-only
+' never matches.
+' NOT the same thing as the private LikeAnyCI above, and the difference is load-bearing: LikeAnyCI is fed
+' by ParseCondition, which TRIMS each name, while this one matches its alternatives verbatim - a space
+' around a "|" is part of the pattern. That is deliberate (PropertyCalculation's Cell*[pattern] arguments
+' depend on the current semantics); a caller reading a raw config value normalises before calling, as
+' SheetLevels.ResolvePattern does with SplitTrim.
+' This is the single home of the "|"-alternation matching: PropertyCalculation_SourceEval.MatchesAnyPattern
+' delegates to it, and so does SheetLevels' model-name filter. Do not re-implement the loop elsewhere.
+Public Function LikeAnyInListCI(ByVal value As String, ByVal sPattern As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    LikeAnyInListCI = False
+
+    Dim parts() As String
+    Dim i       As Long
+
+    parts = Split(sPattern, ARESConstants.ARES_VAR_DELIMITER)
+    For i = LBound(parts) To UBound(parts)
+        If Len(parts(i)) > 0 Then
+            If LikeCI(value, parts(i)) Then
+                LikeAnyInListCI = True
+                Exit Function
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    LikeAnyInListCI = False
 End Function
 
 '######################################################################################################################

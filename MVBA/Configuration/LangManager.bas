@@ -299,6 +299,14 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_CableReportGUIOptionsOpenAfter_LabelCaption", "Open once exported"
     moTranslations.Add "EN_CableReportGUIOptionsOpenAfter_LabelTip", "When on, the exported file opens in Excel after the export."
 
+    ' --- Sheet Levels (global display of every level in the matching sheet models) ---
+    moTranslations.Add "EN_SheetLevelsNoDesignFile", "ARES: Sheet levels — no active design file"
+    moTranslations.Add "EN_SheetLevelsReadOnly", "ARES: Sheet levels — {0} matching sheet model(s) are read-only, nothing changed"
+    moTranslations.Add "EN_SheetLevelsPatternEmpty", "ARES: ARES_Sheet_Levels_Model_Name empty — ActivateSheetLevels aborted"
+    moTranslations.Add "EN_SheetLevelsNoModel", "ARES: Sheet levels — no sheet model matches: {0}"
+    moTranslations.Add "EN_SheetLevelsComplete", "ARES: Sheet levels complete — {0} sheet model(s), {1} level(s) switched on"
+    moTranslations.Add "EN_SheetLevelsCompletePartial", "ARES: Sheet levels complete — {0} sheet model(s), {1} level(s) switched on, {2} read-only model(s) skipped"
+
     ' Add French translations
     moTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
     moTranslations.Add "FR_VarResetAllSuccess", "Toutes les variables ont été remises à leur valeur par défaut."
@@ -573,6 +581,14 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_CableReportGUIOptionsRound_LabelTip", "Décimales des sommes de longueur par nature de sol (0-10)."
     moTranslations.Add "FR_CableReportGUIOptionsOpenAfter_LabelCaption", "Ouvrir une fois exporté"
     moTranslations.Add "FR_CableReportGUIOptionsOpenAfter_LabelTip", "Si activé, le fichier exporté s'ouvre dans Excel après l'export."
+
+    ' --- Niveaux des modèles papier (affichage global de tous les niveaux) ---
+    moTranslations.Add "FR_SheetLevelsNoDesignFile", "ARES : Niveaux des modèles papier — aucun fichier de dessin actif"
+    moTranslations.Add "FR_SheetLevelsReadOnly", "ARES : Niveaux des modèles papier — {0} modèle(s) papier correspondant(s) en lecture seule, rien n'a été modifié"
+    moTranslations.Add "FR_SheetLevelsPatternEmpty", "ARES : ARES_Sheet_Levels_Model_Name vide — ActivateSheetLevels annulé"
+    moTranslations.Add "FR_SheetLevelsNoModel", "ARES : Niveaux des modèles papier — aucun modèle papier ne correspond à : {0}"
+    moTranslations.Add "FR_SheetLevelsComplete", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} niveau(x) activé(s)"
+    moTranslations.Add "FR_SheetLevelsCompletePartial", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} niveau(x) activé(s), {2} modèle(s) ignoré(s) car en lecture seule"
 
     IsInit = True
     Exit Sub

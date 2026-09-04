@@ -3,7 +3,7 @@
 '              Source kind. Pure over its oEl/CalcRuleInfo/pattern arguments; no module-scope state.
 '              Full grammar, engine passes and coupling doctrine: see _bmad/docs/calc-rules-grammar.md.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConstants, ARESConfigClass (global ARESConfig), RuleGrammar, PropertyRendering, Link,
+' Dependencies: ARESConfigClass (global ARESConfig), RuleGrammar, PropertyRendering, Link,
 '               Length, CustomPropertyHandler, ErrorHandlerClass (global ErrorHandler), PropertyCalculation
 '               (Core - Types, HasElements, CascadeTrigger, ReportMultipleColorCandidates,
 '               ReportMultiplePropCandidates, ReportMultipleGeometries, ReportNoGeoReference,
@@ -223,20 +223,10 @@ End Function
 Public Function MatchesAnyPattern(ByVal sName As String, ByVal sPattern As String) As Boolean
     On Error GoTo ErrorHandler
 
-    MatchesAnyPattern = False
-
-    Dim parts() As String
-    parts = Split(sPattern, ARESConstants.ARES_VAR_DELIMITER)
-
-    Dim i As Long
-    For i = LBound(parts) To UBound(parts)
-        If Len(parts(i)) > 0 Then
-            If RuleGrammar.LikeCI(sName, parts(i)) Then
-                MatchesAnyPattern = True
-                Exit Function
-            End If
-        End If
-    Next i
+    ' The loop itself moved to RuleGrammar.LikeAnyInListCI (2026-09-04) when SheetLevels needed the same
+    ' "|"-alternation on a raw config value: one implementation, in the module that already owns LikeCI
+    ' and the escaping. Same semantics, byte for byte - this stays as the name the calc engine calls.
+    MatchesAnyPattern = RuleGrammar.LikeAnyInListCI(sName, sPattern)
     Exit Function
 
 ErrorHandler:
