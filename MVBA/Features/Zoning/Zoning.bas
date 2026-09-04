@@ -25,36 +25,36 @@ Private Const DBG_FILE As String = "C:\ARES\ARES_zoning_debug.log"
 Private Const DBG_ECHO_MAX As Long = 120
 Private mnDbgShown As Long
 
-' Round end-caps are built one millimetre wider than the offset they close.
+' Round end-caps are built a hair wider than the offset they close, as a RATIO of that offset.
 '
 ' At exactly Dist the cap circle is TANGENT to the two offset lines and to the neighbouring buffer's
 ' flank: boundaries that coincide exactly, which is the case every boolean engine handles worst.
-' GetRegionUnion was seen to drop such a cap outright (complexstring id=157783 lost its last buffer,
-' and with it the end of its zone), to split a merged zone in two, and to leave a cap circle visible
-' inside the result. All three went away at once when the cap was widened.
+' GetRegionUnion was seen to drop such a cap outright and with it the end of a zone, to split a
+' merged zone in two, and to leave a cap circle visible inside the result. All three went away at
+' once when the cap was widened.
 '
-' ABSOLUTE, not a factor: the overlap has to clear the file's storage resolution, not scale with the
-' zone. MicroStation keeps coordinates as whole UORs, so a difference below the resolution - a
-' factor like 1.0000001 - rounds back onto the same UOR, the boundaries are exactly coincident
-' again and the bug returns. 1 mm sits well above any usual resolution and is invisible at plan
-' scale, where a 0.5% factor was not: it read as 10 mm on the 2 m zoning distance.
-'
-' The cost, unchanged: the cap arc's endpoints no longer land exactly on the offset lines' ends, by
-' that same millimetre. The clean answer to that is an ELLIPSE - minor axis Dist so the ends still
-' meet, major axis Dist + overlap so the belly still crosses the neighbour - which needs a rotation
-' matrix aligning the primary axis with the segment. Worth doing if the millimetre ever shows.
-Private Const CAP_OVERLAP As Double = 0.001
+' 0.0005 is 1 mm at the 2 m zoning distance - the value measured to work - and scales from there, so
+' a 0.2 m outline gets 0.1 mm rather than the same millimetre. Worth knowing at small distances: what
+' the overlap really has to clear is the file's STORAGE RESOLUTION, since MicroStation keeps
+' coordinates as whole UORs and a difference below the resolution rounds back onto the same UOR,
+' leaving the boundaries exactly coincident and the bug with them. Check ActiveModelReference's
+' resolution before trusting this at a distance far below a metre.
+Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 
-' Interior vertices closer than this to the previous one are the zigzags that same overlap leaves
-' along a merged contour - see CleanTinyVertices. Ten times the overlap, so it clears the artefact
-' with margin; and a centimetre cannot swallow a vertex that carries real shape.
-Private Const VERTEX_MERGE_TOL As Double = 0.01
+' Contour cleanup, OFF. Both passes below - thinning a linestring's micro-segments, dropping flat
+' arcs - proved unstable across a set of real files: they behave on one drawing and misbehave on the
+' next. The zones they clean are cosmetically noisy but geometrically sound, so the code stays,
+' unused, rather than being carried in the output.
+Private Const ENABLE_CONTOUR_CLEANUP As Boolean = False
 
-' An arc sweeping less than this carries no shape and is dropped from a merged contour - see
-' DropFlatArcs. In DEGREES on purpose: the sweep is intrinsic to the arc, so unlike a length it
-' needs no calibration against the zone size or the offset distance.
-' 6 degrees is Asketyll's measured setting: the 0.211 m sliver on a 2 m radius sweeps about that
-' much. Real zone arcs are half-circle caps at 180 degrees and bend fillets, so the margin is wide.
+' Interior vertices closer than this SHARE of the offset distance are the zigzags the cap overlap
+' leaves along a merged contour - see CleanTinyVertices. 0.005 is 1 cm at the 2 m zoning distance,
+' ten times the overlap that creates them.
+Private Const VERTEX_MERGE_RATIO As Double = 0.005
+
+' An arc sweeping less than this is dropped from a merged contour - see DropFlatArcs. Stays an ANGLE
+' rather than a ratio, and that is the point of the criterion: a sweep is already independent of the
+' zone size and of the offset distance, which is what a length threshold never manages to be.
 Private Const FLAT_ARC_DEG As Double = 6#
 
 
@@ -219,7 +219,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
         Dim mergedAll() As Element
         Dim nMergedAll  As Long
-        FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll, DebugMode, "global"
+        FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll, DebugMode, "global", Dist
         For k = 0 To nMergedAll - 1
             WriteEl mergedAll(k), TargetLevel, Color, Style, Weight
         Next k
@@ -338,7 +338,7 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     ' Step 2: fuse the per-segment stadiums into clean region(s) and emit.
     Dim merged() As Element
     Dim nMerged  As Long
-    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "linestring id=" & DLongToString(oEl.ID)
+    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "linestring id=" & DLongToString(oEl.ID), Dist
     For j = 0 To nMerged - 1
         AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
@@ -482,7 +482,7 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
     ' Fuse all sub-element buffers into clean region(s) and emit.
     Dim merged() As Element
     Dim nMerged  As Long
-    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "complexstring id=" & DLongToString(oEl.ID)
+    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "complexstring id=" & DLongToString(oEl.ID), Dist
     For j = 0 To nMerged - 1
         AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
@@ -777,13 +777,13 @@ Private Function BuildLineZone(ByVal oEl As Element, _
     Dim comps(0 To 3) As ChainableElement
     Set comps(0) = CreateLineElement2(Nothing, L0, L1)                                                  ' left side
     If roundEnd Then
-        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist + CAP_OVERLAP, Dist + CAP_OVERLAP, Matrix3dIdentity, Point3dPolarAngle(perp), -Application.PI)
+        Set comps(1) = CreateArcElement2(Nothing, ptE, Dist * (1 + CAP_OVERLAP_RATIO), Dist * (1 + CAP_OVERLAP_RATIO), Matrix3dIdentity, Point3dPolarAngle(perp), -Application.PI)
     Else
         Set comps(1) = CreateLineElement2(Nothing, L1, R1)                                              ' flat end cap (chord)
     End If
     Set comps(2) = CreateLineElement2(Nothing, R1, R0)                                                  ' right side
     If roundStart Then
-        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist + CAP_OVERLAP, Dist + CAP_OVERLAP, Matrix3dIdentity, Point3dPolarAngle(Point3dNegate(perp)), -Application.PI)
+        Set comps(3) = CreateArcElement2(Nothing, ptS, Dist * (1 + CAP_OVERLAP_RATIO), Dist * (1 + CAP_OVERLAP_RATIO), Matrix3dIdentity, Point3dPolarAngle(Point3dNegate(perp)), -Application.PI)
     Else
         Set comps(3) = CreateLineElement2(Nothing, R0, L0)                                              ' flat start cap (chord)
     End If
@@ -1080,7 +1080,8 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
                         ByRef outEls() As Element, _
                         ByRef nOutEls As Long, _
                         Optional ByVal DebugMode As Boolean = False, _
-                        Optional ByVal sWhere As String = "")
+                        Optional ByVal sWhere As String = "", _
+                        Optional ByVal Dist As Double = 0)
     On Error GoTo ErrorHandler
     nOutEls = 0
 
@@ -1128,8 +1129,10 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Do While oEnum.MoveNext
         Set resEl = oEnum.Current
         resEl.Move fromOrigin                 ' restore to the original location
-        Set resEl = CleanTinyVertices(resEl, VERTEX_MERGE_TOL)
-        Set resEl = DropFlatArcs(resEl, FLAT_ARC_DEG)
+        If ENABLE_CONTOUR_CLEANUP And Dist > 0 Then
+            Set resEl = CleanTinyVertices(resEl, Dist * VERTEX_MERGE_RATIO)
+            Set resEl = DropFlatArcs(resEl, FLAT_ARC_DEG)
+        End If
         ReDim Preserve outEls(0 To nOutEls)
         Set outEls(nOutEls) = resEl
         nOutEls = nOutEls + 1
