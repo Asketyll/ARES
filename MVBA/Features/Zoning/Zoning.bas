@@ -1287,7 +1287,17 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
 
     If DIAG_TINY_SEG Then DiagSegments verts, dTol, nV
 
-    If nV < 3 Then Exit Function              ' two vertices: a plain segment, no interior to drop
+    If nV < 3 Then
+        ' Two vertices is a plain segment with no interior. Nothing here can shorten it, and nothing
+        ' anywhere else either: this is the same dead end as a Line standing on its own.
+        If DIAG_TINY_SEG Then
+            If Point3dDistance(verts(UBound(verts)), verts(LBound(verts))) < dTol * 5# Then _
+                DbgLine "SEG  linestring of 2 vertices, " & _
+                        Format(Point3dDistance(verts(UBound(verts)), verts(LBound(verts))), "0.0000") & _
+                        " m -> kept: no interior vertex, no pass can shorten it"
+        End If
+        Exit Function
+    End If
 
     ' Forward pass against the last KEPT vertex, so a run of micro-segments collapses to one point
     ' instead of surviving as a chain of pairs each just under the tolerance.
@@ -1321,8 +1331,17 @@ Private Function ThinLineString(ByVal oEl As Element, ByVal dTol As Double) As L
         End If
     End If
 
-    If nDrop = 0 Then Exit Function
-    If nV - nDrop < 2 Then Exit Function      ' never leave fewer than the two endpoints
+    If nDrop = 0 Then
+        If DIAG_TINY_SEG Then DbgLine "SEG  linestring: " & nV & " vertices, NOTHING droppable"
+        Exit Function
+    End If
+    If nV - nDrop < 2 Then
+        ' Every vertex is a candidate: a linestring that is nothing but micro-segments. Thinning it
+        ' would leave fewer than the two endpoints, so it survives whole - see the note in the header.
+        If DIAG_TINY_SEG Then DbgLine "SEG  linestring: " & nV & " vertices, " & nDrop & _
+                                      " candidates REFUSED - would leave fewer than two vertices"
+        Exit Function
+    End If
 
     ' Highest index first: removing a low one would shift every index after it. The closing test
     ' appends an index that is lower than the ones before it, so sort before removing.
@@ -1361,9 +1380,9 @@ Private Sub DiagSegments(ByRef verts() As Point3d, ByVal dTol As Double, ByVal n
         d = Point3dDistance(verts(i), verts(i - 1))
         If d < dTol * 5# Then
             If i = LBound(verts) + 1 Then
-                sWhat = "FIRST segment - its start vertex is a junction and is never dropped"
+                sWhat = "FIRST segment - removable, its END vertex is the droppable one"
             ElseIf i = UBound(verts) Then
-                sWhat = "LAST segment - its end vertex is a junction; the predecessor is what has to go"
+                sWhat = "LAST segment - removable, its PREDECESSOR is the droppable one"
             Else
                 sWhat = "interior"
             End If
