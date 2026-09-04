@@ -226,9 +226,9 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
         Dim mergedAll() As Element
         Dim nMergedAll  As Long
-        FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll, DebugMode, "global", Dist
+        FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll, DebugMode, "global"
         For k = 0 To nMergedAll - 1
-            WriteEl mergedAll(k), TargetLevel, Color, Style, Weight
+            WriteEl mergedAll(k), TargetLevel, Color, Style, Weight, Dist
         Next k
     End If
     Exit Sub
@@ -268,7 +268,7 @@ Private Sub ZoneFromLine(ByVal oEl As Element, _
     Dim elem As Element
     ' Single segment: both ends are free ends of the chain → caps follow the global RoundCaps flag.
     Set elem = BuildLineZone(oEl, Dist, RoundCaps, RoundCaps)
-    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
+    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
     Exit Sub
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromLine"
@@ -345,9 +345,9 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     ' Step 2: fuse the per-segment stadiums into clean region(s) and emit.
     Dim merged() As Element
     Dim nMerged  As Long
-    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "linestring id=" & DLongToString(oEl.ID), Dist
+    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "linestring id=" & DLongToString(oEl.ID)
     For j = 0 To nMerged - 1
-        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
+        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
     Next j
     Exit Sub
 
@@ -373,7 +373,7 @@ Private Sub ZoneFromArc(ByVal oEl As Element, _
     Dim elem As Element
     ' Single arc: both ends are free ends of the chain → caps follow the global RoundCaps flag.
     Set elem = BuildArcZone(oEl, Dist, RoundCaps, RoundCaps)
-    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
+    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
     Exit Sub
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromArc"
@@ -489,9 +489,9 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
     ' Fuse all sub-element buffers into clean region(s) and emit.
     Dim merged() As Element
     Dim nMerged  As Long
-    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "complexstring id=" & DLongToString(oEl.ID), Dist
+    FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "complexstring id=" & DLongToString(oEl.ID)
     For j = 0 To nMerged - 1
-        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
+        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
     Next j
     Exit Sub
 
@@ -556,12 +556,12 @@ Private Sub ZoneFromEllipse(ByVal oEl As Element, _
         Set oEnum = GetRegionDifference(solid, holes, Nothing, msdFillModeNotFilled)
         If Not oEnum Is Nothing Then
             Do While oEnum.MoveNext
-                AddOrWrite oEnum.Current, TargetLevel, Color, Style, Weight, outBufs, nOut
+                AddOrWrite oEnum.Current, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
             Loop
         End If
     Else
         ' Case B: inner ellipse would have zero or negative radius → outer ellipse only.
-        AddOrWrite outerEl, TargetLevel, Color, Style, Weight, outBufs, nOut
+        AddOrWrite outerEl, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
     End If
     Exit Sub
 
@@ -585,7 +585,7 @@ Private Sub ZoneFromCell(ByVal oEl As Element, _
     On Error GoTo ErrorHandler
     Dim elem As Element
     Set elem = BuildCellZone(oEl, Dist)
-    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
+    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
     Exit Sub
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromCell"
@@ -1087,8 +1087,7 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
                         ByRef outEls() As Element, _
                         ByRef nOutEls As Long, _
                         Optional ByVal DebugMode As Boolean = False, _
-                        Optional ByVal sWhere As String = "", _
-                        Optional ByVal Dist As Double = 0)
+                        Optional ByVal sWhere As String = "")
     On Error GoTo ErrorHandler
     nOutEls = 0
 
@@ -1136,10 +1135,6 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Do While oEnum.MoveNext
         Set resEl = oEnum.Current
         resEl.Move fromOrigin                 ' restore to the original location
-        If Dist > 0 Then
-            If ENABLE_VERTEX_THINNING Then Set resEl = CleanTinyVertices(resEl, Dist * VERTEX_MERGE_RATIO)
-            If ENABLE_FLAT_ARC_DROP Then Set resEl = DropFlatArcs(resEl, FLAT_ARC_DEG)
-        End If
         ReDim Preserve outEls(0 To nOutEls)
         Set outEls(nOutEls) = resEl
         nOutEls = nOutEls + 1
@@ -1497,10 +1492,11 @@ Private Sub AddOrWrite(ByVal oEl As Element, _
                        ByVal Style As String, _
                        ByVal Weight As Long, _
                        ByRef outBufs() As Element, _
-                       ByRef nOut As Long)
+                       ByRef nOut As Long, _
+                       Optional ByVal Dist As Double = 0)
     On Error GoTo ErrorHandler
     If nOut < 0 Then
-        WriteEl oEl, TargetLevel, Color, Style, Weight
+        WriteEl oEl, TargetLevel, Color, Style, Weight, Dist
     Else
         ReDim Preserve outBufs(0 To nOut)
         Set outBufs(nOut) = oEl
@@ -1519,8 +1515,20 @@ Private Sub WriteEl(ByVal oElement As Element, _
                     ByVal TargetLevel As Level, _
                     ByVal Color As Long, _
                     ByVal Style As String, _
-                    ByVal Weight As Long)
+                    ByVal Weight As Long, _
+                    Optional ByVal Dist As Double = 0)
     On Error GoTo ErrorHandler
+
+    ' Contour cleanup happens HERE, on what is actually drawn, and nowhere else. It used to run
+    ' inside FuseRegions, which meant every intermediate result was cleaned too: a per-element zone
+    ' gets cleaned, then feeds the global fusion, which rebuilds the contour from scratch and throws
+    ' that work away. One pass, on the final shape, whatever the depth of merging.
+    ' Dist = 0 means "do not touch": that is how the debug clones of pre-merge buffers come through.
+    If Dist > 0 Then
+        If ENABLE_VERTEX_THINNING Then Set oElement = CleanTinyVertices(oElement, Dist * VERTEX_MERGE_RATIO)
+        If ENABLE_FLAT_ARC_DROP Then Set oElement = DropFlatArcs(oElement, FLAT_ARC_DEG)
+    End If
+
     ApplySym oElement, TargetLevel, Color, Style, Weight
     ActiveModelReference.AddElement oElement
     Exit Sub
