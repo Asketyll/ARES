@@ -1567,6 +1567,79 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.AddOrWrite"
 End Sub
 
+' CleanContour
+' ---------------------------------------------------------------------------
+' Runs whichever cleanup passes are enabled over ONE closed contour and returns the result. Both
+' passes hand the element back untouched when they cannot help, so this is safe on anything.
+' ---------------------------------------------------------------------------
+Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Element
+    Dim oOut As Element
+    Set oOut = oEl
+    If ENABLE_VERTEX_THINNING Then Set oOut = CleanTinyVertices(oOut, Dist * VERTEX_MERGE_RATIO)
+    If ENABLE_FLAT_ARC_DROP Then Set oOut = DropFlatArcs(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO)
+    Set CleanContour = oOut
+End Function
+
+' CleanCellChildren
+' ---------------------------------------------------------------------------
+' Cleans the contours held INSIDE a cell, in place. A zone with a hole is returned by the union as a
+' cell grouping two or more complex shapes - the outline and its island(s) - so it used to reach
+' WriteEl as element type 2 and both passes declined it on the spot, leaving those zones with every
+' sliver they were born with.
+'
+' The cell is walked with its OWN cursor - ResetElementEnumeration, MoveToNextElement,
+' CopyCurrentElement, ReplaceCurrentElement - and never rebuilt from its children: there is no API
+' here that recreates a grouped hole, and CreateCellElement would give back a plain cell whose
+' island renders as a second solid instead of a hole.
+'
+' StepThroughNestingChanges is False. A nested cell is not something this module produces, and
+' stepping into one would hand back children this code has no business rewriting.
+'
+' The hole flag is the one thing that cannot be carried across: IsHole is READ-ONLY on a closed
+' element, and a shape rebuilt by CreateComplexShapeElement1 takes the ACTIVE area mode instead of
+' the one it replaces. So the replacement is compared with the original and abandoned when the flag
+' differs - a tidier contour is never worth turning a hole into a solid.
+' ---------------------------------------------------------------------------
+Private Sub CleanCellChildren(ByVal oCell As CellElement, ByVal Dist As Double)
+    On Error GoTo ErrorHandler
+
+    Dim oChild As Element
+    Dim oNew   As Element
+    Dim nSeen  As Long
+
+    oCell.ResetElementEnumeration
+    Do While oCell.MoveToNextElement(False)
+        Set oChild = oCell.CopyCurrentElement
+        If oChild.Type = msdElementTypeComplexShape Then
+            nSeen = nSeen + 1
+            Set oNew = CleanContour(oChild, Dist)
+            If Not oNew Is oChild Then
+                If SameHoleFlag(oChild, oNew) Then
+                    oCell.ReplaceCurrentElement oNew
+                ElseIf DIAG_FLAT_ARC Then
+                    DbgLine "CELL child left alone: the cleaned copy came back with the opposite hole flag"
+                End If
+            End If
+        End If
+    Loop
+
+    If DIAG_FLAT_ARC Then DbgLine "CELL zone: " & nSeen & " complex shape(s) inside, cleaned in place"
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.CleanCellChildren"
+End Sub
+
+' True when two closed elements agree on being a hole or a solid. False when the flag cannot be
+' read, which keeps the original - see CleanCellChildren.
+Private Function SameHoleFlag(ByVal oA As Element, ByVal oB As Element) As Boolean
+    On Error GoTo ErrorHandler
+    SameHoleFlag = (oA.AsClosedElement.IsHole = oB.AsClosedElement.IsHole)
+    Exit Function
+ErrorHandler:
+    SameHoleFlag = False
+End Function
+
 ' WriteEl
 ' Applies symbology and adds the element to the active model.
 ' This is the only place in this module where elements are written.
@@ -1585,8 +1658,13 @@ Private Sub WriteEl(ByVal oElement As Element, _
     ' Dist = 0 means "do not touch": that is how the debug clones of pre-merge buffers come through.
     If Dist > 0 Then
         If DIAG_FLAT_ARC Then DbgLine "WRITE zone, Dist=" & Format(Dist, "0.###") & ", element type " & oElement.Type
-        If ENABLE_VERTEX_THINNING Then Set oElement = CleanTinyVertices(oElement, Dist * VERTEX_MERGE_RATIO)
-        If ENABLE_FLAT_ARC_DROP Then Set oElement = DropFlatArcs(oElement, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO)
+        If oElement.Type = msdElementTypeCellHeader Then
+            ' A zone that has a hole comes back from the union as a CELL holding the outline and its
+            ' island(s), not as a complex shape. Its contours are cleaned inside the cell.
+            CleanCellChildren oElement.AsCellElement, Dist
+        Else
+            Set oElement = CleanContour(oElement, Dist)
+        End If
     ElseIf DIAG_FLAT_ARC Then
         DbgLine "WRITE Dist=0 - no cleanup (debug clone of a pre-merge buffer)"
     End If
