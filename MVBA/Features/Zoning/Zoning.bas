@@ -99,6 +99,20 @@ Private Const MIN_CELL_PART_AREA_RATIO As Double = 0.25
 ' gone and the neighbours are straight, and takes it. Sweeping stops as soon as one changes nothing.
 Private Const SLIVER_SWEEPS As Long = 4
 
+' Final coverage check - see RepairUncovered.
+'
+' A source element counts as uncovered when more of it than this SHARE of the offset distance lies
+' outside the merged zones. 0.05 is 10 cm at the 2 m zoning distance: below that we are looking at
+' the measurement's own noise - the containment test rides on ray casts and, on arcs, on chord
+' midpoints - and not at a hole anyone will ever see.
+Private Const COVERAGE_SLACK_RATIO As Double = 0.05
+
+' And the check refuses to act at all when it accuses more than this share of what it measured. A
+' zoning run that left half its cables outside their own zones is not a zoning failure, it is a
+' broken instrument - that mistake has been made on this module before, three times in a row, and
+' each guard built on it made things worse. Refusing costs a run; acting on it corrupts every zone.
+Private Const COVERAGE_SANITY_SHARE As Double = 0.5
+
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -236,21 +250,8 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' --- Process each element ---
     For i = LBound(Elements) To UBound(Elements)
-        Set oEl = Elements(i)
-        Select Case oEl.Type
-            Case msdElementTypeLine
-                ZoneFromLine oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
-            Case msdElementTypeLineString
-                ZoneFromLineString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
-            Case msdElementTypeArc
-                ZoneFromArc oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
-            Case msdElementTypeComplexString, msdElementTypeComplexShape
-                ZoneFromComplexString oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode, RoundCaps
-            Case msdElementTypeEllipse
-                ZoneFromEllipse oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
-            Case msdElementTypeCellHeader
-                ZoneFromCell oEl, Dist, TargetLevel, Color, Style, Weight, allBufs, nAllBufs, DebugMode
-        End Select
+        DispatchElement Elements(i), Dist, TargetLevel, Color, Style, Weight, _
+                        allBufs, nAllBufs, DebugMode, RoundCaps
     Next i
 
     ' --- Merge all accumulated zones and write to the model (MergeZones = True only) ---
@@ -262,6 +263,34 @@ Public Sub Zoning(Optional Lvls As Variant, _
         Dim mergedAll() As Element
         Dim nMergedAll  As Long
         FuseRegions allBufs, nAllBufs, mergedAll, nMergedAll, DebugMode, "global"
+
+        ' --- Last word: nothing of a cable may end up outside the zones ---
+        ' The union is where coverage gets lost - a buffer that fails to merge is simply absent from
+        ' the result, and nothing downstream would ever notice. So the source elements are measured
+        ' against what the union actually produced, and whatever is missing is rebuilt and merged in.
+        Dim repBufs() As Element
+        Dim nRep      As Long
+        nRep = 0
+        RepairUncovered Elements, mergedAll, nMergedAll, Dist, TargetLevel, Color, Style, Weight, _
+                        DebugMode, RoundCaps, repBufs, nRep
+
+        If nRep > 0 Then
+            ' Fused WITH the zones rather than beside them: a gap in the middle of a cable can bridge
+            ' two zones that were never joined, or fill a hole inside one, and only the union knows
+            ' which. Feeding the zones back in is what lets either happen.
+            Dim again()  As Element
+            Dim nAgain   As Long
+            ReDim again(0 To nMergedAll + nRep - 1)
+            For k = 0 To nMergedAll - 1
+                Set again(k) = mergedAll(k)
+            Next k
+            For k = 0 To nRep - 1
+                Set again(nMergedAll + k) = repBufs(k)
+            Next k
+            nAgain = nMergedAll + nRep
+            FuseRegions again, nAgain, mergedAll, nMergedAll, DebugMode, "coverage repair"
+        End If
+
         For k = 0 To nMergedAll - 1
             WriteEl mergedAll(k), TargetLevel, Color, Style, Weight, Dist
         Next k
@@ -271,6 +300,150 @@ Public Sub Zoning(Optional Lvls As Variant, _
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.Zoning"
 End Sub
+
+' DispatchElement
+' ---------------------------------------------------------------------------
+' Routes ONE source element to the dispatcher for its type. Extracted so the coverage repair can
+' rebuild an element's buffer exactly the way the first pass built it - the alternative was a second
+' decomposition of lines, arcs and chains living beside the first and drifting away from it.
+' ---------------------------------------------------------------------------
+Private Sub DispatchElement(ByVal oEl As Element, _
+                            ByVal Dist As Double, _
+                            ByVal TargetLevel As Level, _
+                            ByVal Color As Long, _
+                            ByVal Style As String, _
+                            ByVal Weight As Long, _
+                            ByRef outBufs() As Element, _
+                            ByRef nOut As Long, _
+                            ByVal DebugMode As Boolean, _
+                            ByVal RoundCaps As Boolean)
+    On Error GoTo ErrorHandler
+    Select Case oEl.Type
+        Case msdElementTypeLine
+            ZoneFromLine oEl, Dist, TargetLevel, Color, Style, Weight, outBufs, nOut, DebugMode, RoundCaps
+        Case msdElementTypeLineString
+            ZoneFromLineString oEl, Dist, TargetLevel, Color, Style, Weight, outBufs, nOut, DebugMode, RoundCaps
+        Case msdElementTypeArc
+            ZoneFromArc oEl, Dist, TargetLevel, Color, Style, Weight, outBufs, nOut, DebugMode, RoundCaps
+        Case msdElementTypeComplexString, msdElementTypeComplexShape
+            ZoneFromComplexString oEl, Dist, TargetLevel, Color, Style, Weight, outBufs, nOut, DebugMode, RoundCaps
+        Case msdElementTypeEllipse
+            ZoneFromEllipse oEl, Dist, TargetLevel, Color, Style, Weight, outBufs, nOut, DebugMode
+        Case msdElementTypeCellHeader
+            ZoneFromCell oEl, Dist, TargetLevel, Color, Style, Weight, outBufs, nOut, DebugMode
+    End Select
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.DispatchElement"
+End Sub
+
+' RepairUncovered
+' ---------------------------------------------------------------------------
+' Measures every source element against the zones that were actually produced, and rebuilds the
+' buffer of each one that is not fully inside them. The rebuilt buffers come back in repBufs()/nRep
+' for the caller to merge; nothing is written here.
+'
+' Why it exists: the union is the one step that can silently lose coverage. A buffer that fails to
+' merge does not raise anything, it is simply absent from the result, and a cable then runs outside
+' its own zone with no trace anywhere. This is the only check that looks at the finished product.
+'
+' The instrument is Length.GetPartialLengthInsideZones, the same one that made the Cable Report agree
+' with MicroStation's own measurement to the millimetre on a 487 m cable. It is used through its
+' public face, not reimplemented: a second containment test would be a second thing to be wrong.
+'
+' Two things it deliberately does NOT do:
+'   - it skips what that instrument cannot measure, cells and ellipses among them. An element whose
+'     length cannot be read is left alone, never treated as uncovered: an unmeasurable element and an
+'     uncovered one are not the same claim, and confusing them would rebuild the entire drawing.
+'   - it refuses to act when it accuses more than COVERAGE_SANITY_SHARE of what it measured, and says
+'     so. A check that condemns most of what it looks at is reporting on itself.
+' ---------------------------------------------------------------------------
+Private Sub RepairUncovered(ByRef Elements() As Element, _
+                            ByRef zones() As Element, _
+                            ByVal nZones As Long, _
+                            ByVal Dist As Double, _
+                            ByVal TargetLevel As Level, _
+                            ByVal Color As Long, _
+                            ByVal Style As String, _
+                            ByVal Weight As Long, _
+                            ByVal DebugMode As Boolean, _
+                            ByVal RoundCaps As Boolean, _
+                            ByRef repBufs() As Element, _
+                            ByRef nRep As Long)
+    On Error GoTo ErrorHandler
+
+    nRep = 0
+    If nZones <= 0 Then Exit Sub
+
+    Dim i        As Long
+    Dim nTested  As Long
+    Dim nMissing As Long
+    Dim dTotal   As Double
+    Dim dIn      As Double
+    Dim dSlack   As Double
+    Dim bMiss()  As Boolean
+
+    dSlack = Dist * COVERAGE_SLACK_RATIO
+    ReDim bMiss(LBound(Elements) To UBound(Elements))
+
+    For i = LBound(Elements) To UBound(Elements)
+        If Measurable(Elements(i)) Then
+            dTotal = Length.GetLength(Elements(i), RndLength:=False)
+            If dTotal > dSlack Then
+                nTested = nTested + 1
+                dIn = Length.GetPartialLengthInsideZones(Elements(i), zones)
+                If dIn < dTotal - dSlack Then
+                    bMiss(i) = True
+                    nMissing = nMissing + 1
+                    If DebugMode Then DbgLine "COVER element " & i & " : " & Format(dIn, "0.000") & _
+                                              " m of " & Format(dTotal, "0.000") & " m inside - rebuilding"
+                End If
+            End If
+        End If
+    Next i
+
+    If DebugMode Then DbgLine "COVER " & nMissing & " of " & nTested & " measurable element(s) not fully covered"
+    If nMissing = 0 Then Exit Sub
+
+    If nMissing > nTested * COVERAGE_SANITY_SHARE Then
+        ErrorHandler.HandleError "coverage check REFUSED - " & nMissing & " of " & nTested & _
+                                 " elements reported outside their own zones. A result like that is " & _
+                                 "the measurement failing, not the zoning; the zones are left as they are.", _
+                                 0, "", "Zoning.RepairUncovered"
+        Exit Sub
+    End If
+
+    ' Rebuild through the very same dispatchers the first pass used.
+    For i = LBound(Elements) To UBound(Elements)
+        If bMiss(i) Then
+            DispatchElement Elements(i), Dist, TargetLevel, Color, Style, Weight, _
+                            repBufs, nRep, DebugMode, RoundCaps
+        End If
+    Next i
+    Exit Sub
+
+ErrorHandler:
+    ' A failure here must not cost the zones that were already merged: hand back nothing to add.
+    nRep = 0
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.RepairUncovered"
+End Sub
+
+' True for the element types the coverage check can judge: Length must be able to measure them end
+' to end, AND DispatchElement must build a zone for them. Both halves matter.
+'
+' A cell or an ellipse reads back as zero length, and zero length against a non-zero total would
+' accuse every one of them. A plain Shape measures fine but has no case in DispatchElement, so it
+' never receives a zone at all - flagging it would be an accusation nothing could act on, repeated
+' on every run. Whether a Shape ought to be zoned is a separate question, and not this pass's to
+' answer.
+Private Function Measurable(ByVal oEl As Element) As Boolean
+    Select Case oEl.Type
+        Case msdElementTypeLine, msdElementTypeLineString, msdElementTypeArc, _
+             msdElementTypeComplexString, msdElementTypeComplexShape
+            Measurable = True
+    End Select
+End Function
 
 ' ============================================================
 '  ZONE DISPATCHERS
