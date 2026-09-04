@@ -44,24 +44,32 @@ Private mnDbgShown As Long
 '  TEMPORARY EXPERIMENT - 2026-09-04 - NOT A SHIPPING STATE
 '
 '  Asketyll's question: now that the arc caps finally carry the cap overlap, is the overlap still
-'  needed at all - and with it, the whole contour cleanup? Neither reading the code nor arguing from
-'  the history settles it, so this build measures it on his own corpus.
+'  needed at all - and with it, the whole contour cleanup?
 '
-'  Three values are moved off their shipping settings, and they are ALL of the changes:
-'      CAP_OVERLAP_RATIO       0.0005  ->  0        (no overlap at all)
+'  HALF of that is already answered, and by measurement. The 12:06 run of 2026-09-04 WAS the
+'  no-overlap case for arcs: a 323 m chain came out as two zones with 8.3 m outside them, and the
+'  union ignored 114.38 m2 of correctly rebuilt patches. Setting CAP_OVERLAP_RATIO to 0 would only
+'  reproduce that, and would take the line caps down with it - both builders read the same constant,
+'  so there is no such thing here as "everything except the last fix".
+'
+'  So the overlap STAYS at its shipping value and the experiment narrows to the half that is still
+'  open: with the union working properly, does the contour still need cleaning?
+'
 '      ENABLE_VERTEX_THINNING  True    ->  False    (no micro-segment thinning)
 '      ENABLE_FLAT_ARC_DROP    True    ->  False    (no sliver dropping)
+'      CAP_OVERLAP_RATIO       0.0005            unchanged - load-bearing, proven twice
 '
 '  And the coverage pass becomes the instrument: EXPERIMENT_MEASURE_ONLY makes it report on every run
 '  without DebugMode, and stops it REPAIRING. That second half matters - a repairing pass would fill
 '  the holes and hand back clean zones, which is exactly the answer we must not get by accident.
 '
-'  Reading the result: a "covered" on every element of every file means the overlap and the cleanup
-'  can both go. A single "NOT COVERED" means the union still needs the overlap, and the answer is no.
+'  Reading the result: the log answers COVERAGE, your eyes answer CONTOUR, and both must pass. A
+'  "covered" everywhere says the cleanup was never holding the zones together - it was only tidying
+'  them. Whether what is left is tidy enough is the part no log can settle.
 ' =====================================================================================
 Private Const EXPERIMENT_MEASURE_ONLY As Boolean = True
 
-Private Const CAP_OVERLAP_RATIO As Double = 0#
+Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 
 ' Contour cleanup, one switch per pass - they were tested together and did not behave the same way.
 '
