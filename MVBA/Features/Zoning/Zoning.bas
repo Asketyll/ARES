@@ -68,10 +68,14 @@ Private Const DIAG_FLAT_ARC As Boolean = True
 ' names which. Remove with the fix it leads to.
 Private Const DIAG_TINY_SEG As Boolean = True
 
-' Interior vertices closer than this SHARE of the offset distance are the zigzags the cap overlap
-' leaves along a merged contour - see CleanTinyVertices. 0.005 is 1 cm at the 2 m zoning distance,
-' ten times the overlap that creates them.
-Private Const VERTEX_MERGE_RATIO As Double = 0.005
+' The floor for a straight piece of contour, as a SHARE of the offset distance. It governs both the
+' interior vertices of a linestring (CleanTinyVertices) and a straight edge standing on its own in
+' the chain (DropSliverEdges) - the same length has to meet the same fate wherever it sits.
+'
+' 0.01 is 2 cm at the 2 m zoning distance. It was 0.005, and a measured run showed exactly what that
+' left behind: vertices at 0.0103 to 0.0194 m and Lines at 0.0116 and 0.0136 m, all sitting just the
+' wrong side of a 1 cm floor. 2 cm clears that family and is still a hundredth of the zone's width.
+Private Const VERTEX_MERGE_RATIO As Double = 0.01
 
 ' An arc is dropped from a merged contour only when it is BOTH nearly flat AND short - see
 ' DropSliverEdges. Neither test works alone: the angle alone straightens a long, gentle cable curve
