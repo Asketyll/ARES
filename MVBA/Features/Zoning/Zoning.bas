@@ -651,9 +651,9 @@ End Function
 '
 ' A cell or an ellipse reads back as zero length, and zero length against a non-zero total would
 ' accuse every one of them. A plain Shape measures fine but has no case in DispatchElement, so it
-' never receives a zone at all - flagging it would be an accusation nothing could act on, repeated
-' on every run. Whether a Shape ought to be zoned is a separate question, and not this pass's to
-' answer.
+' never receives a zone at all - and that is DELIBERATE (Asketyll, 2026-09-04: "Shape non zonne"),
+' not an oversight for this pass to repair. Flagging one would be an accusation nothing could act
+' on, repeated on every run.
 Private Function Measurable(ByVal oEl As Element) As Boolean
     Select Case oEl.Type
         Case msdElementTypeLine, msdElementTypeLineString, msdElementTypeArc, _
