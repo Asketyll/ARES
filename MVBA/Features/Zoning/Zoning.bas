@@ -41,11 +41,18 @@ Private mnDbgShown As Long
 ' resolution before trusting this at a distance far below a metre.
 Private Const CAP_OVERLAP_RATIO As Double = 0.0005
 
-' Contour cleanup, OFF. Both passes below - thinning a linestring's micro-segments, dropping flat
-' arcs - proved unstable across a set of real files: they behave on one drawing and misbehave on the
-' next. The zones they clean are cosmetically noisy but geometrically sound, so the code stays,
-' unused, rather than being carried in the output.
-Private Const ENABLE_CONTOUR_CLEANUP As Boolean = False
+' Contour cleanup, one switch per pass - they were tested together and did not behave the same way.
+'
+' Thinning micro-segments is ON: it only ever removes INTERIOR vertices of a linestring, so the
+' endpoints that join it to its neighbours cannot move and the contour cannot open. Nothing it does
+' can be undone by the next junction.
+'
+' Dropping flat arcs is OFF: it proved unstable across a set of real files, behaving on one drawing
+' and misbehaving on the next. It has to move a neighbour's endpoint to close the gap the arc leaves,
+' which touches a junction rather than the inside of a single edge - a different kind of operation,
+' and evidently a riskier one. The code stays, unused, rather than being carried in the output.
+Private Const ENABLE_VERTEX_THINNING As Boolean = True
+Private Const ENABLE_FLAT_ARC_DROP As Boolean = False
 
 ' Interior vertices closer than this SHARE of the offset distance are the zigzags the cap overlap
 ' leaves along a merged contour - see CleanTinyVertices. 0.005 is 1 cm at the 2 m zoning distance,
@@ -1129,9 +1136,9 @@ Private Sub FuseRegions(ByRef bufs() As Element, _
     Do While oEnum.MoveNext
         Set resEl = oEnum.Current
         resEl.Move fromOrigin                 ' restore to the original location
-        If ENABLE_CONTOUR_CLEANUP And Dist > 0 Then
-            Set resEl = CleanTinyVertices(resEl, Dist * VERTEX_MERGE_RATIO)
-            Set resEl = DropFlatArcs(resEl, FLAT_ARC_DEG)
+        If Dist > 0 Then
+            If ENABLE_VERTEX_THINNING Then Set resEl = CleanTinyVertices(resEl, Dist * VERTEX_MERGE_RATIO)
+            If ENABLE_FLAT_ARC_DROP Then Set resEl = DropFlatArcs(resEl, FLAT_ARC_DEG)
         End If
         ReDim Preserve outEls(0 To nOutEls)
         Set outEls(nOutEls) = resEl
