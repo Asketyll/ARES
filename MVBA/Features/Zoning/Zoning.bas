@@ -1505,7 +1505,11 @@ Private Function DropSliverEdges(ByVal oShape As Element, _
                 ' segments outlived every pass. One tolerance, one outcome, wherever the segment sits.
                 dLen = StraightSliver(subs(i))
                 bGo = (dLen >= 0# And dLen < dMinEdge)
-                sTag = "EDGE #" & i & " " & Format(dLen, "0.0000") & " m"
+                ' Named apart in the trace only: a one-segment linestring is a Line geometrically and
+                ' is treated as one, but seeing which is which is what tells a report of "a polyline
+                ' survived" from a report of "a line survived".
+                sTag = "EDGE #" & i & " " & Format(dLen, "0.0000") & " m " & _
+                       IIf(subs(i).Type = msdElementTypeLine, "(Line)", "(1-segment linestring)")
 
         End Select
 
