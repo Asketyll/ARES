@@ -59,10 +59,16 @@ Private Const ENABLE_FLAT_ARC_DROP As Boolean = False
 ' ten times the overlap that creates them.
 Private Const VERTEX_MERGE_RATIO As Double = 0.005
 
-' An arc sweeping less than this is dropped from a merged contour - see DropFlatArcs. Stays an ANGLE
-' rather than a ratio, and that is the point of the criterion: a sweep is already independent of the
-' zone size and of the offset distance, which is what a length threshold never manages to be.
+' An arc is dropped from a merged contour only when it is BOTH nearly flat AND short - see
+' DropFlatArcs. The angle alone is wrong in a way that damages real geometry: an arc's length is
+' radius x sweep, so 6 degrees on a large radius is a long, gentle cable curve, and removing it
+' would straighten a bend the drawing meant to have.
+'
+' The angle stays an ANGLE, independent of the zone size. The length is a SHARE of the offset
+' distance: 0.125 is 0.25 m at the 2 m zoning distance, comfortably above the 0.211 m sliver
+' measured there, and it scales down with the offset instead of having to be re-picked.
 Private Const FLAT_ARC_DEG As Double = 6#
+Private Const FLAT_ARC_LEN_RATIO As Double = 0.125
 
 
 ' Generates offset zones around elements on the specified source levels.
@@ -1297,13 +1303,14 @@ End Function
 
 ' DropFlatArcs
 ' ---------------------------------------------------------------------------
-' Rebuilds a merged shape without its flat arcs - the ones whose sweep is so small they carry no
-' shape at all - and returns it. Hands the shape back untouched when there is nothing to do or
-' anything goes wrong: cosmetic pass, it must never cost a zone.
+' Rebuilds a merged shape without its sliver arcs and returns it. Hands the shape back untouched
+' when there is nothing to do or anything goes wrong: cosmetic pass, it must never cost a zone.
 '
-' Asketyll's rule, and it is a better one than a length threshold: the sweep ANGLE is intrinsic to
-' the arc. A length tolerance has to be chosen against the zone size and the offset distance; an
-' angle does not - an arc sweeping a fraction of a degree is contour noise whatever its radius.
+' The test is BOTH nearly flat AND short. The sweep angle says the arc carries no curvature worth
+' keeping; the length says it is a sliver and not a gentle bend spread over a large radius. The angle
+' alone would damage real geometry - an arc's length is radius x sweep, so 6 degrees on a big radius
+' is a long, deliberate cable curve, and dropping it would straighten a bend the drawing meant to
+' have.
 '
 ' Two guards make the stitching safe:
 '   - ONE straight neighbour (Line or LineString) is enough, and it is that side which moves, onto
@@ -1319,7 +1326,7 @@ End Function
 ' The gap being closed is the arc's own chord: radius x sweep, so under a degree it is sub-millimetre
 ' on any zone this module produces.
 ' ---------------------------------------------------------------------------
-Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double) As Element
+Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double, ByVal dMaxLen As Double) As Element
     On Error GoTo ErrorHandler
 
     Set DropFlatArcs = oShape
@@ -1352,7 +1359,10 @@ Private Function DropFlatArcs(ByVal oShape As Element, ByVal dMaxDeg As Double) 
 
     For i = 0 To nSub - 1
         If subs(i).Type = msdElementTypeArc Then
-            If Abs(subs(i).AsArcElement.SweepAngle) <= dMaxRad Then
+            ' Nearly flat AND short. The sweep says the arc carries no curvature worth keeping; the
+            ' length says it is a sliver and not a gentle bend spread over a large radius.
+            If Abs(subs(i).AsArcElement.SweepAngle) <= dMaxRad And _
+               subs(i).AsArcElement.Length <= dMaxLen Then
                 iPrev = (i + nSub - 1) Mod nSub
                 iNext = (i + 1) Mod nSub
 
@@ -1526,7 +1536,7 @@ Private Sub WriteEl(ByVal oElement As Element, _
     ' Dist = 0 means "do not touch": that is how the debug clones of pre-merge buffers come through.
     If Dist > 0 Then
         If ENABLE_VERTEX_THINNING Then Set oElement = CleanTinyVertices(oElement, Dist * VERTEX_MERGE_RATIO)
-        If ENABLE_FLAT_ARC_DROP Then Set oElement = DropFlatArcs(oElement, FLAT_ARC_DEG)
+        If ENABLE_FLAT_ARC_DROP Then Set oElement = DropFlatArcs(oElement, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO)
     End If
 
     ApplySym oElement, TargetLevel, Color, Style, Weight
