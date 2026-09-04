@@ -1753,9 +1753,10 @@ End Function
 ' passes hand the element back untouched when they cannot help, so this is safe on anything.
 ' ---------------------------------------------------------------------------
 Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Element
-    Dim oOut  As Element
-    Dim oWas  As Element
-    Dim k     As Long
+    Dim oOut     As Element
+    Dim oWas     As Element
+    Dim k        As Long
+    Dim bSettled As Boolean
 
     Set oOut = oEl
     If ENABLE_VERTEX_THINNING Then Set oOut = CleanTinyVertices(oOut, Dist * VERTEX_MERGE_RATIO)
@@ -1768,8 +1769,18 @@ Private Function CleanContour(ByVal oEl As Element, ByVal Dist As Double) As Ele
             Set oOut = DropSliverEdges(oOut, FLAT_ARC_DEG, Dist * FLAT_ARC_LEN_RATIO, _
                                        Dist * VERTEX_MERGE_RATIO)
             ' The pass hands back the SAME object when it dropped nothing: that is the fixed point.
-            If oOut Is oWas Then Exit For
+            If oOut Is oWas Then
+                bSettled = True
+                Exit For
+            End If
         Next k
+
+        ' Leaving on the cap rather than on a settled contour is not a failure - the result is still
+        ' cleaner than it was - but it means the sweeps ran out, not that there was nothing left to
+        ' find. Measured contours needed at most four; if this ever fires, the cap is the thing to
+        ' raise, and knowing it beats guessing at it.
+        If DIAG_FLAT_ARC And Not bSettled Then _
+            DbgLine "EDGE contour STILL CHANGING after " & SLIVER_SWEEPS & " sweeps - stopped by the cap"
     End If
 
     Set CleanContour = oOut
