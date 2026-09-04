@@ -119,15 +119,6 @@ Private Const COVERAGE_SANITY_SHARE As Double = 0.5
 ' single cable in a DGN to test the pass, and the protection made the test impossible.
 Private Const COVERAGE_SANITY_MIN As Long = 5
 
-' TEMPORARY - traces what the coverage pass measured and what it decided, whether or not the caller
-' asked for DebugMode. Remove once the pass is confirmed on a real file.
-Private Const DIAG_COVER As Boolean = True
-
-' TEMPORARY - while DIAG_COVER is on, each patch buffer is also written as a visible clone in this
-' colour so it can be inspected on its own before the union swallows it. Any index that differs from
-' the zoning colour will do; 3 is red in the standard table.
-Private Const DIAG_COVER_COLOR As Long = 3
-
 
 ' Generates offset zones around elements on the specified source levels.
 '
@@ -164,7 +155,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' Each run starts its own echo budget and its own block in the trace file.
     mnDbgShown = 0
-    If DebugMode Or DIAG_COVER Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
+    If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
     Dim TargetLevel As Level
     Dim Elements()  As Element
@@ -290,11 +281,6 @@ Public Sub Zoning(Optional Lvls As Variant, _
                         DebugMode, RoundCaps, repBufs, nRep
 
         If nRep > 0 Then
-            ' A visible copy of each patch, before the union absorbs it: the only way to tell a patch
-            ' that was never built from one that was built and then merged away.
-            If DebugMode Or DIAG_COVER Then _
-                WriteDebugClones repBufs, nRep, TargetLevel, DIAG_COVER_COLOR, Style, Weight
-
             ' Fused WITH the zones rather than beside them: a gap in the middle of a cable can bridge
             ' two zones that were never joined, or fill a hole inside one, and only the union knows
             ' which. Feeding the zones back in is what lets either happen.
@@ -324,7 +310,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
             ' Area is what separates "absorbed but did not bridge" from "silently dropped", and the
             ' two call for opposite fixes. A union that swallowed the patches grows by most of their
             ' area; one that ignored them comes back the same size it went in.
-            If DebugMode Or DIAG_COVER Then _
+            If DebugMode Then _
                 DbgLine "COVER fusion: " & nBefore & " zone(s) " & Format(dBefore, "0.00") & " m2" & _
                         " + " & nRep & " patch(es) " & Format(dPatch, "0.00") & " m2" & _
                         " -> " & nMergedAll & " zone(s) " & Format(TotalArea(mergedAll, nMergedAll), "0.00") & " m2"
@@ -435,23 +421,23 @@ Private Sub RepairUncovered(ByRef Elements() As Element, _
                 If dIn < dTotal - dSlack Then
                     bMiss(i) = True
                     nMissing = nMissing + 1
-                    If DebugMode Or DIAG_COVER Then _
+                    If DebugMode Then _
                         DbgLine "COVER #" & i & " type " & Elements(i).Type & " : " & Format(dIn, "0.000") & _
                                 " m inside of " & Format(dTotal, "0.000") & " m -> REBUILD"
-                ElseIf DebugMode Or DIAG_COVER Then
+                ElseIf DebugMode Then
                     DbgLine "COVER #" & i & " type " & Elements(i).Type & " : " & Format(dIn, "0.000") & _
                             " m inside of " & Format(dTotal, "0.000") & " m -> covered"
                 End If
-            ElseIf DebugMode Or DIAG_COVER Then
+            ElseIf DebugMode Then
                 DbgLine "COVER #" & i & " type " & Elements(i).Type & " : length " & Format(dTotal, "0.000") & _
                         " m is under the slack, skipped"
             End If
-        ElseIf DebugMode Or DIAG_COVER Then
+        ElseIf DebugMode Then
             DbgLine "COVER #" & i & " type " & Elements(i).Type & " : not measurable, skipped"
         End If
     Next i
 
-    If DebugMode Or DIAG_COVER Then _
+    If DebugMode Then _
         DbgLine "COVER verdict: " & nMissing & " of " & nTested & " measurable element(s) short, against " & _
                 nZones & " zone(s)"
     If nMissing = 0 Then Exit Sub
@@ -476,7 +462,7 @@ Private Sub RepairUncovered(ByRef Elements() As Element, _
         End If
     Next i
 
-    If DebugMode Or DIAG_COVER Then DbgLine "COVER rebuilt " & nRep & " buffer(s) to merge back in"
+    If DebugMode Then DbgLine "COVER rebuilt " & nRep & " buffer(s) to merge back in"
     Exit Sub
 
 ErrorHandler:
@@ -628,7 +614,7 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
     If buf Is Nothing Then
         ' The builder itself declined this piece. That is worth saying out loud: it means the hole
         ' was never a merge failure, and no amount of re-merging will close it.
-        If DebugMode Or DIAG_COVER Then _
+        If DebugMode Then _
             DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
                     " m, " & Format(dIn, "0.000") & " m inside -> NO BUFFER BUILT"
         Exit Sub
@@ -638,7 +624,7 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
     Set repBufs(nRep) = buf
     nRep = nRep + 1
 
-    If DebugMode Or DIAG_COVER Then _
+    If DebugMode Then _
         DbgLine "COVER piece type " & oPiece.Type & ", " & Format(dTotal, "0.000") & _
                 " m, " & Format(dIn, "0.000") & " m inside -> buffer rebuilt"
     Exit Sub
@@ -647,8 +633,9 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.TestAndBuffer"
 End Sub
 
-' TEMPORARY - the summed area of a set of zones, skipping any whose area cannot be read (AreaOf
-' returns a huge sentinel for those, which would swamp the total). Goes with DIAG_COVER.
+' The summed area of a set of zones, skipping any whose area cannot be read (AreaOf returns a huge
+' sentinel for those, which would swamp the total). Used by the DebugMode trace, where weighing the
+' repair fusion is what tells a patch the union ABSORBED from one it silently dropped.
 Private Function TotalArea(ByRef els() As Element, ByVal n As Long) As Double
     On Error Resume Next
     Dim k As Long
