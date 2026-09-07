@@ -1,12 +1,13 @@
 ' Module: SheetLevels
-' Description: Turns Global Display ON for every level of every Sheet ("Papier") model of the active
+' Description: Turns every level ON (Level.IsActive) in every Sheet ("Papier") model of the active
 '              design file whose name matches ARES_Sheet_Levels_Model_Name.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, Config, ErrorHandlerClass, LangManager, RuleGrammar
 '
-' SCOPE - deliberately one switch out of the three that gate a level's visibility. MicroStation paints
-' a level only when Global Display is on AND the level is not frozen AND view display is on for that
-' view (Level.IsDisplayed Remarks, mvba-docs). This module writes Global Display and nothing else:
+' SCOPE - one switch, deliberately. This module writes Level.IsActive and nothing else. Global Display
+' (Level.IsDisplayed) was measured already True on every level of every folio of the target file
+' (2026-09-07), so writing it changed nothing at all; IsActive was the one that was off. See
+' DisplayAllLevels for that measurement. The two switches this module still does NOT write:
 '   - IsFrozen is left alone: a frozen level is an editorial decision the sheet's author made.
 '   - IsDisplayedInView is left alone because it is not REACHABLE from here. The per-view level masks
 '     belong to each model's own view group, and MVBA exposes no way to walk the views of a model that
@@ -23,8 +24,8 @@
 Option Explicit
 
 ' Sole public entry, driven by the key-in Command.ActivateSheetLevels. Walks the active design file's
-' top-level models, keeps the Sheet ones whose NAME matches the configured pattern, and turns Global
-' Display on for every level of each writable one.
+' top-level models, keeps the Sheet ones whose NAME matches the configured pattern, and turns every level
+' of each writable one on (Level.IsActive - see DisplayAllLevels for why that switch and not IsDisplayed).
 Public Sub ActivateLevels()
     On Error GoTo ErrorHandler
 
@@ -130,8 +131,14 @@ ErrorHandler:
     ResolvePattern = ""
 End Function
 
-' Turns Global Display on for every level of ONE model; returns how many levels moved AND were committed.
-' Compare-before-write, so a sheet that is already fully displayed costs no write and no Rewrite.
+' Turns every level of ONE model on; returns how many levels moved AND were committed.
+' The switch written is Level.IsActive, NOT Level.IsDisplayed. Measured live on a 24-folio file
+' (2026-09-07): IsDisplayed was already True on every level of every folio - which is why the first
+' build reported "24 sheet model(s), 0 level(s) switched on" while the sheets were visibly not showing
+' their levels - and IsActive was False on all of them. Found by stepping through in the VBE, so the
+' evidence is the file, not the doc page (which defines IsActive as "the object currently being worked
+' on"; it is Read/Write on a Level).
+' Compare-before-write, so a sheet already fully on costs no write and no Rewrite.
 ' The count is reported only once the commit succeeds: an uncommitted level change is discarded when the
 ' design file closes (Rewrite Method Remarks, mvba-docs), so counting it would tell the user something
 ' untrue. Levels.Rewrite is called on the CACHED collection, not on a fresh oModel.Levels accessor - the
@@ -152,8 +159,8 @@ Private Function DisplayAllLevels(ByVal oModel As ModelReference) As Long
     ' No Levels.Count guard: Count is undocumented for this collection, and an empty one simply never
     ' enters the loop.
     For Each oLevel In oLevels
-        If Not oLevel.IsDisplayed Then
-            oLevel.IsDisplayed = True
+        If Not oLevel.IsActive Then
+            oLevel.IsActive = True
             nChanged = nChanged + 1
         End If
     Next
@@ -172,8 +179,8 @@ ErrorHandler:
 End Function
 
 ' Read-only measurement, writes nothing anywhere. For every matching sheet model it reports how many of
-' its levels are OFF on each of the three axes that gate visibility - global display, freeze, and (for the
-' ACTIVE model only, the sole one whose views MVBA can reach) per-view display. It exists because
+' its levels are OFF on each axis: IsActive (the one ActivateLevels writes), global display, freeze, and
+' - for the ACTIVE model only, the sole one whose views MVBA can reach - per-view display. It exists because
 ' ActivateLevels' own "0 level(s) switched on" is ambiguous: it means the same thing whether nothing was
 ' off in the first place or every commit silently failed, and SafeRewrite deliberately does not log.
 ' Output goes to the .log, in English, one line per model, plus the Immediate window - same shape as the
@@ -207,11 +214,12 @@ End Sub
 Private Sub DiagModel(ByVal oModel As ModelReference)
     On Error GoTo ErrorHandler
 
-    Dim oLevels   As Levels
-    Dim oLevel    As Level
-    Dim nTotal    As Long
+    Dim oLevels    As Levels
+    Dim oLevel     As Level
+    Dim nTotal     As Long
+    Dim nActiveOff As Long
     Dim nGlobalOff As Long
-    Dim nFrozen   As Long
+    Dim nFrozen    As Long
 
     Set oLevels = oModel.Levels
     If oLevels Is Nothing Then
@@ -221,14 +229,17 @@ Private Sub DiagModel(ByVal oModel As ModelReference)
 
     For Each oLevel In oLevels
         nTotal = nTotal + 1
+        If Not oLevel.IsActive Then nActiveOff = nActiveOff + 1
         If Not oLevel.IsDisplayed Then nGlobalOff = nGlobalOff + 1
         If oLevel.IsFrozen Then nFrozen = nFrozen + 1
     Next
 
+    ' activeOFF is the axis ActivateLevels writes; the other three are what it deliberately does not.
     DiagLine "  " & oModel.Name & _
-             " | active=" & CStr(oModel.IsActive) & _
+             " | modelActive=" & CStr(oModel.IsActive) & _
              " | readOnly=" & CStr(oModel.IsReadOnly) & _
              " | levels=" & CStr(nTotal) & _
+             " | activeOFF=" & CStr(nActiveOff) & _
              " | globalDisplayOFF=" & CStr(nGlobalOff) & _
              " | frozen=" & CStr(nFrozen)
 
