@@ -10,6 +10,9 @@
 *.bas -text
 *.cls -text
 *.frm -text
+# A .frx is a UserForm's binary layout blob. It survives "* text=auto" only because it happens to hold
+# NUL bytes; one that did not would be silently mangled on checkout, and the form with it.
+*.frx binary
 
 # Force binary for these files
 *.png binary

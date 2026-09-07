@@ -306,6 +306,11 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_SheetLevelsNoModel", "ARES: Sheet levels — no sheet model matches: {0}"
     moTranslations.Add "EN_SheetLevelsComplete", "ARES: Sheet levels complete — {0} sheet model(s), {1} view(s), {2} level switch(es) turned on"
     moTranslations.Add "EN_SheetLevelsCompletePartial", "ARES: Sheet levels complete — {0} sheet model(s), {1} view(s), {2} level switch(es) turned on, {3} read-only model(s) skipped"
+    moTranslations.Add "EN_SheetLevelsGUIOptionsCaption", "Edit sheet levels options:"
+    moTranslations.Add "EN_SheetLevelsGUIOptionsEditName_CommandCaption", "Edit sheet model name ({0})"
+    moTranslations.Add "EN_SheetLevelsGUIOptionsEditName_CommandTip", "Name pattern selecting the sheet models to process. Case-insensitive, * and ? wildcards, several alternatives separated by |. The pattern matches the whole name, so write *Folio* for ""contains""."
+    moTranslations.Add "EN_SheetLevelsGUIOptionsAttachments_LabelCaption", "Include the sheets' references"
+    moTranslations.Add "EN_SheetLevelsGUIOptionsAttachments_LabelTip", "When on, the levels of everything a sheet references are turned on too - usually where the sheet's drawing comes from. Off = the sheets' own levels only."
 
     ' Add French translations
     moTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -589,6 +594,11 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_SheetLevelsNoModel", "ARES : Niveaux des modèles papier — aucun modèle papier ne correspond à : {0}"
     moTranslations.Add "FR_SheetLevelsComplete", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} vue(s), {2} activation(s) de niveau"
     moTranslations.Add "FR_SheetLevelsCompletePartial", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} vue(s), {2} activation(s) de niveau, {3} modèle(s) ignoré(s) car en lecture seule"
+    moTranslations.Add "FR_SheetLevelsGUIOptionsCaption", "Modifier les options des niveaux des modèles papier :"
+    moTranslations.Add "FR_SheetLevelsGUIOptionsEditName_CommandCaption", "Modifier le nom des modèles papier ({0})"
+    moTranslations.Add "FR_SheetLevelsGUIOptionsEditName_CommandTip", "Motif de nom sélectionnant les modèles papier à traiter. Insensible à la casse, jokers * et ?, plusieurs alternatives séparées par |. Le motif est comparé au nom entier : écrivez *Folio* pour « contient »."
+    moTranslations.Add "FR_SheetLevelsGUIOptionsAttachments_LabelCaption", "Inclure les références des modèles papier"
+    moTranslations.Add "FR_SheetLevelsGUIOptionsAttachments_LabelTip", "Si activé, les niveaux de tout ce que le modèle papier référence sont activés aussi - c'est généralement de là que vient son dessin. Désactivé = uniquement les niveaux propres des folios."
 
     IsInit = True
     Exit Sub

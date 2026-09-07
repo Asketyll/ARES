@@ -11,6 +11,7 @@ Private moCableReportGUI     As CableReport_GUI_Options
 Private moPropertyTaggingGUI As PropertyTagging_GUI_Options
 Private moPropertyCalculationGUI     As PropertyCalculation_GUI_Options
 Private moPropertyRenderingGUI       As PropertyRendering_GUI_Options
+Private moSheetLevelsGUI     As SheetLevels_GUI_Options
 
 ' Report a trapped fault from a key-in entry point (messaging rules): log the technical detail
 ' to the .log (English, via HandleError), then show the user a translated, GENERIC failure line.
@@ -388,11 +389,9 @@ ErrorHandler:
     ReportFailure "ActivateSheetLevels", Err.Description, Err.Number, Err.Source
 End Sub
 
-' Key-in: measure, WITHOUT writing anything, why ActivateSheetLevels did or did not have an effect.
-' For every matching sheet model it reports the level count and how many levels are off on each of the
-' three axes that gate visibility (global display, freeze, and - for the active model only - per-view
-' display). Lines go to the ARES log and to the VBE Immediate window.
-Sub DiagSheetLevels()
+' Key-in: edit the Sheet Levels options - the sheet-model name pattern, and whether the sheets'
+' references are processed too.
+Sub EditSheetLevelsOptions()
     On Error GoTo ErrorHandler
     ErrorHandler.ClearErrorFlag
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
@@ -402,11 +401,20 @@ Sub DiagSheetLevels()
 
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
 
-    SheetLevels.DiagnoseLevels
+    If moSheetLevelsGUI Is Nothing Then
+        Set moSheetLevelsGUI = New SheetLevels_GUI_Options
+    End If
+
+    moSheetLevelsGUI.Show vbModeless
+    ReportIfLogged "EditSheetLevelsOptions"
     Exit Sub
 
 ErrorHandler:
-    ReportFailure "DiagSheetLevels", Err.Description, Err.Number, Err.Source
+    ReportFailure "EditSheetLevelsOptions", Err.Description, Err.Number, Err.Source
+End Sub
+
+Public Sub OnSheetLevelsGUIClosed()
+    Set moSheetLevelsGUI = Nothing
 End Sub
 
 ' === TESTING COMMANDS ===
@@ -788,6 +796,7 @@ Public Sub SaveAllOpenFormPositions()
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyTaggingGUI, moPropertyTaggingGUI.Name
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyCalculationGUI, moPropertyCalculationGUI.Name
     If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyRenderingGUI, moPropertyRenderingGUI.Name
+    If Not moSheetLevelsGUI Is Nothing Then FormPlacement.SaveFormPosition moSheetLevelsGUI, moSheetLevelsGUI.Name
 End Sub
 
 ' Key-in: forget all saved form positions and re-center any option form currently open.
@@ -808,6 +817,7 @@ Sub ResetFormPositions()
     If Not moPropertyTaggingGUI Is Nothing Then FormPlacement.CenterForm moPropertyTaggingGUI
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.CenterForm moPropertyCalculationGUI
     If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.CenterForm moPropertyRenderingGUI
+    If Not moSheetLevelsGUI Is Nothing Then FormPlacement.CenterForm moSheetLevelsGUI
 
     ShowStatusT "FormPositionsReset"
     ReportIfLogged "ResetFormPositions"
