@@ -1,6 +1,7 @@
 ' Module: SheetLevels
 ' Description: Turns every level on, in every open view, of every Sheet ("Papier") model of the active
-'              design file whose name matches ARES_Sheet_Levels_Model_Name.
+'              design file whose name matches ARES_Sheet_Levels_Model_Name - and of everything those
+'              sheets reference.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, Config, ErrorHandlerClass, LangManager, RuleGrammar
 '
@@ -21,6 +22,16 @@
 ' level visible (an active level cannot be masked) but only as a SIDE EFFECT, and it silently changed the
 ' active level of all 24 folios. Do not reinstate it.
 '
+' REFERENCES COUNT TOO. A sheet almost always shows its content through an attached reference (the design
+' model), and a reference carries its OWN Levels collection with its own per-view mask - measured on the
+' real file (2026-09-07): the folio's own levels came out right while the referenced model stayed blank.
+' So each sheet's attachments are walked depth-first and given the same treatment, bounded by
+' MAX_ATTACH_DEPTH since a reference can itself reference. An attachment is never activated (it cannot be)
+' and its `IsReadOnly` is not a reason to skip it: that flag is about its ELEMENTS, while its level display
+' is writable - which is precisely what the mvba-docs example Changing_Level_Display_for_an_Attachment
+' does. Its levels need their own `Levels.Rewrite`; `DesignFile.RewriteLevels` explicitly does not reach
+' them.
+'
 ' `IsFrozen` is deliberately still NOT written: a frozen level is an editorial decision the sheet's author
 ' made, and nothing in the request asked to undo it. A frozen level therefore stays invisible; run
 ' DiagSheetLevels to see how many there are.
@@ -35,6 +46,10 @@ Option Explicit
 ' MicroStation's fixed view count. Views are addressed by index because the per-view mask is per view
 ' NUMBER; a closed view is skipped rather than opened.
 Private Const MAX_VIEWS As Long = 8
+
+' Depth cap on the reference tree. A reference can itself reference, and there is no cheap identity test
+' here to detect a chain that loops back, so the walk is bounded rather than trusted.
+Private Const MAX_ATTACH_DEPTH As Long = 8
 
 ' Sole public entry, driven by the key-in Command.ActivateSheetLevels. Walks the active design file's
 ' top-level models, keeps the Sheet ones whose NAME matches the configured pattern, and turns every level
@@ -164,25 +179,17 @@ ErrorHandler:
     ResolvePattern = ""
 End Function
 
-' Turns every level of ONE model on, in each of that model's open views; returns how many switches moved
-' AND were committed, and adds the views it wrote to nViews.
+' Processes ONE sheet model: makes it active, collects its open views, then turns the levels on for the
+' sheet itself AND for everything it references. Returns how many switches moved AND were committed, and
+' adds the views it wrote to nViews.
 ' The model is ACTIVATED first: ActiveDesignFile.Views is the active view group's collection, so a model's
 ' own views are unreachable until it is the active one (see the module header).
-' Compare-before-write on every switch, so a sheet already fully on costs no write and no Rewrite.
-' The count is reported only once the commit succeeds: an uncommitted level change is discarded when the
-' design file closes (Rewrite Method Remarks, mvba-docs), so counting it would tell the user something
-' untrue. Levels.Rewrite is called on the CACHED collection, not on a fresh oModel.Levels accessor - the
-' doc's own example caches it, and a second accessor may hand back another wrapper whose Rewrite commits
-' nothing. It is the per-model call rather than DesignFile.RewriteLevels because the latter acts on
-' DesignFile.Levels, which is the DEFAULT model reference's collection (Levels Property Remarks).
 ' Its own error handler is what keeps one faulting model from aborting the whole run.
 Private Function DisplayAllLevels(ByVal oModel As ModelReference, ByRef nViews As Long) As Long
     On Error GoTo ErrorHandler
 
-    Dim oLevels  As Levels
-    Dim oLevel   As Level
-    Dim oView    As View
-    Dim i        As Long
+    Dim oViews() As View
+    Dim nOpen    As Long
     Dim nChanged As Long
 
     ' Confirm the switch actually happened before reading ActiveDesignFile.Views: if Activate quietly did
@@ -196,45 +203,136 @@ Private Function DisplayAllLevels(ByVal oModel As ModelReference, ByRef nViews A
         Exit Function
     End If
 
-    Set oLevels = oModel.Levels
+    nOpen = CollectOpenViews(oViews)
+    nViews = nViews + nOpen
+
+    ' The sheet's own levels, then the levels of everything attached to it. A reference carries its OWN
+    ' Levels collection, with its own per-view mask and its own Rewrite - turning the sheet's levels on
+    ' says nothing about what its references show, which is exactly the gap found on the real file
+    ' (2026-09-07: folio levels correct, referenced design model still blank).
+    nChanged = TurnOnLevels(oModel.Levels, oViews, nOpen)
+    nChanged = nChanged + TurnOnAttachments(oModel, oViews, nOpen, 1)
+
+    DisplayAllLevels = nChanged
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.DisplayAllLevels"
+    DisplayAllLevels = nChanged
+End Function
+
+' The open views of the ACTIVE view group, gathered once per model so the level loop does not re-resolve
+' them per level. Returns how many were found; oViews is filled from index 0.
+Private Function CollectOpenViews(ByRef oViews() As View) As Long
+    On Error GoTo ErrorHandler
+
+    Dim oView As View
+    Dim i     As Long
+    Dim n     As Long
+
+    ReDim oViews(0 To MAX_VIEWS - 1)
+    For i = 1 To MAX_VIEWS
+        Set oView = GetOpenView(i)
+        If Not oView Is Nothing Then
+            Set oViews(n) = oView
+            n = n + 1
+        End If
+    Next i
+
+    CollectOpenViews = n
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.CollectOpenViews"
+    CollectOpenViews = n
+End Function
+
+' Turns every level of ONE Levels collection on - the sheet's own, or one of its references'. Global
+' Display once per level (the documented prerequisite, not per-view), then the per-view mask in each open
+' view. Compare-before-write on every switch, so a collection already fully on costs no write and no
+' Rewrite. Closed views are not in oViews: the request is to show the levels of the sheets, not to change
+' which views a sheet opens with.
+' The count is returned only once the commit succeeds: an uncommitted level change is discarded when the
+' design file closes (Rewrite Method Remarks, mvba-docs), so counting it would tell the user something
+' untrue. Rewrite is called on the collection passed in, never on a fresh accessor - the doc's own example
+' caches it, and a second accessor may hand back another wrapper whose Rewrite commits nothing. It is also
+' the ONLY thing that commits an attachment's levels: the same Remarks state that DesignFile.RewriteLevels
+' "does not rewrite the level information for attachments".
+' Takes the Levels collection rather than the model reference on purpose: an Attachment is a distinct COM
+' interface from ModelReference (hence ModelReference.AsAttachment), so passing one where the other is
+' declared is a conversion this avoids needing.
+Private Function TurnOnLevels(ByVal oLevels As Levels, ByRef oViews() As View, ByVal nOpen As Long) As Long
+    On Error GoTo ErrorHandler
+
+    Dim oLevel   As Level
+    Dim i        As Long
+    Dim nChanged As Long
+
     If oLevels Is Nothing Then Exit Function
 
-    ' Global Display first, once per level: it is the documented prerequisite, it is not per-view, and
-    ' re-testing it inside the view loop would read it MAX_VIEWS times for nothing.
     ' No Levels.Count guard: Count is undocumented for this collection, and an empty one never loops.
     For Each oLevel In oLevels
         If Not oLevel.IsDisplayed Then
             oLevel.IsDisplayed = True
             nChanged = nChanged + 1
         End If
+        For i = 0 To nOpen - 1
+            If Not oLevel.IsDisplayedInView(oViews(i)) Then
+                oLevel.IsDisplayedInView(oViews(i)) = True
+                nChanged = nChanged + 1
+            End If
+        Next i
     Next
 
-    ' Then the per-view mask, view by view. Closed views are skipped rather than opened - the request is
-    ' to show the levels of the sheets, not to change which views a sheet opens with.
-    For i = 1 To MAX_VIEWS
-        Set oView = GetOpenView(i)
-        If Not oView Is Nothing Then
-            nViews = nViews + 1
-            For Each oLevel In oLevels
-                If Not oLevel.IsDisplayedInView(oView) Then
-                    oLevel.IsDisplayedInView(oView) = True
-                    nChanged = nChanged + 1
-                End If
-            Next
-        End If
-    Next i
-
     If nChanged = 0 Then Exit Function
-    If SafeRewrite(oLevels) Then DisplayAllLevels = nChanged
+    If SafeRewrite(oLevels) Then TurnOnLevels = nChanged
     Exit Function
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.DisplayAllLevels"
-    ' Best effort: commit whatever landed before the fault rather than leaving the model changed in
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.TurnOnLevels"
+    ' Best effort: commit whatever landed before the fault rather than leaving the collection changed in
     ' memory and uncommitted on disk. Still counted only if that commit reports success.
     If nChanged > 0 Then
-        If SafeRewrite(oLevels) Then DisplayAllLevels = nChanged
+        If SafeRewrite(oLevels) Then TurnOnLevels = nChanged
     End If
+End Function
+
+' Depth-first walk of a model reference's attachments, turning each one's levels on. A reference can
+' itself reference, so it recurses, bounded by MAX_ATTACH_DEPTH.
+' oRef is typed As Object so the same routine takes both a ModelReference (the sheet) and an Attachment
+' (a nested reference) - they are separate COM interfaces and VBA would not convert one to the other.
+' An attachment is NEVER activated: "an Attachment is a read-only ModelReference that cannot become the
+' active model reference ... Activate raises an error" (Attachment_Object Remarks). Read-only there refers
+' to its ELEMENTS - its level display is writable, which is what the doc's own
+' Changing_Level_Display_for_an_Attachment example does. So the top-level IsReadOnly skip must NOT be
+' applied here, or every reference would be silently passed over.
+' A missing reference file is skipped rather than faulted through: "If the file is missing, many of the
+' methods and properties of Attachment raise errors" (IsMissingFile Remarks), and one drawing with a
+' broken reference would otherwise log a line per folio.
+Private Function TurnOnAttachments(ByVal oRef As Object, ByRef oViews() As View, _
+                                   ByVal nOpen As Long, ByVal nDepth As Long) As Long
+    On Error GoTo ErrorHandler
+
+    Dim oAtt     As Attachment
+    Dim nChanged As Long
+
+    If nDepth > MAX_ATTACH_DEPTH Then Exit Function
+
+    For Each oAtt In oRef.Attachments
+        If Not oAtt.IsMissingFile Then
+            If Not oAtt.IsMissingModel Then
+                nChanged = nChanged + TurnOnLevels(oAtt.Levels, oViews, nOpen)
+                nChanged = nChanged + TurnOnAttachments(oAtt, oViews, nOpen, nDepth + 1)
+            End If
+        End If
+    Next
+
+    TurnOnAttachments = nChanged
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.TurnOnAttachments"
+    TurnOnAttachments = nChanged
 End Function
 
 ' The active view group's view at nIndex when it is OPEN, Nothing otherwise. Its own frame with Resume
@@ -326,7 +424,8 @@ Private Sub DiagModel(ByVal oModel As ModelReference)
              " | readOnly=" & CStr(oModel.IsReadOnly) & _
              " | levels=" & CStr(nTotal) & _
              " | globalDisplayOFF=" & CStr(nGlobalOff) & _
-             " | frozen=" & CStr(nFrozen)
+             " | frozen=" & CStr(nFrozen) & _
+             " | attachments=" & CStr(CountAttachments(oModel))
 
     ' Per-view display is only measurable on the ACTIVE model: ActiveDesignFile.Views is the active view
     ' group's, and MVBA offers no way to reach another model's without activating it - which a read-only
@@ -362,6 +461,19 @@ Private Sub DiagActiveViews(ByVal oLevels As Levels)
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.DiagActiveViews"
 End Sub
+
+' How many references a model carries, for the diagnostic line. Its own frame with Resume Next: a model
+' whose attachments cannot be read must still produce its measurement line.
+Private Function CountAttachments(ByVal oRef As Object) As Long
+    On Error Resume Next
+
+    Dim n As Long
+
+    Err.Clear
+    n = oRef.Attachments.Count
+    If Err.Number = 0 Then CountAttachments = n
+    Err.Clear
+End Function
 
 ' Diagnostic output: the .log (so it can be copied out of a session) and the Immediate window.
 Private Sub DiagLine(ByVal sText As String)
