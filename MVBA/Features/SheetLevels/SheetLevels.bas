@@ -26,7 +26,8 @@
 ' model), and a reference carries its OWN Levels collection with its own per-view mask - measured on the
 ' real file (2026-09-07): the folio's own levels came out right while the referenced model stayed blank.
 ' So each sheet's attachments are walked depth-first and given the same treatment, bounded by
-' MAX_ATTACH_DEPTH since a reference can itself reference. An attachment is never activated (it cannot be)
+' MAX_ATTACH_DEPTH since a reference can itself reference - switchable off through
+' ARES_Sheet_Levels_Attachments, on by default. An attachment is never activated (it cannot be)
 ' and its `IsReadOnly` is not a reason to skip it: that flag is about its ELEMENTS, while its level display
 ' is writable - which is precisely what the mvba-docs example Changing_Level_Display_for_an_Attachment
 ' does. Its levels need their own `Levels.Rewrite`; `DesignFile.RewriteLevels` explicitly does not reach
@@ -120,9 +121,13 @@ Public Sub ActivateLevels()
         End If
     Next
 
-    ' Pass 2 - activate and write, one model at a time.
+    ' Pass 2 - activate and write, one model at a time. The references switch is read ONCE, not per model:
+    ' it cannot legitimately change mid-run, and re-reading it would just be config reads in a loop.
+    Dim bWithAttachments As Boolean
+    bWithAttachments = ProcessAttachments()
+
     For i = 0 To nModels - 1
-        nSwitched = nSwitched + DisplayAllLevels(matched(i), nViews)
+        nSwitched = nSwitched + DisplayAllLevels(matched(i), nViews, bWithAttachments)
     Next i
 
     RestoreModel oPrevModel
@@ -185,7 +190,8 @@ End Function
 ' The model is ACTIVATED first: ActiveDesignFile.Views is the active view group's collection, so a model's
 ' own views are unreachable until it is the active one (see the module header).
 ' Its own error handler is what keeps one faulting model from aborting the whole run.
-Private Function DisplayAllLevels(ByVal oModel As ModelReference, ByRef nViews As Long) As Long
+Private Function DisplayAllLevels(ByVal oModel As ModelReference, ByRef nViews As Long, _
+                                  ByVal bWithAttachments As Boolean) As Long
     On Error GoTo ErrorHandler
 
     Dim oViews() As View
@@ -211,7 +217,7 @@ Private Function DisplayAllLevels(ByVal oModel As ModelReference, ByRef nViews A
     ' says nothing about what its references show, which is exactly the gap found on the real file
     ' (2026-09-07: folio levels correct, referenced design model still blank).
     nChanged = TurnOnLevels(oModel.Levels, oViews, nOpen)
-    nChanged = nChanged + TurnOnAttachments(oModel, oViews, nOpen, 1)
+    If bWithAttachments Then nChanged = nChanged + TurnOnAttachments(oModel, oViews, nOpen, 1)
 
     DisplayAllLevels = nChanged
     Exit Function
@@ -245,6 +251,27 @@ Private Function CollectOpenViews(ByRef oViews() As View) As Long
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.CollectOpenViews"
     CollectOpenViews = n
+End Function
+
+' True when a sheet's references must be processed too (ARES_Sheet_Levels_Attachments, default True).
+' Read live for the same reason as the pattern: the options panel writes through, but the MicroStation
+' Configuration dialog is a legitimate editor too and a boot-time snapshot would ignore it until restart.
+' Anything that is not literally "False" reads as True, and an unreadable value falls back to True as
+' well: a sheet fed by a reference is the normal case, so the safe reading of a broken setting is "do the
+' whole job", never "silently do half of it".
+Private Function ProcessAttachments() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim sRaw As String
+    sRaw = Config.GetVar(ARESConfig.ARES_SHEET_LEVELS_ATTACHMENTS.Key)
+    If sRaw = ARESConstants.ARES_NAVD Then sRaw = ARESConfig.ARES_SHEET_LEVELS_ATTACHMENTS.Value
+
+    ProcessAttachments = (UCase(Trim(sRaw)) <> "FALSE")
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.ProcessAttachments"
+    ProcessAttachments = True
 End Function
 
 ' Turns every level of ONE Levels collection on - the sheet's own, or one of its references'. Global

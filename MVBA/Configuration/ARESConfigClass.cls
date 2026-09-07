@@ -154,6 +154,11 @@ Public ARES_CABLEREPORT_EXCEL_VISIBLE As ARES_MS_VAR_Class 'Default Value: false
 ' alternatives may be | -separated (each one trimmed). "[" / "]" are NOT supported in a pattern: Like
 ' reads them as a character class. Empty, or nothing but delimiters = the key-in does nothing (fail-closed).
 Public ARES_SHEET_LEVELS_MODEL_NAME As ARES_MS_VAR_Class 'Default Value: *Folio*   |-separated wildcard patterns (ARES_VAR_DELIMITER)
+' Used in SheetLevels module — when True (the default), ActivateSheetLevels also turns on the levels of
+' every reference attached to a matching sheet, walked depth-first. False = that sheet's own levels only,
+' which leaves a folio whose content comes from a reference blank. Anything other than "False" reads as
+' True: a half-done job is the worse failure here.
+Public ARES_SHEET_LEVELS_ATTACHMENTS As ARES_MS_VAR_Class 'Default Value: True          True or False (Boolean)
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -240,6 +245,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CABLEREPORT_ROUND = CreateConfigVar("ARES_CableReport_Round", "2")
     Set ARES_CABLEREPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_CableReport_Excel_Visible", "False")
     Set ARES_SHEET_LEVELS_MODEL_NAME = CreateConfigVar("ARES_Sheet_Levels_Model_Name", "*Folio*")
+    Set ARES_SHEET_LEVELS_ATTACHMENTS = CreateConfigVar("ARES_Sheet_Levels_Attachments", "True")
     CreateConfigVariables = True
     Exit Function
 
