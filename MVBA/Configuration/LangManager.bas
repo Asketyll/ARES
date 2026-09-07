@@ -304,8 +304,8 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_SheetLevelsReadOnly", "ARES: Sheet levels — {0} matching sheet model(s) are read-only, nothing changed"
     moTranslations.Add "EN_SheetLevelsPatternEmpty", "ARES: ARES_Sheet_Levels_Model_Name empty — ActivateSheetLevels aborted"
     moTranslations.Add "EN_SheetLevelsNoModel", "ARES: Sheet levels — no sheet model matches: {0}"
-    moTranslations.Add "EN_SheetLevelsComplete", "ARES: Sheet levels complete — {0} sheet model(s), {1} level(s) switched on"
-    moTranslations.Add "EN_SheetLevelsCompletePartial", "ARES: Sheet levels complete — {0} sheet model(s), {1} level(s) switched on, {2} read-only model(s) skipped"
+    moTranslations.Add "EN_SheetLevelsComplete", "ARES: Sheet levels complete — {0} sheet model(s), {1} view(s), {2} level switch(es) turned on"
+    moTranslations.Add "EN_SheetLevelsCompletePartial", "ARES: Sheet levels complete — {0} sheet model(s), {1} view(s), {2} level switch(es) turned on, {3} read-only model(s) skipped"
 
     ' Add French translations
     moTranslations.Add "FR_VarResetSuccess", "Réinitialisé à la valeur par défaut: {0}"
@@ -587,8 +587,8 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_SheetLevelsReadOnly", "ARES : Niveaux des modèles papier — {0} modèle(s) papier correspondant(s) en lecture seule, rien n'a été modifié"
     moTranslations.Add "FR_SheetLevelsPatternEmpty", "ARES : ARES_Sheet_Levels_Model_Name vide — ActivateSheetLevels annulé"
     moTranslations.Add "FR_SheetLevelsNoModel", "ARES : Niveaux des modèles papier — aucun modèle papier ne correspond à : {0}"
-    moTranslations.Add "FR_SheetLevelsComplete", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} niveau(x) activé(s)"
-    moTranslations.Add "FR_SheetLevelsCompletePartial", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} niveau(x) activé(s), {2} modèle(s) ignoré(s) car en lecture seule"
+    moTranslations.Add "FR_SheetLevelsComplete", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} vue(s), {2} activation(s) de niveau"
+    moTranslations.Add "FR_SheetLevelsCompletePartial", "ARES : Niveaux des modèles papier — {0} modèle(s) papier traité(s), {1} vue(s), {2} activation(s) de niveau, {3} modèle(s) ignoré(s) car en lecture seule"
 
     IsInit = True
     Exit Sub
