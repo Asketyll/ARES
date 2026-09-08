@@ -4,7 +4,7 @@
 '              stored for the global merge or written straight out.
 ' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Zoning (AddOrWrite, FuseRegions, WriteDebugClones), Zoning_Builders, ErrorHandler
+' Dependencies: Zoning (AddOrWrite, FuseRegions, WriteDebugClones, DbgLine), Zoning_Builders, Zoning_Buffer, ErrorHandler
 
 Option Explicit
 
@@ -74,9 +74,17 @@ Private Sub ZoneFromLine(ByVal oEl As Element, _
                          ByVal RoundCaps As Boolean)
     On Error GoTo ErrorHandler
     Dim elem As Element
+
+    ' A single segment is a chain of one: the buffer builder produces the stadium directly, no union.
+    Set elem = Zoning_Buffer.BuildBuffer(oEl, Dist, RoundCaps)
+    If Not elem Is Nothing Then
+        AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
+        Exit Sub
+    End If
+
     ' Single segment: both ends are free ends of the chain → caps follow the global RoundCaps flag.
     Set elem = BuildLineZone(oEl, Dist, RoundCaps, RoundCaps)
-    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
+    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromLine"
@@ -107,6 +115,18 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     Dim gEnd      As Point3d     ' polyline global end   (free end candidate)
     Dim allRound  As Boolean     ' True → every cap rounded (global RoundCaps, or closed polyline)
     Dim tol       As Double
+
+    ' Two ways to buffer this chain: the direct contour, and the old per-sub-element fusion as a
+    ' fallback. Only the fallback calls GetRegionUnion.
+    '   1. Zoning_Buffer  - densify, offset naively, drop what is nearer the chain than Dist
+    '   2. the per-sub-element buffers below, fused - the original path, now only a fallback
+    Dim direct As Element
+    Set direct = Zoning_Buffer.BuildBuffer(oEl, Dist, RoundCaps)
+    If Not direct Is Nothing Then
+        AddOrWrite direct, TargetLevel, Color, Style, Weight, outBufs, nOut
+        Exit Sub
+    End If
+    If DebugMode Then DbgLine "OFFSET fallback : linestring id=" & DLongToString(oEl.ID)
 
     Set oVL = oEl
     v = oVL.GetVertices
@@ -144,7 +164,7 @@ Private Sub ZoneFromLineString(ByVal oEl As Element, _
     Dim nMerged  As Long
     FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "linestring id=" & DLongToString(oEl.ID)
     For j = 0 To nMerged - 1
-        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
+        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
     Exit Sub
 
@@ -168,9 +188,19 @@ Private Sub ZoneFromArc(ByVal oEl As Element, _
                         ByVal RoundCaps As Boolean)
     On Error GoTo ErrorHandler
     Dim elem As Element
+
+    ' A chain of one arc. It refuses when the radius is smaller than Dist - the inner offset passes
+    ' through the centre and the buffer becomes a solid sector, which BuildArcZone below handles
+    ' explicitly - so that case simply falls through.
+    Set elem = Zoning_Buffer.BuildBuffer(oEl, Dist, RoundCaps)
+    If Not elem Is Nothing Then
+        AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
+        Exit Sub
+    End If
+
     ' Single arc: both ends are free ends of the chain → caps follow the global RoundCaps flag.
     Set elem = BuildArcZone(oEl, Dist, RoundCaps, RoundCaps)
-    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
+    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromArc"
@@ -209,6 +239,16 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
     Dim gEnd      As Point3d    ' chain global end   (free end candidate; unused when closed)
     Dim allRound  As Boolean    ' True → every cap rounded (global RoundCaps, or closed shape)
     Dim tol       As Double
+
+    ' Same as for a LineString: the direct contour first, the per-sub-element fusion below as a
+    ' fallback.
+    Dim direct As Element
+    Set direct = Zoning_Buffer.BuildBuffer(oEl, Dist, RoundCaps)
+    If Not direct Is Nothing Then
+        AddOrWrite direct, TargetLevel, Color, Style, Weight, outBufs, nOut
+        Exit Sub
+    End If
+    If DebugMode Then DbgLine "OFFSET fallback : complexstring id=" & DLongToString(oEl.ID)
 
     Set cxEl    = oEl
     Set subEnum = cxEl.GetSubElements()
@@ -279,7 +319,7 @@ Private Sub ZoneFromComplexString(ByVal oEl As Element, _
     Dim nMerged  As Long
     FuseRegions subBufs, nBuf, merged, nMerged, DebugMode, "complexstring id=" & DLongToString(oEl.ID)
     For j = 0 To nMerged - 1
-        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
+        AddOrWrite merged(j), TargetLevel, Color, Style, Weight, outBufs, nOut
     Next j
     Exit Sub
 
@@ -330,12 +370,12 @@ Private Sub ZoneFromEllipse(ByVal oEl As Element, _
         Set oEnum = GetRegionDifference(solid, holes, Nothing, msdFillModeNotFilled)
         If Not oEnum Is Nothing Then
             Do While oEnum.MoveNext
-                AddOrWrite oEnum.Current, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
+                AddOrWrite oEnum.Current, TargetLevel, Color, Style, Weight, outBufs, nOut
             Loop
         End If
     Else
         ' Case B: inner ellipse would have zero or negative radius → outer ellipse only.
-        AddOrWrite outerEl, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
+        AddOrWrite outerEl, TargetLevel, Color, Style, Weight, outBufs, nOut
     End If
     Exit Sub
 
@@ -359,7 +399,7 @@ Private Sub ZoneFromCell(ByVal oEl As Element, _
     On Error GoTo ErrorHandler
     Dim elem As Element
     Set elem = BuildCellZone(oEl, Dist)
-    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut, Dist
+    If Not elem Is Nothing Then AddOrWrite elem, TargetLevel, Color, Style, Weight, outBufs, nOut
     Exit Sub
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ZoneFromCell"

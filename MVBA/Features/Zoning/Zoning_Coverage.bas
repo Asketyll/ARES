@@ -4,7 +4,7 @@
 '              ended up outside them. The only check that looks at the finished product.
 ' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Length, Zoning (DbgLine), Zoning_Builders, Zoning_Cleanup (AreaOf), Zoning_Dispatchers
+' Dependencies: Length, Zoning (DbgLine, AreaOf), Zoning_Builders, Zoning_Dispatchers
 
 Option Explicit
 

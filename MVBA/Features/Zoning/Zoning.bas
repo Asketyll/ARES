@@ -3,18 +3,18 @@
 ' found on specified levels.
 '
 ' SUPPORTED ELEMENT TYPES
-'   Line                        → stadium shape (rectangle + two semicircular end-caps)
-'   LineString                  → one stadium per segment, all fused via GetRegionUnion
-'   Arc                         → annular sector or pie sector (rounded or flat caps)
-'   ComplexString / ComplexShape → same fusion strategy, one buffer per sub-element
-'   CellHeader                  → rotated rounded rectangle aligned with the cell's own axis
+'   Line, LineString, Arc, ComplexString  → Zoning_Buffer walks the whole chain and returns one
+'                                           exact contour of lines and arcs (no per-segment union)
+'   ComplexShape                          → same walk; per-sub-element fusion stays as the fallback
+'   CellHeader                            → rotated rounded rectangle aligned with the cell's own axis
 '   EllipseElement (circle/ellipse)
 '
 ' HOW IT WORKS
 '   1. Collect all matching elements from the active model.
 '   2. Dispatch each element to its typed zone builder.
-'      Each builder returns an orphan closed shape — it is NOT added to the model.
+'      Each builder returns an orphan closed shape - it is NOT added to the model.
 '   3. Accumulate all zones, fuse them into a single region with GetRegionUnion, then write the result.
+'      Merging only ever happens BETWEEN source elements: one element is never split into parts to union.
 ' Rationale, thresholds and the measurements behind them: _bmad/docs/zoning-mechanics.md
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, Geometry, GetElements
@@ -42,13 +42,6 @@ Public Sub Zoning(Optional Lvls As Variant, _
     ' Each run starts its own echo budget and its own block in the trace file.
     mnDbgShown = 0
 
-    ' Read once here rather than per zone: Val, not CDbl, because ARES stores dot-decimals and CDbl
-    ' is locale-aware - on a French install CDbl("0.5") is 5, which would multiply every cleanup
-    ' threshold by ten. A missing or unreadable value means 1, the normal behaviour.
-    Dim dCleanup As Double
-    dCleanup = Val(Replace(ARESConfig.ARES_ZONING_CLEANUP_FACTOR.Value, ",", "."))
-    If Len(Trim(ARESConfig.ARES_ZONING_CLEANUP_FACTOR.Value)) = 0 Then dCleanup = 1
-    Zoning_Cleanup.SetCleanupFactor dCleanup
     If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
     Dim TargetLevel As Level
@@ -211,7 +204,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
         End If
 
         For k = 0 To nMergedAll - 1
-            WriteEl mergedAll(k), TargetLevel, Color, Style, Weight, Dist
+            WriteEl mergedAll(k), TargetLevel, Color, Style, Weight
         Next k
     End If
     Exit Sub
@@ -352,11 +345,10 @@ Public Sub AddOrWrite(ByVal oEl As Element, _
                        ByVal Style As String, _
                        ByVal Weight As Long, _
                        ByRef outBufs() As Element, _
-                       ByRef nOut As Long, _
-                       Optional ByVal Dist As Double = 0)
+                       ByRef nOut As Long)
     On Error GoTo ErrorHandler
     If nOut < 0 Then
-        WriteEl oEl, TargetLevel, Color, Style, Weight, Dist
+        WriteEl oEl, TargetLevel, Color, Style, Weight
     Else
         ReDim Preserve outBufs(0 To nOut)
         Set outBufs(nOut) = oEl
@@ -375,26 +367,8 @@ Private Sub WriteEl(ByVal oElement As Element, _
                     ByVal TargetLevel As Level, _
                     ByVal Color As Long, _
                     ByVal Style As String, _
-                    ByVal Weight As Long, _
-                    Optional ByVal Dist As Double = 0)
+                    ByVal Weight As Long)
     On Error GoTo ErrorHandler
-
-    ' Contour cleanup happens HERE, on what is actually drawn, and nowhere else. It used to run
-    ' inside FuseRegions, which meant every intermediate result was cleaned too: a per-element zone
-    ' gets cleaned, then feeds the global fusion, which rebuilds the contour from scratch and throws
-    ' that work away. One pass, on the final shape, whatever the depth of merging.
-    ' Dist = 0 means "do not touch": that is how the debug clones of pre-merge buffers come through.
-    If Dist > 0 Then
-        If oElement.Type = msdElementTypeCellHeader Then
-            ' A zone that has a hole comes back from the union as a CELL holding the outline and its
-            ' island(s), not as a complex shape. Its contours are cleaned inside the cell, and the
-            ' cell is dropped when the size floor leaves nothing for it to group.
-            CleanCellChildren oElement.AsCellElement, Dist
-            Set oElement = UnwrapLoneCell(oElement)
-        Else
-            Set oElement = CleanContour(oElement, Dist)
-        End If
-    End If
 
     ApplySym oElement, TargetLevel, Color, Style, Weight
     ActiveModelReference.AddElement oElement
@@ -420,3 +394,14 @@ Private Sub ApplySym(ByVal oEl As Element, _
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.ApplySym"
 End Sub
+
+' AreaOf
+' The area of one closed element. An unreadable area comes back huge, never small: callers use it
+' to compare sizes, and a failed read must never make an element look negligible.
+Public Function AreaOf(ByVal oEl As Element) As Double
+    On Error GoTo ErrorHandler
+    AreaOf = oEl.AsClosedElement.Area
+    Exit Function
+ErrorHandler:
+    AreaOf = 1E+30
+End Function

@@ -34,8 +34,6 @@ Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
 Public ARES_CELL_LIKE_LABEL As ARES_MS_VAR_Class 'Default Value:ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O      can a array use | (ARES_VAR_DELIMITER)
 ' Used in CellRedreaw module for automatically enable cell update
 Public ARES_UPDATE_ATLASCELLLABEL As ARES_MS_VAR_Class 'Dafault Value: True          True or False (Boolean)
-' Used in UnitTesting module
-Public ARES_UnitTesting As ARES_MS_VAR_Class 'Default Value: I'm a ARES test unit variable
 ' Used in ElementChangeHandler for bulk operation detection threshold
 Public ARES_BULK_THRESHOLD As ARES_MS_VAR_Class 'Default Value: 10    Number of calls to trigger bulk mode
 ' Used in ElementChangeHandler for bulk operation detection time window
@@ -56,8 +54,6 @@ Public ARES_ZONING_OUTPUT_STYLE As ARES_MS_VAR_Class 'Default Value: 0          
 Public ARES_ZONING_OUTPUT_WEIGHT As ARES_MS_VAR_Class 'Default Value: 4            MicroStation line weight index (Long)
 ' Used in Zoning module for default buffer distance
 Public ARES_ZONING_DISTANCE As ARES_MS_VAR_Class 'Default Value: 2.0              Buffer distance in master units (Double)
-' Used in Zoning module to scale the contour cleanup - one knob over every cleanup threshold
-Public ARES_ZONING_CLEANUP_FACTOR As ARES_MS_VAR_Class 'Default Value: 1.0        0 = no cleanup, 1 = normal, >1 = more aggressive (Double)
 ' === Outline (tight per-element zoning variant) — own option set ===
 ' Used in Outline module for source level names to process
 Public ARES_OUTLINE_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)          can a array use | (ARES_VAR_DELIMITER)
@@ -192,7 +188,6 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_LENGTH_TRIGGER = CreateConfigVar("ARES_Length_Triggers", "(Xx_m)")
     Set ARES_LENGTH_TRIGGER_ID = CreateConfigVar("ARES_Length_Trigger_ID", "Xx_")
     Set ARES_LANGUAGE = CreateConfigVar("ARES_Language", "")
-    Set ARES_UnitTesting = CreateConfigVar("ARES_Unit_testing", "I'm a ARES test unit variable")
     Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True")
     Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O")
     Set ARES_BULK_THRESHOLD = CreateConfigVar("ARES_Bulk_Threshold", "10")
@@ -205,7 +200,6 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0")
     Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4")
     Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0")
-    Set ARES_ZONING_CLEANUP_FACTOR = CreateConfigVar("ARES_Zoning_Cleanup_Factor", "1.0")
     Set ARES_OUTLINE_LEVEL = CreateConfigVar("ARES_Outline_Level", "")
     Set ARES_OUTLINE_DISTANCE = CreateConfigVar("ARES_Outline_Distance", "0.2")
     Set ARES_OUTLINE_OUTPUT_LEVEL = CreateConfigVar("ARES_Outline_Output_Level", "ARES_Outline")
@@ -617,4 +611,4 @@ End Function
 
 Private Function GetARESVersion() As String
     GetARESVersion = ARES_CONFIG_VERSION
-End Function
+End Function
