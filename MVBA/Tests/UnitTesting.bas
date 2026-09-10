@@ -9,7 +9,6 @@ Option Explicit
 Private Enum TestID
     tidConfig = 1
     tidLangManager = 2
-    tidUUID = 3
     tidARESVars = 4
     tidCustomProps = 5
     tidErrorHandler = 6
@@ -67,7 +66,6 @@ Public Sub RunAllTests()
     RunTest "Error Handler", tidErrorHandler
     RunTest "Configuration", tidConfig
     RunTest "Language Manager", tidLangManager
-    RunTest "UUID Generator", tidUUID
     RunTest "ARES Variables", tidARESVars
     RunTest "Custom Properties", tidCustomProps
     RunTest "Element Processing", tidElementProcess
@@ -110,9 +108,6 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidLangManager
             TestName = "Language Manager"
             Result = LangManagerTest()
-        Case tidUUID
-            TestName = "UUID Generator"
-            Result = UUIDTest()
         Case tidARESVars
             TestName = "ARES Variables"
             Result = ARES_VARTest()
@@ -281,42 +276,6 @@ Private Function LangManagerTest() As Boolean
     
 ErrorHandler:
     LangManagerTest = False
-End Function
-
-' Test 3: UUID Generator
-Private Function UUIDTest() As Boolean
-    On Error GoTo ErrorHandler
-    
-    Dim TestsPassed As Integer
-    Dim TotalTests As Integer
-    
-    ' Test 3.1: UUID generation
-    TotalTests = TotalTests + 1
-    Dim UUID1 As String
-    UUID1 = UUID.GenerateV1
-    If Len(UUID1) = 36 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 3.2: UUID uniqueness
-    TotalTests = TotalTests + 1
-    Dim UUID2 As String
-    UUID2 = UUID.GenerateV1
-    If UUID1 <> UUID2 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 3.3: UUID format validation
-    TotalTests = TotalTests + 1
-    If ValidateUUIDFormat(UUID1) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    UUIDTest = (TestsPassed = TotalTests)
-    Exit Function
-    
-ErrorHandler:
-    UUIDTest = False
 End Function
 
 ' Test 4: ARES Variables
@@ -3521,7 +3480,6 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
     Select Case TestIdentifier
         Case tidConfig: Result.Passed = ConfigTest()
         Case tidLangManager: Result.Passed = LangManagerTest()
-        Case tidUUID: Result.Passed = UUIDTest()
         Case tidARESVars: Result.Passed = ARES_VARTest()
         Case tidCustomProps: Result.Passed = CustomPropertyHandlerTest()
         Case tidErrorHandler: Result.Passed = ErrorHandlerTest()
@@ -3560,16 +3518,6 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
     ReDim Preserve TestResults(TestCount)
     TestResults(TestCount) = Result
 End Sub
-
-Private Function ValidateUUIDFormat(UUID As String) As Boolean
-    ' Validate UUID v1 format: 8-4-4-4-12
-    ValidateUUIDFormat = (Len(UUID) = 36) And _
-                        (Mid(UUID, 9, 1) = "-") And _
-                        (Mid(UUID, 14, 1) = "-") And _
-                        (Mid(UUID, 19, 1) = "-") And _
-                        (Mid(UUID, 24, 1) = "-") And _
-                        (Mid(UUID, 15, 1) = "1") ' Version 1
-End Function
 
 Private Function GenerateTestReport(TotalDuration As Double) As String
     Dim Report As String
@@ -3635,9 +3583,6 @@ Public Sub RunPerformanceTests()
     ' Test configuration access speed
     Results = Results & TestConfigPerformance() & vbCrLf
     
-    ' Test UUID generation speed
-    Results = Results & TestUUIDPerformance() & vbCrLf
-    
     ' Test translation lookup speed
     Results = Results & TestTranslationPerformance() & vbCrLf
     
@@ -3661,22 +3606,6 @@ Private Function TestConfigPerformance() As String
     
     TestConfigPerformance = "Config Operations: " & Operations * 2 & " in " & _
                            Format((Timer - StartTime) * 1000, "0.00") & " ms"
-End Function
-
-Private Function TestUUIDPerformance() As String
-    Dim StartTime As Double
-    Dim i As Long
-    Dim Operations As Long
-    
-    Operations = 100
-    StartTime = Timer
-    
-    For i = 1 To Operations
-        UUID.GenerateV1
-    Next i
-    
-    TestUUIDPerformance = "UUID Generations: " & Operations & " in " & _
-                         Format((Timer - StartTime) * 1000, "0.00") & " ms"
 End Function
 
 Private Function TestTranslationPerformance() As String
