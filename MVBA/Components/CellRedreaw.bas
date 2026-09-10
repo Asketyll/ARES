@@ -3,7 +3,7 @@
 ' It includes functions to calculate the size and origin of text elements, find connector indices between elements,
 ' move vertices and elements, and rotate elements within a cell.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass
+' Dependencies: ARESConfigClass, ARESConstants, ErrorHandlerClass, StringsInEl
 
 Option Explicit
 
@@ -338,25 +338,17 @@ Private Function GetTextOrigin(CellEl As CellElement) As Point3d
     On Error GoTo ErrorHandler
 
     Dim origin As Point3d
+    Dim oSub   As element
 
     ' Reset the enumeration to start from the first element
     CellEl.ResetElementEnumeration
 
-    ' Loop through each element in the CellElement
+    ' First text-bearing sub-element wins. Which interface carries its Origin is StringsInEl's business.
     Do While CellEl.MoveToNextElement
-        If CellEl.CopyCurrentElement.IsTextElement Or CellEl.CopyCurrentElement.IsTextNodeElement Then
-            Select Case True
-                Case CellEl.CopyCurrentElement.IsTextElement
-                    ' Get the origin for TextElement
-                    origin = CellEl.CopyCurrentElement.AsTextElement.origin
-                    GetTextOrigin = origin
-                    Exit Function
-                Case CellEl.CopyCurrentElement.IsTextNodeElement
-                    ' Get the origin for TextNodeElement
-                    origin = CellEl.CopyCurrentElement.AsTextNodeElement.origin
-                    GetTextOrigin = origin
-                    Exit Function
-            End Select
+        Set oSub = CellEl.CopyCurrentElement
+        If StringsInEl.GetTextAnchor(oSub, origin) Then
+            GetTextOrigin = origin
+            Exit Function
         End If
     Loop
 

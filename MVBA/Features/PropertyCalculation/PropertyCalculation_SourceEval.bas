@@ -519,10 +519,14 @@ Private Function TryGetSpecificAnchor(ByVal oEl As element, ByRef ptOut As Point
             ptOut = oEl.AsCellElement.Origin
         Case oEl.Type = msdElementTypeSharedCell
             ptOut = oEl.AsSharedCellElement.Origin
-        Case oEl.IsTextElement
-            ptOut = oEl.AsTextElement.Origin
-        Case oEl.IsTextNodeElement
-            ptOut = oEl.AsTextNodeElement.Origin
+        Case oEl.IsTextElement, oEl.IsTextNodeElement
+            ' Both flavours through StringsInEl, the one place that knows which interface carries a
+            ' text's Origin. A faulted read yields False here exactly as it did inline: the caller
+            ' keeps its Range-centre seed rather than a fabricated point.
+            If Not StringsInEl.GetTextAnchor(oEl, ptOut) Then
+                TryGetSpecificAnchor = False
+                Exit Function
+            End If
         Case oEl.Type = msdElementTypeLine
             ptOut = oEl.AsLineElement.Origin
         Case oEl.Type = msdElementTypeArc

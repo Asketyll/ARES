@@ -7,14 +7,14 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConstants, ErrorHandlerClass, CellRedreaw, CallStackClass
 '
-' IMPORTANT NOTES ON TEXTLINE PROPERTY:
-' - Color Property is erased if you use TextLine Write Property
-' - Using TextLine is not recommended. This feature has been buggy for 20 years and has numerous
-'   technical limitations not stated in Bentley's technical documentation.
-' - For example, if the TextNodeElement is in a cell, TextLine Property doesn't work.
-' - WORKAROUND: Treat the TextNodeElement as a cell composed of TextElements.
-'   Create an ElementEnumerator and use GetSubElements to interact directly with the sub-elements.
-'   Or use .Color Property to get the color before changes and set it on the TextNodeElement before Rewrite.
+' IMPORTANT NOTES ON TEXTLINE PROPERTY - the two halves do NOT share a reputation:
+' - WRITE is the broken half. TextLine(i) = s erases the element's Color, and does not work at all on a
+'   TextNodeElement nested in a cell. Buggy for 20 years, with limitations Bentley documents nowhere.
+' - READ is fine, cell-nested nodes included (verified 2026-09-10 - see mvba-cheatsheet.md for the
+'   measurement). WalkTextBearers reads through it deliberately.
+' - WORKAROUND for WRITING: treat the TextNodeElement as what it structurally is, a cell composed of
+'   TextElements - walk GetSubElements and write each sub-element (see WriteTextNodeLines).
+'   Or read .Color first and set it back on the TextNodeElement before Rewrite.
 
 Option Explicit
 
@@ -268,6 +268,33 @@ Private Sub RefreshElementHandle(ByRef El As element)
     Set oFresh = ActiveModelReference.GetElementById(El.ID)
     If Not oFresh Is Nothing Then Set El = oFresh
 End Sub
+
+' Where a text-bearing element sits. A TextElement and a TextNodeElement both carry an Origin, but under
+' different interfaces, and that two-way dispatch is the ONLY thing the callers of this ever shared -
+' CellRedreaw asks it of a cell's first text sub-element, PropertyCalculation of the bearing element
+' itself, as two branches of a much wider anchor cascade. Neither question belongs here; the dispatch
+' does. Returns False when El is neither flavour, or when the read faults - a caller must never
+' fabricate a point. Silent by design: each caller keeps its own reporting contract.
+Public Function GetTextAnchor(ByRef El As element, ByRef ptOut As Point3d) As Boolean
+    On Error GoTo ErrorHandler
+
+    GetTextAnchor = False
+    If El Is Nothing Then Exit Function
+
+    If El.IsTextElement Then
+        ptOut = El.AsTextElement.Origin
+    ElseIf El.IsTextNodeElement Then
+        ptOut = El.AsTextNodeElement.Origin
+    Else
+        Exit Function
+    End If
+
+    GetTextAnchor = True
+    Exit Function
+
+ErrorHandler:
+    GetTextAnchor = False
+End Function
 
 ' Validates if a string contains only numeric characters
 ' Used to identify length values between trigger patterns

@@ -2456,6 +2456,54 @@ Private Function PropertyRenderingTest() As Boolean
         If sNewT = "bRep Prop[Rep] - Prop[Len] m" And nNew = 2 Then TestsPassed = TestsPassed + 1
     End If
 
+    ' ---------- TEXTNODE: a multi-line Template (pure logic, no DGNLib) ----------
+    ' A TextNodeElement is ONE SubId whose text is its lines joined by vbLf, so its Template legitimately
+    ' carries line breaks - the only Template that does. Nothing here needed MicroStation, and nothing
+    ' covered it until 2026-09-10.
+
+    names(0) = "Rep": values(0) = "HTAA 3x117 AM"
+    names(1) = "Len": values(1) = "12"
+
+    ' One token per line, both expanded, the line break preserved.
+    sT = "Prop[Rep]" & vbLf & "(Prop[Len]m)"
+    TotalTests = TotalTests + 1
+    If PropertyRendering_TemplateModel.ExpandTemplate(sT, names, values, 2, False) = "HTAA 3x117 AM" & vbLf & "(12m)" Then TestsPassed = TestsPassed + 1
+
+    ' The line break is LITERAL text: an unset value re-materialises its token without disturbing it.
+    values(1) = ""
+    TotalTests = TotalTests + 1
+    If PropertyRendering_TemplateModel.ExpandTemplate(sT, names, values, 2, False) = "HTAA 3x117 AM" & vbLf & "(Prop[Len]m)" Then TestsPassed = TestsPassed + 1
+    values(1) = "12"
+
+    ' Two tokens on two different lines are NOT adjacent - the vbLf between them is text, so the
+    ' "tokens must be separated" rule is satisfied and the Template is well formed.
+    TotalTests = TotalTests + 1
+    If PropertyRendering_TemplateModel.TemplateIsWellFormed(sT, False) Then TestsPassed = TestsPassed + 1
+
+    ' ...whereas removing the line break makes them adjacent, and it is refused.
+    TotalTests = TotalTests + 1
+    If Not PropertyRendering_TemplateModel.TemplateIsWellFormed("Prop[Rep]Prop[Len]", False) Then TestsPassed = TestsPassed + 1
+
+    ' An untouched multi-line rendering aligns and BOTH tokens survive - the literal walk crosses the
+    ' line break like any other static text.
+    TotalTests = TotalTests + 1
+    If PropertyRendering_TemplateModel.AlignVisible("HTAA 3x117 AM" & vbLf & "(12m)", sT, names, values, 2, sNewT, newNames, newValues, nNew, False) Then
+        If sNewT = sT And nNew = 2 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' A token sitting at a LINE EDGE, in an untouched rendering, survives like any other: an untouched
+    ' literal is never judged by D6, so the line break beside it costs nothing here.
+    names(0) = "Len": values(0) = "12"
+    TotalTests = TotalTests + 1
+    If PropertyRendering_TemplateModel.AlignVisible("Ref" & vbLf & "12", "Ref" & vbLf & "Prop[Len]", names, values, 1, sNewT, newNames, newValues, nNew, False) Then
+        If nNew = 1 Then TestsPassed = TestsPassed + 1
+    End If
+    ' NOT pinned here, on purpose: what D6 decides when the line-edge literal IS touched. vbLf is absent
+    ' from SAFE_BOUNDARY_SYMBOLS and VBA's LTrim/RTrim strip spaces only, so the line break reaches the
+    ' boundary test - left as is (Asketyll, 2026-09-10), consistent with whitespace being refused too.
+    ' Asserting an outcome nobody has measured would pin a guess, not a behaviour.
+
+
     names(0) = "Len": values(0) = "13,3"
     sT = "Ligne Prop[Len] m"
 
