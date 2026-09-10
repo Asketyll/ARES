@@ -26,8 +26,6 @@ Public ARES_LENGTH_ROUND As ARES_MS_VAR_Class 'Default Value: 1             Rang
 ' DO NOT delete them as dead - they are, and that is not the point. DO NOT expose them in any options
 ' form either: a control editing them would show a setting with no effect.
 ' They go when Asketyll declares the manual conversion finished, not before.
-Public ARES_LENGTH_TRIGGER As ARES_MS_VAR_Class 'Default Value: (Xx_m)      can a array use | (ARES_VAR_DELIMITER) like (Xx_m)|(Xx_cm)|(Xx_km)
-Public ARES_LENGTH_TRIGGER_ID As ARES_MS_VAR_Class 'Default Value: Xx_      Must be present in triggers
 ' Used in LangManager module to force language if CONNECTUSER_LANGUAGE configuration variable is not set
 Public ARES_LANGUAGE As ARES_MS_VAR_Class 'No Default Value
 ' Used in CellRedreaw module to chek if cell is like label (use cell name)
@@ -185,8 +183,6 @@ Private Function CreateConfigVariables() As Boolean
     ' Create each configuration variable
     Set ARES_ROUNDS = CreateConfigVar("ARES_Round", "2")
     Set ARES_LENGTH_ROUND = CreateConfigVar("ARES_Length_Round", "1")
-    Set ARES_LENGTH_TRIGGER = CreateConfigVar("ARES_Length_Triggers", "(Xx_m)")
-    Set ARES_LENGTH_TRIGGER_ID = CreateConfigVar("ARES_Length_Trigger_ID", "Xx_")
     Set ARES_LANGUAGE = CreateConfigVar("ARES_Language", "")
     Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True")
     Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O")

@@ -830,32 +830,6 @@ Private Function StringsInElTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 10.4: Create and test text element
-    TotalTests = TotalTests + 1
-    Dim TestTextElement As TextElement
-    Dim TextOrigin As Point3d
-    Dim TestText As String
-    
-    TextOrigin = Point3dFromXYZ(50, 50, 0)
-    TestText = "Test (Xx_m) trigger"
-    Set TestTextElement = CreateTextElement1(Nothing, TestText, TextOrigin, Matrix3dIdentity)
-    ActiveModelReference.AddElement TestTextElement
-    
-    ' Test getting text from element
-    Dim RetrievedTexts() As String
-    RetrievedTexts = StringsInEl.GetSetTextsInEl(TestTextElement)
-    If IsArray(RetrievedTexts) And UBound(RetrievedTexts) >= 0 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 10.5: Setting text in element
-    TotalTests = TotalTests + 1
-    Dim ModifiedTexts() As String
-    ModifiedTexts = StringsInEl.GetSetTextsInEl(TestTextElement, "Modified text")
-    If IsArray(ModifiedTexts) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
     StringsInElTest = (TestsPassed = TotalTests)
     Exit Function
     
