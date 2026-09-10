@@ -527,6 +527,9 @@ Public Sub OpenARESWikiPage(ByVal sEnPage As String, ByVal sFrPage As String)
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Command.OpenARESWikiPage"
+    ' A Help button that does nothing looks broken. Unlike the OpenARESWiki key-in, this path has no
+    ' ReportIfLogged to surface the fault, so it says so itself.
+    LangManager.ShowStatusT "WikiOpenFailed"
 End Sub
 
 ' Called from UserForm_QueryClose when form closes

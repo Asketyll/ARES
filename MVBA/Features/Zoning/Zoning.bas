@@ -25,6 +25,10 @@ Option Explicit
 Private Const DBG_FILE As String = "C:\ARES\ARES_zoning_debug.log"
 Private Const DBG_ECHO_MAX As Long = 120
 Private mnDbgShown As Long
+' Zones AddOrWrite routed during the current run. Counted at that single funnel so both output modes -
+' merge (accumulate) and immediate write - are covered by one number. Read only by Zoning, to tell the
+' user how many source elements went through without producing anything.
+Private mnBufsMade As Long
 
 ' Generates offset zones around elements on the specified source levels.
 Public Sub Zoning(Optional Lvls As Variant, _
@@ -41,6 +45,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
 
     ' Each run starts its own echo budget and its own block in the trace file.
     mnDbgShown = 0
+    mnBufsMade = 0
 
     If DebugMode Then DbgLine "=== zoning run " & Format(Now, "yyyy-mm-dd hh:nn:ss") & " ==="
 
@@ -142,10 +147,29 @@ Public Sub Zoning(Optional Lvls As Variant, _
     If MergeZones Then nAllBufs = 0 Else nAllBufs = -1
 
     ' --- Process each element ---
+    Dim nBuffered As Long
+    Dim nPrevBufs As Long
     For i = LBound(Elements) To UBound(Elements)
+        nPrevBufs = mnBufsMade
         DispatchElement Elements(i), Dist, TargetLevel, Color, Style, Weight, _
                         allBufs, nAllBufs, DebugMode, RoundCaps
+        If mnBufsMade > nPrevBufs Then nBuffered = nBuffered + 1
     Next i
+
+    ' An element that produced nothing is skipped in silence, and a zone missing from a plan is exactly
+    ' what nobody notices. Say it. Carries counts, so it goes through GetTranslation after ensuring init -
+    ' Zoning is also reachable from RunOutline, whose own key-in has already done it, but this path must
+    ' not depend on that.
+    Dim nTotalEls As Long
+    nTotalEls = UBound(Elements) - LBound(Elements) + 1
+    If nBuffered < nTotalEls Then
+        If Not LangManager.IsInit Then LangManager.InitializeTranslations
+        If nBuffered = 0 Then
+            ShowStatus LangManager.GetTranslation("ZoningNoBufferCreated", nTotalEls)
+        Else
+            ShowStatus LangManager.GetTranslation("ZoningSomeBuffersFailed", nTotalEls - nBuffered, nTotalEls)
+        End If
+    End If
 
     ' --- Merge all accumulated zones and write to the model (MergeZones = True only) ---
     If MergeZones And nAllBufs > 0 Then
@@ -354,6 +378,7 @@ Public Sub AddOrWrite(ByVal oEl As Element, _
         Set outBufs(nOut) = oEl
         nOut = nOut + 1
     End If
+    mnBufsMade = mnBufsMade + 1
     Exit Sub
 
 ErrorHandler:
