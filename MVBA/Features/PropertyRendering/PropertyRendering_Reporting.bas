@@ -11,8 +11,9 @@ Option Explicit
 
 ' One-shot status guards - each refusal surfaces once per PROCESSED ELEMENT, reset in ResetOneShots.
 ' Same shape as PropertyCalculation's mbRejectedShown / mbNoTargetShown / mbMultiShown.
-Private mbTokenUnknownShown As Boolean
+Private mbTokenRefusedShown As Boolean
 Private mbValueUnsupportedShown As Boolean
+Private mbValueUnsetShown As Boolean
 Private mbValueIllegalShown As Boolean
 Private mbMetadataInvalidShown As Boolean
 Private mbMetadataUnreadableShown As Boolean
@@ -38,8 +39,9 @@ Private mbSchemaLogged As Boolean
 
 Public Sub ResetOneShots()
     On Error Resume Next
-    mbTokenUnknownShown = False
+    mbTokenRefusedShown = False
     mbValueUnsupportedShown = False
+    mbValueUnsetShown = False
     mbValueIllegalShown = False
     mbMetadataInvalidShown = False
     mbMetadataUnreadableShown = False
@@ -57,11 +59,17 @@ Public Sub ResetOneShots()
     mbCycleShown = False
 End Sub
 
-Public Sub ReportTokenUnknown()
+' Names the token it refused AND why: sKey is the family IsAcceptableTokenName settled on, so the message
+' sends the user to the library, to the spacing, or to the member - not always to the library. Carries an
+' identifier, so it goes through GetTranslation. One-shot per element pass like every other report here:
+' several refused tokens in the same text still surface only the first.
+Public Sub ReportTokenRefused(ByVal sName As String, ByVal sKey As String)
     On Error Resume Next
-    If Not mbTokenUnknownShown Then
-        LangManager.ShowStatusT "RenderTokenUnknown"
-        mbTokenUnknownShown = True
+    If Len(sKey) = 0 Then Exit Sub
+    If Not mbTokenRefusedShown Then
+        If Not LangManager.IsInit Then LangManager.InitializeTranslations
+        ShowStatus LangManager.GetTranslation(sKey, sName)
+        mbTokenRefusedShown = True
     End If
 End Sub
 
@@ -70,6 +78,17 @@ Public Sub ReportValueUnsupported()
     If Not mbValueUnsupportedShown Then
         LangManager.ShowStatusT "RenderValueUnsupported"
         mbValueUnsupportedShown = True
+    End If
+End Sub
+
+' The one outcome of this module that leaves nothing visibly wrong: the text was written, correctly, and it
+' still shows "Prop[...]" because the property carries no value. Raised by the two write sites only - never
+' by the branch-1 no-op, which would repeat it on every pass over an element nobody is going to fill in.
+Public Sub ReportValueUnset()
+    On Error Resume Next
+    If Not mbValueUnsetShown Then
+        LangManager.ShowStatusT "RenderValueUnset"
+        mbValueUnsetShown = True
     End If
 End Sub
 
@@ -222,6 +241,7 @@ End Sub
 Public Sub ReportGovernedValue(ByVal P As String)
     On Error Resume Next
     If Not mbGovernedShown Then
+        If Not LangManager.IsInit Then LangManager.InitializeTranslations
         ShowStatus LangManager.GetTranslation("RenderValueGoverned", P)
         mbGovernedShown = True
     End If

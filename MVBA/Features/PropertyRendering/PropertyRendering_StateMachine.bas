@@ -106,6 +106,7 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
     Dim sExpLast As String
     Dim bOkCur As Boolean
     Dim bOkLast As Boolean
+    Dim nUnsetCur As Long
     Dim curNames() As String
     Dim curValues() As String
     Dim nCur As Long
@@ -155,7 +156,7 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
 
     ' ExpandTemplate fails OPEN and reaches COM - skip the entry on a fault, exactly as an empty read does.
     ' See "ExpandTemplate" in property-rendering-mechanics.md.
-    sExpCur = PropertyRendering_TemplateModel.ExpandTemplate(ents(idx).Template, curNames, curValues, nCur, True, bOkCur)
+    sExpCur = PropertyRendering_TemplateModel.ExpandTemplate(ents(idx).Template, curNames, curValues, nCur, True, bOkCur, nUnsetCur)
     If Not bOkCur Then Exit Function
     sExpLast = PropertyRendering_TemplateModel.ExpandTemplate(ents(idx).Template, ents(idx).ValNames, ents(idx).ValValues, ents(idx).nVals, True, bOkLast)
     If Not bOkLast Then Exit Function
@@ -180,6 +181,8 @@ Private Function RenderEntryOnElement(ByRef oEl As element, ByRef ents() As Rend
             wPrev = sVisible
             SetEntryValues ents, idx, curNames, curValues, nCur
             RenderEntryOnElement = ENTRY_UPDATED
+            ' The text we just wrote still shows a token: say why, or it reads as a failed rendering.
+            If nUnsetCur > 0 Then PropertyRendering_Reporting.ReportValueUnset
         End If
         Exit Function
     End If

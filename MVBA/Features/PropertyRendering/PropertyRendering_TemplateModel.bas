@@ -31,7 +31,10 @@ Private Const NUMBER_CAPABLE_CHARS As String = "0123456789abcdefABCDEFxXbBoO"
 ' Expand a Template (L0 T0 L1 T1 ... Ln) against a set of values; an EMPTY/ABSENT value renders the token's
 ' OWN LITERAL TEXT. bOk reports whether the expansion is TRUSTWORTHY (fails OPEN on a fault) - see
 ' "ExpandTemplate" in property-rendering-mechanics.md.
-Public Function ExpandTemplate(ByVal sTemplate As String, ByRef ValNames() As String, ByRef ValValues() As String, ByVal nVals As Long, Optional ByVal bValidateNames As Boolean = True, Optional ByRef bOk As Boolean) As String
+' nUnset counts the tokens that rendered as their own literal for want of a value. The write sites report it
+' once per element, so a Prop[...] left standing in the drawing reads as "not filled in yet" rather than as
+' a rendering that failed - it is the only outcome of this module that shows nothing wrong on screen.
+Public Function ExpandTemplate(ByVal sTemplate As String, ByRef ValNames() As String, ByRef ValValues() As String, ByVal nVals As Long, Optional ByVal bValidateNames As Boolean = True, Optional ByRef bOk As Boolean, Optional ByRef nUnset As Long) As String
     On Error GoTo ErrorHandler
 
     Dim lits() As String
@@ -42,6 +45,7 @@ Public Function ExpandTemplate(ByVal sTemplate As String, ByRef ValNames() As St
     Dim sVal As String
 
     bOk = False
+    nUnset = 0
     ExpandTemplate = sTemplate
     If Not ParseTemplate(sTemplate, lits, toks, nTok, bValidateNames) Then Exit Function
     ' The parse held, so sTemplate IS its own expansion when it carries no token.
@@ -54,6 +58,7 @@ Public Function ExpandTemplate(ByVal sTemplate As String, ByRef ValNames() As St
         sVal = LookupValue(toks(i), ValNames, ValValues, nVals)
         If Len(sVal) = 0 Then
             sOut = sOut & TokenLiteral(toks(i))
+            nUnset = nUnset + 1
         Else
             sOut = sOut & sVal
         End If
@@ -337,6 +342,7 @@ Public Function ParseTemplate(ByVal sTemplate As String, ByRef lits() As String,
     Dim posClose As Long
     Dim sName As String
     Dim sLit As String
+    Dim sKey As String
 
     ParseTemplate = False
     nTok = 0
@@ -352,9 +358,13 @@ Public Function ParseTemplate(ByVal sTemplate As String, ByRef lits() As String,
         posClose = InStr(posOpen + Len(TOKEN_OPEN), sTemplate, TOKEN_CLOSE)
         If posClose = 0 Then Exit Do
 
+        ' Taken RAW, never trimmed: a stored Template is re-parsed on every pass, so widening what counts
+        ' as a token would re-interpret Templates authored under the old grammar - an entry whose token
+        ' count stops matching its LastValues is refused by EntryIsConsistent for good, and no re-bind
+        ' repairs it. A stray space is reported instead (IsAcceptableTokenName -> ReportTokenRefused).
         sName = Mid(sTemplate, posOpen + Len(TOKEN_OPEN), posClose - posOpen - Len(TOKEN_OPEN))
 
-        If IsAcceptableTokenName(sName, bValidateNames) Then
+        If IsAcceptableTokenName(sName, bValidateNames, sKey) Then
             sLit = sLit & Mid(sTemplate, cursor, posOpen - cursor)
             lits(nTok) = sLit
             ReDim Preserve toks(0 To nTok)
@@ -368,7 +378,7 @@ Public Function ParseTemplate(ByVal sTemplate As String, ByRef lits() As String,
             ' Unknown / malformed name: the whole "Prop[...]" run stays literal text.
             sLit = sLit & Mid(sTemplate, cursor, posClose + Len(TOKEN_CLOSE) - cursor)
             cursor = posClose + Len(TOKEN_CLOSE)
-            If bValidateNames Then PropertyRendering_Reporting.ReportTokenUnknown
+            If bValidateNames Then PropertyRendering_Reporting.ReportTokenRefused sName, sKey
         End If
     Loop
 
@@ -389,8 +399,13 @@ End Function
 ' here by design - the convention is fixed, not discovered) - regardless of bValidateNames, since this is a
 ' grammar-level constraint like the "[" / ";" checks above, not a DGNLib-existence check like
 ' IsKnownProperty is.
-Private Function IsAcceptableTokenName(ByVal sName As String, ByVal bValidateNames As Boolean) As Boolean
+' sKey returns the status-message key for a refusal, "" on acceptance. The families are kept apart because
+' they send the user to different places: a name absent from the library, a space that is invisible on
+' screen, a member other than X/Y, and everything else malformed. A single "unknown property" message for
+' all four sent the user hunting through the DGNLib for a name that was already in it.
+Private Function IsAcceptableTokenName(ByVal sName As String, ByVal bValidateNames As Boolean, ByRef sKey As String) As Boolean
     IsAcceptableTokenName = False
+    sKey = "RenderTokenSyntax"
     If Len(Trim(sName)) = 0 Then Exit Function
     If InStr(1, sName, "[") > 0 Then Exit Function
     If InStr(1, sName, ";") > 0 Then Exit Function
@@ -400,17 +415,30 @@ Private Function IsAcceptableTokenName(ByVal sName As String, ByVal bValidateNam
     If Not SplitTokenMember(sName, sBase, sMember) Then Exit Function     ' malformed "A:B:C" / ":X" / "Name:"
     If Len(Trim(sBase)) = 0 Then Exit Function
 
+    ' Checked on BOTH sides of the ":" - "Coord : X" carries its spaces on the base and on the member, and
+    ' either one alone must not be reported as an unknown property.
+    If sBase <> Trim(sBase) Or sMember <> Trim(sMember) Then
+        sKey = "RenderTokenSpaces"
+        Exit Function
+    End If
+
     If Len(sMember) > 0 Then
         If StrComp(sMember, "X", vbTextCompare) <> 0 Then
-            If StrComp(sMember, "Y", vbTextCompare) <> 0 Then Exit Function
+            If StrComp(sMember, "Y", vbTextCompare) <> 0 Then
+                sKey = "RenderTokenMember"
+                Exit Function
+            End If
         End If
     End If
 
+    sKey = ""
     If Not bValidateNames Then
         IsAcceptableTokenName = True
         Exit Function
     End If
+
     IsAcceptableTokenName = PropertyRendering.IsKnownProperty(sBase)
+    If Not IsAcceptableTokenName Then sKey = "RenderTokenUnknown"
 End Function
 
 ' Splits a token name into its BASE property name and, if present, a ":Member" suffix - the split-

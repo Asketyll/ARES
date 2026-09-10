@@ -212,8 +212,12 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_ZoneExportGUIOptionsOpenAfter_LabelTip", "When on, the exported file opens in Excel after the export."
     ' Tooltips - Auto Lengths
     ' --- Property Rendering (epic 15) ---
-    moTranslations.Add "EN_RenderTokenUnknown", "ARES: Property rendering - unknown property in a Prop[...] token; the token is left as plain text"
+    moTranslations.Add "EN_RenderTokenUnknown", "ARES: Property rendering - Prop[{0}] names no property the library declares; the token is left as plain text"
+    moTranslations.Add "EN_RenderTokenSpaces", "ARES: Property rendering - Prop[{0}] has a space inside the brackets; remove it - the token is left as plain text"
+    moTranslations.Add "EN_RenderTokenMember", "ARES: Property rendering - Prop[{0}]: only :X and :Y are recognised after the colon; the token is left as plain text"
+    moTranslations.Add "EN_RenderTokenSyntax", "ARES: Property rendering - Prop[{0}] is not a usable name (empty, or a reserved character); the token is left as plain text"
     moTranslations.Add "EN_RenderValueUnsupported", "ARES: Property rendering - the property value is not text; the token is left as plain text"
+    moTranslations.Add "EN_RenderValueUnset", "ARES: Property rendering - the link worked; a token still shows because its property has no value yet, and it is replaced as soon as one is entered"
     moTranslations.Add "EN_RenderValueIllegalChars", "ARES: Property rendering - the value contains a reserved character or a line break; nothing was written"
     moTranslations.Add "EN_RenderMetadataInvalid", "ARES: Property rendering - the stored binding is inconsistent with its text; nothing was rendered"
     moTranslations.Add "EN_RenderMetadataUnreadable", "ARES: Property rendering - the stored binding could not be read or saved; nothing was changed"
@@ -502,8 +506,12 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_ZoneExportGUIOptionsOpenAfter_LabelTip", "Si activé, le fichier exporté s'ouvre dans Excel après l'export."
     ' Tooltips - Auto Lengths
     ' --- Property Rendering (epic 15) ---
-    moTranslations.Add "FR_RenderTokenUnknown", "ARES : Rendu de propriété - propriété inconnue dans un jeton Prop[...] ; le jeton reste du texte brut"
+    moTranslations.Add "FR_RenderTokenUnknown", "ARES : Rendu de propriété - Prop[{0}] ne désigne aucune propriété déclarée dans la bibliothèque ; le jeton reste du texte brut"
+    moTranslations.Add "FR_RenderTokenSpaces", "ARES : Rendu de propriété - Prop[{0}] contient une espace entre les crochets ; retirez-la - le jeton reste du texte brut"
+    moTranslations.Add "FR_RenderTokenMember", "ARES : Rendu de propriété - Prop[{0}] : seuls :X et :Y sont reconnus après le deux-points ; le jeton reste du texte brut"
+    moTranslations.Add "FR_RenderTokenSyntax", "ARES : Rendu de propriété - Prop[{0}] n'est pas un nom utilisable (vide, ou caractère réservé) ; le jeton reste du texte brut"
     moTranslations.Add "FR_RenderValueUnsupported", "ARES : Rendu de propriété - la valeur de la propriété n'est pas du texte ; le jeton reste du texte brut"
+    moTranslations.Add "FR_RenderValueUnset", "ARES : Rendu de propriété - la liaison a fonctionné ; un jeton reste affiché car sa propriété n'a pas encore de valeur, il sera remplacé dès qu'elle sera renseignée"
     moTranslations.Add "FR_RenderValueIllegalChars", "ARES : Rendu de propriété - la valeur contient un caractère réservé ou un saut de ligne ; rien n'a été écrit"
     moTranslations.Add "FR_RenderMetadataInvalid", "ARES : Rendu de propriété - la liaison enregistrée est incohérente avec son texte ; rien n'a été rendu"
     moTranslations.Add "FR_RenderMetadataUnreadable", "ARES : Rendu de propriété - la liaison enregistrée n'a pu être lue ou enregistrée ; rien n'a été modifié"

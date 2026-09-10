@@ -68,11 +68,13 @@ ErrorHandler:
     IsEnabled = False
 End Function
 
-' Drop the cached property names and the ARES_SYS presence flag, and clear the session-scoped self-disable
-' state. Called by the test harness; the runtime invalidates itself when the active design file changes.
+' Drop the cached property names and the ARES_SYS presence flag. Called by DGNOpenClose on every design-file
+' open, which is what closes the DGNLib edit round trip: OpenCustomPropertyLibrary closes the working file
+' to author ItemTypes, and reopening it comes back to the SAME FullName - so the file-identity check in
+' EnsurePropertyNames would otherwise keep a cache built before the edit, for the rest of the session.
 ' It only assigns module variables and so cannot realistically fault, but it is Public - it therefore
 ' carries the standard handler rather than an exception the project's blocker list would have to carve out.
-Public Sub RefreshRenderCaches()
+Public Sub InvalidatePropertyNames()
     On Error GoTo ErrorHandler
 
     mbNamesCached = False
@@ -80,6 +82,18 @@ Public Sub RefreshRenderCaches()
     msCachedFor = ""
     mbSysChecked = False
     mbSysPresent = False
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering.InvalidatePropertyNames"
+End Sub
+
+' The above PLUS the session-scoped self-disable state, which no file open may clear. Called by the test
+' harness only.
+Public Sub RefreshRenderCaches()
+    On Error GoTo ErrorHandler
+
+    InvalidatePropertyNames
     mbWriteDisabled = False
     Exit Sub
 

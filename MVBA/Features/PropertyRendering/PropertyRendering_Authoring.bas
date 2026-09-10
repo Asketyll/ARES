@@ -165,6 +165,7 @@ Public Function TryFirstAuthor(ByRef oEl As element, ByRef texts() As String, By
     Dim bKeepSource As Boolean
     Dim sExp As String
     Dim bOkExp As Boolean
+    Dim nUnsetExp As Long
     Dim curNames() As String
     Dim curValues() As String
     Dim nCur As Long
@@ -195,10 +196,12 @@ Public Function TryFirstAuthor(ByRef oEl As element, ByRef texts() As String, By
             ' A faulted expansion returns the Template unchanged; binding on it would store LastValues
             ' that do not match what is actually visible, and the next pass would read a user edit that
             ' never happened. Drop the entry instead.
-            sExp = PropertyRendering_TemplateModel.ExpandTemplate(ents(i).Template, curNames, curValues, nCur, True, bOkExp)
+            sExp = PropertyRendering_TemplateModel.ExpandTemplate(ents(i).Template, curNames, curValues, nCur, True, bOkExp, nUnsetExp)
             If Not bOkExp Then
                 ents(i).Dropped = True
             ElseIf WriteRenderedText(oEl, ents(i).SubId, sExp) Then
+                ' A freshly bound text that still shows its token: the bind DID work, the value is missing.
+                If nUnsetExp > 0 Then PropertyRendering_Reporting.ReportValueUnset
                 ReDim Preserve wrIds(0 To nWr)
                 ReDim Preserve wrPrev(0 To nWr)
                 wrIds(nWr) = ents(i).SubId
