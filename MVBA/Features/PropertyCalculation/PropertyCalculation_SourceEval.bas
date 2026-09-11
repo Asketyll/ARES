@@ -332,15 +332,7 @@ Public Function ReadLvlSourceValue(ByVal oFoundEl As element, ByVal kind As Calc
     ReadLvlSourceValue = ""
     Select Case kind
         Case csLvlColor
-            Dim rawLvlColor As Long
-            rawLvlColor = ResolveFillAwareColor(oFoundEl)
-            If rawLvlColor = ByLevelColor Then
-                If Not oFoundEl.Level Is Nothing Then ReadLvlSourceValue = CStr(oFoundEl.Level.ElementColor)
-            ElseIf rawLvlColor = ByCellColor Then
-                ReadLvlSourceValue = ""                ' not resolvable from the Level - never fabricate
-            Else
-                ReadLvlSourceValue = CStr(rawLvlColor)
-            End If
+            ReadLvlSourceValue = ResolveColorToIndex(oFoundEl)
         Case csLvlStyle
             If Not oFoundEl.LineStyle Is Nothing Then ReadLvlSourceValue = oFoundEl.LineStyle.Name
         Case csLvlWeight
@@ -361,6 +353,32 @@ End Function
 ' Shared FillMode=2-aware color resolution (GroupColor/CellColor/LvlColor): a ClosedElement in FillMode=2
 ' reads its FILL color unless that fill is literally 0/255, falling back to .Color. Callers that care
 ' about the ByLevel/ByCell sentinel test THIS function's result, not el.Color directly.
+' A colour read off an element is THREE-state: an explicit index, the ByLevel sentinel, or the ByCell one.
+' Only ByLevel resolves - through that element's OWN Level; ByCell yields "" rather than a fabricated
+' colour the element does not actually carry. Shared by csLvlColor and GroupColor so the two can never
+' disagree on what a colour is: GroupColor used to hand ResolveFillAwareColor's raw result straight out,
+' which wrote the SENTINEL into the property on any element drawn ByLevel - and the Actuator then painted
+' with it.
+Private Function ResolveColorToIndex(ByVal oFoundEl As element) As String
+    On Error GoTo ErrorHandler
+
+    ResolveColorToIndex = ""
+
+    Dim rawColor As Long
+    rawColor = ResolveFillAwareColor(oFoundEl)
+    If rawColor = ByLevelColor Then
+        If Not oFoundEl.Level Is Nothing Then ResolveColorToIndex = CStr(oFoundEl.Level.ElementColor)
+    ElseIf rawColor = ByCellColor Then
+        ResolveColorToIndex = ""
+    Else
+        ResolveColorToIndex = CStr(rawColor)
+    End If
+    Exit Function
+
+ErrorHandler:
+    ResolveColorToIndex = ""
+End Function
+
 Private Function ResolveFillAwareColor(ByVal el As element) As Long
     On Error GoTo ErrorHandler
 
@@ -421,7 +439,7 @@ Private Function EvaluateGroupColor(ByVal oEl As element) As String
     Dim candidate As element
     Set candidate = FreshHandle(cands(LBound(cands)))   ' pull source: read the trigger off its fresh handle
     If Not candidate Is Nothing Then
-        EvaluateGroupColor = CStr(ResolveFillAwareColor(candidate))
+        EvaluateGroupColor = ResolveColorToIndex(candidate)
     End If
 
     If UBound(cands) > LBound(cands) Then PropertyCalculation.ReportMultipleColorCandidates
@@ -435,8 +453,11 @@ End Function
 ' of PropertyName must never satisfy its own search - and, unlike GroupColor, filtered on ATTACH STATE AND on
 ' a genuinely NON-EMPTY value: an attached-but-empty candidate is an unresolved RECEIVER of this same rule
 ' (a text just fan-out-attached), never a valid donor, and letting its blank win would overwrite a real value
-' elsewhere. "" when ungrouped, uncarried, or every carrier is empty; >= 2 real-valued candidates raise
-' CalculationMultiplePropCandidates, first non-empty in scan order winning. The donor/receiver
+' elsewhere. "" when ungrouped, uncarried, or every carrier is empty; the first non-empty in scan order
+' wins. CalculationMultiplePropCandidates fires only when the carriers DISAGREE, never on their mere
+' number: once a group's receivers are filled they all carry the donor's value, so counting them warned on
+' every pass of every normal group - a warning that can never fall silent carries no information. Two
+' carriers holding the SAME value hide no arbitrary pick; two holding different ones do. The donor/receiver
 ' rule-conditioning doctrine this filter complements: see calc-rules-grammar.md's GroupProp bullet.
 Private Function EvaluateGroupProp(ByVal oEl As element, ByVal sPropName As String) As String
     On Error GoTo ErrorHandler
@@ -453,6 +474,7 @@ Private Function EvaluateGroupProp(ByVal oEl As element, ByVal sPropName As Stri
     Dim vVal     As Variant
     Dim sVal     As String
     Dim oRead    As element
+    Dim bDisagree As Boolean
     nFound = 0
     For i = LBound(cands) To UBound(cands)
         Set oRead = FreshHandle(cands(i))          ' pull source: the scan found it, the fresh handle is read
@@ -462,13 +484,17 @@ Private Function EvaluateGroupProp(ByVal oEl As element, ByVal sPropName As Stri
                 sVal = CStr(vVal)
                 If Len(sVal) > 0 Then
                     nFound = nFound + 1
-                    If nFound = 1 Then EvaluateGroupProp = sVal
+                    If nFound = 1 Then
+                        EvaluateGroupProp = sVal
+                    ElseIf StrComp(sVal, EvaluateGroupProp, vbBinaryCompare) <> 0 Then
+                        bDisagree = True
+                    End If
                 End If
             End If
         End If
     Next i
 
-    If nFound > 1 Then PropertyCalculation.ReportMultiplePropCandidates
+    If bDisagree Then PropertyCalculation.ReportMultiplePropCandidates
     Exit Function
 
 ErrorHandler:
