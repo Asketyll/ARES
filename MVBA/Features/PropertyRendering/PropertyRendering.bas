@@ -194,8 +194,8 @@ ErrorHandler:
     IsRenderBound = False
 End Function
 
-' Containment seam consumed by PropertyCalculation's CellText source: the SubIds of oCell's sub-texts this
-' engine writes, so a rendered value can never feed the CellText[...] value that governs it. Keyed on
+' Containment seam consumed by PropertyCalculation's GroupCellText source: the SubIds of oCell's sub-texts this
+' engine writes, so a rendered value can never feed the GroupCellText[...] value that governs it. Keyed on
 ' metadata PRESENCE only, never IsEnabled - see "Containment (GetExcludedSubIds)" in
 ' property-rendering-mechanics.md.
 Public Function GetExcludedSubIds(ByVal oCell As element, ByRef ids() As Long, ByRef nIds As Long) As Boolean
@@ -206,13 +206,13 @@ Public Function GetExcludedSubIds(ByVal oCell As element, ByRef ids() As Long, B
     If oCell Is Nothing Then Exit Function
 
     ' Two cheap, staleness-proof gates before paying for the re-fetch below - calc calls this on every
-    ' CellText read. See property-rendering-mechanics.md.
+    ' GroupCellText read. See property-rendering-mechanics.md.
     If Not IsSysLibraryPresent() Then Exit Function
     If Not CustomPropertyHandler.IsItemAttachedToElement(oCell, ARES_ITEM_RENDER, ARES_NAME_LIBRARY_SYS) Then Exit Function
 
     ' Now re-fetch, for the same reason as ProcessElement: this seam runs a TEXT walk to resolve each
     ' entry's SubId, calc calls it mid-batch, and a stale text would resolve the exclusion onto the wrong
-    ' sub-text - silently changing a CellText value instead of protecting it.
+    ' sub-text - silently changing a GroupCellText value instead of protecting it.
     Set oCell = FreshHandle(oCell)
     If oCell Is Nothing Then Exit Function
 

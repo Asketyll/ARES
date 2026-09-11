@@ -16,10 +16,10 @@ Option Explicit
 '                                          ENGINE - TRIGGER-CELL PASS
 '######################################################################################################################
 
-' True for the Cell* source kinds that are STABLE-PUSHED (CellText/CellCoord/CellLvl/CellColor/CellStyle/
-' CellWeight): a change on the matching cell can leave its group siblings un-re-queued (a cell is a
+' True for the GroupCell* source kinds that are STABLE-PUSHED (GroupCellText/GroupCellCoord/GroupCellLvl/GroupCellColor/GroupCellStyle/
+' GroupCellWeight): a change on the matching cell can leave its group siblings un-re-queued (a cell is a
 ' Branch-1/text-cell element in ElementChangeHandler; no automatic group-wide re-queue), so the trigger-cell
-' pass must push. CellId is excluded - an ID can never change, so it never needs a push (see IsTriggerCell).
+' pass must push. GroupCellId is excluded - an ID can never change, so it never needs a push (see IsTriggerCell).
 Private Function IsPushableCellSourceKind(ByVal kind As CalcSource) As Boolean
     IsPushableCellSourceKind = (kind = csCellText Or kind = csCellCoord Or kind = csCellLvl Or _
                                  kind = csCellColor Or kind = csCellStyle Or kind = csCellWeight)
@@ -68,9 +68,9 @@ Public Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
                                 kIdx = CLng(rule.SourceKind)
                                 Dim sPushVal As String
                                 If Len(rule.SourceSystem) > 0 Then
-                                    ' A geo-output CellCoord rule (any requested system, or in principle any future rule carrying
+                                    ' A geo-output GroupCellCoord rule (any requested system, or in principle any future rule carrying
                                     ' its own extra params) - the kIdx-only cache assumes "same SourceKind
-                                    ' -> same value", which no longer holds once CellCoord rules can differ
+                                    ' -> same value", which no longer holds once GroupCellCoord rules can differ
                                     ' by SourceSystem/SourceGeoDecimals (see the WGS84 plan's §3.1). Bypass
                                     ' the shared cache entirely for this case and re-read every time;
                                     ' correctness over the cache's micro-optimisation, and this only runs on
@@ -105,7 +105,7 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation_TriggerPush.PushCellDerivedValuesToMembers"
 End Sub
 
-' True when oCell's graphic group holds at least one OTHER cell that ALSO matches a pushable Cell* source
+' True when oCell's graphic group holds at least one OTHER cell that ALSO matches a pushable GroupCell* source
 ' feeding one of pushedTargets - the properties oCell itself just pushed a value to. Restricted to
 ' pushedTargets (not "any pushable rule") so that two cells feeding two DIFFERENT properties are not
 ' reported as competing - only a real collision on the SAME target property is. Read-only.
@@ -136,7 +136,7 @@ ErrorHandler:
     GroupHasCompetingTrigger = False
 End Function
 
-' True when sName matches a pushable Cell* source's pattern of at least one calc rule whose TargetProp is
+' True when sName matches a pushable GroupCell* source's pattern of at least one calc rule whose TargetProp is
 ' in pushedTargets - the real competing-trigger predicate (see GroupHasCompetingTrigger).
 Private Function AnyPushableSourcePatternMatchesTarget(ByVal sName As String, ByVal pushedTargets As Collection) As Boolean
     On Error GoTo ErrorHandler
@@ -175,9 +175,9 @@ Private Function CollectionContainsString(ByVal col As Collection, ByVal s As St
     Next v
 End Function
 
-' True when sName matches a pushable Cell* source's pattern of at least one calc rule (assumes the cache is
-' parsed). CellId is excluded - it is never pushed (see IsPushableCellSourceKind/IsTriggerCell), so a cell
-' that only feeds a CellId rule must not be treated as a trigger. Public: called from Core's IsTriggerCell.
+' True when sName matches a pushable GroupCell* source's pattern of at least one calc rule (assumes the cache is
+' parsed). GroupCellId is excluded - it is never pushed (see IsPushableCellSourceKind/IsTriggerCell), so a cell
+' that only feeds a GroupCellId rule must not be treated as a trigger. Public: called from Core's IsTriggerCell.
 ' Iterates the rule cache through Core.RuleCount()/Core.GetRule() (never the raw array) - a real code
 ' change from the original file, not pure code motion, per the split plan §1 Module C.
 Public Function AnyPushableSourcePatternMatches(ByVal sName As String) As Boolean
@@ -205,12 +205,12 @@ End Function
 '                                          ENGINE - TRIGGER-LEVEL PASS
 '######################################################################################################################
 
-' Parallel trigger/push pass for Lvl* sources, deliberately DUPLICATED rather than folded into Cell*: the
-' trigger predicate differs structurally (Cell* = a cell whose NAME matches; Lvl* = any element whose
-' LEVEL matches). KNOWN LIMITATION: a competing Cell*-trigger and Lvl*-trigger for the same target are not
+' Parallel trigger/push pass for GroupLvl* sources, deliberately DUPLICATED rather than folded into GroupCell*: the
+' trigger predicate differs structurally (GroupCell* = a cell whose NAME matches; GroupLvl* = any element whose
+' LEVEL matches). KNOWN LIMITATION: a competing GroupCell*-trigger and GroupLvl*-trigger for the same target are not
 ' cross-detected (each family only scans its own kind) - the write itself stays safe (first-match-guarded).
 
-' True for the Lvl* source kinds. Unlike Cell*, there is no LvlId to exclude - all three are pushable.
+' True for the GroupLvl* source kinds. Unlike GroupCell*, there is no LvlId to exclude - all three are pushable.
 Private Function IsPushableLvlSourceKind(ByVal kind As CalcSource) As Boolean
     IsPushableLvlSourceKind = (kind = csLvlColor Or kind = csLvlStyle Or kind = csLvlWeight)
 End Function
@@ -286,7 +286,7 @@ ErrorHandler:
 End Sub
 
 ' True when oTriggerEl's graphic group holds at least one OTHER element whose Level ALSO matches a
-' pushable Lvl* source feeding one of pushedTargets - the properties oTriggerEl itself just pushed a value
+' pushable GroupLvl* source feeding one of pushedTargets - the properties oTriggerEl itself just pushed a value
 ' to. Restricted to pushedTargets (not "any pushable rule") so that two elements feeding two DIFFERENT
 ' properties are not reported as competing - only a real collision on the SAME target property is. Mirrors
 ' GroupHasCompetingTrigger. NO element-type restriction (mirrors IsTriggerLevel).
@@ -319,7 +319,7 @@ ErrorHandler:
     GroupHasCompetingLvlTrigger = False
 End Function
 
-' True when sLevelName matches a pushable Lvl* source's pattern of at least one calc rule whose TargetProp
+' True when sLevelName matches a pushable GroupLvl* source's pattern of at least one calc rule whose TargetProp
 ' is in pushedTargets - the real competing-trigger predicate (see GroupHasCompetingLvlTrigger).
 Private Function AnyPushableLvlSourcePatternMatchesTarget(ByVal sLevelName As String, ByVal pushedTargets As Collection) As Boolean
     On Error GoTo ErrorHandler
@@ -344,7 +344,7 @@ ErrorHandler:
     AnyPushableLvlSourcePatternMatchesTarget = False
 End Function
 
-' True when sLevelName matches a pushable Lvl* source's pattern of at least one calc rule (assumes the
+' True when sLevelName matches a pushable GroupLvl* source's pattern of at least one calc rule (assumes the
 ' cache is parsed). Mirrors AnyPushableSourcePatternMatches. Public: called from Core's IsTriggerLevel.
 ' Iterates the rule cache through Core.RuleCount()/Core.GetRule() (never the raw array) - a real code
 ' change from the original file, not pure code motion, per the split plan §1 Module C.

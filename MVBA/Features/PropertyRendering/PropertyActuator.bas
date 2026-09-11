@@ -95,8 +95,8 @@ Public Sub ProcessElement(ByVal oEl As element)
     If Not IsColorEnabled() And Not IsLevelEnabled() Then Exit Sub
 
     ' A trigger must never be painted by the value it is itself the source of. NOT redundant with
-    ' IsSelfSourceRatchet below: a Lvl*-fed rule's SourceKind never equals csColor/csLvl, so ratchet alone
-    ' misses a Lvl*-trigger that also carries the pilot property.
+    ' IsSelfSourceRatchet below: a GroupLvl*-fed rule's SourceKind never equals csColor/csLvl, so ratchet alone
+    ' misses a GroupLvl*-trigger that also carries the pilot property.
     If IsProtectedTriggerCell(oEl) Then Exit Sub
     If IsProtectedTriggerLevel(oEl) Then Exit Sub
 

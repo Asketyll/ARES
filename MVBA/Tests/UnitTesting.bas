@@ -1207,7 +1207,7 @@ ErrorHandler:
 End Function
 
 ' Test 18: Property Calculation engine, via the read-only ResolvePropertyValue (DGNLib-free) and
-' IsTriggerCell. Covers CellText/Value/Id/Coord/CellCoord sources, first-match, multi-trigger, and a
+' IsTriggerCell. Covers GroupCellText/Value/Id/Coord/GroupCellCoord sources, first-match, multi-trigger, and a
 ' ProcessElement smoke test. Saves/restores every touched config var.
 Private Function PropertyCalculationTest() As Boolean
     On Error GoTo ErrorHandler
@@ -1224,8 +1224,8 @@ Private Function PropertyCalculationTest() As Boolean
 
     ARESConfig.ARES_PROPERTY_CALC.Value = "True"
 
-    ' --- CellText nominal + self (grouped) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=CellText[ETI*]"
+    ' --- GroupCellText nominal + self (grouped) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=GroupCellText[ETI*]"
     PropertyCalculation.RefreshCalcRules
     Dim cA As element, lA As element
     Set cA = CreateCalculationTestCell("ETI076", 7401, "R-12", Point3dFromXYZ(2000, 0, 0))
@@ -1235,14 +1235,14 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVEq("Repere", cA, "R-12") Then TestsPassed = TestsPassed + 1     ' the cell pulls its own text (self)
 
-    ' --- CellText ungrouped self ---
+    ' --- GroupCellText ungrouped self ---
     Dim cB As element
     Set cB = CreateCalculationTestCell("ETI077", 0, "R-99", Point3dFromXYZ(2200, 0, 0))
     TotalTests = TotalTests + 1
     If RVEq("Repere", cB, "R-99") Then TestsPassed = TestsPassed + 1     ' ungrouped matching cell -> own text
 
     ' --- First-match: a specific rule before a general one wins ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=CellText[ETI*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]&Cell[ETIREF]=Value[REF] ; Prop[Repere]=GroupCellText[ETI*]"
     PropertyCalculation.RefreshCalcRules
     Dim cRef As element
     Set cRef = CreateCalculationTestCell("ETIREF", 7403, "ignored", Point3dFromXYZ(2400, 0, 0))
@@ -1297,12 +1297,12 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVEq("XY", psSeed, "5050;50") Then TestsPassed = TestsPassed + 1
 
-    ' --- CellCoord: a member's Prop resolves to the MATCHING CELL's own coordinates, not the member's own
+    ' --- GroupCellCoord: a member's Prop resolves to the MATCHING CELL's own coordinates, not the member's own
     '     position (the fix for Prop[Coordonnee]=Coord only ever giving the bearing/tagged element's own
     '     position instead of the tagging cell's). Also exercises the "|" alternation (same
     '     ARES_VAR_DELIMITER grammar as a tag/calc CONDITION's Cell[name|name|...]) - the cell name (SP012)
     '     matches the SECOND alternative only. Cell at (6000,10); grouped line elsewhere at (6100,90). ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=CellCoord[ASUF*|SP0*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=GroupCellCoord[ASUF*|SP0*]"
     PropertyCalculation.RefreshCalcRules
     Dim cCC As element, lCC As element
     Set cCC = CreateCalculationTestCell("SP012", 7430, "t", Point3dFromXYZ(6000, 10, 0))
@@ -1312,14 +1312,14 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If Not RVContains("Coordonnee", lCC, "6100") Then TestsPassed = TestsPassed + 1 ' never the member's own position
 
-    ' --- CellCoord self (ungrouped matching cell is its own sole candidate) ---
+    ' --- GroupCellCoord self (ungrouped matching cell is its own sole candidate) ---
     Dim cCCSelf As element
     Set cCCSelf = CreateCalculationTestCell("ASUF9", 0, "t", Point3dFromXYZ(6300, 20, 0))
     TotalTests = TotalTests + 1
     If RVContains("Coordonnee", cCCSelf, "6300") Then TestsPassed = TestsPassed + 1
 
-    ' --- CellId: a member's Prop resolves to the MATCHING CELL's ID, distinct from the member's own ID ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[TagRef]=CellId[ASUF*|SP0*]"
+    ' --- GroupCellId: a member's Prop resolves to the MATCHING CELL's ID, distinct from the member's own ID ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[TagRef]=GroupCellId[ASUF*|SP0*]"
     PropertyCalculation.RefreshCalcRules
     Dim cCI As element, lCI As element
     Set cCI = CreateCalculationTestCell("ASUF8", 7431, "t", Point3dFromXYZ(6400, 0, 0))
@@ -1327,18 +1327,18 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVEq("TagRef", lCI, DLongToString(cCI.ID)) Then TestsPassed = TestsPassed + 1 ' the CELL's id, not the line's
 
-    ' --- IsTriggerCell extended: a cell matching a CellCoord pattern IS a trigger (so a MOVED cell gets its
-    '     new coordinates pushed); one matching ONLY a CellId pattern is NOT (an ID never changes, no push
+    ' --- IsTriggerCell extended: a cell matching a GroupCellCoord pattern IS a trigger (so a MOVED cell gets its
+    '     new coordinates pushed); one matching ONLY a GroupCellId pattern is NOT (an ID never changes, no push
     '     is ever needed) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=CellCoord[ASUF*] ; Prop[TagRef]=CellId[BOIS*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=GroupCellCoord[ASUF*] ; Prop[TagRef]=GroupCellId[BOIS*]"
     PropertyCalculation.RefreshCalcRules
     Dim cCoordTrig As element, cIdOnly As element
     Set cCoordTrig = CreateCalculationTestCell("ASUF7", 7432, "t", Point3dFromXYZ(6700, 0, 0))
     Set cIdOnly = CreateCalculationTestCell("BOIS1", 7433, "t", Point3dFromXYZ(6800, 0, 0))
     TotalTests = TotalTests + 1
-    If PropertyCalculation.IsTriggerCell(cCoordTrig) Then TestsPassed = TestsPassed + 1     ' CellCoord pattern -> trigger
+    If PropertyCalculation.IsTriggerCell(cCoordTrig) Then TestsPassed = TestsPassed + 1     ' GroupCellCoord pattern -> trigger
     TotalTests = TotalTests + 1
-    If Not PropertyCalculation.IsTriggerCell(cIdOnly) Then TestsPassed = TestsPassed + 1    ' CellId-only -> not a trigger
+    If Not PropertyCalculation.IsTriggerCell(cIdOnly) Then TestsPassed = TestsPassed + 1    ' GroupCellId-only -> not a trigger
 
     ' --- No matching rule for P -> the resolver reports "no rule" (P is left untouched) ---
     ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]&Cell[NOSUCH]=Value[x]"
@@ -1348,8 +1348,8 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVNoRule("Repere", lNo) Then TestsPassed = TestsPassed + 1
 
-    ' --- CellText with no surviving matching cell -> the rule governs but yields "" (delete-reconcile) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=CellText[ETI*]"
+    ' --- GroupCellText with no surviving matching cell -> the rule governs but yields "" (delete-reconcile) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=GroupCellText[ETI*]"
     PropertyCalculation.RefreshCalcRules
     Dim lEmpty As element
     Set lEmpty = CreateGroupedTestLine(7410, Point3dFromXYZ(3400, 0, 0), Point3dFromXYZ(3500, 0, 0))
@@ -1365,7 +1365,7 @@ Private Function PropertyCalculationTest() As Boolean
     If RVHasNonEmpty("Repere", lM) Then TestsPassed = TestsPassed + 1
 
     ' --- IsTriggerCell re-wire (DGNLib-FREE) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=CellText[ETI*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Repere]=GroupCellText[ETI*]"
     PropertyCalculation.RefreshCalcRules
     Dim cTrig As element, cNoTrig As element, cUngrp As element, lTrig As element
     Set cTrig = CreateCalculationTestCell("ETI076", 7420, "x", Point3dFromXYZ(3800, 0, 0))
@@ -1382,7 +1382,7 @@ Private Function PropertyCalculationTest() As Boolean
     If Not PropertyCalculation.IsTriggerCell(lTrig) Then TestsPassed = TestsPassed + 1    ' a line is not a trigger
 
     ' --- ProcessElement smoke: both passes run without crashing (writes only where attached), including
-    '     the CellCoord trigger-cell push path (cCoordTrig, group 7432) ---
+    '     the GroupCellCoord trigger-cell push path (cCoordTrig, group 7432) ---
     Dim bSmoke As Boolean
     bSmoke = True
     PropertyCalculation.ProcessElement cTrig
@@ -1409,9 +1409,9 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVEq("Wgt", lSym, CStr(lSym.LineWeight)) Then TestsPassed = TestsPassed + 1
 
-    ' --- CellLvl / CellColor / CellStyle / CellWeight: GROUP sources - a member resolves to the MATCHING
-    '     CELL's own attributes, not its own (same "tagging cell wins" story as CellCoord/CellId) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[CLv]=CellLvl[SYM*] ; Prop[CCol]=CellColor[SYM*] ; Prop[CSty]=CellStyle[SYM*] ; Prop[CWgt]=CellWeight[SYM*]"
+    ' --- GroupCellLvl / GroupCellColor / GroupCellStyle / GroupCellWeight: GROUP sources - a member resolves to the MATCHING
+    '     CELL's own attributes, not its own (same "tagging cell wins" story as GroupCellCoord/GroupCellId) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[CLv]=GroupCellLvl[SYM*] ; Prop[CCol]=GroupCellColor[SYM*] ; Prop[CSty]=GroupCellStyle[SYM*] ; Prop[CWgt]=GroupCellWeight[SYM*]"
     PropertyCalculation.RefreshCalcRules
     Dim cSym As element, lSymGrp As element
     Set cSym = CreateCalculationTestCell("SYM01", 7440, "t", Point3dFromXYZ(7200, 0, 0))
@@ -1428,27 +1428,27 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVEq("CWgt", lSymGrp, CStr(cSym.LineWeight)) Then TestsPassed = TestsPassed + 1
 
-    ' --- IsTriggerCell extended: a cell matching a CellColor pattern IS a trigger (pushable); one matching
-    '     ONLY a CellId pattern is still NOT (stable, never pushed) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[CCol]=CellColor[SYMB*] ; Prop[TagRef]=CellId[SYMC*]"
+    ' --- IsTriggerCell extended: a cell matching a GroupCellColor pattern IS a trigger (pushable); one matching
+    '     ONLY a GroupCellId pattern is still NOT (stable, never pushed) ---
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[CCol]=GroupCellColor[SYMB*] ; Prop[TagRef]=GroupCellId[SYMC*]"
     PropertyCalculation.RefreshCalcRules
     Dim cColorTrig As element, cIdOnly2 As element
     Set cColorTrig = CreateCalculationTestCell("SYMB1", 7441, "t", Point3dFromXYZ(7500, 0, 0))
     Set cIdOnly2 = CreateCalculationTestCell("SYMC1", 7442, "t", Point3dFromXYZ(7550, 0, 0))
     TotalTests = TotalTests + 1
-    If PropertyCalculation.IsTriggerCell(cColorTrig) Then TestsPassed = TestsPassed + 1      ' CellColor pattern -> trigger
+    If PropertyCalculation.IsTriggerCell(cColorTrig) Then TestsPassed = TestsPassed + 1      ' GroupCellColor pattern -> trigger
     TotalTests = TotalTests + 1
-    If Not PropertyCalculation.IsTriggerCell(cIdOnly2) Then TestsPassed = TestsPassed + 1    ' CellId-only -> not a trigger
+    If Not PropertyCalculation.IsTriggerCell(cIdOnly2) Then TestsPassed = TestsPassed + 1    ' GroupCellId-only -> not a trigger
 
-    ' --- LvlColor / LvlStyle / LvlWeight: GROUP sources - a member resolves to the MATCHING-LEVEL element's
+    ' --- GroupLvlColor / GroupLvlStyle / GroupLvlWeight: GROUP sources - a member resolves to the MATCHING-LEVEL element's
     '     own attributes (Level-NAME scan, NO element-type restriction - the authority here is a plain LINE,
-    '     not a cell). LvlColor/LvlWeight expected values are computed via the SAME ByLevel/ByCell sentinel
+    '     not a cell). GroupLvlColor/GroupLvlWeight expected values are computed via the SAME ByLevel/ByCell sentinel
     '     resolution as ReadLvlSourceValue (ExpectedLvlColorValue/ExpectedLvlWeightValue below), mirroring
-    '     the live element rather than assuming its symbology - epic 16 follow-up, LvlColor feasibility.
+    '     the live element rather than assuming its symbology - epic 16 follow-up, GroupLvlColor feasibility.
     Dim oLvlAuth As Level
     Set oLvlAuth = GetElements.GetLevel("ARES_LvlCalcTest_Lvl", True)
     If Not oLvlAuth Is Nothing Then
-        ARESConfig.ARES_CALC_RULES.Value = "Prop[LCol]=LvlColor[ARES_LvlCalcTest_Lvl] ; Prop[LSty]=LvlStyle[ARES_LvlCalcTest_Lvl] ; Prop[LWgt]=LvlWeight[ARES_LvlCalcTest_Lvl]"
+        ARESConfig.ARES_CALC_RULES.Value = "Prop[LCol]=GroupLvlColor[ARES_LvlCalcTest_Lvl] ; Prop[LSty]=GroupLvlStyle[ARES_LvlCalcTest_Lvl] ; Prop[LWgt]=GroupLvlWeight[ARES_LvlCalcTest_Lvl]"
         PropertyCalculation.RefreshCalcRules
         Dim lLvlAuth As element, lLvlMember As element
         Set lLvlAuth = CreatePullTestLine(7460, oLvlAuth, Point3dFromXYZ(8300, 0, 0), Point3dFromXYZ(8400, 0, 0))
@@ -1470,8 +1470,8 @@ Private Function PropertyCalculationTest() As Boolean
         TotalTests = TotalTests + 1
         If Not PropertyCalculation.IsTriggerLevel(lLvlMember) Then TestsPassed = TestsPassed + 1
 
-        ' --- LvlColor FillMode=2 resolution (ResolveFillAwareColor): the level-matching candidate is
-        '     itself a FILLED shape (not the plain Line used above) - LvlColor must read its FILL color,
+        ' --- GroupLvlColor FillMode=2 resolution (ResolveFillAwareColor): the level-matching candidate is
+        '     itself a FILLED shape (not the plain Line used above) - GroupLvlColor must read its FILL color,
         '     not its outline, mirroring GroupColor. Own dedicated group so it doesn't interfere with the
         '     IsTriggerLevel assertions above (which need lLvlAuth/lLvlMember unchanged). ---
         Dim shLvlFill As element
@@ -1601,8 +1601,8 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If Not PropertyCalculation.HasGroupLengthRules Then TestsPassed = TestsPassed + 1
 
-    ' --- ProcessElement smoke on the new source kinds: no crash, including the CellColor trigger push
-    '     (cColorTrig, group 7441), a GroupLength bearing recompute (cGLen, group 7450), and the LvlColor
+    ' --- ProcessElement smoke on the new source kinds: no crash, including the GroupCellColor trigger push
+    '     (cColorTrig, group 7441), a GroupLength bearing recompute (cGLen, group 7450), and the GroupLvlColor
     '     trigger push (lLvlAuth, group 7460) ---
     PropertyCalculation.ProcessElement cColorTrig
     PropertyCalculation.ProcessElement cGLen
@@ -1749,20 +1749,20 @@ Private Function CalcRuleValidationTest() As Boolean
     Dim segs() As String
 
     ' --- Valid rules: reason "" AND the expected canonical form (matrix #1-9, #20) ---
-    TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=CellText[ETI*]", "Prop[Repere]=CellText[ETI*]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=GroupCellText[ETI*]", "Prop[Repere]=GroupCellText[ETI*]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[Coupe]=Value[Type-A]", "Prop[Coupe]=Value[Type-A]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[XY]=Coord", "Prop[XY]=Coord") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[XY]=Coord[3]", "Prop[XY]=Coord[3]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[Ref]=Id", "Prop[Ref]=Id") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[Repere]&Cell[ETIREF]=Value[REF]", "Prop[Repere]&Cell[ETIREF]=Value[REF]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[XY]&Type[Line]=Coord", "Prop[XY]&Type[Line]=Coord") Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=CellText[ETI0?6]", "Prop[Repere]=CellText[ETI0?6]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=GroupCellText[ETI0?6]", "Prop[Repere]=GroupCellText[ETI0?6]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[X]=Value[a|b]", "Prop[X]=Value[a|b]") Then TestsPassed = TestsPassed + 1
     ' Keyword casing canonicalises; the condition type NAME stays VERBATIM ("line", not "Line") - reusing
     ' RuleGrammar.ConditionToCanonical, which keeps names verbatim (matrix #8's "Type[Line]" is a typo).
     TotalTests = TotalTests + 1: If CNorm("prop[xy]&type[line]=coord", "Prop[xy]&Type[line]=Coord") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("PROP[x]=ID", "Prop[x]=Id") Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If CNorm("prop[x]=cellText[ETI*]", "Prop[x]=CellText[ETI*]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("prop[x]=cellText[ETI*]", "Prop[x]=GroupCellText[ETI*]") Then TestsPassed = TestsPassed + 1
     ' Normalisation collapses spare spaces around "&" and "="
     TotalTests = TotalTests + 1: If CNorm("  Prop[XY]  &  Type[Line]  =  Coord  ", "Prop[XY]&Type[Line]=Coord") Then TestsPassed = TestsPassed + 1
     ' Empty rule -> "" reason with empty canonical (the caller deletes)
@@ -1777,12 +1777,12 @@ Private Function CalcRuleValidationTest() As Boolean
     TotalTests = TotalTests + 1: If CReject("Cell[X]=Repere") Then TestsPassed = TestsPassed + 1             ' a tag rule (left is a condition)
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Colour[3]") Then TestsPassed = TestsPassed + 1          ' unknown source
     TotalTests = TotalTests + 1: If CReject("Prop[X]=") Then TestsPassed = TestsPassed + 1                   ' empty source side
-    TotalTests = TotalTests + 1: If CReject("=CellText[a]") Then TestsPassed = TestsPassed + 1               ' empty target side
+    TotalTests = TotalTests + 1: If CReject("=GroupCellText[a]") Then TestsPassed = TestsPassed + 1               ' empty target side
     TotalTests = TotalTests + 1: If CReject("Prop[]=Value[a]") Then TestsPassed = TestsPassed + 1            ' empty property name
     TotalTests = TotalTests + 1: If CReject("Prop[Re*]=Value[a]") Then TestsPassed = TestsPassed + 1         ' wildcard target
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Value[]") Then TestsPassed = TestsPassed + 1            ' empty Value[]
-    TotalTests = TotalTests + 1: If CReject("Prop[X]=CellText[]") Then TestsPassed = TestsPassed + 1         ' empty CellText[] pattern
-    TotalTests = TotalTests + 1: If CReject("Prop[X]=CellText") Then TestsPassed = TestsPassed + 1           ' CellText with no [pattern]
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=GroupCellText[]") Then TestsPassed = TestsPassed + 1         ' empty GroupCellText[] pattern
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=GroupCellText") Then TestsPassed = TestsPassed + 1           ' GroupCellText with no [pattern]
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Value") Then TestsPassed = TestsPassed + 1              ' Value with no [text]
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Id[5]") Then TestsPassed = TestsPassed + 1              ' Id takes no argument
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Coord[x]") Then TestsPassed = TestsPassed + 1           ' Coord[n] non-integer
@@ -1794,7 +1794,7 @@ Private Function CalcRuleValidationTest() As Boolean
     TotalTests = TotalTests + 1: If CDeadSeg("Prop[X]&Lvl[A]&Lvl[B]=Value[a]", "Lvl[A]", "Lvl[B]") Then TestsPassed = TestsPassed + 1
     ' Not dead: compatible (Cell + Type[Cell]) / no conditions -> no verdict
     TotalTests = TotalTests + 1: If Not PropertyCalculation.CalcRuleHasNoEffect("Prop[X]&Cell[A]&Type[Cell]=Value[a]", segs) Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If Not PropertyCalculation.CalcRuleHasNoEffect("Prop[X]=CellText[ETI*]", segs) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If Not PropertyCalculation.CalcRuleHasNoEffect("Prop[X]=GroupCellText[ETI*]", segs) Then TestsPassed = TestsPassed + 1
 
     CalcRuleValidationTest = (TestsPassed = TotalTests)
     Exit Function
@@ -2019,7 +2019,7 @@ Private Function RVContains(ByVal P As String, ByVal el As element, ByVal sSub A
     End If
 End Function
 
-' Expected value for LvlColor[pattern] on el, mirroring ReadLvlSourceValue's csLvlColor branch exactly
+' Expected value for GroupLvlColor[pattern] on el, mirroring ReadLvlSourceValue's csLvlColor branch exactly
 ' (the SAME ByLevel/ByCell sentinel resolution, composed with the FillMode=2 resolution of
 ' ResolveFillAwareColor - the raw color tested against ByLevel/ByCellColor is the FillMode-resolved one,
 ' not el.Color directly) so the assertion reflects the live element's actual symbology state.
@@ -2037,7 +2037,7 @@ Private Function ExpectedLvlColorValue(ByVal el As element) As String
 End Function
 
 ' Mirrors ResolveFillAwareColor (PropertyCalculation.bas) - test-side duplicate since that function is
-' Private. Used by ExpectedLvlColorValue and directly by the GroupColor/CellColor FillMode=2 tests.
+' Private. Used by ExpectedLvlColorValue and directly by the GroupColor/GroupCellColor FillMode=2 tests.
 Private Function ExpectedFillAwareColor(ByVal el As element) As Long
     ExpectedFillAwareColor = el.Color
     If el.IsClosedElement Then
@@ -2053,7 +2053,7 @@ Private Function ExpectedFillAwareColor(ByVal el As element) As Long
     End If
 End Function
 
-' Expected value for LvlWeight[pattern] on el, mirroring ReadLvlSourceValue's csLvlWeight branch.
+' Expected value for GroupLvlWeight[pattern] on el, mirroring ReadLvlSourceValue's csLvlWeight branch.
 Private Function ExpectedLvlWeightValue(ByVal el As element) As String
     ExpectedLvlWeightValue = ""
     If el.LineWeight = ByLevelLineWeight Then
@@ -2625,9 +2625,9 @@ Private Function PropertyActuatorTest() As Boolean
     TotalTests = TotalTests + 1
     If lC.Color = colorC Then TestsPassed = TestsPassed + 1
 
-    ' --- Trigger-cell exclusion: a cell matching an active CellColor[pattern] rule is never painted, even
+    ' --- Trigger-cell exclusion: a cell matching an active GroupCellColor[pattern] rule is never painted, even
     '     when it also carries the pilot property attached with a differing value ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=CellColor[ACT9*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=GroupCellColor[ACT9*]"
     PropertyCalculation.RefreshCalcRules
     Dim cTrig As CellElement
     Set cTrig = CreateCalculationTestCell("ACT9X", 8501, "t", Point3dFromXYZ(9200, 0, 0))
@@ -2660,9 +2660,9 @@ Private Function PropertyActuatorTest() As Boolean
     ' --- Regression: when PropertyCalculation pushes a pilot-property value to a group member it did not
     '     itself queue (the trigger-cell/trigger-level push pass), the actuator must ALSO run on that
     '     member inline - not just its PROPERTY, its graphic ATTRIBUTE too. This asserts the ATTRIBUTE, not
-    '     just the property value (PropertyCalculationTest's own CellColor coverage already asserts the
+    '     just the property value (PropertyCalculationTest's own GroupCellColor coverage already asserts the
     '     property and would NOT have caught this - it never reads back .Color) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=CellColor[ACTPUSH*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[" & name1 & "]=GroupCellColor[ACTPUSH*]"
     PropertyCalculation.RefreshCalcRules
     Dim cPushTrig As CellElement, lPushMember As element
     Set cPushTrig = CreateCalculationTestCell("ACTPUSH1", 8600, "t", Point3dFromXYZ(9300, 0, 0))
@@ -2932,7 +2932,7 @@ Private Function RunRenderElementChecks(ByRef TestsPassed As Integer) As Integer
     ' the key-in, and stays inert for ever.
     ' This cell carries NO graphic group, so IsTriggerCell is False and round 8's last-source guard is a
     ' strict no-op here. That is deliberate, not incidental: it is what makes this block double as the
-    ' check that round 8 did not regress round 7 on every bearer that feeds no Cell* source.
+    ' check that round 8 did not regress round 7 on every bearer that feeds no GroupCell* source.
     Set elCell = CreateRenderTestCell("RTC01", "COORD Prop[" & sProp & "]", "N", Point3dFromXYZ(6600, 600, 0))
     CustomPropertyHandler.AttachItemToElement elCell, sProp
     CustomPropertyHandler.SetPropertyValueToElement elCell, sProp, "13,3", sProp
@@ -3125,7 +3125,7 @@ ErrorHandler:
     RunRenderElementChecks = nRun
 End Function
 
-' Helper: True when P is governed (bHasRule) AND yields the EMPTY string (a CellText with no surviving cell).
+' Helper: True when P is governed (bHasRule) AND yields the EMPTY string (a GroupCellText with no surviving cell).
 Private Function RVHasEmpty(ByVal P As String, ByVal el As element) As Boolean
     Dim bHas As Boolean
     Dim v As String
@@ -3173,7 +3173,7 @@ Private Function CreateCalculationTestShape(ByVal lGroup As Long, ByVal baseX As
     Set CreateCalculationTestShape = oShape
 End Function
 
-' Build a FillMode=2 (outlined) shape with a specific FillColor - helper for GroupColor/LvlColor FillMode=2
+' Build a FillMode=2 (outlined) shape with a specific FillColor - helper for GroupColor/GroupLvlColor FillMode=2
 ' resolution tests (ResolveFillAwareColor) and the PropertyActuator FillColor preservation test. Same
 ' footprint as CreateCalculationTestShape otherwise.
 Private Function CreateFillTestShape(ByVal lGroup As Long, ByVal baseX As Double, ByVal baseY As Double, ByVal fillColorVal As Long) As element

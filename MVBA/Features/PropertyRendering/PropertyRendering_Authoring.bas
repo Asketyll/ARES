@@ -85,7 +85,7 @@ ErrorHandler:
     TryAuthorBearer = False
 End Function
 
-' Does this element FEED a Cell* calc source? If so it must keep at least ONE sub-text out of the exclusion
+' Does this element FEED a GroupCell* calc source? If so it must keep at least ONE sub-text out of the exclusion
 ' set (TryAuthorBearer enforces it) - binding the last one would let the containment destroy the data it
 ' protects. Full rationale: see "Authoring" in property-rendering-mechanics.md.
 Private Function FeedsCellSource(ByRef oEl As element) As Boolean
@@ -385,7 +385,7 @@ ErrorHandler:
 End Function
 
 ' Bind-time discoverability: warn about the one static cycle v1 can detect - a token rendered inside the
-' very cell whose text feeds the property through a CellText rule. This is a structural trap in the
+' very cell whose text feeds the property through a GroupCellText rule. This is a structural trap in the
 ' binding choice itself, independent of any later edit, so it stays a bind-time check - unlike the general
 ' "this value is governed by a calc rule" notice, which moved to StateMachine's WarnGovernedTokensLost:
 ' at bind time every token here is freshly attached and unedited, so a "won't survive an edit" message

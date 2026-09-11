@@ -32,7 +32,7 @@ Private Const PROP_KEYWORD As String = "PROP"
 ' Upper bound accepted for Coord[n]/Length[n]/GroupLength[n] decimal counts (syntactic; runtime formatting
 ' clamps to a sane max). Also within Length.GetLength's Byte RND range (255 is its reserved error sentinel).
 Private Const SOURCE_MAX_DECIMALS As Long = 254
-' Coord/CellCoord's SECOND, optional bracket group ([system,decimals]) - separator between the two options
+' Coord/GroupCellCoord's SECOND, optional bracket group ([system,decimals]) - separator between the two options
 ' inside that one group. The system name itself is NOT a fixed constant: any name MicroStation's own
 ' GeographicCoordinateSystem library recognises is accepted syntactically here (see ParseGeoOptions) - only
 ' resolved (Application.CreateGCSFromKeyName) at evaluation time, in Module B (SourceEval).
@@ -67,16 +67,16 @@ Public Enum CalcSource
 End Enum
 
 ' One parsed calc rule: Prop[TargetProp] [& conditions]* = Source. Conditions() (RuleGrammar.RuleCondition)
-' is bounded by nCond. SourceArg holds the pattern (CellText/CellCoord/CellId), the fixed text (Value), the
+' is bounded by nCond. SourceArg holds the pattern (GroupCellText/GroupCellCoord/GroupCellId), the fixed text (Value), the
 ' decimals string (Coord[n]) - empty for Id and bare Coord. SourceSystem/SourceGeoDecimals are the
-' geo-output extension on Coord/CellCoord ONLY (see calc-rules-grammar.md's split-coordinate/geo-output
+' geo-output extension on Coord/GroupCellCoord ONLY (see calc-rules-grammar.md's split-coordinate/geo-output
 ' sections): "" SourceSystem = native DGN coordinates (unchanged behaviour); otherwise SourceSystem holds
 ' the REQUESTED output system's name VERBATIM (e.g. "WGS84", "EPSG:4171", any MicroStation
 ' GeographicCoordinateSystem key name - not restricted to a fixed list; resolved via
 ' Application.CreateGCSFromKeyName only at evaluation time), with SourceGeoDecimals either "" (full
 ' precision, no rounding - deliberately NOT the same as SourceArg's/GetCoordDefaultDecimals()'s
 ' "omitted = default rounding" convention) or an explicit decimal count. SourceGeoDecimals exists as its
-' OWN field (not reusing SourceArg) because CellCoord's SourceArg is already the pattern - there is nowhere
+' OWN field (not reusing SourceArg) because GroupCellCoord's SourceArg is already the pattern - there is nowhere
 ' else to put it. Public: Module B (SourceEval) and Module C (TriggerPush) receive/return it across the
 ' module boundary.
 Public Type CalcRuleInfo
@@ -200,8 +200,8 @@ ErrorHandler:
     segments(0) = ""
 End Function
 
-' A trigger cell is a CELL, in a REAL graphic group, whose name matches a pushable Cell* source's pattern.
-' Drives the trigger-cell push pass; CellId is excluded (an ID never changes). An ungrouped matching cell
+' A trigger cell is a CELL, in a REAL graphic group, whose name matches a pushable GroupCell* source's pattern.
+' Drives the trigger-cell push pass; GroupCellId is excluded (an ID never changes). An ungrouped matching cell
 ' is NOT a trigger - its own value is handled by the bearing pass instead.
 Public Function IsTriggerCell(ByVal oEl As element) As Boolean
     On Error GoTo ErrorHandler
@@ -222,7 +222,7 @@ ErrorHandler:
 End Function
 
 ' Trigger test, mirrors IsTriggerCell but for a LEVEL match instead of a CELL-name match: oEl is a trigger
-' when its OWN Level's name matches a pushable Lvl* source's pattern of at least one calc rule. NO element-
+' when its OWN Level's name matches a pushable GroupLvl* source's pattern of at least one calc rule. NO element-
 ' type restriction (unlike IsTriggerCell's IsCellElement gate) - a Line/Arc on a matching level is a trigger
 ' just as much as a cell would be.
 Public Function IsTriggerLevel(ByVal oEl As element) As Boolean
@@ -635,7 +635,7 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             Exit Function
         End If
 
-        ' Only CellCoord may carry a SECOND bracket group right after the first (the geo-output options
+        ' Only GroupCellCoord may carry a SECOND bracket group right after the first (the geo-output options
         ' group, e.g. "[pattern][WGS84,6]" or "[pattern][EPSG:4171]") - its first group is always the
         ' mandatory pattern, so the options need a group of their own. Coord has NO mandatory first group,
         ' so its own geo-output options (if any) are classified INSIDE its single existing optional group
@@ -645,7 +645,7 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
         Dim sAfterFirst As String
         sAfterFirst = Mid(src, nClose + 1)
         If Len(sAfterFirst) > 0 Then
-            If StrComp(kw, "CELLCOORD", vbTextCompare) = 0 Then
+            If StrComp(kw, "GROUPCELLCOORD", vbTextCompare) = 0 Then
                 Dim nOpen2 As Long, nClose2 As Long
                 nOpen2 = InStr(sAfterFirst, BRK_OPEN)
                 If nOpen2 <> 1 Then
@@ -682,15 +682,15 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
     Dim sPatReason As String
 
     Select Case UCase(kw)
-        Case "CELLTEXT"
-            If Not RequirePatternArg("CellText", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPCELLTEXT"
+            If Not RequirePatternArg("GroupCellText", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellText
             r.SourceArg = pat
-        Case "CELLCOORD"
-            If Not RequirePatternArg("CellCoord", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPCELLCOORD"
+            If Not RequirePatternArg("GroupCellCoord", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
@@ -698,62 +698,62 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             r.SourceArg = pat
             If bHasArg2 Then
                 Dim sGeoReasonCC As String
-                If Not ParseGeoOptions("CellCoord", arg2, r.SourceSystem, r.SourceGeoDecimals, sGeoReasonCC) Then
+                If Not ParseGeoOptions("GroupCellCoord", arg2, r.SourceSystem, r.SourceGeoDecimals, sGeoReasonCC) Then
                     ParseSource = sGeoReasonCC
                     Exit Function
                 End If
             End If
-        Case "CELLID"
-            If Not RequirePatternArg("CellId", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPCELLID"
+            If Not RequirePatternArg("GroupCellId", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellId
             r.SourceArg = pat
-        Case "CELLLVL"
-            If Not RequirePatternArg("CellLvl", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPCELLLVL"
+            If Not RequirePatternArg("GroupCellLvl", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellLvl
             r.SourceArg = pat
-        Case "CELLCOLOR"
-            If Not RequirePatternArg("CellColor", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPCELLCOLOR"
+            If Not RequirePatternArg("GroupCellColor", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellColor
             r.SourceArg = pat
-        Case "CELLSTYLE"
-            If Not RequirePatternArg("CellStyle", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPCELLSTYLE"
+            If Not RequirePatternArg("GroupCellStyle", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellStyle
             r.SourceArg = pat
-        Case "CELLWEIGHT"
-            If Not RequirePatternArg("CellWeight", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPCELLWEIGHT"
+            If Not RequirePatternArg("GroupCellWeight", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csCellWeight
             r.SourceArg = pat
-        Case "LVLCOLOR"
-            If Not RequirePatternArg("LvlColor", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPLVLCOLOR"
+            If Not RequirePatternArg("GroupLvlColor", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csLvlColor
             r.SourceArg = pat
-        Case "LVLSTYLE"
-            If Not RequirePatternArg("LvlStyle", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPLVLSTYLE"
+            If Not RequirePatternArg("GroupLvlStyle", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
             r.SourceKind = csLvlStyle
             r.SourceArg = pat
-        Case "LVLWEIGHT"
-            If Not RequirePatternArg("LvlWeight", bHasArg, arg, pat, sPatReason) Then
+        Case "GROUPLVLWEIGHT"
+            If Not RequirePatternArg("GroupLvlWeight", bHasArg, arg, pat, sPatReason) Then
                 ParseSource = sPatReason
                 Exit Function
             End If
@@ -863,9 +863,9 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
         Case Else
             If Len(kw) = 0 Then
-                ParseSource = "empty source (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/GroupProp/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "empty source (expected GroupCellText/GroupCellCoord/GroupCellId/GroupCellLvl/GroupCellColor/GroupCellStyle/GroupCellWeight/GroupLvlColor/GroupLvlStyle/GroupLvlWeight/GroupColor/GroupProp/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             Else
-                ParseSource = "unknown source '" & kw & "' (expected CellText/CellCoord/CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight/GroupColor/GroupProp/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
+                ParseSource = "unknown source '" & kw & "' (expected GroupCellText/GroupCellCoord/GroupCellId/GroupCellLvl/GroupCellColor/GroupCellStyle/GroupCellWeight/GroupLvlColor/GroupLvlStyle/GroupLvlWeight/GroupColor/GroupProp/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
             End If
             Exit Function
     End Select
@@ -875,8 +875,8 @@ ErrorHandler:
     ParseSource = "invalid source"
 End Function
 
-' Shared arity check for every GROUP source that takes a mandatory non-empty [pattern] (CellText/CellCoord/
-' CellId/CellLvl/CellColor/CellStyle/CellWeight/LvlColor/LvlStyle/LvlWeight). Returns False + sReason on a
+' Shared arity check for every GROUP source that takes a mandatory non-empty [pattern] (GroupCellText/GroupCellCoord/
+' GroupCellId/GroupCellLvl/GroupCellColor/GroupCellStyle/GroupCellWeight/GroupLvlColor/GroupLvlStyle/GroupLvlWeight). Returns False + sReason on a
 ' missing/empty pattern, True + outPat (trimmed) on success.
 Private Function RequirePatternArg(ByVal sKeyword As String, ByVal bHasArg As Boolean, ByVal arg As String, ByRef outPat As String, ByRef sReason As String) As Boolean
     RequirePatternArg = False
@@ -892,7 +892,7 @@ Private Function RequirePatternArg(ByVal sKeyword As String, ByVal bHasArg As Bo
     RequirePatternArg = True
 End Function
 
-' Parses Coord/CellCoord's geo-output options group content ("WGS84,6" / "6,EPSG:4171" / "WGS84" / "6" /
+' Parses Coord/GroupCellCoord's geo-output options group content ("WGS84,6" / "6,EPSG:4171" / "WGS84" / "6" /
 ' "") into outSystem/outDecimals. Content-driven, order-independent (see calc-rules-grammar.md): a token
 ' that is a valid non-negative integer is the decimals; ANY OTHER non-empty token is a CANDIDATE output
 ' SYSTEM NAME - not checked against a fixed list (ARES has no such list; any name MicroStation's own
@@ -992,33 +992,33 @@ Private Function CalcRuleToCanonical(ByRef r As CalcRuleInfo) As String
     CalcRuleToCanonical = sOut
 End Function
 
-' Canonical text of a rule's Source (keyword canonical, arg verbatim). Bracketed-arg kinds (Cell* and the
+' Canonical text of a rule's Source (keyword canonical, arg verbatim). Bracketed-arg kinds (GroupCell* and the
 ' optional-decimals Coord/Length/GroupLength) share one bracket-wrap helper.
 Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
     Select Case r.SourceKind
         Case csCellText
-            SourceToCanonical = "CellText" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupCellText" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellCoord
-            SourceToCanonical = "CellCoord" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupCellCoord" & BRK_OPEN & r.SourceArg & BRK_CLOSE
             If Len(r.SourceSystem) > 0 Then
                 SourceToCanonical = SourceToCanonical & BRK_OPEN & GeoOptionsToCanonical(r) & BRK_CLOSE
             End If
         Case csCellId
-            SourceToCanonical = "CellId" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupCellId" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellLvl
-            SourceToCanonical = "CellLvl" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupCellLvl" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellColor
-            SourceToCanonical = "CellColor" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupCellColor" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellStyle
-            SourceToCanonical = "CellStyle" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupCellStyle" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellWeight
-            SourceToCanonical = "CellWeight" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupCellWeight" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csLvlColor
-            SourceToCanonical = "LvlColor" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupLvlColor" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csLvlStyle
-            SourceToCanonical = "LvlStyle" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupLvlStyle" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csLvlWeight
-            SourceToCanonical = "LvlWeight" & BRK_OPEN & r.SourceArg & BRK_CLOSE
+            SourceToCanonical = "GroupLvlWeight" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csValue
             SourceToCanonical = "Value" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCoord
@@ -1051,7 +1051,7 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
 End Function
 
 ' sKeyword bare, or sKeyword[arg] when arg is non-empty - shared by Coord/Length/GroupLength (all take an
-' OPTIONAL decimals arg, unlike the mandatory-pattern Cell* sources).
+' OPTIONAL decimals arg, unlike the mandatory-pattern GroupCell* sources).
 Private Function OptionalArgKeywordToCanonical(ByVal sKeyword As String, ByVal sArg As String) As String
     If Len(sArg) > 0 Then
         OptionalArgKeywordToCanonical = sKeyword & BRK_OPEN & sArg & BRK_CLOSE
@@ -1060,7 +1060,7 @@ Private Function OptionalArgKeywordToCanonical(ByVal sKeyword As String, ByVal s
     End If
 End Function
 
-' Canonical content of a Coord/CellCoord geo-output options group ("WGS84" or "WGS84,n", or any other
+' Canonical content of a Coord/GroupCellCoord geo-output options group ("WGS84" or "WGS84,n", or any other
 ' requested system name) - the r.SourceSystem side is mandatory when this is called (ParseGeoOptions never
 ' leaves it empty on success), r.SourceGeoDecimals
 ' is appended only when a decimal count was given (omitted = full precision, see the type's own comment).
@@ -1078,7 +1078,7 @@ End Function
 ' Bearing pass: for each DISTINCT calc-target property P that oEl currently carries (frontier), resolve its
 ' value from the FIRST matching calc rule and write it (compare-guarded). A property with NO matching rule
 ' is left untouched (the engine only governs what a rule matches); a matching rule that yields "" (e.g. a
-' CellText with no surviving cell) empties the value via the transition-guarded ApplyValueToSibling.
+' GroupCellText with no surviving cell) empties the value via the transition-guarded ApplyValueToSibling.
 Private Sub BearingPass(ByVal oEl As element)
     On Error GoTo ErrorHandler
 
@@ -1289,7 +1289,7 @@ Public Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVal
 
     ' Split-coordinate items: detected by the TARGET ITEM'S SHAPE alone (a 2-field X/Y ItemType - see
     ' CustomPropertyHandler.GetXYSplitMembers), NOT by which SourceKind produced value. Any calc rule
-    ' (Coord/CellCoord, but also Value[...] or any other source) that targets such an item takes this
+    ' (Coord/GroupCellCoord, but also Value[...] or any other source) that targets such an item takes this
     ' split-write path; ApplyXYValueToSibling rejects outright (writes nothing) if value is not exactly
     ' "part;part" once non-empty, rather than truncating silently. Every OTHER target (the 1-field shape
     ' every other property uses) takes the unchanged single-field path below unmodified - GetXYSplitMembers
@@ -1353,21 +1353,21 @@ ErrorHandler:
 End Function
 
 ' Split-coordinate write path for ApplyValueToSibling (design: see plan-xy-split-coordinate-properties.md
-' §3, Option C). value is the combined "X;Y" string a Coord/CellCoord source produced (FormatCoord's own
+' §3, Option C). value is the combined "X;Y" string a Coord/GroupCellCoord source produced (FormatCoord's own
 ' field separator) - split as a plain STRING operation, never re-parsed as a number here (both target
 ' fields are String properties; no numeric round-trip is involved). Reads/compares/writes each field
 ' INDEPENDENTLY, each behind its own bNoFallback:=True call - mandatory, not optional: the fallback that
 ' resolves a mismatched access string by scanning ALL of an item's members (CustomPropertyHandler.
 ' GetFirstPropertyValue/SetFirstPropertyValue) would otherwise silently answer with/write the WRONG axis on
 ' a genuinely multi-property item (see the plan's §3.1). "Empty" for the transition guard means BOTH
-' components empty - Coord/CellCoord's source (GetElementAnchorPoint) is always fully populated or not at
+' components empty - Coord/GroupCellCoord's source (GetElementAnchorPoint) is always fully populated or not at
 ' all, never just one axis (see the plan's §4), so this is the only shape this path is ever reached with.
 ' A fault between the X write and the Y write (element becomes invalid mid-pass) is accepted as-is per the
 ' plan's §4/lead's decision - no extra IsElementValid re-check between the two writes; a later pass
 ' recomputes and converges, same as any other transient write failure this module already tolerates.
 '
 ' The split is triggered by the TARGET ITEM'S SHAPE alone (GetXYSplitMembers), not by which SourceKind
-' produced value - a Value[...] literal, not just Coord/CellCoord, reaching a 2-field X/Y item takes this
+' produced value - a Value[...] literal, not just Coord/GroupCellCoord, reaching a 2-field X/Y item takes this
 ' path too (see the plan's §1: "any ItemType matching this shape, whatever its name"). A malformed value
 ' (not exactly 2 non-empty ";"-separated parts) is therefore possible here - e.g. Value[bonjour] (0 ";")
 ' or Value[A;B;C] (2 ";"). Per lead's decision, this is REJECTED outright (nothing written to either
@@ -1505,7 +1505,7 @@ Public Sub ReportMultipleTriggers()
     End If
 End Sub
 
-' Own key, not a reuse of ReportMultipleTriggers: that message names "cells", but a Lvl*-collision may
+' Own key, not a reuse of ReportMultipleTriggers: that message names "cells", but a GroupLvl*-collision may
 ' involve no cell at all. Public: called from Module B (SourceEval) and Module C (TriggerPush).
 Public Sub ReportMultipleLvlTriggers()
     On Error Resume Next
@@ -1545,7 +1545,7 @@ Public Sub ReportMultipleGeometries()
     End If
 End Sub
 
-' A Coord/CellCoord[...][system,...] source ran but ActiveModelReference.GetGCS(True) returned Nothing - no
+' A Coord/GroupCellCoord[...][system,...] source ran but ActiveModelReference.GetGCS(True) returned Nothing - no
 ' georeferencing is configured for this model (the ACTIVE model has no GCS at all - distinct from
 ' ReportUnknownGeoSystem below, which is "the model HAS a GCS, but the REQUESTED system name doesn't
 ' resolve"). Status-only, no log (an unconfigured GCS is an EXPECTED state on plenty of DGNs, not an
@@ -1560,7 +1560,7 @@ Public Sub ReportNoGeoReference()
     End If
 End Sub
 
-' A Coord/CellCoord[...][system,...] source ran, the active model DOES have a GCS, but the REQUESTED
+' A Coord/GroupCellCoord[...][system,...] source ran, the active model DOES have a GCS, but the REQUESTED
 ' system name (Application.CreateGCSFromKeyName) did not resolve to a real GeographicCoordinateSystem - a
 ' typo'd or unrecognised key name, not an unconfigured model (see ReportNoGeoReference above - a distinct
 ' cause, its own key, never conflated with this one). Status-only, no log (a bad rule, not a technical

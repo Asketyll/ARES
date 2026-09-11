@@ -65,7 +65,7 @@ End Function
 
 ' Same aggregation, SKIPPING every text-bearing sub-element whose SubId is in ExcludeIds(0 .. nIds-1).
 ' Exists for the renderer's containment rule: a sub-text the RENDERER writes must not feed the
-' CellText[...] calc source that governs it, or the value would ratchet on its own output.
+' GroupCellText[...] calc source that governs it, or the value would ratchet on its own output.
 ' nIds = 0 excludes nothing and is byte-identical to the pre-epic-15 GetConcatenatedText; ExcludeIds is
 ' then never read, so an UNALLOCATED array is a legal argument. The count is passed EXPLICITLY rather
 ' than inferred: VBA cannot detect the omission of an Optional typed array (IsMissing only works on

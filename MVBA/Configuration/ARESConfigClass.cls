@@ -95,8 +95,8 @@ Public ARES_AUTO_PROPERTIES As ARES_MS_VAR_Class 'Default Value: True           
 ' Used in PropertyTagging module — grammar v2 rules "[@]cond[&cond]*=prop|prop ; …" mapping elements to properties to attach
 ' (cond = [!]Lvl|Cell|Type[name|name]; & = AND; ! negates; */? wildcards; a leading @ attaches to the OTHER group members).
 Public ARES_PROPERTY_RULES As ARES_MS_VAR_Class 'Default Value: (empty)                     e.g. Lvl[WALLS]=Commune|Coupe_Type ; @Cell[ETI0*]=Commune
-' Used in PropertyCalculation module — calc rules "Prop[name][&conditions]=Source ; …" giving each custom property its computed/fixed value (Source = CellText[pattern]/Value[text]/Coord[n]/Id).
-Public ARES_CALC_RULES As ARES_MS_VAR_Class 'Default Value: (empty)                        e.g. Prop[Repere]=CellText[ETI*] ; Prop[XY]=Coord
+' Used in PropertyCalculation module — calc rules "Prop[name][&conditions]=Source ; …" giving each custom property its computed/fixed value (Source = GroupCellText[pattern]/Value[text]/Coord[n]/Id).
+Public ARES_CALC_RULES As ARES_MS_VAR_Class 'Default Value: (empty)                        e.g. Prop[Repere]=GroupCellText[ETI*] ; Prop[XY]=Coord
 ' Used in PropertyCalculation module — master switch for the value-calculation engine: each custom property gets its value from the first matching ARES_Calc_Rules rule, written ONLY where the property is already attached (attaching stays PropertyTagging's job).
 Public ARES_PROPERTY_CALC As ARES_MS_VAR_Class 'Default Value: False                     True or False (Boolean)
 ' Used in PropertyCalculation module — when True, an emptied value detaches the property (via the tagger, PropertyTagging.DetachRuleProperty) instead of clearing it; a rule that still mandates the property re-attaches it empty.

@@ -20,7 +20,7 @@ Option Explicit
 Private Const SOURCE_ROUND_CLAMP As Long = 15
 
 ' Evaluate a calc rule's Source against the bearing element. Returns the computed/fixed string ("" when a
-' CellText/GroupLength source finds no matching member, or a SELF attribute is unavailable). Coordinates are
+' GroupCellText/GroupLength source finds no matching member, or a SELF attribute is unavailable). Coordinates are
 ' ALREADY master units (mvba-docs) - no scaling.
 Public Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As String
     On Error GoTo ErrorHandler
@@ -94,7 +94,7 @@ Private Function ResolveDecimals(ByVal sArg As String, ByVal defaultDec As Long)
     End If
 End Function
 
-' Shared GROUP scan for every Cell* source: scan the group INCLUDING itself, return the FIRST matching
+' Shared GROUP scan for every GroupCell* source: scan the group INCLUDING itself, return the FIRST matching
 ' cell via foundCell and the total match count via nMatch (>= 2 drives the multi-trigger warning). An
 ' ungrouped bearing element is its own sole candidate.
 Private Function FindFirstMatchingCellInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundCell As element, ByRef nMatch As Long) As Boolean
@@ -132,10 +132,10 @@ ErrorHandler:
     nMatch = 0
 End Function
 
-' Every Cell* source evaluation, unified: find the FIRST group cell matching sPattern (self-included via
+' Every GroupCell* source evaluation, unified: find the FIRST group cell matching sPattern (self-included via
 ' FindFirstMatchingCellInGroup) and read the attribute named by kind off THAT cell (ReadCellSourceValue); ""
 ' when no cell matches. >= 2 matches -> the multi-trigger warning (one-shot) - the same ambiguity regardless
-' of WHICH attribute is being read off the matching cell. sSystem/sGeoDecimals are CellCoord's own
+' of WHICH attribute is being read off the matching cell. sSystem/sGeoDecimals are GroupCellCoord's own
 ' geo-output options (§2.3a of the WGS84 plan) - "" for every other kind, unused by ReadCellSourceValue in
 ' that case.
 Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sGeoDecimals As String = "") As String
@@ -157,12 +157,12 @@ End Function
 
 ' Read ONE attribute off a SPECIFIC cell element (already located - either by FindFirstMatchingCellInGroup
 ' during the bearing pass, or as the trigger cell itself during the push pass). Never fabricates a value:
-' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/CellCoord philosophy). Native CellCoord
+' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/GroupCellCoord philosophy). Native GroupCellCoord
 ' (sSystem = "") uses the default decimals (no [n] override - the bracket already carries the pattern);
-' sSystem/sGeoDecimals (CellCoord's own geo-output options, see calc-rules-grammar.md) override that for the
+' sSystem/sGeoDecimals (GroupCellCoord's own geo-output options, see calc-rules-grammar.md) override that for the
 ' geo-output case ONLY (sSystem non-empty) - every other kind ignores both params. Public: also called
 ' directly by Module C
-' (TriggerPush), which MUST thread the same rule's SourceSystem/SourceGeoDecimals through here for CellCoord
+' (TriggerPush), which MUST thread the same rule's SourceSystem/SourceGeoDecimals through here for GroupCellCoord
 ' - the bearing pass and the trigger-cell push pass would otherwise silently disagree on output format for
 ' the same rule (see the WGS84 plan's §3.1).
 Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sGeoDecimals As String = "") As String
@@ -194,7 +194,7 @@ Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSo
                     ReadCellSourceValue = FormatCoord(pt, GetCoordDefaultDecimals())
                 End If
             Else
-                ErrorHandler.HandleError "Property calculation: no anchor point for CellCoord source", 0, "", "PropertyCalculation_SourceEval.ReadCellSourceValue"
+                ErrorHandler.HandleError "Property calculation: no anchor point for GroupCellCoord source", 0, "", "PropertyCalculation_SourceEval.ReadCellSourceValue"
             End If
         Case csCellId
             ReadCellSourceValue = DLongToString(oCell.ID)
@@ -202,7 +202,7 @@ Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSo
             If Not oCell.Level Is Nothing Then ReadCellSourceValue = oCell.Level.Name
         Case csCellColor
             ' FillMode=2-aware resolution - see ReadLvlSourceValue's csLvlColor comment for the full
-            ' rationale. CellColor has no ByLevel/ByCell symbolic state of its own, so
+            ' rationale. GroupCellColor has no ByLevel/ByCell symbolic state of its own, so
             ' ResolveFillAwareColor's result is used as-is.
             ReadCellSourceValue = CStr(ResolveFillAwareColor(oCell))
         Case csCellStyle
@@ -249,7 +249,7 @@ End Function
 
 ' True when el carries a Level whose name matches sPattern (MatchesAnyPattern - wildcards + "|"
 ' alternation). Unlike IsMatchingCell, NO element-type restriction: a Level can be carried by any graphical
-' element (Line, Arc, Shape, cell, text...), not just a cell - the whole point of Lvl* sources is to cover
+' element (Line, Arc, Shape, cell, text...), not just a cell - the whole point of GroupLvl* sources is to cover
 ' the case where the group's authority is a plain geometry on a named level, not a named cell.
 Private Function IsMatchingLevel(ByVal el As element, ByVal sPattern As String) As Boolean
     On Error GoTo ErrorHandler
@@ -265,7 +265,7 @@ ErrorHandler:
     IsMatchingLevel = False
 End Function
 
-' Shared GROUP scan for every Lvl* source, mirroring FindFirstMatchingCellInGroup but matching on LEVEL
+' Shared GROUP scan for every GroupLvl* source, mirroring FindFirstMatchingCellInGroup but matching on LEVEL
 ' name instead of cell name.
 Private Function FindFirstMatchingLevelInGroup(ByVal oEl As element, ByVal sPattern As String, ByRef foundEl As element, ByRef nMatch As Long) As Boolean
     On Error GoTo ErrorHandler
@@ -302,8 +302,8 @@ ErrorHandler:
     nMatch = 0
 End Function
 
-' Every Lvl* source evaluation, unified: read kind off the first Level-matching group member. Uses its
-' OWN ReportMultipleLvlTriggers, not ReportMultipleTriggers - a Lvl* collision may involve no cell at all.
+' Every GroupLvl* source evaluation, unified: read kind off the first Level-matching group member. Uses its
+' OWN ReportMultipleLvlTriggers, not ReportMultipleTriggers - a GroupLvl* collision may involve no cell at all.
 Private Function EvaluateGroupLvlSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource) As String
     On Error GoTo ErrorHandler
 
@@ -350,7 +350,7 @@ ErrorHandler:
     ReadLvlSourceValue = ""
 End Function
 
-' Shared FillMode=2-aware color resolution (GroupColor/CellColor/LvlColor): a ClosedElement in FillMode=2
+' Shared FillMode=2-aware color resolution (GroupColor/GroupCellColor/GroupLvlColor): a ClosedElement in FillMode=2
 ' reads its FILL color unless that fill is literally 0/255, falling back to .Color. Callers that care
 ' about the ByLevel/ByCell sentinel test THIS function's result, not el.Color directly.
 ' A colour read off an element is THREE-state: an explicit index, the ByLevel sentinel, or the ByCell one.
@@ -505,7 +505,7 @@ End Function
 '                                          GEOMETRY - Coord ANCHOR CASCADE
 '######################################################################################################################
 
-' Deterministic anchor point for Coord/CellCoord. The Range centre is seeded FIRST and a type-specific
+' Deterministic anchor point for Coord/GroupCellCoord. The Range centre is seeded FIRST and a type-specific
 ' anchor overrides it only on success, so a per-branch geometry fault degrades to the Range centre, never
 ' to a fabricated (0,0,0). False only when even the Range seed fails.
 Private Function GetElementAnchorPoint(ByVal oEl As element, ByRef pt As Point3d) As Boolean
@@ -602,7 +602,7 @@ ErrorHandler:
 End Function
 
 '######################################################################################################################
-'                                          GEOMETRY - GEOGRAPHIC OUTPUT (Coord/CellCoord[...][system,n])
+'                                          GEOMETRY - GEOGRAPHIC OUTPUT (Coord/GroupCellCoord[...][system,n])
 '######################################################################################################################
 
 ' Converts a resolved DGN point to lat/long in the REQUESTED output system (sSystemName - "WGS84",
@@ -729,7 +729,7 @@ ErrorHandler:
 End Function
 
 ' Shared GROUP scan for GroupLength: first length-capable member by scan order (no name pattern -
-' geometry has none, unlike Cell*). Mirrors FindFirstMatchingCellInGroup.
+' geometry has none, unlike GroupCell*). Mirrors FindFirstMatchingCellInGroup.
 Private Function FindFirstLengthCapableInGroup(ByVal oEl As element, ByRef foundGeo As element, ByRef nMatch As Long) As Boolean
     On Error GoTo ErrorHandler
 

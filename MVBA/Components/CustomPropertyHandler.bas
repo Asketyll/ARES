@@ -436,7 +436,7 @@ ErrorHandler:
 End Function
 
 ' True when oItem has EXACTLY 2 members, named (case-insensitively, matching IsKnownProperty's convention)
-' "X" and "Y" in either order - the shape a split-coordinate ItemType must have (Coord/CellCoord calc
+' "X" and "Y" in either order - the shape a split-coordinate ItemType must have (Coord/GroupCellCoord calc
 ' sources write X/Y independently into such an item instead of one combined "X;Y" string; PropertyRendering's
 ' "Prop[Name:X]"/"Prop[Name:Y]" token syntax reads one field of it). False for a 1-member item (today's
 ' single-field shape - unchanged behaviour, by construction, since every caller only special-cases a True

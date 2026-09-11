@@ -260,7 +260,7 @@ Private Function EscapeLikePattern(ByVal name As String) As String
 End Function
 
 ' Case-insensitive Like match of a single value against a single pattern (wildcards */?, "#"-escaped) -
-' the scalar counterpart of the internal LikeAnyCI, exposed for PropertyCalculation's CellText[pattern]
+' the scalar counterpart of the internal LikeAnyCI, exposed for PropertyCalculation's GroupCellText[pattern]
 ' cell-name matching (epic 14). Reuses EscapeLikePattern so the wildcard semantics stay identical. An
 ' empty pattern never matches. Nested guards, no short-circuit.
 Public Function LikeCI(ByVal value As String, ByVal pattern As String) As Boolean
@@ -281,7 +281,7 @@ End Function
 ' never matches.
 ' NOT the same thing as the private LikeAnyCI above, and the difference is load-bearing: LikeAnyCI is fed
 ' by ParseCondition, which TRIMS each name, while this one matches its alternatives verbatim - a space
-' around a "|" is part of the pattern. That is deliberate (PropertyCalculation's Cell*[pattern] arguments
+' around a "|" is part of the pattern. That is deliberate (PropertyCalculation's GroupCell*[pattern] arguments
 ' depend on the current semantics); a caller reading a raw config value normalises before calling, as
 ' SheetLevels.ResolvePattern does with SplitTrim.
 ' This is the single home of the "|"-alternation matching: PropertyCalculation_SourceEval.MatchesAnyPattern

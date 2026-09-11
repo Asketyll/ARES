@@ -113,7 +113,7 @@ Private Function ResolvePattern() As String
     If sRaw = ARESConstants.ARES_NAVD Then sRaw = ARESConfig.ARES_SHEET_LEVELS_MODEL_NAME.Value
 
     ' SplitTrim drops blank parts and returns a single "" when every part is blank. Trimming here rather
-    ' than in LikeAnyInListCI: that helper is shared with PropertyCalculation, whose Cell*[pattern]
+    ' than in LikeAnyInListCI: that helper is shared with PropertyCalculation, whose GroupCell*[pattern]
     ' arguments must keep their untrimmed semantics.
     ResolvePattern = Join(RuleGrammar.SplitTrim(sRaw, ARESConstants.ARES_VAR_DELIMITER), _
                           ARESConstants.ARES_VAR_DELIMITER)
