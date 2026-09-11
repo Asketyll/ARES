@@ -25,8 +25,9 @@ Private Const MAX_ASSETS As Long = 31
 ' which is exactly how a station installed before installer-v1.2.0 ends up with the DGNLib deployed
 ' but never declared, hence no custom properties at all.
 ' They are APPENDED to the file and nothing else: not one existing byte is rewritten. Writing the
-' variable through AddConfigurationVariable instead is not an option - see the cheatsheet section on
-' shared configuration variables, and Tests/ConfigVarProbe.bas for the measurements.
+' variable through AddConfigurationVariable instead is not an option: the API expands $(...) on write,
+' so the site's chain would be frozen into flat paths - see the cheatsheet section on shared
+' configuration variables.
 Private Const UCF_LINE_AUTOLOAD As String = "MS_VBAAUTOLOADPROJECTS > c:/ares/ares.mvba"
 Private Const UCF_LINE_DGNLIB As String = "MS_DGNLIBLIST > c:/ares/rsc/*.dgnlib"
 ' MicroStation's own handle on the Personal.ucf it includes - resolved here, in the user's context,
