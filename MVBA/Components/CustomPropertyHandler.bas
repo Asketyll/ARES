@@ -369,6 +369,27 @@ ErrorHandler:
     IsItemAttachedToElement = False
 End Function
 
+' Read-only "carries any item of LibraryName" check. Items.Find, not Items.HasItems: HasItems ignores "*" as an
+' ItemType name and answers False even on an element carrying items, while Find honours it and returns the first
+' attached handler. Silent fail-closed: it runs on element changes, and "cannot tell" is the answer an element
+' with no items gets.
+Public Function IsAnyItemAttachedToElement(ByVal El As element, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsAnyItemAttachedToElement = False
+    If El Is Nothing Then Exit Function
+
+    Dim oItems As Items
+
+    Set oItems = El.Items
+    oItems.Refresh LibraryName
+    IsAnyItemAttachedToElement = Not (oItems.Find(LibraryName, "*", Nothing) Is Nothing)
+    Exit Function
+
+ErrorHandler:
+    IsAnyItemAttachedToElement = False
+End Function
+
 ' Detach an ItemType (by name) from an element. Returns True only when an attached item was removed.
 Public Function RemoveItemFromElement(ByVal El As element, ByVal ItemName As String, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As Boolean
     On Error GoTo ErrorHandler

@@ -464,27 +464,17 @@ Private Function GroupCarriesAresItems(ByVal oAnyMember As element) As Boolean
     On Error GoTo ErrorHandler
 
     Dim members() As element
-    Dim names() As String
     Dim i As Long
-    Dim j As Long
 
     GroupCarriesAresItems = False
     members = Link.GetLink(oAnyMember, True)
     If Not PropertyCalculation.HasElements(members) Then Exit Function
 
-    ' Items.HasItems does not honour "*" as an ItemType pattern - it answers False even on an element carrying
-    ' ARES items - so each managed property is asked by name, the question PropertyCalculation's frontier already
-    ' relies on. One DGNLib read for the whole group.
-    names = CustomPropertyHandler.GetCustomPropertyNames()
     For i = LBound(members) To UBound(members)
-        For j = LBound(names) To UBound(names)
-            If Len(names(j)) > 0 Then
-                If CustomPropertyHandler.IsItemAttachedToElement(members(i), names(j)) Then
-                    GroupCarriesAresItems = True
-                    Exit Function
-                End If
-            End If
-        Next j
+        If CustomPropertyHandler.IsAnyItemAttachedToElement(members(i)) Then
+            GroupCarriesAresItems = True
+            Exit Function
+        End If
     Next i
     Exit Function
 

@@ -339,6 +339,7 @@ Private Function CustomPropertyHandlerTest() As Boolean
     Dim hasSecond As Boolean
     Dim bRoundTrip1 As Boolean
     Dim bTargeted As Boolean
+    Dim bAnyItemSeen As Boolean
     Dim vFirst As Variant
     Dim vSecond As Variant
 
@@ -394,8 +395,12 @@ Private Function CustomPropertyHandlerTest() As Boolean
 
     ' Test 5.2: attach the first property to the element
     TotalTests = TotalTests + 1
+    bAnyItemSeen = True
     If CustomPropertyHandler.AttachItemToElement(TestElement, name1) Then
         If TestElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, name1) Then TestsPassed = TestsPassed + 1
+        ' ... and the any-item check sees it - the question Items.HasItems(lib, "*") silently answered False.
+        ' Held outside the margin below: the element-change queue and GroupSplitGuard both hang on it.
+        bAnyItemSeen = CustomPropertyHandler.IsAnyItemAttachedToElement(TestElement)
     End If
 
     ' Test 5.3: round-trip a free-text value on the first property
@@ -464,7 +469,7 @@ Private Function CustomPropertyHandlerTest() As Boolean
     If hasSecond Then CustomPropertyHandler.RemoveItemFromElement TestElement, name2
 
     ' Library operations can be environment-dependent; allow a small margin
-    CustomPropertyHandlerTest = (TestsPassed >= TotalTests - 1)
+    CustomPropertyHandlerTest = (TestsPassed >= TotalTests - 1) And bAnyItemSeen
     Exit Function
 
 ErrorHandler:

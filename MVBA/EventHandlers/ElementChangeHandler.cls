@@ -12,7 +12,8 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
-'               PropertyCalculation, PropertyActuator, PropertyRendering, CallStackClass, GroupSplitGuard
+'               PropertyCalculation, PropertyActuator, PropertyRendering, CallStackClass, GroupSplitGuard,
+'               CustomPropertyHandler
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -602,7 +603,7 @@ End Function
 
 ' True if oElement should be queued for Add/Modify: graphical AND (grouped, OR matches a tag rule now,
 ' OR already carries an ARES property from an earlier pass). The last check is a deliberately wide
-' HasItems("*") match on ANY attached property, not narrowed to what Calc/Render/Actuator actually use -
+' match on ANY attached ARES property, not narrowed to what Calc/Render/Actuator actually use -
 ' do not narrow it without sign-off.
 Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
     ShouldQueueElement = False
@@ -625,11 +626,7 @@ Private Function ShouldQueueElement(ByVal oElement As element) As Boolean
     End If
 
     If PropertyCalculation.IsEnabled Or PropertyRendering.IsEnabled Or PropertyActuator.IsEnabled Then
-        On Error Resume Next
-        oElement.Items.Refresh ARESConstants.ARES_NAME_LIBRARY_TYPE
-        ShouldQueueElement = oElement.Items.HasItems(ARESConstants.ARES_NAME_LIBRARY_TYPE, "*")
-        If Err.Number <> 0 Then ShouldQueueElement = False
-        On Error GoTo 0
+        ShouldQueueElement = CustomPropertyHandler.IsAnyItemAttachedToElement(oElement)
     End If
 End Function
 
