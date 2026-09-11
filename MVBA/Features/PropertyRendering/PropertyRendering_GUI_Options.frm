@@ -17,12 +17,6 @@ Attribute VB_Exposed = False
 '              label-cell settings) and attribute actuation (PropertyActuator: ARES_Actuate_Color/Level).
 '              SHARING IS THE PANEL ONLY: the two stay separate logic modules with separate doctrines and
 '              pipeline call sites - do not let this shared panel become a reason to merge their logic.
-'
-'              OUTSTANDING MANUAL CLEANUP: the retired "Color_CheckBox" control (colour-sync option) and
-'              the pilot-property picker controls of an earlier revision (ActuateColorProp_Label,
-'              ComboBox_ActuateColorProp, ActuateLevelProp_Label, ComboBox_ActuateLevelProp), if present,
-'              are unreferenced dead controls still in the designer/.frx - code cannot delete a visual
-'              control, remove them manually in the VBA IDE.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ErrorHandlerClass, ARESConfigClass, FormUXHelper, FormPlacement, Command,
 '               PropertyActuator
