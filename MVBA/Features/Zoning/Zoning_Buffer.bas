@@ -10,7 +10,7 @@ Option Explicit
 ' A line or a circular arc, always in WORLD coordinates. An arc's own StartAngle/SweepAngle live in its
 ' element frame and must never be mixed with world points - everything here is re-derived from the
 ' centre and the two endpoints, using only the SIGN of the stored sweep.
-Private Type ChainSeg
+Public Type ChainSeg
     IsArc    As Boolean
     P0       As Point3d
     P1       As Point3d
@@ -152,7 +152,8 @@ End Sub
 '                                          THE CHAIN
 '######################################################################################################################
 
-Private Function Flatten(ByVal oEl As Element, ByRef segs() As ChainSeg, ByRef nSeg As Long) As Boolean
+' Public: also used by GroupSplitGuard to measure how near a group member lies to each piece of a cut.
+Public Function Flatten(ByVal oEl As Element, ByRef segs() As ChainSeg, ByRef nSeg As Long) As Boolean
     On Error GoTo ErrorHandler
 
     Dim oEnum As ElementEnumerator
@@ -502,7 +503,7 @@ End Function
 
 ' The exact distance from a point to the chain. No densification: a line uses the bounded-ray closest
 ' point, an arc its own radius when the point projects inside the sweep and its endpoints otherwise.
-Private Function DistanceToChain(ByRef p As Point3d, ByRef chain() As ChainSeg, ByVal nChain As Long) As Double
+Public Function DistanceToChain(ByRef p As Point3d, ByRef chain() As ChainSeg, ByVal nChain As Long) As Double
     On Error GoTo ErrorHandler
 
     Dim i    As Long

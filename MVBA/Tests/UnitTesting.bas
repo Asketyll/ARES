@@ -28,6 +28,7 @@ Private Enum TestID
     tidPropertyTaggingPull = 21
     tidPropertyRendering = 22
     tidPropertyActuator = 23
+    tidGroupSplitGuard = 24
 End Enum
 
 ' Test result structure
@@ -84,6 +85,7 @@ Public Sub RunAllTests()
     RunTest "Property Tagging Pull", tidPropertyTaggingPull
     RunTest "Property Rendering", tidPropertyRendering
     RunTest "Property Actuator", tidPropertyActuator
+    RunTest "Group Split Guard", tidGroupSplitGuard
 
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -165,6 +167,9 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidPropertyActuator
             TestName = "Property Actuator"
             Result = PropertyActuatorTest()
+        Case tidGroupSplitGuard
+            TestName = "Group Split Guard"
+            Result = GroupSplitGuardTest()
         Case Else
             MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-23", vbCritical, "Test Error"
             Exit Sub
@@ -1762,7 +1767,7 @@ Private Function CalcRuleValidationTest() As Boolean
     ' RuleGrammar.ConditionToCanonical, which keeps names verbatim (matrix #8's "Type[Line]" is a typo).
     TotalTests = TotalTests + 1: If CNorm("prop[xy]&type[line]=coord", "Prop[xy]&Type[line]=Coord") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("PROP[x]=ID", "Prop[x]=Id") Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If CNorm("prop[x]=cellText[ETI*]", "Prop[x]=GroupCellText[ETI*]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("prop[x]=groupcellTEXT[ETI*]", "Prop[x]=GroupCellText[ETI*]") Then TestsPassed = TestsPassed + 1
     ' Normalisation collapses spare spaces around "&" and "="
     TotalTests = TotalTests + 1: If CNorm("  Prop[XY]  &  Type[Line]  =  Coord  ", "Prop[XY]&Type[Line]=Coord") Then TestsPassed = TestsPassed + 1
     ' Empty rule -> "" reason with empty canonical (the caller deletes)
@@ -3521,6 +3526,7 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidPropertyTaggingPull: Result.Passed = PropertyTaggingPullTest()
         Case tidPropertyRendering: Result.Passed = PropertyRenderingTest()
         Case tidPropertyActuator: Result.Passed = PropertyActuatorTest()
+        Case tidGroupSplitGuard: Result.Passed = GroupSplitGuardTest()
         Case Else
             Result.Passed = False
             Result.Message = "Unknown test ID"
@@ -3540,6 +3546,61 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
     ReDim Preserve TestResults(TestCount)
     TestResults(TestCount) = Result
 End Sub
+
+' Group split guard - the block signature, pure logic (no element, no DGNLib). A cut is a geometry delete of
+' group G plus at least two geometry adds into that same G, closed by a MARK. The IDs and groups are the ones
+' measured live on ATLAS cuts.
+Private Function GroupSplitGuardTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    Dim lGroup As Long
+    Dim ids() As DLong
+    Dim nIds As Long
+
+    ' Break at a point: two pieces added into group 25, the original of group 25 deleted.
+    GroupSplitGuard.ResetForTests
+    GroupSplitGuard.RecordGeometryAdd 25, DLongFromLong(2190)
+    GroupSplitGuard.RecordGeometryAdd 25, DLongFromLong(2192)
+    GroupSplitGuard.RecordGeometryDelete 25
+    TotalTests = TotalTests + 1
+    If GroupSplitGuard.CloseBlock(lGroup, ids, nIds) Then
+        If lGroup = 25 And nIds = 2 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' CloseBlock empties the block: the next MARK, with nothing recorded, is not a cut.
+    TotalTests = TotalTests + 1
+    If Not GroupSplitGuard.CloseBlock(lGroup, ids, nIds) Then TestsPassed = TestsPassed + 1
+
+    ' ATLAS partial delete: the pieces land in groups 26 and 29 - never two in one group.
+    GroupSplitGuard.RecordGeometryAdd 26, DLongFromLong(2183)
+    GroupSplitGuard.RecordGeometryAdd 29, DLongFromLong(2185)
+    GroupSplitGuard.RecordGeometryDelete 26
+    TotalTests = TotalTests + 1
+    If Not GroupSplitGuard.CloseBlock(lGroup, ids, nIds) Then TestsPassed = TestsPassed + 1
+
+    ' Two geometries added into a group with nothing deleted is drawing, not cutting.
+    GroupSplitGuard.RecordGeometryAdd 30, DLongFromLong(1)
+    GroupSplitGuard.RecordGeometryAdd 30, DLongFromLong(2)
+    TotalTests = TotalTests + 1
+    If Not GroupSplitGuard.CloseBlock(lGroup, ids, nIds) Then TestsPassed = TestsPassed + 1
+
+    ' A delete in another group does not pair with adds in this one.
+    GroupSplitGuard.RecordGeometryAdd 31, DLongFromLong(3)
+    GroupSplitGuard.RecordGeometryAdd 31, DLongFromLong(4)
+    GroupSplitGuard.RecordGeometryDelete 32
+    TotalTests = TotalTests + 1
+    If Not GroupSplitGuard.CloseBlock(lGroup, ids, nIds) Then TestsPassed = TestsPassed + 1
+
+    GroupSplitGuard.ResetForTests
+    GroupSplitGuardTest = (TestsPassed = TotalTests)
+    Exit Function
+
+ErrorHandler:
+    GroupSplitGuard.ResetForTests
+    GroupSplitGuardTest = False
+End Function
 
 Private Function GenerateTestReport(TotalDuration As Double) As String
     Dim Report As String

@@ -508,7 +508,8 @@ End Function
 ' Deterministic anchor point for Coord/GroupCellCoord. The Range centre is seeded FIRST and a type-specific
 ' anchor overrides it only on success, so a per-branch geometry fault degrades to the Range centre, never
 ' to a fabricated (0,0,0). False only when even the Range seed fails.
-Private Function GetElementAnchorPoint(ByVal oEl As element, ByRef pt As Point3d) As Boolean
+' Public: also used by GroupSplitGuard to place a group member against the pieces of a cut.
+Public Function GetElementAnchorPoint(ByVal oEl As element, ByRef pt As Point3d) As Boolean
     On Error GoTo ErrorHandler
 
     GetElementAnchorPoint = False
@@ -694,16 +695,7 @@ End Function
 ' ComplexString - the same set Auto_Lengths.GetLinkedElements filters for). A cell/text/other element is
 ' NOT length-capable - never call Length.GetLength on it (it would yield 0 + a noisy status line).
 Private Function IsLengthCapableType(ByVal oEl As element) As Boolean
-    On Error GoTo ErrorHandler
-
-    IsLengthCapableType = False
-    If oEl Is Nothing Then Exit Function
-    IsLengthCapableType = oEl.IsLineElement Or oEl.IsArcElement Or oEl.IsShapeElement Or _
-                           oEl.IsComplexShapeElement Or oEl.IsComplexStringElement
-    Exit Function
-
-ErrorHandler:
-    IsLengthCapableType = False
+    IsLengthCapableType = Length.IsLengthCapable(oEl)
 End Function
 
 ' Length evaluation: the bearing element's OWN geometry length (Length.GetLength), ONLY when it is itself

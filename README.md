@@ -40,6 +40,7 @@ User features — full key-in reference and configuration variables live in the 
 | Property Calculation | Custom-property values calculated automatically per rules — from a label cell's text, a fixed value, the element's coordinates or its ID | [EN](https://github.com/Asketyll/ARES/wiki/Property-Calculation)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Calcul-de-Propriete) |
 | Property Rendering | Display a custom-property value inside a text: type `Prop[Name]` and it is replaced by the value, kept up to date automatically | [EN](https://github.com/Asketyll/ARES/wiki/Property-Rendering)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Rendu-des-Proprietes) |
 | Property Actuator | Write a graphic attribute (Color/Level) from a custom-property's value — the reverse of the other property engines | [EN](https://github.com/Asketyll/ARES/wiki/Property-Actuator)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Actionneur-de-Propriete) |
+| Group Split Guard | After a cut that leaves two cable pieces in one graphic group, asks whether to separate the group (each text joins the nearest piece), undo the cut, or keep it | [EN](https://github.com/Asketyll/ARES/wiki/Property-Calculation)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Calcul-de-Propriete) |
 
 System:
 - **Multi-language** - French/English interface ([EN](https://github.com/Asketyll/ARES/wiki/System-and-Config)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Systeme-et-Config))

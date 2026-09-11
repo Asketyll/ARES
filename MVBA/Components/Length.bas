@@ -6,6 +6,22 @@
 ' Dependencies: Config, ARESConfigClass, ARESConstants, LangManager, ErrorHandlerClass
 Option Explicit
 
+' The geometries GetLength measures and a group scan treats as a cable: lines, arcs, shapes, complex shapes
+' and complex strings. One definition, shared by PropertyCalculation's GroupLength source and GroupSplitGuard,
+' so "two geometries in one group" means the same thing to both.
+Public Function IsLengthCapable(ByVal El As element) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsLengthCapable = False
+    If El Is Nothing Then Exit Function
+    IsLengthCapable = El.IsLineElement Or El.IsArcElement Or El.IsShapeElement Or _
+                      El.IsComplexShapeElement Or El.IsComplexStringElement
+    Exit Function
+
+ErrorHandler:
+    IsLengthCapable = False
+End Function
+
 ' Public function to get the length of an element
 Public Function GetLength(ByVal El As element, Optional RND As Variant, Optional RndLength As Boolean = True, Optional ErasRnd As Boolean = False) As Double
     On Error GoTo ErrorHandler

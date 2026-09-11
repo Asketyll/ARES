@@ -12,7 +12,7 @@
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: ARESConfigClass, ARESConstants, LangManager, StringsInEl,
 '               ElementInProcesseClass, ErrorHandlerClass, ReRegisterIdleHandler, PropertyTagging,
-'               PropertyCalculation, PropertyActuator, PropertyRendering, CallStackClass
+'               PropertyCalculation, PropertyActuator, PropertyRendering, CallStackClass, GroupSplitGuard
 
 Option Explicit
 Implements IChangeTrackEvents
@@ -53,9 +53,10 @@ Private mlCachedInterval As Long                ' Cached interval  — refreshed
 ' ICHANGETRACKEVENTS INTERFACE IMPLEMENTATION
 ' ========================================
 
-' Not implemented - no undo/redo handling needed.
+' An undo or redo settles any cut GroupSplitGuard was about to ask about.
 Private Sub IChangeTrackEvents_BeginUndoRedo(ByVal AfterUndoRedo As element, ByVal BeforeUndoRedo As element, ByVal Action As MsdChangeTrackAction, ByVal IsUndo As Boolean)
     On Error GoTo ErrorHandler
+    GroupSplitGuard.NoteUndoRedo
     Exit Sub
 
 ErrorHandler:
@@ -77,6 +78,10 @@ Private Sub IChangeTrackEvents_ElementChanged(ByVal AfterChange As element, ByVa
 
     ' GUARD: Config not yet initialized (e.g. seed elements added before first idle fires)
     If Not ARESConfig.IsInitialized Then Exit Sub
+
+    ' Recorded ahead of the feature gate below: a cut leaves two sources of truth in a group whether or not a
+    ' property feature is running right now.
+    GroupSplitGuard.NoteChange AfterChange, BeforeChange, Action
 
     ' PERFORMANCE: Early exit if all ARES features are disabled
     If Not IsAnyFeatureEnabled() Then Exit Sub
@@ -142,9 +147,10 @@ ErrorHandler:
     Err.Clear
 End Sub
 
-' Not implemented - no change-mark handling needed.
+' A mark closes the command's block of changes - where GroupSplitGuard decides whether that block was a cut.
 Private Sub IChangeTrackEvents_Mark()
     On Error GoTo ErrorHandler
+    GroupSplitGuard.NoteMark
     Exit Sub
 
 ErrorHandler:

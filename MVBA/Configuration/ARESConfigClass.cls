@@ -114,6 +114,9 @@ Public ARES_FORM_LAYOUT As ARES_MS_VAR_Class 'Default Value: (empty)   <FormName
 ' idle event. Default True = standard behaviour. False falls back to the deferred (queued) path - see
 ' ElementChangeHandler.cls header for the reentrancy guard and when to use the fallback.
 Public ARES_DIRECT_PROCESSING As ARES_MS_VAR_Class 'Default Value: True                      True or False (Boolean)
+' Used in GroupSplitGuard module — when True, a cut that leaves two or more cable geometries in one graphic group
+' carrying ARES properties asks the user to separate the group, undo the cut, or keep it.
+Public ARES_GROUP_SPLIT_GUARD As ARES_MS_VAR_Class 'Default Value: True                      True or False (Boolean)
 ' === Cable Report (per-cable trenching length by soil type) — own option set ===
 ' Used in CableReport module for the source level(s) of HTAS cable Line elements to report on
 Public ARES_CABLEREPORT_CABLE_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)   |-delimited level list (ARES_VAR_DELIMITER); at least one must exist (required)
@@ -224,6 +227,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_ACTUATE_LEVEL = CreateConfigVar("ARES_Actuate_Level", "False")
     Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
     Set ARES_DIRECT_PROCESSING = CreateConfigVar("ARES_Direct_Processing", "True")
+    Set ARES_GROUP_SPLIT_GUARD = CreateConfigVar("ARES_Group_Split_Guard", "True")
     Set ARES_CABLEREPORT_CABLE_LEVEL = CreateConfigVar("ARES_CableReport_Cable_Level", "")
     Set ARES_CABLEREPORT_ZONE_LEVEL = CreateConfigVar("ARES_CableReport_Zone_Level", "")
     Set ARES_CABLEREPORT_REPERE_PROPERTY = CreateConfigVar("ARES_CableReport_Repere_Property", "Repere")
