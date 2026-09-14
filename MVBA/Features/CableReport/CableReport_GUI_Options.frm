@@ -1,10 +1,10 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} CableReport_GUI_Options 
    Caption         =   "CableReport_GUI_Options"
-   ClientHeight    =   5790
+   ClientHeight    =   6615
    ClientLeft      =   120
    ClientTop       =   465
-   ClientWidth     =   4560
+   ClientWidth     =   4575
    OleObjectBlob   =   "CableReport_GUI_Options.frx":0000
    StartUpPosition =   1  'CenterOwner
 End
@@ -14,9 +14,9 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 ' UserForm: CableReport_GUI_Options
-' Description: Options panel for CableReport - cable level, zone level, the 4 custom-property
-'              names (Repere/Nature/Longueur/soil-type), end-cell search radius, rounding,
-'              Excel-visible toggle. Mirrors ExportLengthInReg_GUI_Options's structure/UX baseline.
+' Description: Options panel for CableReport - cable level, zone level, the 5 custom-property
+'              names (Repere/underground Nature/aerial Nature/Longueur/soil-type), end-cell search
+'              radius, rounding, Excel-visible toggle. Mirrors ExportLengthInReg_GUI_Options's structure/UX baseline.
 ' License: This project is licensed under the AGPL-3.0.
 ' Dependencies: LangManager, ARESConfigClass, ErrorHandlerClass, FormUXHelper, FormPlacement, CustomPropertyHandler
 Option Explicit
@@ -159,10 +159,10 @@ ErrorHandler:
 End Sub
 
 ' ============================================================
-' CUSTOM-PROPERTY NAME COMBOS (Repere / Nature / Longueur / soil-type) - all 4 populated from
-' the ARES DGNLib's ItemTypes (CustomPropertyHandler.GetCustomPropertyNames), same Null-safe
-' read/seed pattern as ExportLengthInReg's zone-property combo. Shared logic factored into
-' SeedPropertyCombo/CommitPropertyCombo below since all 4 are otherwise identical.
+' CUSTOM-PROPERTY NAME COMBOS (Repere / underground Nature / aerial Nature / Longueur / soil-type) -
+' all 5 populated from the ARES DGNLib's ItemTypes (CustomPropertyHandler.GetCustomPropertyNames),
+' same Null-safe read/seed pattern as ExportLengthInReg's zone-property combo. Shared logic factored
+' into SeedPropertyCombo/CommitPropertyCombo below since all 5 are otherwise identical.
 ' ============================================================
 
 Private Sub ComboBox_RepereProperty_Change()
@@ -174,13 +174,22 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.ComboBox_RepereProperty_Change"
 End Sub
 
-Private Sub ComboBox_NatureProperty_Change()
+Private Sub ComboBox_UndergroundNatureProperty_Change()
     On Error GoTo ErrorHandler
-    CommitPropertyCombo ComboBox_NatureProperty, ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY
+    CommitPropertyCombo ComboBox_UndergroundNatureProperty, ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY
     Exit Sub
 
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.ComboBox_NatureProperty_Change"
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.ComboBox_UndergroundNatureProperty_Change"
+End Sub
+
+Private Sub ComboBox_AerialNatureProperty_Change()
+    On Error GoTo ErrorHandler
+    CommitPropertyCombo ComboBox_AerialNatureProperty, ARESConfig.ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.ComboBox_AerialNatureProperty_Change"
 End Sub
 
 Private Sub ComboBox_LongueurProperty_Change()
@@ -305,7 +314,8 @@ Private Sub UserForm_Initialize()
     Edit_CableLevel_Command.Caption = GetTranslation("CableReportGUIOptionsEditCableLevel_CommandCaption")
     Edit_ZoneLevel_Command.Caption = GetTranslation("CableReportGUIOptionsEditZoneLevel_CommandCaption")
     RepereProperty_Label.Caption = GetTranslation("CableReportGUIOptionsRepereProperty_LabelCaption")
-    NatureProperty_Label.Caption = GetTranslation("CableReportGUIOptionsNatureProperty_LabelCaption")
+    UndergroundNatureProperty_Label.Caption = GetTranslation("CableReportGUIOptionsUndergroundNatureProperty_LabelCaption")
+    AerialNatureProperty_Label.Caption = GetTranslation("CableReportGUIOptionsAerialNatureProperty_LabelCaption")
     LongueurProperty_Label.Caption = GetTranslation("CableReportGUIOptionsLongueurProperty_LabelCaption")
     ZoneProperty_Label.Caption = GetTranslation("CableReportGUIOptionsZoneProperty_LabelCaption")
     SearchRadius_Label.Caption = GetTranslation("CableReportGUIOptionsSearchRadius_LabelCaption")
@@ -317,8 +327,10 @@ Private Sub UserForm_Initialize()
     FormUXHelper.SetTip Edit_ZoneLevel_Command, "CableReportGUIOptionsEditZoneLevel_CommandTip"
     FormUXHelper.SetTip RepereProperty_Label, "CableReportGUIOptionsRepereProperty_LabelTip"
     FormUXHelper.SetTip ComboBox_RepereProperty, "CableReportGUIOptionsRepereProperty_LabelTip"
-    FormUXHelper.SetTip NatureProperty_Label, "CableReportGUIOptionsNatureProperty_LabelTip"
-    FormUXHelper.SetTip ComboBox_NatureProperty, "CableReportGUIOptionsNatureProperty_LabelTip"
+    FormUXHelper.SetTip UndergroundNatureProperty_Label, "CableReportGUIOptionsUndergroundNatureProperty_LabelTip"
+    FormUXHelper.SetTip ComboBox_UndergroundNatureProperty, "CableReportGUIOptionsUndergroundNatureProperty_LabelTip"
+    FormUXHelper.SetTip AerialNatureProperty_Label, "CableReportGUIOptionsAerialNatureProperty_LabelTip"
+    FormUXHelper.SetTip ComboBox_AerialNatureProperty, "CableReportGUIOptionsAerialNatureProperty_LabelTip"
     FormUXHelper.SetTip LongueurProperty_Label, "CableReportGUIOptionsLongueurProperty_LabelTip"
     FormUXHelper.SetTip ComboBox_LongueurProperty, "CableReportGUIOptionsLongueurProperty_LabelTip"
     FormUXHelper.SetTip ZoneProperty_Label, "CableReportGUIOptionsZoneProperty_LabelTip"
@@ -382,7 +394,8 @@ Private Sub SeedControls()
     TextBox_ZoneLevel.Visible = False
 
     SeedPropertyCombo ComboBox_RepereProperty, ARESConfig.ARES_CABLEREPORT_REPERE_PROPERTY
-    SeedPropertyCombo ComboBox_NatureProperty, ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY
+    SeedPropertyCombo ComboBox_UndergroundNatureProperty, ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY
+    SeedPropertyCombo ComboBox_AerialNatureProperty, ARESConfig.ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY, True   ' blank = no aerial sheet
     SeedPropertyCombo ComboBox_LongueurProperty, ARESConfig.ARES_CABLEREPORT_LONGUEUR_PROPERTY
     SeedPropertyCombo ComboBox_ZoneProperty, ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY
 
@@ -420,6 +433,7 @@ Private Sub Reset_Command_Click()
     FormUXHelper.PersistDefault ARESConfig.ARES_CABLEREPORT_ZONE_LEVEL
     FormUXHelper.PersistDefault ARESConfig.ARES_CABLEREPORT_REPERE_PROPERTY
     FormUXHelper.PersistDefault ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY
+    FormUXHelper.PersistDefault ARESConfig.ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY
     FormUXHelper.PersistDefault ARESConfig.ARES_CABLEREPORT_LONGUEUR_PROPERTY
     FormUXHelper.PersistDefault ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY
     FormUXHelper.PersistDefault ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS
@@ -445,12 +459,15 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.SetLocked"
 End Sub
 
-' Shared by the 4 property-name combos: populate from the ARES DGNLib's ItemTypes, then seed
+' Shared by the 5 property-name combos: populate from the ARES DGNLib's ItemTypes, then seed
 ' Null-safe from oVar's current value (list member -> select it; not a member -> ListIndex = -1,
-' same M1 fix as ExportLengthInReg's zone-property combo).
-Private Sub SeedPropertyCombo(ByVal oCombo As MSForms.ComboBox, ByVal oVar As ARES_MS_VAR_Class)
+' same M1 fix as ExportLengthInReg's zone-property combo). bBlankEntry: a leading blank item, selected
+' when oVar is empty, so an optional setting can be emptied from the list itself.
+Private Sub SeedPropertyCombo(ByVal oCombo As MSForms.ComboBox, ByVal oVar As ARES_MS_VAR_Class, _
+                              Optional ByVal bBlankEntry As Boolean = False)
     On Error GoTo ErrorHandler
     oCombo.Clear
+    If bBlankEntry Then oCombo.AddItem ""
     Dim propNames() As String
     Dim pi          As Long
     Dim sSel        As String
@@ -466,6 +483,8 @@ Private Sub SeedPropertyCombo(ByVal oCombo As MSForms.ComboBox, ByVal oVar As AR
     Next pi
     If bFound Then
         oCombo.value = sSel
+    ElseIf bBlankEntry And Len(sSel) = 0 Then
+        oCombo.ListIndex = 0
     Else
         oCombo.ListIndex = -1
     End If
@@ -475,7 +494,7 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.SeedPropertyCombo"
 End Sub
 
-' Shared by the 4 property-name combos: write-through a Null-safe combo value into oVar, only
+' Shared by the 5 property-name combos: write-through a Null-safe combo value into oVar, only
 ' on a real change (a dropdown-list combo with no selection returns Null).
 Private Sub CommitPropertyCombo(ByVal oCombo As MSForms.ComboBox, ByVal oVar As ARES_MS_VAR_Class)
     On Error GoTo ErrorHandler

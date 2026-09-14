@@ -118,14 +118,17 @@ Public ARES_DIRECT_PROCESSING As ARES_MS_VAR_Class 'Default Value: True         
 ' carrying ARES properties asks the user to separate the group, undo the cut, or keep it.
 Public ARES_GROUP_SPLIT_GUARD As ARES_MS_VAR_Class 'Default Value: True                      True or False (Boolean)
 ' === Cable Report (per-cable trenching length by soil type) — own option set ===
-' Used in CableReport module for the source level(s) of HTAS cable Line elements to report on
+' Used in CableReport module for the source level(s) of the cables to report on, aerial and underground, any cable element type
 Public ARES_CABLEREPORT_CABLE_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)   |-delimited level list (ARES_VAR_DELIMITER); at least one must exist (required)
 ' Used in CableReport module for the trenching-zone level (RunOutline output); empty falls back to ARES_Outline_Output_Level
 Public ARES_CABLEREPORT_ZONE_LEVEL As ARES_MS_VAR_Class 'Default Value: (empty)   Level name string
 ' Used in CableReport module — custom-property NAME read off each end cell (must be an ItemType of the "ARES" DGNLib)
 Public ARES_CABLEREPORT_REPERE_PROPERTY As ARES_MS_VAR_Class 'Default Value: Repere   custom-property name
-' Used in CableReport module — custom-property NAME read off the cable's linked text for its nature/type
+' Used in CableReport module — custom-property NAME of an underground cable's nature/type, read on the cable, then its graphic group
 Public ARES_CABLEREPORT_NATURE_PROPERTY As ARES_MS_VAR_Class 'Default Value: Nature   custom-property name
+' Used in CableReport module — custom-property NAME marking an aerial cable (read like the Nature one): aerial rows go on their own
+' sheet, never measured against a trenching zone
+Public ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY As ARES_MS_VAR_Class 'Default Value: (empty)   custom-property name; empty = no aerial sheet
 ' Used in CableReport module — custom-property NAME read off the cable's linked text for its total length
 Public ARES_CABLEREPORT_LONGUEUR_PROPERTY As ARES_MS_VAR_Class 'Default Value: Longueur   custom-property name
 ' Used in CableReport module — custom-property NAME read off each trenching zone; pivoted into one column per distinct value
@@ -232,6 +235,7 @@ Private Function CreateConfigVariables() As Boolean
     Set ARES_CABLEREPORT_ZONE_LEVEL = CreateConfigVar("ARES_CableReport_Zone_Level", "")
     Set ARES_CABLEREPORT_REPERE_PROPERTY = CreateConfigVar("ARES_CableReport_Repere_Property", "Repere")
     Set ARES_CABLEREPORT_NATURE_PROPERTY = CreateConfigVar("ARES_CableReport_Nature_Property", "Nature")
+    Set ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY = CreateConfigVar("ARES_CableReport_Aerial_Nature_Property", "")
     Set ARES_CABLEREPORT_LONGUEUR_PROPERTY = CreateConfigVar("ARES_CableReport_Longueur_Property", "Longueur")
     Set ARES_CABLEREPORT_ZONE_PROPERTY = CreateConfigVar("ARES_CableReport_Zone_Property", "Coupe_Type")
     Set ARES_CABLEREPORT_SEARCH_RADIUS = CreateConfigVar("ARES_CableReport_Search_Radius", "2.0")

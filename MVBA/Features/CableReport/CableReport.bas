@@ -1,9 +1,11 @@
 ' CableReport.bas
 ' Description: One Excel row per cable (levels in ARES_CableReport_Cable_Level): its end-cell Repere
-'              markers, the Nature/Longueur carried by its graphic group, and its trenching length
-'              pivoted per soil-type zone value - a zone shared by several cables getting its own
-'              "<value> (n)" column. Column model, shared-trench rules and the per-field resolution
-'              doctrine: see MVBA/README.md (Cable Report) and the wiki page of the same name.
+'              markers, its Nature (read on the cable, then its graphic group) and Longueur (read on the
+'              group), and its trenching length pivoted per soil-type zone value - a zone shared by several
+'              cables getting its own "<value> (n)" column. An aerial cable's row goes on a second sheet,
+'              Repere/Nature/Longueur only, never measured against a zone (ClassifyCable decides the
+'              sheet). Column model, shared-trench rules and the per-field resolution doctrine: see
+'              MVBA/README.md (Cable Report) and the wiki page of the same name.
 ' ENTRY POINT  CableReport([CableLevel], [ZoneLevel], [Filepath], [ExcelVisible]) - ZoneLevel empty
 '              falls back to ARES_Outline_Output_Level, Filepath empty opens a Save-As (cancel aborts).
 ' License: This project is licensed under the AGPL-3.0.
@@ -61,19 +63,22 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
         ShowStatus GetTranslation("CableReportLevelsIgnored", sIgnoredLevels)
     End If
 
-    ' --- Resolve zone level (optional - a missing/invalid level degrades to a 3-column export) ---
+    ' --- Resolve zone level (optional - a missing/invalid level degrades to an export with no soil-type column) ---
     If Len(ZoneLevel) = 0 Then ZoneLevel = ARESConfig.ARES_CABLEREPORT_ZONE_LEVEL.Value
     If Len(ZoneLevel) = 0 Then ZoneLevel = ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.Value
 
-    ' --- Resolve the 4 configured property names, each independently validated ---
+    ' --- Resolve the 5 configured property names, each independently validated ---
     Dim sRepereProp   As String
     Dim sNatureProp   As String
     Dim sLongueurProp As String
     Dim sZoneProp     As String
+    Dim sAerialProp   As String
     sRepereProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_REPERE_PROPERTY.Value, "Repere")
     sNatureProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY.Value, "Nature")
     sLongueurProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_LONGUEUR_PROPERTY.Value, "Longueur")
     sZoneProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY.Value, "Coupe_Type")
+    ' Empty or invalid: no aerial sheet, every cable is underground
+    sAerialProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY.Value, "Aerial_Nature")
 
     ' --- Resolve output filepath (Save-As dialog; cancel aborts) ---
     If Len(Filepath) = 0 Then
@@ -95,31 +100,22 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
         Exit Sub
     End If
 
-    ' --- Collect zones (optional) ---
-    Dim zones()   As Element
-    Dim bHasZones As Boolean
-    bHasZones = CollectZones(ZoneLevel, zones)
-    If Not bHasZones Then ShowStatusT "CableReportNoZones"
-
-    ' --- Zone labels resolved ONCE (not per cable x zone); "" = the zone contributes to nothing ---
-    Dim zoneLabels() As String
-    Dim nZones       As Long
-    nZones = 0
-    If bHasZones And Len(sZoneProp) > 0 Then nZones = BuildZoneLabels(zones, sZoneProp, zoneLabels)
-
-    ' --- One row per cable + the raw per-(zone, cable) lengths; the pivot columns cannot be decided
-    ' here (a shared-trench key needs the zone's cable count), so BuildPivotAndSharedTrenches does it ---
-    Dim oRowData   As Object   ' Scripting.Dictionary: cableKey -> Array(sRepere, vNature, vLongueur)
-    Dim oColumns   As Object   ' Scripting.Dictionary: column key -> True (presence only; sorted at write time)
-    Dim oPivot     As Object   ' Scripting.Dictionary: cableKey & KEY_SEP & column key -> Double
-    Dim oZoneCable As Object   ' Scripting.Dictionary: zoneIdx & KEY_SEP & cableKey -> Double (post-pass input)
+    ' --- One row on each sheet the cable belongs to (ClassifyCable) ---
+    Dim oRowData    As Object   ' Scripting.Dictionary: cableKey -> Array(sRepere, vNature, vLongueur), underground sheet
+    Dim oAerialRows As Object   ' Scripting.Dictionary: cableKey -> Array(sRepere, vAerialNature, vLongueur), scan order
+    Dim oColumns    As Object   ' Scripting.Dictionary: column key -> True (presence only; sorted at write time)
+    Dim oPivot      As Object   ' Scripting.Dictionary: cableKey & KEY_SEP & column key -> Double
+    Dim oZoneCable  As Object   ' Scripting.Dictionary: zoneIdx & KEY_SEP & cableKey -> Double (post-pass input)
     Set oRowData = CreateObject("Scripting.Dictionary")
+    Set oAerialRows = CreateObject("Scripting.Dictionary")
     Set oColumns = CreateObject("Scripting.Dictionary")
     Set oPivot = CreateObject("Scripting.Dictionary")
     Set oZoneCable = CreateObject("Scripting.Dictionary")
 
-    Dim rowOrder() As String
+    Dim rowOrder() As String   ' underground rows, scan order
+    Dim rowCable() As Long     ' cables() index of each rowOrder entry
     ReDim rowOrder(0 To UBound(cables) - LBound(cables))
+    ReDim rowCable(0 To UBound(cables) - LBound(cables))
 
     Dim dRadius As Double
     dRadius = Val(ARESConfig.ARES_CABLEREPORT_SEARCH_RADIUS.Value)
@@ -128,33 +124,72 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     Dim dMinLen As Double
     dMinLen = CrossThreshold()
 
-    Dim i             As Long
-    Dim oEl           As Element
-    Dim sCableKey     As String
-    Dim sRepere       As String
-    Dim vNature       As Variant
-    Dim vLongueur     As Variant
-    Dim bRowIncomplete As Boolean
-    Dim nRowCount     As Long
-    Dim nIncomplete   As Long
+    Dim i                 As Long
+    Dim oEl               As Element
+    Dim sCableKey         As String
+    Dim sRepere           As String
+    Dim vNature           As Variant
+    Dim vAerialNature     As Variant
+    Dim vLongueur         As Variant
+    Dim bUnderground      As Boolean
+    Dim bAerial           As Boolean
+    Dim bRepereIncomplete As Boolean
+    Dim nUnderground      As Long
+    Dim nRowCount         As Long
+    Dim nIncomplete       As Long
 
+    nUnderground = 0
     For i = LBound(cables) To UBound(cables)
         Set oEl = cables(i)
         sCableKey = DLongToString(oEl.id)
-        bRowIncomplete = False
+        bRepereIncomplete = False
 
-        sRepere = ResolveCableRepere(oEl, sRepereProp, dRadius, bRowIncomplete)
-        ResolveCableText oEl, sNatureProp, sLongueurProp, vNature, vLongueur, bRowIncomplete
+        sRepere = ResolveCableRepere(oEl, sRepereProp, dRadius, bRepereIncomplete)
+        ResolveCableText oEl, sNatureProp, sAerialProp, sLongueurProp, vNature, vAerialNature, vLongueur, bUnderground, bAerial
 
-        oRowData.Add sCableKey, Array(sRepere, vNature, vLongueur)
-        rowOrder(i - LBound(cables)) = sCableKey
-        nRowCount = nRowCount + 1
-        If bRowIncomplete Then nIncomplete = nIncomplete + 1
-
-        If nZones > 0 Then
-            RecordZoneLengths oEl, sCableKey, zones, zoneLabels, oZoneCable, dMinLen
+        If bUnderground Then
+            oRowData.Add sCableKey, Array(sRepere, vNature, vLongueur)
+            rowOrder(nUnderground) = sCableKey
+            rowCable(nUnderground) = i
+            nUnderground = nUnderground + 1
+            nRowCount = nRowCount + 1
+            If bRepereIncomplete Or IsNull(vNature) Or IsNull(vLongueur) Then nIncomplete = nIncomplete + 1
+        End If
+        If bAerial Then
+            oAerialRows.Add sCableKey, Array(sRepere, vAerialNature, vLongueur)
+            nRowCount = nRowCount + 1
+            If bRepereIncomplete Or IsNull(vAerialNature) Or IsNull(vLongueur) Then nIncomplete = nIncomplete + 1
         End If
     Next i
+
+    ' No underground row leaves rowOrder undimensioned: no zone is collected, so nothing below reads it.
+    If nUnderground > 0 Then
+        ReDim Preserve rowOrder(0 To nUnderground - 1)
+    Else
+        Erase rowOrder
+    End If
+
+    ' --- Collect zones (optional), only when an underground row is to be measured against them ---
+    Dim zones()      As Element
+    Dim bHasZones    As Boolean
+    Dim zoneLabels() As String
+    Dim nZones       As Long
+    nZones = 0
+    If nUnderground > 0 Then
+        bHasZones = CollectZones(ZoneLevel, zones)
+        If Not bHasZones Then ShowStatusT "CableReportNoZones"
+
+        ' Zone labels resolved ONCE (not per cable x zone); "" = the zone contributes to nothing
+        If bHasZones And Len(sZoneProp) > 0 Then nZones = BuildZoneLabels(zones, sZoneProp, zoneLabels)
+    End If
+
+    ' --- The raw per-(zone, cable) lengths of the underground rows; the pivot columns cannot be decided
+    ' here (a shared-trench key needs the zone's cable count), so BuildPivotAndSharedTrenches does it ---
+    If nZones > 0 Then
+        For i = 0 To nUnderground - 1
+            RecordZoneLengths cables(rowCable(i)), rowOrder(i), zones, zoneLabels, oZoneCable, dMinLen
+        Next i
+    End If
 
     ' --- Post-pass: columns + pivot + shared-trench cross-marks + footers ---
     Dim oShared      As Object   ' cableKey -> ", "-joined Reperes of the OTHER cables sharing >= 1 zone
@@ -167,8 +202,10 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     nSharedZones = BuildPivotAndSharedTrenches(oZoneCable, zoneLabels, nZones, rowOrder, oRowData, _
                                                oColumns, oPivot, oShared, oCableTotal, oTrench)
 
-    ' --- Write to Excel (always create the workbook, even with zero pivot columns) ---
-    WriteToExcel oRowData, oColumns, oPivot, oShared, oCableTotal, oTrench, rowOrder, Filepath, ExcelVisible
+    ' --- Write to Excel (always create the workbook, even with zero pivot columns); the aerial sheet exists
+    ' whenever the aerial property resolved, even with no aerial row ---
+    WriteToExcel oRowData, oColumns, oPivot, oShared, oCableTotal, oTrench, rowOrder, _
+                 Len(sAerialProp) > 0, oAerialRows, Filepath, ExcelVisible
 
     ShowStatus GetTranslation("CableReportComplete", nRowCount, oColumns.Count, nIncomplete, nSharedZones)
     Exit Sub
@@ -257,7 +294,7 @@ End Function
 
 ' Returns True when at least one zone element was found on a configured, existing ZoneLevel.
 ' An empty ZoneLevel (nothing configured, no Outline fallback either) short-circuits to False
-' without a scan attempt - the caller degrades to a 3-column export, never an abort.
+' without a scan attempt - the caller degrades to an export with no soil-type column, never an abort.
 Private Function CollectZones(ByVal ZoneLevel As String, ByRef outZones() As Element) As Boolean
     On Error GoTo ErrorHandler
 
@@ -413,32 +450,153 @@ ErrorHandler:
 End Function
 
 ' ResolveCableText
-' Reads Nature/Longueur verbatim off whichever member of oEl's graphic group carries them, each
-' resolved INDEPENDENTLY (they need not share an element). Absent: Null + bIncomplete, never logged -
-' an expected drawing gap.
-Private Sub ResolveCableText(ByVal oEl As Element, ByVal sNatureProp As String, ByVal sLongueurProp As String, _
-                             ByRef vNature As Variant, ByRef vLongueur As Variant, ByRef bIncomplete As Boolean)
+' Reads both Nature values verbatim and classifies the cable (ClassifyCable), then Longueur off whichever
+' member of its graphic group carries it - never off the cable itself, so an ungrouped cable has none.
+' Absent: Null, never logged - an expected drawing gap the caller counts as an incomplete row.
+Private Sub ResolveCableText(ByVal oEl As Element, ByVal sNatureProp As String, ByVal sAerialProp As String, _
+                             ByVal sLongueurProp As String, ByRef vNature As Variant, ByRef vAerialNature As Variant, _
+                             ByRef vLongueur As Variant, ByRef bUnderground As Boolean, ByRef bAerial As Boolean)
     On Error GoTo ErrorHandler
 
     vNature = Null
+    vAerialNature = Null
     vLongueur = Null
+    bUnderground = True
+    bAerial = False
 
     Dim linked() As Element
     linked = Link.GetLink(oEl)
-    If Not HasElements(linked) Then
-        bIncomplete = True
-        Exit Sub
-    End If
+    ClassifyCable oEl, linked, sNatureProp, sAerialProp, vNature, vAerialNature, bUnderground, bAerial
 
-    If Len(sNatureProp) > 0 Then vNature = FindGroupPropertyValue(linked, sNatureProp)
-    If Len(sLongueurProp) > 0 Then vLongueur = FindGroupPropertyValue(linked, sLongueurProp)
-    If IsNull(vNature) Or IsNull(vLongueur) Then bIncomplete = True
+    If Len(sLongueurProp) > 0 Then
+        If HasElements(linked) Then vLongueur = FindGroupPropertyValue(linked, sLongueurProp)
+    End If
     Exit Sub
 
 ErrorHandler:
-    bIncomplete = True
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.ResolveCableText"
 End Sub
+
+' ClassifyCable
+' The ONE place deciding which sheet(s) a cable belongs to - the report and both diagnostics go through it.
+' Flags by attachment (CarriesProperty), since an attached-but-empty property reads back Null; the values
+' shown come from FindCablePropertyValue. Aerial = carries sAerialProp; underground = carries sNatureProp,
+' or not aerial; both = both flags. An empty sAerialProp leaves every cable underground.
+' linked() = the rest of oEl's graphic group (Link.GetLink).
+Private Sub ClassifyCable(ByVal oEl As Element, ByRef linked() As Element, _
+                          ByVal sNatureProp As String, ByVal sAerialProp As String, _
+                          ByRef vNature As Variant, ByRef vAerialNature As Variant, _
+                          ByRef bUnderground As Boolean, ByRef bAerial As Boolean)
+    On Error GoTo ErrorHandler
+
+    bUnderground = True
+    bAerial = False
+    vNature = FindCablePropertyValue(oEl, linked, sNatureProp)
+    vAerialNature = FindCablePropertyValue(oEl, linked, sAerialProp)
+
+    bAerial = CarriesProperty(oEl, linked, sAerialProp)
+    If bAerial Then bUnderground = CarriesProperty(oEl, linked, sNatureProp)
+    Exit Sub
+
+ErrorHandler:
+    bUnderground = True
+    bAerial = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.ClassifyCable"
+End Sub
+
+' FindCablePropertyValue
+' sPropName read on the cable itself first, then on the other members of its graphic group (linked(),
+' undimensioned for an ungrouped cable) - so the cable's own value wins over its texts'. Null when nothing
+' carries it or sPropName is empty.
+Private Function FindCablePropertyValue(ByVal oEl As Element, ByRef linked() As Element, ByVal sPropName As String) As Variant
+    On Error GoTo ErrorHandler
+
+    FindCablePropertyValue = Null
+    If Len(sPropName) = 0 Then Exit Function
+
+    Dim vVal As Variant
+    vVal = CustomPropertyHandler.GetPropertyValueFromElement(oEl, sPropName, sPropName)
+    If IsNull(vVal) Then
+        If HasElements(linked) Then vVal = FindGroupPropertyValue(linked, sPropName)
+    End If
+    FindCablePropertyValue = vVal
+    Exit Function
+
+ErrorHandler:
+    FindCablePropertyValue = Null
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.FindCablePropertyValue"
+End Function
+
+' CarriesProperty
+' True when the ItemType sPropName is attached to the cable itself or to another member of its graphic
+' group (linked(), undimensioned for an ungrouped cable), whatever its value. False for an empty sPropName.
+Private Function CarriesProperty(ByVal oEl As Element, ByRef linked() As Element, ByVal sPropName As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    CarriesProperty = False
+    If Len(sPropName) = 0 Then Exit Function
+
+    If CustomPropertyHandler.IsItemAttachedToElement(oEl, sPropName) Then
+        CarriesProperty = True
+        Exit Function
+    End If
+    If Not HasElements(linked) Then Exit Function
+
+    Dim i As Long
+    For i = LBound(linked) To UBound(linked)
+        If CustomPropertyHandler.IsItemAttachedToElement(linked(i), sPropName) Then
+            CarriesProperty = True
+            Exit Function
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    CarriesProperty = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.CarriesProperty"
+End Function
+
+' KeepUndergroundCables
+' Compacts cables() to the cables ClassifyCable puts on the underground sheet, in scan order - the
+' diagnostics measure what the report measures. False (cables() erased) when none is left.
+Private Function KeepUndergroundCables(ByRef cables() As Element, ByVal sNatureProp As String, _
+                                       ByVal sAerialProp As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    KeepUndergroundCables = False
+    If Not HasElements(cables) Then Exit Function
+
+    Dim linked()      As Element
+    Dim vNature       As Variant
+    Dim vAerialNature As Variant
+    Dim bUnderground  As Boolean
+    Dim bAerial       As Boolean
+    Dim i             As Long
+    Dim nKept         As Long
+
+    nKept = LBound(cables)
+    For i = LBound(cables) To UBound(cables)
+        Erase linked   ' an ungrouped cable must not inherit the previous cable's group
+        linked = Link.GetLink(cables(i))
+        ClassifyCable cables(i), linked, sNatureProp, sAerialProp, vNature, vAerialNature, bUnderground, bAerial
+        If bUnderground Then
+            Set cables(nKept) = cables(i)
+            nKept = nKept + 1
+        End If
+    Next i
+
+    If nKept = LBound(cables) Then
+        Erase cables
+        Exit Function
+    End If
+    ReDim Preserve cables(LBound(cables) To nKept - 1)
+    KeepUndergroundCables = True
+    Exit Function
+
+ErrorHandler:
+    KeepUndergroundCables = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.KeepUndergroundCables"
+End Function
 
 ' FindGroupPropertyValue
 ' Returns the first non-Null value of sPropName found scanning linked() in order. Nature/Longueur
@@ -794,14 +952,17 @@ Private Function BuildDefaultFilename() As String
 End Function
 
 ' WriteToExcel
-' 4 fixed headers (Repere/Nature/Longueur/Shared with) + one alphabetically-sorted pivot column per
-' column key (sorting keeps "CH2C" and "CH2C (2)" adjacent), one row per cable in scan order, then the
-' two footer rows when there are pivot columns. A pivot cell with no contribution stays BLANK, never 0.
-' COM lifecycle: identical contract to ExportLengthInRegion.WriteToExcel (bExcelStartedByUs,
-' always-attempted close on error, Quit gated on having started the session ourselves).
+' Underground sheet: 4 fixed headers (Repere/Nature/Longueur/Shared with) + one alphabetically-sorted pivot
+' column per column key (sorting keeps "CH2C" and "CH2C (2)" adjacent), one row per underground cable in
+' scan order, then the two footer rows when there are pivot columns. A pivot cell with no contribution stays
+' BLANK, never 0. Aerial sheet (bAerialSheet), right after it: the first 3 headers, one row per aerial cable
+' in scan order. One workbook, one SaveAs. COM lifecycle: identical contract to
+' ExportLengthInRegion.WriteToExcel (bExcelStartedByUs, always-attempted close on error, Quit gated on
+' having started the session ourselves).
 Private Sub WriteToExcel(ByRef oRowData As Object, ByRef oColumns As Object, ByRef oPivot As Object, _
                          ByRef oShared As Object, ByRef oCableTotal As Object, ByRef oTrench As Object, _
-                         ByRef rowOrder() As String, ByVal Filepath As String, ByVal bVisible As Boolean)
+                         ByRef rowOrder() As String, ByVal bAerialSheet As Boolean, ByRef oAerialRows As Object, _
+                         ByVal Filepath As String, ByVal bVisible As Boolean)
 
     Dim xlApp             As Object
     Dim xlBook            As Object
@@ -816,7 +977,7 @@ Private Sub WriteToExcel(ByRef oRowData As Object, ByRef oColumns As Object, ByR
     Dim sKey              As String
     Dim sPivotKey         As String
     Dim vRow              As Variant
-    Dim dNum              As Double
+    Dim vAerialRows       As Variant
 
     On Error GoTo ErrorHandler
 
@@ -843,9 +1004,8 @@ Private Sub WriteToExcel(ByRef oRowData As Object, ByRef oColumns As Object, ByR
     xlSheet.Name = GetTranslation("CableReportSheetName")
 
     ' (3) Fixed headers (4) + one sorted column per distinct soil-type label from column 5.
-    xlSheet.Cells(1, 1).Value = GetTranslation("CableReportHeaderRepere")
-    xlSheet.Cells(1, 2).Value = GetTranslation("CableReportHeaderNature")
-    xlSheet.Cells(1, 3).Value = GetTranslation("CableReportHeaderLongueur")
+    WriteCableHeaders xlSheet
+    xlSheet.Columns(4).NumberFormat = "@"   ' Shared with lists Reperes: text, like column 1
     xlSheet.Cells(1, 4).Value = GetTranslation("CableReportHeaderSharedWith")
 
     If oColumns.Count > 0 Then colKeys = SortedKeysCI(oColumns)
@@ -853,27 +1013,20 @@ Private Sub WriteToExcel(ByRef oRowData As Object, ByRef oColumns As Object, ByR
         xlSheet.Cells(1, 5 + c).Value = colKeys(c)
     Next c
 
-    ' (4) Data rows, one per cable, in scan order.
-    For i = LBound(rowOrder) To UBound(rowOrder)
-        sKey = rowOrder(i)
-        r = i - LBound(rowOrder) + 2
-        vRow = oRowData(sKey)
-        xlSheet.Cells(r, 1).Value = vRow(0)
-        If Not IsNull(vRow(1)) Then xlSheet.Cells(r, 2).Value = vRow(1)
-        If Not IsNull(vRow(2)) Then
-            ' Longueur as a real Double when it is purely numeric, else verbatim - see TryAsNumber.
-            If TryAsNumber(vRow(2), dNum) Then
-                xlSheet.Cells(r, 3).Value = dNum
-            Else
-                xlSheet.Cells(r, 3).Value = vRow(2)
-            End If
-        End If
-        If oShared.Exists(sKey) Then xlSheet.Cells(r, 4).Value = oShared(sKey)
-        For c = 0 To oColumns.Count - 1
-            sPivotKey = sKey & KEY_SEP & colKeys(c)
-            If oPivot.Exists(sPivotKey) Then xlSheet.Cells(r, 5 + c).Value = Round(oPivot(sPivotKey), nRound)
-        Next c
-    Next i
+    ' (4) Data rows, one per underground cable, in scan order - none when every cable is aerial.
+    If oRowData.Count > 0 Then
+        For i = LBound(rowOrder) To UBound(rowOrder)
+            sKey = rowOrder(i)
+            r = i - LBound(rowOrder) + 2
+            vRow = oRowData(sKey)
+            WriteCableFields xlSheet, r, vRow
+            If oShared.Exists(sKey) Then xlSheet.Cells(r, 4).Value = oShared(sKey)
+            For c = 0 To oColumns.Count - 1
+                sPivotKey = sKey & KEY_SEP & colKeys(c)
+                If oPivot.Exists(sPivotKey) Then xlSheet.Cells(r, 5 + c).Value = Round(oPivot(sPivotKey), nRound)
+            Next c
+        Next i
+    End If
 
     ' (4b) Footer - only when there are soil-type columns: one blank row, then the plain per-label sums
     '      (what the cable rows add up to) and the deduplicated trench length (each zone once, at its
@@ -886,6 +1039,22 @@ Private Sub WriteToExcel(ByRef oRowData As Object, ByRef oColumns As Object, ByR
             If oCableTotal.Exists(colKeys(c)) Then xlSheet.Cells(rFoot, 5 + c).Value = Round(oCableTotal(colKeys(c)), nRound)
             If oTrench.Exists(colKeys(c)) Then xlSheet.Cells(rFoot + 1, 5 + c).Value = Round(oTrench(colKeys(c)), nRound)
         Next c
+    End If
+
+    ' (4c) Aerial sheet, right after the underground one: 3 headers, one row per aerial cable in scan order.
+    If bAerialSheet Then
+        Set xlSheet = xlBook.Worksheets.Add(After:=xlSheet)
+        xlSheet.Name = GetTranslation("CableReportAerialSheetName")
+        WriteCableHeaders xlSheet
+
+        vAerialRows = oAerialRows.Items
+        For i = 0 To oAerialRows.Count - 1
+            vRow = vAerialRows(i)
+            WriteCableFields xlSheet, i + 2, vRow
+        Next i
+
+        ' Worksheets.Add leaves the new sheet active; the workbook opens on the underground one.
+        xlBook.Worksheets(1).Activate
     End If
 
     ' (5) Save when a path is provided.
@@ -922,6 +1091,36 @@ ErrorHandler:
     Set xlSheet = Nothing
     Set xlBook = Nothing
     Set xlApp = Nothing
+End Sub
+
+' WriteCableHeaders / WriteCableFields
+' The Repere / Nature / Longueur columns (1-3) both sheets share: their headers in row 1, and one row
+' Array(sRepere, vNature, vLongueur) in row r, a Null field left blank. Row 1 and the Repere / Nature
+' columns are Text-formatted before any write, or Excel reads a Repere "1 - 2" as a date; Longueur stays
+' General for TryAsNumber. No handler of their own: a COM fault must reach WriteToExcel's cleanup, which
+' closes the workbook.
+Private Sub WriteCableHeaders(ByVal xlSheet As Object)
+    xlSheet.Rows(1).NumberFormat = "@"
+    xlSheet.Columns(1).NumberFormat = "@"
+    xlSheet.Columns(2).NumberFormat = "@"
+    xlSheet.Cells(1, 1).Value = GetTranslation("CableReportHeaderRepere")
+    xlSheet.Cells(1, 2).Value = GetTranslation("CableReportHeaderNature")
+    xlSheet.Cells(1, 3).Value = GetTranslation("CableReportHeaderLongueur")
+End Sub
+
+Private Sub WriteCableFields(ByVal xlSheet As Object, ByVal r As Long, ByRef vRow As Variant)
+    Dim dNum As Double
+
+    xlSheet.Cells(r, 1).Value = vRow(0)
+    If Not IsNull(vRow(1)) Then xlSheet.Cells(r, 2).Value = vRow(1)
+    If Not IsNull(vRow(2)) Then
+        ' Longueur as a real Double when it is purely numeric, else verbatim - see TryAsNumber.
+        If TryAsNumber(vRow(2), dNum) Then
+            xlSheet.Cells(r, 3).Value = dNum
+        Else
+            xlSheet.Cells(r, 3).Value = vRow(2)
+        End If
+    End If
 End Sub
 
 ' TryAsNumber
@@ -1064,15 +1263,23 @@ Public Sub DiagCableLengths()
     End If
 
     Dim sRepereProp   As String
+    Dim sNatureProp   As String
     Dim sLongueurProp As String
     Dim sZoneProp     As String
+    Dim sAerialProp   As String
     sRepereProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_REPERE_PROPERTY.value, "Repere")
+    sNatureProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY.value, "Nature")
     sLongueurProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_LONGUEUR_PROPERTY.value, "Longueur")
     sZoneProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY.value, "Coupe_Type")
+    sAerialProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY.value, "Aerial_Nature")
 
     Dim cables() As Element
     If Not CollectCables(cableLevels, cables) Then
         Debug.Print "DIAG: no cable found on " & sCableLevel
+        Exit Sub
+    End If
+    If Not KeepUndergroundCables(cables, sNatureProp, sAerialProp) Then
+        Debug.Print "DIAG: no underground cable on " & sCableLevel
         Exit Sub
     End If
 
@@ -1220,11 +1427,19 @@ Public Sub DiagZoneOverlap()
     Dim sIgnored      As String
     If ResolveCableLevels(sCableLevel, cableLevels, sIgnored) = 0 Then Exit Sub
 
-    Dim sZoneProp As String
+    Dim sZoneProp   As String
+    Dim sNatureProp As String
+    Dim sAerialProp As String
     sZoneProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_ZONE_PROPERTY.value, "Coupe_Type")
+    sNatureProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_NATURE_PROPERTY.value, "Nature")
+    sAerialProp = ResolveConfiguredProperty(ARESConfig.ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY.value, "Aerial_Nature")
 
     Dim cables() As Element
     If Not CollectCables(cableLevels, cables) Then Exit Sub
+    If Not KeepUndergroundCables(cables, sNatureProp, sAerialProp) Then
+        Debug.Print "DIAG: no underground cable."
+        Exit Sub
+    End If
 
     Dim zones()      As Element
     Dim zoneLabels() As String

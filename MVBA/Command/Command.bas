@@ -229,9 +229,10 @@ ErrorHandler:
     ReportFailure "ExportLength", Err.Description, Err.Number, Err.Source
 End Sub
 
-' Export a cable-by-cable trenching report to Excel: end-cell markers (Repere), the linked text's
-' Nature/Longueur, and the trenching length broken down by soil type (Coupe_Type), pivoted into
-' one column per distinct value. Excel visibility is driven by ARES_CableReport_Excel_Visible.
+' Export a cable-by-cable trenching report to Excel: end-cell markers (Repere), Nature (read on the
+' cable, then its graphic group), Longueur (off the group), and the trenching length broken down by
+' soil type (Coupe_Type), pivoted into one column per distinct value. Aerial cables go on their own
+' sheet, never measured. Excel visibility is driven by ARES_CableReport_Excel_Visible.
 Sub ExportCableReport()
     On Error GoTo ErrorHandler
     ErrorHandler.ClearErrorFlag
