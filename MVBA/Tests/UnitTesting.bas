@@ -29,6 +29,7 @@ Private Enum TestID
     tidPropertyRendering = 22
     tidPropertyActuator = 23
     tidGroupSplitGuard = 24
+    tidConfigThemes = 25
 End Enum
 
 ' Test result structure
@@ -86,6 +87,7 @@ Public Sub RunAllTests()
     RunTest "Property Rendering", tidPropertyRendering
     RunTest "Property Actuator", tidPropertyActuator
     RunTest "Group Split Guard", tidGroupSplitGuard
+    RunTest "Config Themes", tidConfigThemes
 
     ' Generate summary report
     Results = Results & GenerateTestReport(Timer - StartTime)
@@ -170,8 +172,11 @@ Public Sub RunSingleTest(TestIdentifier As Integer)
         Case tidGroupSplitGuard
             TestName = "Group Split Guard"
             Result = GroupSplitGuardTest()
+        Case tidConfigThemes
+            TestName = "Config Themes"
+            Result = ConfigThemesTest()
         Case Else
-            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-23", vbCritical, "Test Error"
+            MsgBox "Invalid test ID: " & TestIdentifier & ". Valid range: 1-25", vbCritical, "Test Error"
             Exit Sub
     End Select
     
@@ -3532,6 +3537,7 @@ Private Sub RunTest(TestName As String, TestIdentifier As Integer)
         Case tidPropertyRendering: Result.Passed = PropertyRenderingTest()
         Case tidPropertyActuator: Result.Passed = PropertyActuatorTest()
         Case tidGroupSplitGuard: Result.Passed = GroupSplitGuardTest()
+        Case tidConfigThemes: Result.Passed = ConfigThemesTest()
         Case Else
             Result.Passed = False
             Result.Message = "Unknown test ID"
@@ -3605,6 +3611,196 @@ Private Function GroupSplitGuardTest() As Boolean
 ErrorHandler:
     GroupSplitGuard.ResetForTests
     GroupSplitGuardTest = False
+End Function
+
+' Config themes - writes no config variable while the code is correct: the theme-name rule, every variable's scope
+' (the station set is exactly the one of variable-scope.md), the parser seam on a temp file, a theme load leaving a
+' station line alone, files with no applicable line, full and business-only exports read back, the load warnings,
+' and the load of a missing theme.
+Private Function ConfigThemesTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim TestsPassed As Integer
+    Dim TotalTests As Integer
+    Dim vNames As Variant
+    Dim vStation As Variant
+    Dim i As Long
+    Dim oVar As ARES_MS_VAR_Class
+    Dim bAllScoped As Boolean
+    Dim bStationExact As Boolean
+    Dim nStationVars As Long
+    Dim sKeys() As String
+    Dim sValues() As String
+    Dim nLines As Long
+    Dim nStation As Long
+    Dim nBusiness As Long
+    Dim nUnknown As Long
+    Dim sFileVersion As String
+    Dim sPath As String
+    Dim FileNum As Integer
+    Dim bReadable As Boolean
+    Dim sSavedStation As String
+    Dim sProbe As String
+
+    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    ' Names Windows cannot store as <name>.cfg in the theme folder are refused
+    vNames = Array("a:b", "CON", "  ", "x.", "", "a\b", "a/b", "a*b", "a?b", "a""b", "a<b", "a>b", "a|b", _
+                   "a" & vbTab & "b", "prn", "Aux", "NUL", "COM1", "LPT9", "con.txt", "COM0", "LPT0", _
+                   "COM" & ChrW(185), "a" & ChrW(&H2603) & "b", String(260, "a"))
+    For i = LBound(vNames) To UBound(vNames)
+        TotalTests = TotalTests + 1
+        If Not ConfigThemes.IsValidThemeName(CStr(vNames(i))) Then TestsPassed = TestsPassed + 1
+    Next i
+    vNames = Array("Reseau HTA", "COM10", "Folio.v2")
+    For i = LBound(vNames) To UBound(vNames)
+        TotalTests = TotalTests + 1
+        If ConfigThemes.IsValidThemeName(CStr(vNames(i))) Then TestsPassed = TestsPassed + 1
+    Next i
+
+    ' Every variable is station or business
+    sKeys = ARESConfig.GetConfigKeys()
+    bAllScoped = (UBound(sKeys) > 0)
+    For i = LBound(sKeys) To UBound(sKeys)
+        Set oVar = ARESConfig.GetConfigVar(sKeys(i))
+        If oVar Is Nothing Then
+            bAllScoped = False
+        ElseIf oVar.Scope = ARESVarScopeStation Then
+            nStationVars = nStationVars + 1
+        ElseIf oVar.Scope <> ARESVarScopeBusiness Then
+            bAllScoped = False
+        End If
+    Next i
+    TotalTests = TotalTests + 1
+    If bAllScoped Then TestsPassed = TestsPassed + 1
+
+    ' ...and the station ones are exactly these eight
+    vStation = Array("ARES_Language", "ARES_Form_Layout", "ARES_Update_Mute", "ARES_Update_Ignore_Version", _
+                     "ARES_Bulk_Threshold", "ARES_Bulk_Interval", "ARES_Direct_Processing", "ARES_Theme_Current")
+    bStationExact = (nStationVars = UBound(vStation) - LBound(vStation) + 1)
+    For i = LBound(vStation) To UBound(vStation)
+        Set oVar = ARESConfig.GetConfigVar(CStr(vStation(i)))
+        If oVar Is Nothing Then
+            bStationExact = False
+        ElseIf oVar.Scope <> ARESVarScopeStation Then
+            bStationExact = False
+        End If
+    Next i
+    TotalTests = TotalTests + 1
+    If bStationExact Then TestsPassed = TestsPassed + 1
+
+    ' Parser seam: 2 business lines, 1 station, 1 unknown, a comment, a mismatched version
+    sPath = Environ("TEMP") & "\ARES_Test_Theme.cfg"
+    FileNum = FreeFile
+    Open sPath For Output As #FileNum
+    Print #FileNum, "# ARES Configuration Export"
+    Print #FileNum, "# Version: 0.9"
+    Print #FileNum, "ARES_Round=3:::DEFAULT=2:::MODIFIED=True"
+    Print #FileNum, "ARES_Calc_Rules=Prop[X]=Value[1]"
+    Print #FileNum, "ARES_Language=English"
+    Print #FileNum, "ARES_Not_A_Variable=1"
+    Print #FileNum, "# a comment"
+    Print #FileNum, ""
+    Close #FileNum
+    FileNum = 0
+
+    TotalTests = TotalTests + 1
+    If ARESConfig.ReadConfigFile(sPath, sKeys, sValues, nLines, nStation, nBusiness, nUnknown, sFileVersion) Then
+        If nBusiness = 2 And nStation = 1 And nUnknown = 1 And nLines = 3 And sFileVersion = "0.9" Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' A value keeps everything after the key's own "=", and loses the ":::DEFAULT" suffix
+    TotalTests = TotalTests + 1
+    If nLines = 3 Then
+        If sKeys(1) = "ARES_Calc_Rules" And sValues(1) = "Prop[X]=Value[1]" Then TestsPassed = TestsPassed + 1
+    End If
+    TotalTests = TotalTests + 1
+    If nLines = 3 Then
+        If sKeys(0) = "ARES_Round" And sValues(0) = "3" Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' A theme load leaves a station line alone: the business line holds its current value (no write), and the
+    ' station line another value, written only by a broken filter - then restored
+    sSavedStation = ARESConfig.ARES_UPDATE_IGNORE_VERSION.value
+    sProbe = "ARES_Test_Scope_Probe"
+    If sProbe = sSavedStation Then sProbe = sProbe & "2"
+    FileNum = FreeFile
+    Open sPath For Output As #FileNum
+    Print #FileNum, "ARES_Round=" & ARESConfig.ARES_ROUNDS.value
+    Print #FileNum, "ARES_Update_Ignore_Version=" & sProbe
+    Close #FileNum
+    FileNum = 0
+    TotalTests = TotalTests + 1
+    If ARESConfig.LoadConfig(sPath, True, True, bReadable, nUnknown, sFileVersion) Then
+        If ARESConfig.ARES_UPDATE_IGNORE_VERSION.value = sSavedStation Then TestsPassed = TestsPassed + 1
+    End If
+    If ARESConfig.ARES_UPDATE_IGNORE_VERSION.value <> sSavedStation Then ARESConfig.ARES_UPDATE_IGNORE_VERSION.value = sSavedStation
+
+    ' No recognised line at all: an import (every scope) refuses the file as readable but empty
+    FileNum = FreeFile
+    Open sPath For Output As #FileNum
+    Print #FileNum, "ARES_Not_A_Variable=1"
+    Close #FileNum
+    FileNum = 0
+    TotalTests = TotalTests + 1
+    If Not ARESConfig.LoadConfig(sPath, False, True, bReadable, nUnknown, sFileVersion) Then
+        If bReadable And nUnknown = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' The load warnings: none for a current or absent version header; both named otherwise
+    TotalTests = TotalTests + 1
+    If Len(ConfigThemes.DescribeLoadWarnings(0, ARES_CONFIG_VERSION)) = 0 Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Len(ConfigThemes.DescribeLoadWarnings(0, "")) = 0 Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If InStr(ConfigThemes.DescribeLoadWarnings(1, "0.9"), "0.9") > 0 Then TestsPassed = TestsPassed + 1
+
+    ' No business line (a station line holding its own current value, an unknown key): a theme load refuses
+    ' the file as readable but empty, and writes nothing
+    FileNum = FreeFile
+    Open sPath For Output As #FileNum
+    Print #FileNum, "ARES_Language=" & ARESConfig.ARES_LANGUAGE.value
+    Print #FileNum, "ARES_Not_A_Variable=1"
+    Close #FileNum
+    FileNum = 0
+    TotalTests = TotalTests + 1
+    If Not ARESConfig.LoadConfig(sPath, True, True, bReadable, nUnknown, sFileVersion) Then
+        If bReadable And nUnknown = 1 Then TestsPassed = TestsPassed + 1
+    End If
+
+    ' A full export reads back with its eight station lines recognised and nothing unknown; a theme save's
+    ' business-only export holds no station line (exporting writes no config variable)
+    TotalTests = TotalTests + 1
+    If ARESConfig.ExportConfig(sPath) Then
+        If ARESConfig.ReadConfigFile(sPath, sKeys, sValues, nLines, nStation, nBusiness, nUnknown, sFileVersion) Then
+            If nStation = 8 And nUnknown = 0 And nBusiness > 0 And nBusiness = nLines - 8 Then TestsPassed = TestsPassed + 1
+        End If
+    End If
+    TotalTests = TotalTests + 1
+    If ARESConfig.ExportConfig(sPath, True) Then
+        If ARESConfig.ReadConfigFile(sPath, sKeys, sValues, nLines, nStation, nBusiness, nUnknown, sFileVersion) Then
+            If nStation = 0 And nUnknown = 0 And nBusiness > 0 And nBusiness = nLines Then TestsPassed = TestsPassed + 1
+        End If
+    End If
+
+    ' A missing file reads as a failure, and a missing theme loads nothing
+    Kill sPath
+    TotalTests = TotalTests + 1
+    If Not ARESConfig.ReadConfigFile(sPath, sKeys, sValues, nLines, nStation, nBusiness, nUnknown, sFileVersion) Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1
+    If Not ConfigThemes.LoadTheme("ARES_Test_Missing_Theme") Then TestsPassed = TestsPassed + 1
+
+    ConfigThemesTest = (TestsPassed = TotalTests)
+    Exit Function
+
+ErrorHandler:
+    On Error Resume Next
+    If FileNum > 0 Then Close #FileNum
+    If Len(sPath) > 0 Then
+        If Len(Dir(sPath)) > 0 Then Kill sPath
+    End If
+    ConfigThemesTest = False
 End Function
 
 Private Function GenerateTestReport(TotalDuration As Double) As String

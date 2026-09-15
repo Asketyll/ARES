@@ -34,6 +34,9 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private mbLocked As Boolean
+' True while RefreshFromConfig re-seeds the form: every config-writing event returns at once, so nothing the
+' form held before a load is written back.
+Private mbSeeding As Boolean
 
 ' The ComboBox list index the user picked before editing its text (-1 = new / free-typed). Maintained via
 ' RuleEditorUX.CaptureEditIndex on every _Change (a clean pick sets it; typing preserves it).
@@ -55,6 +58,7 @@ End Sub
 
 Private Sub Main_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(Main_CheckBox.value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_AUTO_PROPERTIES.value <> sVal Then
@@ -143,6 +147,7 @@ End Sub
 Private Sub CommitRuleEdit()
     On Error GoTo ErrorHandler
     If mbLocked Then Exit Sub                   ' re-entrance guard (a commit already running)
+    If mbSeeding Then Exit Sub
 
     Dim sEdited As String
     Dim bHasIndex As Boolean
@@ -262,16 +267,28 @@ End Sub
 ' Re-seed all controls from the current config values.
 Private Sub SeedControls()
     On Error GoTo ErrorHandler
-    If ARESConfig.ARES_AUTO_PROPERTIES.value Then
-        Main_CheckBox.value = "True"
-    Else
-        Main_CheckBox.value = "False"
-    End If
+    Main_CheckBox.value = (UCase(Trim(ARESConfig.ARES_AUTO_PROPERTIES.value)) = "TRUE")
     SeedRulesCombo
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.SeedControls"
+End Sub
+
+' Show the configuration just loaded (theme or import). A rule typed but not committed is dropped through the
+' seed, never through CommitRuleEdit, which would write it over the loaded rules.
+Public Sub RefreshFromConfig()
+    On Error GoTo ErrorHandler
+    mbSeeding = True
+    SeedControls
+    SetLocked False
+    mbSeeding = False
+    Exit Sub
+
+ErrorHandler:
+    mbSeeding = False
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyTagging_GUI_Options.RefreshFromConfig"
 End Sub
 
 ' Restore every option this form edits to its default value, persist, then re-seed.

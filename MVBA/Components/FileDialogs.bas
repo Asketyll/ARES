@@ -1,9 +1,10 @@
 ' Module: FileDialogs
-' Description: PowerShell-based file dialogs (save/open) for all ARES modules.
-'              Provides ShowSaveDialog and ShowOpenFileDialog with automatic
-'              fallback to the active design file folder when no initialDir is given.
+' Description: PowerShell-based file dialogs (save/open) for all ARES modules, and the configuration
+'              import/export UI. ShowSaveDialog falls back to the active design file folder when no
+'              initialDir is given. Accented characters of the ANSI code page are supported in paths and
+'              titles, as long as %TEMP% is ASCII (see RunFileDialog).
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ARESConstants, ARESConfigClass, LangManager, ErrorHandlerClass
+' Dependencies: ARESConstants, ARESConfigClass, ConfigThemes, LangManager, ErrorHandlerClass
 Option Explicit
 
 ' === PUBLIC INTERFACE FOR CONFIGURATION MANAGEMENT ===
@@ -11,18 +12,23 @@ Option Explicit
 ' Export configuration with file dialog
 Public Sub ExportConfigurationUI()
     On Error GoTo ErrorHandler
-    
+
     ' Initialize if needed
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
 
+    ' The dialog opens among the themes, so an export is listed in the theme window. A folder that cannot be
+    ' created (already logged) leaves the dialog on its usual folder.
+    Dim initialDir As String
+    If ConfigThemes.EnsureThemeFolder() Then initialDir = ConfigThemes.ThemeFolder()
+
     ' Show save dialog
     Dim filePath As String
     filePath = ShowSaveDialog(GetTranslation("ConfigExportTitle"), _
-                             "", _
+                             initialDir, _
                              GenerateDefaultConfigFileName(), _
                              DIALOG_FILTER_CFG, "cfg")
-    
+
     If Len(filePath) > 0 Then
         ' Export configuration
         If ARESConfig.ExportConfig(filePath) Then
@@ -33,9 +39,9 @@ Public Sub ExportConfigurationUI()
     Else
         ShowStatus GetTranslation("ConfigOperationCancelled")
     End If
-    
+
     Exit Sub
-    
+
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ExportConfigurationUI"
     ShowStatus GetTranslation("ConfigExportFailed")
@@ -44,7 +50,7 @@ End Sub
 ' Import configuration with file dialog
 Public Sub ImportConfigurationUI()
     On Error GoTo ErrorHandler
-    
+
     ' Initialize if needed
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
@@ -53,29 +59,38 @@ Public Sub ImportConfigurationUI()
     Dim filePath As String
     filePath = ShowOpenFileDialog(GetTranslation("ConfigImportTitle"), _
                                  GetDefaultConfigDirectory())
-    
+
     If Len(filePath) > 0 Then
         ' Check if file exists
         If Len(Dir(filePath)) = 0 Then
             MsgBox GetTranslation("ConfigFileNotFound", filePath), vbCritical + vbOKOnly, GetTranslation("ConfigImportTitle")
             Exit Sub
         End If
-        
+
         ' Ask about overwriting existing settings
         Dim overwriteChoice As VbMsgBoxResult
         overwriteChoice = MsgBox(GetTranslation("ConfigOverwritePrompt"), _
                                 vbYesNoCancel + vbQuestion, _
                                 GetTranslation("ConfigImportOptions"))
-        
+
         If overwriteChoice = vbCancel Then
             ShowStatus GetTranslation("ConfigOperationCancelled")
             Exit Sub
         End If
-        
+
         ' Import configuration
-        If ARESConfig.ImportConfig(filePath, (overwriteChoice = vbYes)) Then
+        Dim nUnknown As Long
+        Dim sFileVersion As String
+        Dim sWarnings As String
+        If ARESConfig.ImportConfig(filePath, (overwriteChoice = vbYes), nUnknown, sFileVersion) Then
+            ' An import is no theme, and may have changed ARES_Language: reload the texts before anything is shown.
+            ARESConfig.ARES_THEME_CURRENT.Value = ""
+            LangManager.InitializeTranslations
+            ConfigThemes.ApplyLoadedConfiguration
             ShowStatus GetTranslation("ConfigImportSuccess", filePath)
             MsgBox GetTranslation("ConfigImportSuccess", filePath), vbInformation + vbOKOnly, GetTranslation("ConfigImportTitle")
+            sWarnings = ConfigThemes.DescribeLoadWarnings(nUnknown, sFileVersion)
+            If Len(sWarnings) > 0 Then ShowStatus GetTranslation("ConfigImportWarnings", sWarnings)
         Else
             ShowStatus GetTranslation("ConfigImportFailed")
             MsgBox GetTranslation("ConfigImportFailed"), vbCritical + vbOKOnly, GetTranslation("ConfigImportTitle")
@@ -83,9 +98,9 @@ Public Sub ImportConfigurationUI()
     Else
         ShowStatus GetTranslation("ConfigOperationCancelled")
     End If
-    
+
     Exit Sub
-    
+
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ImportConfigurationUI"
     ShowStatus GetTranslation("ConfigImportFailed")
@@ -93,7 +108,7 @@ End Sub
 
 ' === CORE DIALOG FUNCTIONS ===
 
-' Show a save file dialog using PowerShell.
+' Show a save file dialog using PowerShell. Returns the chosen path, "" on cancel.
 ' fileFilter  : pipe-delimited Windows Forms filter string (e.g. DIALOG_FILTER_CFG)
 ' defaultExt  : extension without dot (e.g. "cfg", "xlsx")
 ' initialDir  : starting folder; when empty, falls back to the active design file's
@@ -109,29 +124,7 @@ Public Function ShowSaveDialog(ByVal title As String, _
 
     If Len(initialDir) = 0 Then initialDir = GetDefaultConfigDirectory()
 
-    Dim safeTitle As String, safeInitialDir As String, safeDefaultFileName As String
-    safeTitle = EscapeForPowerShell(title)
-    safeInitialDir = EscapeForPowerShell(initialDir)
-    safeDefaultFileName = EscapeForPowerShell(defaultFileName)
-
-    Dim psCommand As String
-    psCommand = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command """ & _
-                "Add-Type -AssemblyName System.Windows.Forms; " & _
-                "$dialog = New-Object System.Windows.Forms.SaveFileDialog; " & _
-                "$dialog.Title = '" & safeTitle & "'; " & _
-                "$dialog.Filter = '" & EscapeForPowerShell(fileFilter) & "'; " & _
-                "$dialog.DefaultExt = '" & EscapeForPowerShell(defaultExt) & "'; " & _
-                "$dialog.InitialDirectory = '" & safeInitialDir & "'; " & _
-                "$dialog.FileName = '" & safeDefaultFileName & "'; " & _
-                "if($dialog.ShowDialog() -eq 'OK') { Write-Output $dialog.FileName }"""
-
-    Dim result As String
-    result = CleanFilePath(GetCommandOutput(psCommand))
-
-    If Len(result) > 0 And InStr(result, "ERROR") = 0 Then
-        ShowSaveDialog = result
-    End If
-
+    ShowSaveDialog = RunFileDialog("SaveFileDialog", "", title, initialDir, defaultFileName, fileFilter, defaultExt)
     Exit Function
 
 ErrorHandler:
@@ -139,41 +132,16 @@ ErrorHandler:
     ShowSaveDialog = ""
 End Function
 
-' Show open file dialog using PowerShell
+' Show an open file dialog for a configuration file using PowerShell. Returns the chosen path, "" on cancel.
 Public Function ShowOpenFileDialog(ByVal title As String, _
                                   ByVal initialDir As String) As String
     On Error GoTo ErrorHandler
-    
+
     ShowOpenFileDialog = ""
-    
-    ' Escape special characters for PowerShell
-    Dim safeTitle As String, safeInitialDir As String
-    safeTitle = EscapeForPowerShell(title)
-    safeInitialDir = EscapeForPowerShell(initialDir)
-    
-    ' Build PowerShell command
-    Dim psCommand As String
-    psCommand = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command """ & _
-                "Add-Type -AssemblyName System.Windows.Forms; " & _
-                "$dialog = New-Object System.Windows.Forms.OpenFileDialog; " & _
-                "$dialog.Title = '" & safeTitle & "'; " & _
-                "$dialog.Filter = 'ARES Config (*.cfg)|*.cfg|All Files (*.*)|*.*'; " & _
-                "$dialog.CheckFileExists = $true; " & _
-                "$dialog.Multiselect = $false; " & _
-                "$dialog.InitialDirectory = '" & safeInitialDir & "'; " & _
-                "if($dialog.ShowDialog() -eq 'OK') { Write-Output $dialog.FileName }"""
-    
-    ' Execute command and get result
-    Dim result As String
-    result = CleanFilePath(GetCommandOutput(psCommand))
-    
-    ' Return file path if dialog was not cancelled
-    If Len(result) > 0 And InStr(result, "ERROR") = 0 Then
-        ShowOpenFileDialog = result
-    End If
-    
+    ShowOpenFileDialog = RunFileDialog("OpenFileDialog", "$dialog.CheckFileExists = $true; $dialog.Multiselect = $false; ", _
+                                       title, initialDir, "", DIALOG_FILTER_CFG, "")
     Exit Function
-    
+
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ShowOpenFileDialog"
     ShowOpenFileDialog = ""
@@ -181,63 +149,90 @@ End Function
 
 ' === HELPER FUNCTIONS ===
 
-' Execute command and capture output (using working method from test)
-Private Function GetCommandOutput(ByVal command As String) As String
+' Run a WinForms file dialog through PowerShell; returns the chosen path, "" on cancel.
+' cmd reads the .bat in the OEM code page, so an accent on its command line reaches PowerShell corrupted, and
+' PowerShell's stdout comes back in that code page too. Every caller string therefore goes through an ANSI
+' parameter file read with -Encoding Default, and the answer comes back the same way: the .bat itself holds only
+' the %TEMP% file paths, which must be ASCII. A character outside the ANSI code page does not survive.
+' sDialogClass: SaveFileDialog or OpenFileDialog. sSettings: extra ASCII PowerShell statements on $dialog.
+Private Function RunFileDialog(ByVal sDialogClass As String, ByVal sSettings As String, _
+                               ByVal sTitle As String, ByVal sInitialDir As String, ByVal sFileName As String, _
+                               ByVal sFilter As String, ByVal sDefaultExt As String) As String
     On Error GoTo ErrorHandler
-    
-    Dim wshShell As Object
-    Dim tempFile As String
-    Dim batFile As String
-    Dim output As String
+
+    Dim sBase As String
+    Dim sInFile As String
+    Dim sResultFile As String
+    Dim sBatFile As String
+    Dim sResult As String
     Dim fileNum As Integer
-    
-    Set wshShell = CreateObject("WScript.Shell")
-    
-    ' Create unique temp files (CLng(Timer * 1000) gives milliseconds since midnight)
-    Dim uniqueID As String
-    uniqueID = CStr(CLng(Timer * 1000))
-    tempFile = Environ("TEMP") & "\ares_output_" & uniqueID & ".txt"
-    batFile = Environ("TEMP") & "\ares_cmd_" & uniqueID & ".bat"
-    
-    ' Create batch file with command
+
+    RunFileDialog = ""
+
+    ' Unique temp files (CLng(Timer * 1000) gives milliseconds since midnight)
+    sBase = Environ("TEMP") & "\ares_dialog_" & CStr(CLng(Timer * 1000))
+    sInFile = sBase & "_in.txt"
+    sResultFile = sBase & "_result.txt"
+    sBatFile = sBase & ".bat"
+    DeleteTempFile sResultFile
+
+    ' One value per line, in the order the script reads $p[0] to $p[4]
     fileNum = FreeFile
-    Open batFile For Output As #fileNum
-    Print #fileNum, "@echo off"
-    Print #fileNum, command & " > """ & tempFile & """"
+    Open sInFile For Output As #fileNum
+    Print #fileNum, SingleLine(sTitle)
+    Print #fileNum, SingleLine(sInitialDir)
+    Print #fileNum, SingleLine(sFileName)
+    Print #fileNum, SingleLine(sFilter)
+    Print #fileNum, SingleLine(sDefaultExt)
     Close #fileNum
-    
-    ' Execute batch file
-    wshShell.Run """" & batFile & """", 0, True
-    
-    ' Read output
-    If Dir(tempFile) <> "" Then
+    fileNum = 0
+
+    fileNum = FreeFile
+    Open sBatFile For Output As #fileNum
+    Print #fileNum, "@echo off"
+    Print #fileNum, "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command """ & _
+                    "$p = @(Get-Content -LiteralPath '" & EscapeForPowerShell(sInFile) & "' -Encoding Default); " & _
+                    "Add-Type -AssemblyName System.Windows.Forms; " & _
+                    "$dialog = New-Object System.Windows.Forms." & sDialogClass & "; " & _
+                    "$dialog.Title = $p[0]; " & _
+                    "$dialog.InitialDirectory = $p[1]; " & _
+                    "$dialog.FileName = $p[2]; " & _
+                    "$dialog.Filter = $p[3]; " & _
+                    "$dialog.DefaultExt = $p[4]; " & _
+                    sSettings & _
+                    "if($dialog.ShowDialog() -eq 'OK') { Set-Content -LiteralPath '" & EscapeForPowerShell(sResultFile) & _
+                    "' -Value $dialog.FileName -Encoding Default }"""
+    Close #fileNum
+    fileNum = 0
+
+    CreateObject("WScript.Shell").Run """" & sBatFile & """", 0, True
+
+    ' No result file = the dialog was cancelled
+    If TempFileExists(sResultFile) Then
         fileNum = FreeFile
-        Open tempFile For Input As #fileNum
-        If Not EOF(fileNum) Then
-            output = Input(LOF(fileNum), fileNum)
-        End If
+        Open sResultFile For Input As #fileNum
+        If Not EOF(fileNum) Then Line Input #fileNum, sResult
         Close #fileNum
+        fileNum = 0
     End If
-    
-    ' Cleanup
-    On Error Resume Next
-    If Dir(tempFile) <> "" Then Kill tempFile
-    If Dir(batFile) <> "" Then Kill batFile
-    On Error GoTo 0
-    
-    GetCommandOutput = output
+
+    DeleteTempFile sInFile
+    DeleteTempFile sResultFile
+    DeleteTempFile sBatFile
+
+    RunFileDialog = CleanFilePath(sResult)
     Exit Function
-    
+
 ErrorHandler:
-    GetCommandOutput = "ERROR: " & Err.Description
-    
-    ' Cleanup on error
-    On Error Resume Next
-    If Dir(tempFile) <> "" Then Kill tempFile
-    If Dir(batFile) <> "" Then Kill batFile
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.RunFileDialog"
+    If fileNum > 0 Then Close #fileNum
+    DeleteTempFile sInFile
+    DeleteTempFile sResultFile
+    DeleteTempFile sBatFile
+    RunFileDialog = ""
 End Function
 
-' Escape strings for PowerShell command line
+' Escape strings for a single-quoted PowerShell string on the command line
 Private Function EscapeForPowerShell(ByVal text As String) As String
     Dim result As String
     result = text
@@ -245,6 +240,26 @@ Private Function EscapeForPowerShell(ByVal text As String) As String
     result = Replace(result, """", """""") ' Escape double quotes
     EscapeForPowerShell = result
 End Function
+
+' A parameter-file value must stay on its own line.
+Private Function SingleLine(ByVal text As String) As String
+    SingleLine = Replace(Replace(text, vbCr, " "), vbLf, " ")
+End Function
+
+Private Function TempFileExists(ByVal sPath As String) As Boolean
+    On Error Resume Next
+    TempFileExists = ((GetAttr(sPath) And vbDirectory) = 0)
+    If Err.Number <> 0 Then TempFileExists = False
+    Err.Clear
+End Function
+
+Private Sub DeleteTempFile(ByVal sPath As String)
+    On Error Resume Next
+    If Len(sPath) > 0 Then
+        If TempFileExists(sPath) Then Kill sPath
+    End If
+    Err.Clear
+End Sub
 
 ' Get default directory for configuration files
 Public Function GetDefaultConfigDirectory() As String
@@ -254,7 +269,7 @@ Public Function GetDefaultConfigDirectory() As String
     Else
         GetDefaultConfigDirectory = Environ("USERPROFILE") & "\Documents"
     End If
-    
+
     ' Ensure directory exists
     If Len(Dir(GetDefaultConfigDirectory, vbDirectory)) = 0 Then
         GetDefaultConfigDirectory = Environ("TEMP")
@@ -269,19 +284,19 @@ End Function
 ' Clean file path from unwanted characters
 Private Function CleanFilePath(ByVal filePath As String) As String
     On Error GoTo ErrorHandler
-    
+
     Dim result As String
     Dim i As Integer
-    
+
     ' Start with trimmed string
     result = Trim(filePath)
-    
+
     ' Remove common control characters
     result = Replace(result, vbCr, "")      ' Carriage return
     result = Replace(result, vbLf, "")      ' Line feed
     result = Replace(result, vbTab, "")     ' Tab
     result = Replace(result, vbNullChar, "") ' Null character
-    
+
     ' Remove any character with ASCII < 32 (control characters)
     Dim cleanResult As String
     cleanResult = ""
@@ -290,11 +305,11 @@ Private Function CleanFilePath(ByVal filePath As String) As String
             cleanResult = cleanResult & Mid(result, i, 1)
         End If
     Next i
-    
+
     ' Final trim
     CleanFilePath = Trim(cleanResult)
     Exit Function
-    
+
 ErrorHandler:
     CleanFilePath = Trim(filePath) ' Fallback to simple trim
 End Function

@@ -22,6 +22,9 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private mbLocked As Boolean
+' True while RefreshFromConfig re-seeds the form: every config-writing event returns at once, so nothing the
+' form held before a load is written back (SeedPropertyCombo clears a combo before reading its variable).
+Private mbSeeding As Boolean
 
 ' ============================================================
 ' CABLE LEVEL - Edit button + hidden TextBox (required: the field cannot be blanked here,
@@ -47,6 +50,7 @@ End Sub
 
 Private Sub TextBox_CableLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = Trim(TextBox_CableLevel.value)
     If Len(sVal) > 0 And sVal <> ARESConfig.ARES_CABLEREPORT_CABLE_LEVEL.value Then
@@ -114,6 +118,7 @@ End Sub
 
 Private Sub TextBox_ZoneLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     ' Empty is a valid value here (falls back to ARES_Outline_Output_Level), so no Len>0 guard.
     Dim sVal As String
     sVal = Trim(TextBox_ZoneLevel.value)
@@ -216,6 +221,7 @@ End Sub
 
 Private Sub TextBox_SearchRadius_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim dVal As Double
     dVal = Val(Trim(Replace(TextBox_SearchRadius.value, ",", ".")))
     If dVal <= 0 Then
@@ -261,6 +267,7 @@ End Sub
 
 Private Sub Round_SpinButton_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     If Not mbLocked And CStr(Round_SpinButton.value) <> ARESConfig.ARES_CABLEREPORT_ROUND.value Then
         SetLocked True
         Round_Number_Label.Caption = Round_SpinButton.value
@@ -289,6 +296,7 @@ End Sub
 
 Private Sub OpenAfter_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(OpenAfter_CheckBox.value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_CABLEREPORT_EXCEL_VISIBLE.value <> sVal Then
@@ -426,6 +434,27 @@ ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.SeedControls"
 End Sub
 
+' Show the configuration just loaded (theme or import): an inline edit in progress is dropped, never committed.
+Public Sub RefreshFromConfig()
+    On Error GoTo ErrorHandler
+    mbSeeding = True
+    FormUXHelper.RevertInlineEdit TextBox_CableLevel, ARESConfig.ARES_CABLEREPORT_CABLE_LEVEL
+    TextBox_CableLevel.Visible = False
+    Edit_CableLevel_Command.Visible = True
+    FormUXHelper.RevertInlineEdit TextBox_ZoneLevel, ARESConfig.ARES_CABLEREPORT_ZONE_LEVEL
+    TextBox_ZoneLevel.Visible = False
+    Edit_ZoneLevel_Command.Visible = True
+    SeedControls
+    SetLocked False
+    mbSeeding = False
+    Exit Sub
+
+ErrorHandler:
+    mbSeeding = False
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport_GUI_Options.RefreshFromConfig"
+End Sub
+
 Private Sub Reset_Command_Click()
     On Error GoTo ErrorHandler
     If Not FormUXHelper.ConfirmReset() Then Exit Sub
@@ -498,7 +527,7 @@ End Sub
 ' on a real change (a dropdown-list combo with no selection returns Null).
 Private Sub CommitPropertyCombo(ByVal oCombo As MSForms.ComboBox, ByVal oVar As ARES_MS_VAR_Class)
     On Error GoTo ErrorHandler
-    If mbLocked Then Exit Sub
+    If mbLocked Or mbSeeding Then Exit Sub
     Dim sVal As String
     If IsNull(oCombo.value) Then
         sVal = ""

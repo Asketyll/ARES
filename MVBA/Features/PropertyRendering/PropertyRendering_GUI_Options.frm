@@ -23,6 +23,9 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private mbLocked As Boolean
+' True while RefreshFromConfig re-seeds the form: every config-writing event returns at once, so nothing the
+' form held before a load is written back.
+Private mbSeeding As Boolean
 
 ' ============================================================
 ' MASTER SWITCH - CheckBox -> ARES_Text_Render
@@ -40,6 +43,7 @@ End Sub
 
 Private Sub Main_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(Main_CheckBox.value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_TEXT_RENDER.value <> sVal Then
@@ -69,6 +73,7 @@ End Sub
 
 Private Sub Cell_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(Cell_CheckBox.value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_UPDATE_ATLASCELLLABEL.value <> sVal Then
@@ -107,6 +112,7 @@ End Sub
 
 Private Sub TextBox_Cells_List_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     FormUXHelper.CommitInlineEdit TextBox_Cells_List, Edit_Cells_List_Command, ARESConfig.ARES_CELL_LIKE_LABEL
     SetLocked False
     Exit Sub
@@ -160,6 +166,7 @@ End Sub
 
 Private Sub ActuateColor_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(ActuateColor_CheckBox.value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_ACTUATE_COLOR.value <> sVal Then
@@ -185,6 +192,7 @@ End Sub
 
 Private Sub ActuateLevel_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(ActuateLevel_CheckBox.value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_ACTUATE_LEVEL.value <> sVal Then
@@ -247,6 +255,24 @@ Private Sub SeedControls()
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.SeedControls"
+End Sub
+
+' Show the configuration just loaded (theme or import): an inline edit in progress is dropped, never committed.
+Public Sub RefreshFromConfig()
+    On Error GoTo ErrorHandler
+    mbSeeding = True
+    FormUXHelper.RevertInlineEdit TextBox_Cells_List, ARESConfig.ARES_CELL_LIKE_LABEL
+    TextBox_Cells_List.Visible = False
+    Edit_Cells_List_Command.Visible = True
+    SeedControls
+    SetLocked False
+    mbSeeding = False
+    Exit Sub
+
+ErrorHandler:
+    mbSeeding = False
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyRendering_GUI_Options.RefreshFromConfig"
 End Sub
 
 ' Restore every option this form edits to its default value, persist, then re-seed.

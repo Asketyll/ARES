@@ -20,6 +20,9 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private mbLocked As Boolean
+' True while RefreshFromConfig re-seeds the form: every config-writing event returns at once, so nothing the
+' form held before a load is written back.
+Private mbSeeding As Boolean
 
 ' ============================================================
 ' SOURCE LEVELS - Edit button + hidden TextBox
@@ -43,6 +46,7 @@ End Sub
 
 Private Sub TextBox_Levels_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     FormUXHelper.CommitInlineEdit TextBox_Levels, Edit_Levels_Command, ARESConfig.ARES_OUTLINE_LEVEL
     SetLocked False
     Exit Sub
@@ -85,6 +89,7 @@ End Sub
 
 Private Sub TextBox_Distance_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sNorm As String
     sNorm = Replace(TextBox_Distance.Value, ",", ".")
     If Val(sNorm) <= 0 Then
@@ -125,6 +130,7 @@ End Sub
 
 Private Sub TextBox_OutputLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     FormUXHelper.CommitInlineEdit TextBox_OutputLevel, Edit_OutputLevel_Command, ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL
     Edit_OutputLevel_Command.Caption = GetTranslation("OutlineGUIOptionsEditOutputLevel_CommandCaption", ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.Value)
     SetLocked False
@@ -188,6 +194,7 @@ End Sub
 
 Private Sub TextBox_Style_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     If TextBox_Style.Value <> ARESConfig.ARES_OUTLINE_OUTPUT_STYLE.Value Then
         ARESConfig.ARES_OUTLINE_OUTPUT_STYLE.Value = TextBox_Style.Value
     End If
@@ -203,6 +210,7 @@ End Sub
 
 Private Sub Weight_SpinButton_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     If Not mbLocked And Weight_SpinButton.Value <> CLng(ARESConfig.ARES_OUTLINE_OUTPUT_WEIGHT.Value) Then
         SetLocked True
         Weight_Number_Label.Caption = Weight_SpinButton.Value
@@ -283,6 +291,27 @@ Private Sub SeedControls()
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.SeedControls"
+End Sub
+
+' Show the configuration just loaded (theme or import): an inline edit in progress is dropped, never committed.
+Public Sub RefreshFromConfig()
+    On Error GoTo ErrorHandler
+    mbSeeding = True
+    FormUXHelper.RevertInlineEdit TextBox_Levels, ARESConfig.ARES_OUTLINE_LEVEL
+    TextBox_Levels.Visible = False
+    Edit_Levels_Command.Visible = True
+    FormUXHelper.RevertInlineEdit TextBox_OutputLevel, ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL
+    TextBox_OutputLevel.Visible = False
+    Edit_OutputLevel_Command.Visible = True
+    SeedControls
+    SetLocked False
+    mbSeeding = False
+    Exit Sub
+
+ErrorHandler:
+    mbSeeding = False
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Outline_GUI_Options.RefreshFromConfig"
 End Sub
 
 ' Restore every option this form edits to its default value, persist, then re-seed.

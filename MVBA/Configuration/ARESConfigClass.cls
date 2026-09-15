@@ -1,7 +1,7 @@
 ' Class Module: ARESConfigClass
 ' Description: Manages all ARES configuration variables
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, ARES_MS_VAR_Class, ErrorHandlerClass
+' Dependencies: Config, ARES_MS_VAR_Class, ARESConstants, ErrorHandlerClass
 Option Explicit
 
 Private moConfigVariables As Collection
@@ -159,6 +159,8 @@ Public ARES_SHEET_LEVELS_MODEL_NAME As ARES_MS_VAR_Class 'Default Value: *Folio*
 ' which leaves a folio whose content comes from a reference blank. Anything other than "False" reads as
 ' True: a half-done job is the worse failure here.
 Public ARES_SHEET_LEVELS_ATTACHMENTS As ARES_MS_VAR_Class 'Default Value: True          True or False (Boolean)
+' Used in ConfigThemes module — the theme last loaded or saved through the theme window; ImportARESConfig clears it
+Public ARES_THEME_CURRENT As ARES_MS_VAR_Class 'Default Value: (empty)   theme name, without .cfg
 
 ' Initialize the configuration manager
 Public Function Initialize() As Boolean
@@ -186,64 +188,65 @@ Private Function CreateConfigVariables() As Boolean
 
     CreateConfigVariables = False
 
-    ' Create each configuration variable
-    Set ARES_ROUNDS = CreateConfigVar("ARES_Round", "2")
-    Set ARES_LENGTH_ROUND = CreateConfigVar("ARES_Length_Round", "1")
-    Set ARES_LANGUAGE = CreateConfigVar("ARES_Language", "")
-    Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True")
-    Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O")
-    Set ARES_BULK_THRESHOLD = CreateConfigVar("ARES_Bulk_Threshold", "10")
-    Set ARES_BULK_INTERVAL = CreateConfigVar("ARES_Bulk_Interval", "1000")
-    Set ARES_UPDATE_MUTE = CreateConfigVar("ARES_Update_Mute", "False")
-    Set ARES_UPDATE_IGNORE_VERSION = CreateConfigVar("ARES_Update_Ignore_Version", "")
-    Set ARES_ZONING_LEVEL = CreateConfigVar("ARES_Zoning_Level", "")
-    Set ARES_ZONING_OUTPUT_LEVEL = CreateConfigVar("ARES_Zoning_Output_Level", "ARES_Zoning")
-    Set ARES_ZONING_OUTPUT_COLOR = CreateConfigVar("ARES_Zoning_Output_Color", "5")
-    Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0")
-    Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4")
-    Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0")
-    Set ARES_OUTLINE_LEVEL = CreateConfigVar("ARES_Outline_Level", "")
-    Set ARES_OUTLINE_DISTANCE = CreateConfigVar("ARES_Outline_Distance", "0.2")
-    Set ARES_OUTLINE_OUTPUT_LEVEL = CreateConfigVar("ARES_Outline_Output_Level", "ARES_Outline")
-    Set ARES_OUTLINE_OUTPUT_COLOR = CreateConfigVar("ARES_Outline_Output_Color", "5")
-    Set ARES_OUTLINE_OUTPUT_STYLE = CreateConfigVar("ARES_Outline_Output_Style", "0")
-    Set ARES_OUTLINE_OUTPUT_WEIGHT = CreateConfigVar("ARES_Outline_Output_Weight", "4")
-    Set ARES_ZONE_EXPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_Zone_Export_Excel_Visible", "False")
-    Set ARES_ZONE_EXPORT_SHEET_NAME = CreateConfigVar("ARES_Zone_Export_Sheet_Name", "Export")
-    Set ARES_ZONE_EXPORT_USE_DIALOG = CreateConfigVar("ARES_Zone_Export_Use_Dialog", "True")
-    Set ARES_ZONE_EXPORT_ROUND = CreateConfigVar("ARES_Zone_Export_Round", "2")
-    Set ARES_ZONE_EXPORT_GROUP_BY = CreateConfigVar("ARES_Zone_Export_Group_By", "Style")
-    Set ARES_ZONE_EXPORT_LEVEL = CreateConfigVar("ARES_Zone_Export_Level", "")
-    Set ARES_ZONE_EXPORT_PER_ZONE = CreateConfigVar("ARES_Zone_Export_Per_Zone", "False")
-    Set ARES_ZONE_EXPORT_ZONE_PROPERTY = CreateConfigVar("ARES_Zone_Export_Zone_Property", "")
-    Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001")
-    Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False")
-    Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01")
-    Set ARES_REGIONMERGE_KEEP_ORIGINALS = CreateConfigVar("ARES_RegionMerge_Keep_Originals", "False")
-    Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True")
-    Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "")
-    Set ARES_CALC_RULES = CreateConfigVar("ARES_Calc_Rules", "")
-    Set ARES_PROPERTY_CALC = CreateConfigVar("ARES_Property_Calc", "True")
-    Set ARES_CALC_DETACH_EMPTY = CreateConfigVar("ARES_Calc_Detach_Empty", "False")
-    Set ARES_TEXT_RENDER = CreateConfigVar("ARES_Text_Render", "True")
-    Set ARES_ACTUATE_COLOR = CreateConfigVar("ARES_Actuate_Color", "False")
-    Set ARES_ACTUATE_LEVEL = CreateConfigVar("ARES_Actuate_Level", "False")
-    Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "")
-    Set ARES_DIRECT_PROCESSING = CreateConfigVar("ARES_Direct_Processing", "True")
-    Set ARES_GROUP_SPLIT_GUARD = CreateConfigVar("ARES_Group_Split_Guard", "True")
-    Set ARES_CABLEREPORT_CABLE_LEVEL = CreateConfigVar("ARES_CableReport_Cable_Level", "")
-    Set ARES_CABLEREPORT_ZONE_LEVEL = CreateConfigVar("ARES_CableReport_Zone_Level", "")
-    Set ARES_CABLEREPORT_REPERE_PROPERTY = CreateConfigVar("ARES_CableReport_Repere_Property", "Repere")
-    Set ARES_CABLEREPORT_NATURE_PROPERTY = CreateConfigVar("ARES_CableReport_Nature_Property", "Nature")
-    Set ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY = CreateConfigVar("ARES_CableReport_Aerial_Nature_Property", "")
-    Set ARES_CABLEREPORT_LONGUEUR_PROPERTY = CreateConfigVar("ARES_CableReport_Longueur_Property", "Longueur")
-    Set ARES_CABLEREPORT_ZONE_PROPERTY = CreateConfigVar("ARES_CableReport_Zone_Property", "Coupe_Type")
-    Set ARES_CABLEREPORT_SEARCH_RADIUS = CreateConfigVar("ARES_CableReport_Search_Radius", "2.0")
-    Set ARES_CABLEREPORT_CROSS_FACTOR = CreateConfigVar("ARES_CableReport_Cross_Factor", "3.5")
-    Set ARES_CABLEREPORT_ROUND = CreateConfigVar("ARES_CableReport_Round", "2")
-    Set ARES_CABLEREPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_CableReport_Excel_Visible", "False")
-    Set ARES_SHEET_LEVELS_MODEL_NAME = CreateConfigVar("ARES_Sheet_Levels_Model_Name", "*Folio*")
-    Set ARES_SHEET_LEVELS_ATTACHMENTS = CreateConfigVar("ARES_Sheet_Levels_Attachments", "True")
+    ' Create each configuration variable. Station = this machine's (never in a theme); business = what a theme carries.
+    Set ARES_ROUNDS = CreateConfigVar("ARES_Round", "2", ARESVarScopeBusiness)
+    Set ARES_LENGTH_ROUND = CreateConfigVar("ARES_Length_Round", "1", ARESVarScopeBusiness)
+    Set ARES_LANGUAGE = CreateConfigVar("ARES_Language", "", ARESVarScopeStation)
+    Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True", ARESVarScopeBusiness)
+    Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O", ARESVarScopeBusiness)
+    Set ARES_BULK_THRESHOLD = CreateConfigVar("ARES_Bulk_Threshold", "10", ARESVarScopeStation)
+    Set ARES_BULK_INTERVAL = CreateConfigVar("ARES_Bulk_Interval", "1000", ARESVarScopeStation)
+    Set ARES_UPDATE_MUTE = CreateConfigVar("ARES_Update_Mute", "False", ARESVarScopeStation)
+    Set ARES_UPDATE_IGNORE_VERSION = CreateConfigVar("ARES_Update_Ignore_Version", "", ARESVarScopeStation)
+    Set ARES_ZONING_LEVEL = CreateConfigVar("ARES_Zoning_Level", "", ARESVarScopeBusiness)
+    Set ARES_ZONING_OUTPUT_LEVEL = CreateConfigVar("ARES_Zoning_Output_Level", "ARES_Zoning", ARESVarScopeBusiness)
+    Set ARES_ZONING_OUTPUT_COLOR = CreateConfigVar("ARES_Zoning_Output_Color", "5", ARESVarScopeBusiness)
+    Set ARES_ZONING_OUTPUT_STYLE = CreateConfigVar("ARES_Zoning_Output_Style", "0", ARESVarScopeBusiness)
+    Set ARES_ZONING_OUTPUT_WEIGHT = CreateConfigVar("ARES_Zoning_Output_Weight", "4", ARESVarScopeBusiness)
+    Set ARES_ZONING_DISTANCE = CreateConfigVar("ARES_Zoning_Distance", "2.0", ARESVarScopeBusiness)
+    Set ARES_OUTLINE_LEVEL = CreateConfigVar("ARES_Outline_Level", "", ARESVarScopeBusiness)
+    Set ARES_OUTLINE_DISTANCE = CreateConfigVar("ARES_Outline_Distance", "0.2", ARESVarScopeBusiness)
+    Set ARES_OUTLINE_OUTPUT_LEVEL = CreateConfigVar("ARES_Outline_Output_Level", "ARES_Outline", ARESVarScopeBusiness)
+    Set ARES_OUTLINE_OUTPUT_COLOR = CreateConfigVar("ARES_Outline_Output_Color", "5", ARESVarScopeBusiness)
+    Set ARES_OUTLINE_OUTPUT_STYLE = CreateConfigVar("ARES_Outline_Output_Style", "0", ARESVarScopeBusiness)
+    Set ARES_OUTLINE_OUTPUT_WEIGHT = CreateConfigVar("ARES_Outline_Output_Weight", "4", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_Zone_Export_Excel_Visible", "False", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_SHEET_NAME = CreateConfigVar("ARES_Zone_Export_Sheet_Name", "Export", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_USE_DIALOG = CreateConfigVar("ARES_Zone_Export_Use_Dialog", "True", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_ROUND = CreateConfigVar("ARES_Zone_Export_Round", "2", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_GROUP_BY = CreateConfigVar("ARES_Zone_Export_Group_By", "Style", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_LEVEL = CreateConfigVar("ARES_Zone_Export_Level", "", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_PER_ZONE = CreateConfigVar("ARES_Zone_Export_Per_Zone", "False", ARESVarScopeBusiness)
+    Set ARES_ZONE_EXPORT_ZONE_PROPERTY = CreateConfigVar("ARES_Zone_Export_Zone_Property", "", ARESVarScopeBusiness)
+    Set ARES_REGIONSPLIT_COLLINEAR_TOL = CreateConfigVar("ARES_RegionSplit_Collinear_Tol", "0.000001", ARESVarScopeBusiness)
+    Set ARES_REGIONSPLIT_KEEP_ORIGINAL = CreateConfigVar("ARES_RegionSplit_Keep_Original", "False", ARESVarScopeBusiness)
+    Set ARES_REGIONSPLIT_STROKE_TOL = CreateConfigVar("ARES_RegionSplit_Stroke_Tol", "0.01", ARESVarScopeBusiness)
+    Set ARES_REGIONMERGE_KEEP_ORIGINALS = CreateConfigVar("ARES_RegionMerge_Keep_Originals", "False", ARESVarScopeBusiness)
+    Set ARES_AUTO_PROPERTIES = CreateConfigVar("ARES_Auto_Properties", "True", ARESVarScopeBusiness)
+    Set ARES_PROPERTY_RULES = CreateConfigVar("ARES_Property_Rules", "", ARESVarScopeBusiness)
+    Set ARES_CALC_RULES = CreateConfigVar("ARES_Calc_Rules", "", ARESVarScopeBusiness)
+    Set ARES_PROPERTY_CALC = CreateConfigVar("ARES_Property_Calc", "True", ARESVarScopeBusiness)
+    Set ARES_CALC_DETACH_EMPTY = CreateConfigVar("ARES_Calc_Detach_Empty", "False", ARESVarScopeBusiness)
+    Set ARES_TEXT_RENDER = CreateConfigVar("ARES_Text_Render", "True", ARESVarScopeBusiness)
+    Set ARES_ACTUATE_COLOR = CreateConfigVar("ARES_Actuate_Color", "False", ARESVarScopeBusiness)
+    Set ARES_ACTUATE_LEVEL = CreateConfigVar("ARES_Actuate_Level", "False", ARESVarScopeBusiness)
+    Set ARES_FORM_LAYOUT = CreateConfigVar("ARES_Form_Layout", "", ARESVarScopeStation)
+    Set ARES_DIRECT_PROCESSING = CreateConfigVar("ARES_Direct_Processing", "True", ARESVarScopeStation)
+    Set ARES_GROUP_SPLIT_GUARD = CreateConfigVar("ARES_Group_Split_Guard", "True", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_CABLE_LEVEL = CreateConfigVar("ARES_CableReport_Cable_Level", "", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_ZONE_LEVEL = CreateConfigVar("ARES_CableReport_Zone_Level", "", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_REPERE_PROPERTY = CreateConfigVar("ARES_CableReport_Repere_Property", "Repere", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_NATURE_PROPERTY = CreateConfigVar("ARES_CableReport_Nature_Property", "Nature", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_AERIAL_NATURE_PROPERTY = CreateConfigVar("ARES_CableReport_Aerial_Nature_Property", "", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_LONGUEUR_PROPERTY = CreateConfigVar("ARES_CableReport_Longueur_Property", "Longueur", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_ZONE_PROPERTY = CreateConfigVar("ARES_CableReport_Zone_Property", "Coupe_Type", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_SEARCH_RADIUS = CreateConfigVar("ARES_CableReport_Search_Radius", "2.0", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_CROSS_FACTOR = CreateConfigVar("ARES_CableReport_Cross_Factor", "3.5", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_ROUND = CreateConfigVar("ARES_CableReport_Round", "2", ARESVarScopeBusiness)
+    Set ARES_CABLEREPORT_EXCEL_VISIBLE = CreateConfigVar("ARES_CableReport_Excel_Visible", "False", ARESVarScopeBusiness)
+    Set ARES_SHEET_LEVELS_MODEL_NAME = CreateConfigVar("ARES_Sheet_Levels_Model_Name", "*Folio*", ARESVarScopeBusiness)
+    Set ARES_SHEET_LEVELS_ATTACHMENTS = CreateConfigVar("ARES_Sheet_Levels_Attachments", "True", ARESVarScopeBusiness)
+    Set ARES_THEME_CURRENT = CreateConfigVar("ARES_Theme_Current", "", ARESVarScopeStation)
     CreateConfigVariables = True
     Exit Function
 
@@ -252,13 +255,19 @@ ErrorHandler:
     CreateConfigVariables = False
 End Function
 
-' Create a single configuration variable
-Private Function CreateConfigVar(ByVal Key As String, ByVal DefaultValue As String) As ARES_MS_VAR_Class
+' Create a single configuration variable. Raises on a missing scope, so a new variable cannot fall on either
+' side of a theme by default (CreateConfigVariables then fails and logs it).
+Private Function CreateConfigVar(ByVal Key As String, ByVal DefaultValue As String, ByVal Scope As ARESVarScope) As ARES_MS_VAR_Class
+    If Scope <> ARESVarScopeStation And Scope <> ARESVarScopeBusiness Then
+        Err.Raise vbObjectError + 1, "ARESConfigClass.CreateConfigVar", "No valid scope declared for " & Key
+    End If
+
     Dim ConfigVar As ARES_MS_VAR_Class
     Set ConfigVar = New ARES_MS_VAR_Class
 
     ConfigVar.Key = Key
     ConfigVar.DefaultValue = DefaultValue
+    ConfigVar.Scope = Scope
 
     ' Get current value from MicroStation
     Dim currentValue As String
@@ -283,6 +292,33 @@ Public Function GetConfigVar(ByVal Key As String) As ARES_MS_VAR_Class
         Set GetConfigVar = Nothing
     End If
     On Error GoTo 0
+End Function
+
+' Every variable key, in declaration order (0-based; a single "" when nothing is declared).
+Public Function GetConfigKeys() As String()
+    On Error GoTo ErrorHandler
+
+    Dim sKeys() As String
+    Dim ConfigVar As Variant
+    Dim i As Long
+
+    ReDim sKeys(0 To 0)
+    If Not moConfigVariables Is Nothing Then
+        If moConfigVariables.Count > 0 Then
+            ReDim sKeys(0 To moConfigVariables.Count - 1)
+            For Each ConfigVar In moConfigVariables
+                sKeys(i) = ConfigVar.Key
+                i = i + 1
+            Next ConfigVar
+        End If
+    End If
+    GetConfigKeys = sKeys
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.GetConfigKeys"
+    ReDim sKeys(0 To 0)
+    GetConfigKeys = sKeys
 End Function
 
 ' Reset a configuration variable to its default value
@@ -408,35 +444,39 @@ Public Property Get IsInitialized() As Boolean
     IsInitialized = mbInitialized
 End Property
 
-' Export configuration to file
-Public Function ExportConfig(Optional ByVal Filepath As String = "") As Boolean
+' Export configuration to file. bBusinessOnly: only the variables a theme carries (a theme save).
+Public Function ExportConfig(Optional ByVal Filepath As String = "", Optional ByVal bBusinessOnly As Boolean = False) As Boolean
     On Error GoTo ErrorHandler
-    
+
     ExportConfig = False
-    
+
     If Not mbInitialized Then
         ErrorHandler.HandleError "Configuration not initialized", 0, "", "ARESConfigClass.ExportConfig"
         Exit Function
     End If
-    
+
     ' Generate default file path if not provided
     If Len(Filepath) = 0 Then
         Filepath = GetDefaultExportPath()
     End If
-    
+
     Dim FileNum As Integer
     Dim ConfigVar As Variant
     Dim ExportData As String
-    
+
     ' Build export header
     ExportData = "# ARES Configuration Export" & vbCrLf
     ExportData = ExportData & "# Generated: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
     ExportData = ExportData & "# Version: " & GetARESVersion() & vbCrLf
     ExportData = ExportData & vbCrLf
-    
-    ' Export each configuration variable
+
+    ' Export each configuration variable (business only: a variable of no known scope is left out)
     For Each ConfigVar In moConfigVariables
-        ExportData = ExportData & FormatConfigForExport(ConfigVar) & vbCrLf
+        If Not bBusinessOnly Then
+            ExportData = ExportData & FormatConfigForExport(ConfigVar) & vbCrLf
+        ElseIf ConfigVar.Scope = ARESVarScopeBusiness Then
+            ExportData = ExportData & FormatConfigForExport(ConfigVar) & vbCrLf
+        End If
     Next ConfigVar
     
     ' Write to file
@@ -454,66 +494,132 @@ ErrorHandler:
     ExportConfig = False
 End Function
 
-' Import configuration from file
-Public Function ImportConfig(ByVal Filepath As String, Optional ByVal OverwriteExisting As Boolean = True) As Boolean
+' Import configuration from file, every scope. The unknown-line count and the file's "# Version:" header come
+' back through nUnknown / sFileVersion for the caller to report; nothing is logged for them.
+Public Function ImportConfig(ByVal Filepath As String, Optional ByVal OverwriteExisting As Boolean = True, _
+                             Optional ByRef nUnknown As Long, Optional ByRef sFileVersion As String) As Boolean
     On Error GoTo ErrorHandler
-    
+
     ImportConfig = False
-    
+
     If Not mbInitialized Then
         ErrorHandler.HandleError "Configuration not initialized", 0, "", "ARESConfigClass.ImportConfig"
         Exit Function
     End If
-    
-    If Len(dir(Filepath)) = 0 Then
-        ErrorHandler.HandleError "Import file not found: " & Filepath, 0, "", "ARESConfigClass.ImportConfig"
+
+    Dim bReadable As Boolean
+    ImportConfig = LoadConfig(Filepath, False, OverwriteExisting, bReadable, nUnknown, sFileVersion)
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ImportConfig"
+    ImportConfig = False
+End Function
+
+' Fail-closed load: the whole file is read before the first variable is written. Writes nothing and returns
+' False when the file cannot be read (bReadable False) or holds no recognised line of the scope asked for.
+' bBusinessOnly: a theme load - station lines are ignored without counting as unknown.
+Public Function LoadConfig(ByVal Filepath As String, ByVal bBusinessOnly As Boolean, ByVal OverwriteExisting As Boolean, _
+                           ByRef bReadable As Boolean, ByRef nUnknown As Long, ByRef sFileVersion As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    Dim sKeys() As String
+    Dim sValues() As String
+    Dim nLines As Long
+    Dim nStation As Long
+    Dim nBusiness As Long
+
+    LoadConfig = False
+    bReadable = ReadConfigFile(Filepath, sKeys, sValues, nLines, nStation, nBusiness, nUnknown, sFileVersion)
+    If Not bReadable Then Exit Function
+
+    If bBusinessOnly Then
+        If nBusiness = 0 Then Exit Function
+    ElseIf nLines = 0 Then
         Exit Function
     End If
-    
+
+    ApplyConfigLines sKeys, sValues, nLines, bBusinessOnly, OverwriteExisting
+    LoadConfig = True
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.LoadConfig"
+    LoadConfig = False
+End Function
+
+' The parser seam of every load: reads a whole config file and writes nothing. sKeys/sValues get the recognised
+' lines in file order (0-based, nLines of them), nStation/nBusiness count them per scope, nUnknown counts the
+' other non-comment lines, sFileVersion is the "# Version:" header ("" when absent). False = the file could not
+' be read (missing, locked): expected, so not logged - the caller reports it.
+Public Function ReadConfigFile(ByVal Filepath As String, ByRef sKeys() As String, ByRef sValues() As String, _
+                               ByRef nLines As Long, ByRef nStation As Long, ByRef nBusiness As Long, _
+                               ByRef nUnknown As Long, ByRef sFileVersion As String) As Boolean
+    On Error GoTo ErrorHandler
+
     Dim FileNum As Integer
-    Dim Line As String
-    Dim ImportedCount As Long
-    Dim SkippedCount As Long
-    
-    ' Read and process file
+    Dim sLine As String
+    Dim sTrimmed As String
+    Dim sKey As String
+    Dim sValue As String
+    Dim ConfigVar As ARES_MS_VAR_Class
+    Dim nErr As Long
+    Dim sErrDesc As String
+    Dim sErrSrc As String
+
+    ReadConfigFile = False
+    nLines = 0
+    nStation = 0
+    nBusiness = 0
+    nUnknown = 0
+    sFileVersion = ""
+    ReDim sKeys(0 To 0)
+    ReDim sValues(0 To 0)
+    If Not mbInitialized Then Exit Function
+
     FileNum = FreeFile
     Open Filepath For Input As #FileNum
-    
     Do While Not EOF(FileNum)
-        Line Input #FileNum, Line
-        
-        ' Check version header
-        If Left(Trim(Line), 10) = "# Version:" Then
-            Dim fileVersion As String
-            fileVersion = Trim(Mid(Trim(Line), 11))
-            If fileVersion <> ARES_CONFIG_VERSION Then
-                ErrorHandler.HandleError "Config version mismatch: file=" & fileVersion & ", expected=" & ARES_CONFIG_VERSION, 0, "", "ARESConfigClass.ImportConfig"
-            End If
-        End If
+        Line Input #FileNum, sLine
+        sTrimmed = Trim(sLine)
 
-        ' Skip comments and empty lines
-        If Len(Trim(Line)) > 0 And Left(Trim(Line), 1) <> "#" Then
-            If ProcessImportLine(Line, OverwriteExisting) Then
-                ImportedCount = ImportedCount + 1
+        If Left(sTrimmed, 10) = "# Version:" Then
+            sFileVersion = Trim(Mid(sTrimmed, 11))
+        ElseIf Len(sTrimmed) > 0 And Left(sTrimmed, 1) <> "#" Then
+            Set ConfigVar = Nothing
+            If ParseConfigLine(sLine, sKey, sValue) Then Set ConfigVar = GetConfigVar(sKey)
+
+            If ConfigVar Is Nothing Then
+                nUnknown = nUnknown + 1
             Else
-                SkippedCount = SkippedCount + 1
+                ReDim Preserve sKeys(0 To nLines)
+                ReDim Preserve sValues(0 To nLines)
+                sKeys(nLines) = ConfigVar.Key
+                sValues(nLines) = sValue
+                nLines = nLines + 1
+                If ConfigVar.Scope = ARESVarScopeStation Then
+                    nStation = nStation + 1
+                ElseIf ConfigVar.Scope = ARESVarScopeBusiness Then
+                    nBusiness = nBusiness + 1
+                End If
             End If
         End If
     Loop
-    
     Close #FileNum
+    FileNum = 0
 
-    If SkippedCount > 0 Then
-        ErrorHandler.HandleError SkippedCount & " line(s) skipped during import of: " & Filepath, 0, "", "ARESConfigClass.ImportConfig"
-    End If
-
-    ImportConfig = True
+    ReadConfigFile = True
     Exit Function
-    
+
 ErrorHandler:
+    nErr = Err.Number
+    sErrDesc = Err.Description
+    sErrSrc = Err.Source
     If FileNum > 0 Then Close #FileNum
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ImportConfig"
-    ImportConfig = False
+    ReadConfigFile = False
+    If Not IsFileAccessError(nErr) Then
+        ErrorHandler.HandleError sErrDesc, nErr, sErrSrc, "ARESConfigClass.ReadConfigFile"
+    End If
 End Function
 
 ' Get configuration as formatted string (for preview)
@@ -568,16 +674,13 @@ Private Function FormatConfigForExport(ByVal ConfigVar As ARES_MS_VAR_Class) As 
     FormatConfigForExport = Result
 End Function
 
-Private Function ProcessImportLine(ByVal Line As String, ByVal OverwriteExisting As Boolean) As Boolean
+' Split one line of the format KEY=VALUE:::DEFAULT=defaultvalue:::MODIFIED=true/false. False = no key.
+Private Function ParseConfigLine(ByVal Line As String, ByRef ConfigKey As String, ByRef ConfigValue As String) As Boolean
     On Error GoTo ErrorHandler
-    
-    ProcessImportLine = False
-    
-    ' Parse line format: KEY=VALUE:::DEFAULT=defaultvalue:::MODIFIED=true/false
+
+    ParseConfigLine = False
+
     Dim Parts() As String
-    Dim ConfigKey As String
-    Dim ConfigValue As String
-    Dim ConfigVar As ARES_MS_VAR_Class
     Dim EqPos As Long
 
     Parts = Split(Line, ":::")
@@ -589,28 +692,57 @@ Private Function ProcessImportLine(ByVal Line As String, ByVal OverwriteExisting
 
     ConfigKey = Trim(Left(Parts(0), EqPos - 1))
     ConfigValue = Trim(Mid(Parts(0), EqPos + 1))
-    
-    ' Check if key exists in our configuration
-    Set ConfigVar = GetConfigVar(ConfigKey)
-    If ConfigVar Is Nothing Then
-        ErrorHandler.HandleError "Unknown configuration key: " & ConfigKey, 0, "", "ARESConfigClass.ProcessImportLine"
-        Exit Function
-    End If
-    
-    ' Check if we should overwrite
-    If Not OverwriteExisting And Not ConfigVar.IsDefault() Then
-        Exit Function ' Skip if already modified and not overwriting
-    End If
-    
-    ' Update configuration (ConfigVar.Value Let persists to MicroStation via Config.SetVar)
-    ConfigVar.Value = ConfigValue
-    ProcessImportLine = True
-    
+    ParseConfigLine = (Len(ConfigKey) > 0)
     Exit Function
-    
+
 ErrorHandler:
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ProcessImportLine"
-    ProcessImportLine = False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ParseConfigLine"
+    ParseConfigLine = False
+End Function
+
+' Write the lines ReadConfigFile returned: every scope, or business variables only. OverwriteExisting False
+' keeps a variable already modified from its default.
+Private Sub ApplyConfigLines(ByRef sKeys() As String, ByRef sValues() As String, ByVal nLines As Long, _
+                             ByVal bBusinessOnly As Boolean, ByVal OverwriteExisting As Boolean)
+    On Error GoTo ErrorHandler
+
+    Dim i As Long
+    Dim ConfigVar As ARES_MS_VAR_Class
+
+    For i = 0 To nLines - 1
+        Set ConfigVar = GetConfigVar(sKeys(i))
+        If ShouldApplyLine(ConfigVar, bBusinessOnly, OverwriteExisting) Then
+            ' ConfigVar.Value Let persists to MicroStation via Config.SetVar
+            ConfigVar.Value = sValues(i)
+        End If
+    Next i
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ARESConfigClass.ApplyConfigLines"
+End Sub
+
+Private Function ShouldApplyLine(ByVal ConfigVar As ARES_MS_VAR_Class, ByVal bBusinessOnly As Boolean, _
+                                 ByVal OverwriteExisting As Boolean) As Boolean
+    ShouldApplyLine = False
+    If ConfigVar Is Nothing Then Exit Function
+    If bBusinessOnly Then
+        If ConfigVar.Scope <> ARESVarScopeBusiness Then Exit Function
+    End If
+    If Not OverwriteExisting Then
+        If Not ConfigVar.IsDefault() Then Exit Function
+    End If
+    ShouldApplyLine = True
+End Function
+
+' Run-time errors of a file that cannot be opened or read: missing, locked, bad path, device not ready.
+Private Function IsFileAccessError(ByVal nErr As Long) As Boolean
+    Select Case nErr
+        Case 52, 53, 54, 55, 57, 62, 67, 68, 70, 71, 74, 75, 76
+            IsFileAccessError = True
+        Case Else
+            IsFileAccessError = False
+    End Select
 End Function
 
 Private Function GetARESVersion() As String

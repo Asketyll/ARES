@@ -67,6 +67,14 @@ Public Const DIALOG_FILTER_XLSX As String = "Excel Workbook (*.xlsx)|*.xlsx|All 
 ' Config schema version — written to exported .cfg files and checked on import
 Public Const ARES_CONFIG_VERSION As String = "1.0.1"
 
+' === CONFIG VARIABLE SCOPE ===
+' Declared with every config variable (ARESConfigClass.CreateConfigVariables). A theme loads and saves the
+' BUSINESS variables only; STATION ones belong to the machine. No 0 member: a scope left unset is invalid.
+Public Enum ARESVarScope
+    ARESVarScopeStation = 1
+    ARESVarScopeBusiness = 2
+End Enum
+
 ' === REGION SPLIT GEOMETRY CONSTANTS ===
 ' Used in RegionSplit module. Structural multipliers (dimensionless), NOT tolerance literals —
 ' the tolerances themselves are config vars (ARES_RegionSplit_Collinear_Tol / _Stroke_Tol).

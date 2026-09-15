@@ -19,6 +19,9 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private mbLocked As Boolean
+' True while RefreshFromConfig re-seeds the form: every config-writing event returns at once, so nothing the
+' form held before a load is written back (SeedControls clears the zone-property combo before reading it).
+Private mbSeeding As Boolean
 
 ' ============================================================
 ' ZONE LEVEL - Edit button + hidden TextBox
@@ -42,6 +45,7 @@ End Sub
 
 Private Sub TextBox_RegionLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = Trim(TextBox_RegionLevel.Value)
     If Len(sVal) > 0 And sVal <> ARESConfig.ARES_ZONING_OUTPUT_LEVEL.Value Then
@@ -109,6 +113,7 @@ End Sub
 
 Private Sub TextBox_CandidateLevel_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     ' Empty is a valid value here (clears the filter -> all levels), so no Len>0 guard.
     Dim sVal As String
     sVal = Trim(TextBox_CandidateLevel.Value)
@@ -159,7 +164,7 @@ End Sub
 
 Private Sub ComboBox_Export_Type_Change()
     On Error GoTo ErrorHandler
-    If mbLocked Then Exit Sub
+    If mbLocked Or mbSeeding Then Exit Sub
     Dim sKey As String
     sKey = GroupByKeyFromDisplay()
     If ARESConfig.ARES_ZONE_EXPORT_GROUP_BY.Value <> sKey Then
@@ -190,6 +195,7 @@ End Sub
 
 Private Sub CheckBox_PerZone_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(CheckBox_PerZone.Value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_ZONE_EXPORT_PER_ZONE.Value <> sVal Then
@@ -212,7 +218,7 @@ End Sub
 
 Private Sub ComboBox_ZoneProperty_Change()
     On Error GoTo ErrorHandler
-    If mbLocked Then Exit Sub
+    If mbLocked Or mbSeeding Then Exit Sub
     Dim sVal As String
     ' Null-safe read: a dropdown-list combo with no selection returns Null (assigning it to a
     ' String would raise Error 94). Nested If (not And) per the no-short-circuit cheatsheet rule.
@@ -239,6 +245,7 @@ End Sub
 
 Private Sub Round_SpinButton_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     If Not mbLocked And CStr(Round_SpinButton.Value) <> ARESConfig.ARES_ZONE_EXPORT_ROUND.Value Then
         SetLocked True
         Round_Number_Label.Caption = Round_SpinButton.Value
@@ -268,6 +275,7 @@ End Sub
 
 Private Sub Use_Dialog_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(Use_Dialog_CheckBox.Value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_ZONE_EXPORT_USE_DIALOG.Value <> sVal Then
@@ -299,6 +307,7 @@ End Sub
 
 Private Sub OpenAfter_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(OpenAfter_CheckBox.Value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE.Value <> sVal Then
@@ -450,6 +459,27 @@ Private Sub SeedControls()
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.SeedControls"
+End Sub
+
+' Show the configuration just loaded (theme or import): an inline edit in progress is dropped, never committed.
+Public Sub RefreshFromConfig()
+    On Error GoTo ErrorHandler
+    mbSeeding = True
+    FormUXHelper.RevertInlineEdit TextBox_RegionLevel, ARESConfig.ARES_ZONING_OUTPUT_LEVEL
+    TextBox_RegionLevel.Visible = False
+    Edit_Level_Region_Command.Visible = True
+    FormUXHelper.RevertInlineEdit TextBox_CandidateLevel, ARESConfig.ARES_ZONE_EXPORT_LEVEL
+    TextBox_CandidateLevel.Visible = False
+    Edit_Level_Candidate_Command.Visible = True
+    SeedControls
+    SetLocked False
+    mbSeeding = False
+    Exit Sub
+
+ErrorHandler:
+    mbSeeding = False
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInReg_GUI_Options.RefreshFromConfig"
 End Sub
 
 ' NOTE: ARES_Zoning_Output_Level is the region output level shown here and is shared with the Zoning form.

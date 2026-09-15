@@ -21,6 +21,9 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private mbLocked As Boolean
+' True while RefreshFromConfig re-seeds the form: every config-writing event returns at once, so nothing the
+' form held before a load is written back.
+Private mbSeeding As Boolean
 
 ' ============================================================
 ' MODEL NAME PATTERN - Edit button + hidden TextBox
@@ -44,6 +47,7 @@ End Sub
 
 Private Sub TextBox_Name_Exit(ByVal Cancel As MSForms.ReturnBoolean)
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     FormUXHelper.CommitInlineEdit TextBox_Name, Edit_Name_Command, ARESConfig.ARES_SHEET_LEVELS_MODEL_NAME
     Edit_Name_Command.Caption = GetTranslation("SheetLevelsGUIOptionsEditName_CommandCaption", ARESConfig.ARES_SHEET_LEVELS_MODEL_NAME.value)
     SetLocked False
@@ -99,6 +103,7 @@ End Sub
 
 Private Sub Attachments_CheckBox_Change()
     On Error GoTo ErrorHandler
+    If mbSeeding Then Exit Sub
     Dim sVal As String
     sVal = IIf(Attachments_CheckBox.value, "True", "False")
     If Not mbLocked And ARESConfig.ARES_SHEET_LEVELS_ATTACHMENTS.value <> sVal Then
@@ -154,6 +159,24 @@ Private Sub SeedControls()
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels_GUI_Options.SeedControls"
+End Sub
+
+' Show the configuration just loaded (theme or import): an inline edit in progress is dropped, never committed.
+Public Sub RefreshFromConfig()
+    On Error GoTo ErrorHandler
+    mbSeeding = True
+    FormUXHelper.RevertInlineEdit TextBox_Name, ARESConfig.ARES_SHEET_LEVELS_MODEL_NAME
+    TextBox_Name.Visible = False
+    Edit_Name_Command.Visible = True
+    SeedControls
+    SetLocked False
+    mbSeeding = False
+    Exit Sub
+
+ErrorHandler:
+    mbSeeding = False
+    SetLocked False
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels_GUI_Options.RefreshFromConfig"
 End Sub
 
 ' Restore every option this form edits to its default value, persist, then re-seed.

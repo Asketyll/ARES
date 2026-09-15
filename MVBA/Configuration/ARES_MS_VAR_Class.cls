@@ -1,12 +1,13 @@
 ' Class Module: ARES_MS_VAR_Class
 ' Description: Represents a MicroStation configuration variable with key, value, and default handling
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: ErrorHandlerClass (via BootLoader)
+' Dependencies: ErrorHandlerClass (via BootLoader), ARESConstants
 Option Explicit
 
 ' === PUBLIC PROPERTIES ===
 Public Key As String                ' Configuration variable key
 Public DefaultValue As String       ' Default value for reset operations
+Public Scope As ARESVarScope        ' Station or business: whether a theme carries it
 
 ' === PRIVATE MEMBERS ===
 Private msValue As String         ' Current value of the configuration variable

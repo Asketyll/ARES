@@ -1,7 +1,7 @@
 ' Module: Command
 ' Description: Liste all command
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering, CallStackClass, CableReport, SheetLevels
+' Dependencies: BootLoader, LangManager, ARESConfigClass, FileDialogs, Zoning, ExportLengthInRegion, CustomPropertyHandler, PropertyRendering, CallStackClass, CableReport, SheetLevels, ConfigThemes
 Option Explicit
 
 Private moZoningGUI          As Zoning_GUI_Options
@@ -12,6 +12,7 @@ Private moPropertyTaggingGUI As PropertyTagging_GUI_Options
 Private moPropertyCalculationGUI     As PropertyCalculation_GUI_Options
 Private moPropertyRenderingGUI       As PropertyRendering_GUI_Options
 Private moSheetLevelsGUI     As SheetLevels_GUI_Options
+Private moConfigThemesGUI    As ConfigThemes_GUI
 
 ' Report a trapped fault from a key-in entry point (messaging rules): log the technical detail
 ' to the .log (English, via HandleError), then show the user a translated, GENERIC failure line.
@@ -86,6 +87,52 @@ Sub ShowARESConfigSummary()
 
 ErrorHandler:
     ReportFailure "ShowARESConfigSummary", Err.Description, Err.Number, Err.Source
+End Sub
+
+' Key-in: open the theme window - the named business configurations of the theme folder. Picking one loads it,
+' and the current settings can be saved as a theme from there.
+Sub OpenARESThemes()
+    On Error GoTo ErrorHandler
+    ErrorHandler.ClearErrorFlag
+    If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
+        Set BootLoader.ARESConfig = New ARESConfigClass
+        ARESConfig.Initialize
+    End If
+
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    If moConfigThemesGUI Is Nothing Then
+        Set moConfigThemesGUI = New ConfigThemes_GUI
+    End If
+
+    moConfigThemesGUI.Show vbModeless
+    ReportIfLogged "OpenARESThemes"
+    Exit Sub
+
+ErrorHandler:
+    ReportFailure "OpenARESThemes", Err.Description, Err.Number, Err.Source
+End Sub
+
+Public Sub OnConfigThemesGUIClosed()
+    Set moConfigThemesGUI = Nothing
+End Sub
+
+' Re-seed every open ARES form from the configuration just loaded, discarding any edit in progress.
+Public Sub RefreshOpenForms()
+    On Error GoTo ErrorHandler
+    If Not moZoningGUI Is Nothing Then moZoningGUI.RefreshFromConfig
+    If Not moOutlineGUI Is Nothing Then moOutlineGUI.RefreshFromConfig
+    If Not moZoneExportGUI Is Nothing Then moZoneExportGUI.RefreshFromConfig
+    If Not moCableReportGUI Is Nothing Then moCableReportGUI.RefreshFromConfig
+    If Not moPropertyTaggingGUI Is Nothing Then moPropertyTaggingGUI.RefreshFromConfig
+    If Not moPropertyCalculationGUI Is Nothing Then moPropertyCalculationGUI.RefreshFromConfig
+    If Not moPropertyRenderingGUI Is Nothing Then moPropertyRenderingGUI.RefreshFromConfig
+    If Not moSheetLevelsGUI Is Nothing Then moSheetLevelsGUI.RefreshFromConfig
+    If Not moConfigThemesGUI Is Nothing Then moConfigThemesGUI.RefreshFromConfig
+    Exit Sub
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Command.RefreshOpenForms"
 End Sub
 
 ' === VARIABLE MANAGEMENT COMMANDS ===
@@ -801,6 +848,7 @@ Public Sub SaveAllOpenFormPositions()
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyCalculationGUI, moPropertyCalculationGUI.Name
     If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.SaveFormPosition moPropertyRenderingGUI, moPropertyRenderingGUI.Name
     If Not moSheetLevelsGUI Is Nothing Then FormPlacement.SaveFormPosition moSheetLevelsGUI, moSheetLevelsGUI.Name
+    If Not moConfigThemesGUI Is Nothing Then FormPlacement.SaveFormPosition moConfigThemesGUI, moConfigThemesGUI.Name
 End Sub
 
 ' Key-in: forget all saved form positions and re-center any option form currently open.
@@ -822,6 +870,7 @@ Sub ResetFormPositions()
     If Not moPropertyCalculationGUI Is Nothing Then FormPlacement.CenterForm moPropertyCalculationGUI
     If Not moPropertyRenderingGUI Is Nothing Then FormPlacement.CenterForm moPropertyRenderingGUI
     If Not moSheetLevelsGUI Is Nothing Then FormPlacement.CenterForm moSheetLevelsGUI
+    If Not moConfigThemesGUI Is Nothing Then FormPlacement.CenterForm moConfigThemesGUI
 
     ShowStatusT "FormPositionsReset"
     ReportIfLogged "ResetFormPositions"
