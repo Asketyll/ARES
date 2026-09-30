@@ -30,7 +30,7 @@ Public Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As
         Case csCellText, csCellId, csCellLvl, csCellColor, csCellStyle, csCellWeight
             EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind)
         Case csCellCoord
-            EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind, r.SourceSystem, r.SourceGeoDecimals)
+            EvaluateSource = EvaluateGroupCellSource(oEl, r.SourceArg, r.SourceKind, r.SourceSystem, r.SourceDecimals)
         Case csLvlColor, csLvlStyle, csLvlWeight
             EvaluateSource = EvaluateGroupLvlSource(oEl, r.SourceArg, r.SourceKind)
         Case csValue
@@ -40,13 +40,13 @@ Public Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As
             If GetElementAnchorPoint(oEl, pt) Then
                 If Len(r.SourceSystem) > 0 Then
                     Dim sGeo As String
-                    If ConvertToGeoSystem(pt, r.SourceSystem, r.SourceGeoDecimals, sGeo) Then
+                    If ConvertToGeoSystem(pt, r.SourceSystem, r.SourceDecimals, sGeo) Then
                         EvaluateSource = sGeo
                     Else
                         EvaluateSource = ""            ' one-shot status already reported by ConvertToGeoSystem
                     End If
                 Else
-                    EvaluateSource = FormatCoord(pt, ResolveDecimals(r.SourceArg, GetCoordDefaultDecimals()))
+                    EvaluateSource = FormatCoord(pt, CLng(r.SourceArg))
                 End If
             Else
                 ' No valid anchor (a geometry fault, or a non-graphical bearing element) -> yield NO value
@@ -75,23 +75,14 @@ Public Function EvaluateSource(ByRef r As CalcRuleInfo, ByVal oEl As element) As
         Case csGroupProp
             EvaluateSource = EvaluateGroupProp(oEl, r.SourceArg)
         Case csLength
-            EvaluateSource = EvaluateOwnLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
+            EvaluateSource = EvaluateOwnLength(oEl, CLng(r.SourceArg))
         Case csGroupLength
-            EvaluateSource = EvaluateGroupLength(oEl, ResolveDecimals(r.SourceArg, GetLengthDefaultDecimals()))
+            EvaluateSource = EvaluateGroupLength(oEl, CLng(r.SourceArg))
     End Select
     Exit Function
 
 ErrorHandler:
     EvaluateSource = ""
-End Function
-
-' n from a Coord[n]/Length[n]/GroupLength[n] SourceArg ("" -> defaultDec).
-Private Function ResolveDecimals(ByVal sArg As String, ByVal defaultDec As Long) As Long
-    If Len(sArg) > 0 Then
-        ResolveDecimals = CLng(sArg)
-    Else
-        ResolveDecimals = defaultDec
-    End If
 End Function
 
 ' Shared GROUP scan for every GroupCell* source: scan the group INCLUDING itself, return the FIRST matching
@@ -135,10 +126,10 @@ End Function
 ' Every GroupCell* source evaluation, unified: find the FIRST group cell matching sPattern (self-included via
 ' FindFirstMatchingCellInGroup) and read the attribute named by kind off THAT cell (ReadCellSourceValue); ""
 ' when no cell matches. >= 2 matches -> the multi-trigger warning (one-shot) - the same ambiguity regardless
-' of WHICH attribute is being read off the matching cell. sSystem/sGeoDecimals are GroupCellCoord's own
+' of WHICH attribute is being read off the matching cell. sSystem/sDecimals are GroupCellCoord's own
 ' geo-output options (§2.3a of the WGS84 plan) - "" for every other kind, unused by ReadCellSourceValue in
 ' that case.
-Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sGeoDecimals As String = "") As String
+Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As String, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sDecimals As String = "") As String
     On Error GoTo ErrorHandler
 
     EvaluateGroupCellSource = ""
@@ -146,7 +137,7 @@ Private Function EvaluateGroupCellSource(ByVal oEl As element, ByVal sPattern As
     Dim foundCell As element
     Dim nMatch As Long
     If FindFirstMatchingCellInGroup(oEl, sPattern, foundCell, nMatch) Then
-        EvaluateGroupCellSource = ReadCellSourceValue(foundCell, kind, sSystem, sGeoDecimals)
+        EvaluateGroupCellSource = ReadCellSourceValue(foundCell, kind, sSystem, sDecimals)
     End If
     If nMatch >= 2 Then PropertyCalculation.ReportMultipleTriggers
     Exit Function
@@ -157,15 +148,14 @@ End Function
 
 ' Read ONE attribute off a SPECIFIC cell element (already located - either by FindFirstMatchingCellInGroup
 ' during the bearing pass, or as the trigger cell itself during the push pass). Never fabricates a value:
-' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/GroupCellCoord philosophy). Native GroupCellCoord
-' (sSystem = "") uses the default decimals (no [n] override - the bracket already carries the pattern);
-' sSystem/sGeoDecimals (GroupCellCoord's own geo-output options, see calc-rules-grammar.md) override that for the
-' geo-output case ONLY (sSystem non-empty) - every other kind ignores both params. Public: also called
-' directly by Module C
-' (TriggerPush), which MUST thread the same rule's SourceSystem/SourceGeoDecimals through here for GroupCellCoord
-' - the bearing pass and the trigger-cell push pass would otherwise silently disagree on output format for
-' the same rule (see the WGS84 plan's §3.1).
-Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sGeoDecimals As String = "") As String
+' a missing Level/LineStyle yields "" (mirrors the no-anchor Coord/GroupCellCoord philosophy). Both optional
+' params carry GroupCellCoord's SECOND bracket group and are ignored by every other kind: sSystem = "" is
+' native output, where sDecimals holds the mandatory decimal count; a non-empty sSystem is geo output, where
+' sDecimals may be "" for full precision (see calc-rules-grammar.md). Public: also called directly by
+' Module C (TriggerPush), which MUST thread the same rule's SourceSystem/SourceDecimals through here for
+' GroupCellCoord - the bearing pass and the trigger-cell push pass would otherwise silently disagree on
+' output format for the same rule (see the WGS84 plan's §3.1).
+Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSource, Optional ByVal sSystem As String = "", Optional ByVal sDecimals As String = "") As String
     On Error GoTo ErrorHandler
 
     ReadCellSourceValue = ""
@@ -186,12 +176,12 @@ Public Function ReadCellSourceValue(ByVal oCell As element, ByVal kind As CalcSo
             If GetElementAnchorPoint(oCell, pt) Then
                 If Len(sSystem) > 0 Then
                     Dim sGeo As String
-                    If ConvertToGeoSystem(pt, sSystem, sGeoDecimals, sGeo) Then
+                    If ConvertToGeoSystem(pt, sSystem, sDecimals, sGeo) Then
                         ReadCellSourceValue = sGeo
                     End If
                     ' else: "" already set above; one-shot status already reported by ConvertToGeoSystem
                 Else
-                    ReadCellSourceValue = FormatCoord(pt, GetCoordDefaultDecimals())
+                    ReadCellSourceValue = FormatCoord(pt, CLng(sDecimals))
                 End If
             Else
                 ErrorHandler.HandleError "Property calculation: no anchor point for GroupCellCoord source", 0, "", "PropertyCalculation_SourceEval.ReadCellSourceValue"
@@ -621,11 +611,11 @@ End Function
 ' mirrored below, since the docs do not state whether an unresolved key name returns Nothing or raises).
 ' ARES has NO role in configuring a GCS - that is MicroStation's own GEOCOORDINATE SELECT LIBRARY key-in,
 ' run manually by the user; this module must NEVER call CadInputQueue.SendCommand or any other interactive
-' API from this path (decided, not a coding-phase detail - see the WGS84 plan's §1/§1.1/§1.2). sGeoDecimals
+' API from this path (decided, not a coding-phase detail - see the WGS84 plan's §1/§1.1/§1.2). sDecimals
 ' "" means FULL PRECISION (no Round call) - deliberately NOT the same "omitted = default rounding"
 ' convention as Coord[n]/Length[n]/GroupLength[n], since degrees and DGN master units have unrelated
 ' precision needs (decided by the lead, not guessed).
-Private Function ConvertToGeoSystem(ByRef pt As Point3d, ByVal sSystemName As String, ByVal sGeoDecimals As String, ByRef sOut As String) As Boolean
+Private Function ConvertToGeoSystem(ByRef pt As Point3d, ByVal sSystemName As String, ByVal sDecimals As String, ByRef sOut As String) As Boolean
     On Error GoTo ErrorHandler
 
     ConvertToGeoSystem = False
@@ -655,7 +645,7 @@ Private Function ConvertToGeoSystem(ByRef pt As Point3d, ByVal sSystemName As St
     geo = gcs.LatLongFromMasterUnits2d(p2d)          ' active model's own datum first
     geo = gcs.LatLongFromLatLong2d(geo, otherGcs)     ' then reprojected to the REQUESTED system's datum
 
-    sOut = FormatGeoPoint(geo, sGeoDecimals)
+    sOut = FormatGeoPoint(geo, sDecimals)
     ConvertToGeoSystem = True
     Exit Function
 
@@ -776,35 +766,3 @@ ErrorHandler:
     EvaluateGroupLength = ""
 End Function
 
-' Default decimals for a bare Length/GroupLength source = the Auto Lengths rounding convention
-' ARES_Length_Round (distinct from ARES_Round, used by Coord). Fail-closed to 2 on any nil; lazy ARESConfig
-' init like the other readers.
-Private Function GetLengthDefaultDecimals() As Long
-    On Error GoTo ErrorHandler
-
-    GetLengthDefaultDecimals = 2
-    If ARESConfig Is Nothing Then Exit Function
-    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_LENGTH_ROUND Is Nothing Then Exit Function
-    GetLengthDefaultDecimals = CLng(ARESConfig.ARES_LENGTH_ROUND.Value)
-    Exit Function
-
-ErrorHandler:
-    GetLengthDefaultDecimals = 2
-End Function
-
-' Default decimals for a bare Coord source = the existing rounding convention ARES_Round (2). Fail-closed
-' to 2 on any nil; lazy ARESConfig init like the other readers.
-Private Function GetCoordDefaultDecimals() As Long
-    On Error GoTo ErrorHandler
-
-    GetCoordDefaultDecimals = 2
-    If ARESConfig Is Nothing Then Exit Function
-    If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
-    If ARESConfig.ARES_ROUNDS Is Nothing Then Exit Function
-    GetCoordDefaultDecimals = CLng(ARESConfig.ARES_ROUNDS.Value)
-    Exit Function
-
-ErrorHandler:
-    GetCoordDefaultDecimals = 2
-End Function

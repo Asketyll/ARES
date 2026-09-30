@@ -1,9 +1,10 @@
 ' Module: Length
 ' Description: This module provides functions to calculate lengths of elements in MicroStation with silent error handling.
-' The module includes functions to determine the length of various element types, handle rounding logic,
-' NEVER USE Rnd = 255 in GetLength function! It is reserved for errors.
+' The module includes functions to determine the length of various element types.
+' Rounding is never read from the configuration here: a caller that wants a rounded length says how many
+' decimals, and one that omits the argument gets the raw measurement.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, ARESConfigClass, ARESConstants, LangManager, ErrorHandlerClass
+' Dependencies: LangManager, ErrorHandlerClass
 Option Explicit
 
 ' The geometries GetLength measures and a group scan treats as a cable: lines, arcs, shapes, complex shapes
@@ -22,26 +23,13 @@ ErrorHandler:
     IsLengthCapable = False
 End Function
 
-' Public function to get the length of an element
-Public Function GetLength(ByVal El As element, Optional RND As Variant, Optional RndLength As Boolean = True, Optional ErasRnd As Boolean = False) As Double
+' Public function to get the length of an element. RND omitted = the raw measurement, rounded to no
+' decimal count at all; pass one to round. There is no configured default any more - the caller decides.
+Public Function GetLength(ByVal El As element, Optional RND As Variant) As Double
     On Error GoTo ErrorHandler
     ' Determine the length based on the element type
     GetLength = GetElementLength(El)
-    ' Handle rounding if required
-    If RndLength Then
-        RND = HandleRounding(RND, ErasRnd)
-        If RND = ARES_RND_ERROR_VALUE Then
-            ShowStatus GetTranslation("LengthRoundError", ARES_RND_ERROR_VALUE)
-            GetLength = 0
-            Exit Function
-        End If
-        GetLength = RoundedLength(GetLength, CByte(RND))
-    ElseIf ErasRnd Then
-        If Not HandleRoundingForErase(RND) Then
-            GetLength = 0
-            Exit Function
-        End If
-    End If
+    If Not IsMissing(RND) Then GetLength = RoundedLength(GetLength, CByte(RND))
     Exit Function
 
 ErrorHandler:
@@ -76,48 +64,6 @@ ErrorHandler:
     ' Return 0 in case of an error
     GetElementLength = 0
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.GetElementLength"
-End Function
-
-' Private function to handle rounding logic
-Private Function HandleRounding(Optional RND As Variant, Optional ErasRnd As Boolean) As Variant
-    On Error GoTo ErrorHandler
-    ' Handle missing rounding value
-    If IsMissing(RND) Then
-        RND = GetRoundValue()
-    ElseIf ErasRnd And (VarType(RND) = vbByte Or VarType(RND) = vbInteger) Then
-        ' Set rounding value if erase rounding is true
-        If Not SetRound(CByte(RND)) Then
-            HandleRounding = ARES_RND_ERROR_VALUE
-            Exit Function
-        End If
-    End If
-    HandleRounding = RND
-    Exit Function
-
-ErrorHandler:
-    ' Return error value in case of an error
-    HandleRounding = ARES_RND_ERROR_VALUE
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.HandleRounding"
-End Function
-
-' Private function to handle rounding logic for erase
-Private Function HandleRoundingForErase(Optional RND As Variant) As Boolean
-    On Error GoTo ErrorHandler
-    HandleRoundingForErase = False
-    ' Set default rounding if Rnd is missing
-    If IsMissing(RND) Then
-        If Not ResetRound() Then Exit Function
-    ElseIf VarType(RND) = vbByte Or VarType(RND) = vbInteger Then
-        ' Set rounding value if Rnd is provided
-        If Not SetRound(CByte(RND)) Then Exit Function
-    End If
-    HandleRoundingForErase = True
-    Exit Function
-
-ErrorHandler:
-    ' Return False in case of an error
-    HandleRoundingForErase = False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.HandleRoundingForErase"
 End Function
 
 ' Private function to calculate the length of a complex shape element
@@ -277,58 +223,6 @@ ErrorHandler:
     ' Return 0 in case of an error
     RoundedLength = 0
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.RoundedLength"
-End Function
-
-' Private function to get the rounding value
-Private Function GetRoundValue() As Variant
-    On Error GoTo ErrorHandler
-    Dim roundValue As String
-    roundValue = ARESConfig.ARES_ROUNDS.Value
-    ' Handle empty rounding value - reset to default and read it back
-    If roundValue = "" Then
-        If ResetRound() Then
-            roundValue = ARESConfig.ARES_ROUNDS.defaultValue
-        Else
-            GetRoundValue = ARES_RND_ERROR_VALUE
-            Exit Function
-        End If
-    End If
-    GetRoundValue = CByte(roundValue)
-    Exit Function
-
-ErrorHandler:
-    ' Return error value in case of an error
-    GetRoundValue = ARES_RND_ERROR_VALUE
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.GetRoundValue"
-End Function
-
-' Public function to set the rounding configuration variable
-Public Function SetRound(RND As Byte) As Boolean
-    On Error GoTo ErrorHandler
-    If RND <> ARES_RND_ERROR_VALUE Then
-        SetRound = Config.SetVar(ARESConfig.ARES_ROUNDS.key, RND)
-    Else
-        ShowStatus GetTranslation("LengthRoundError", ARES_RND_ERROR_VALUE)
-    End If
-    Exit Function
-
-ErrorHandler:
-    ' Return False in case of an error
-    SetRound = False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.SetRound"
-End Function
-
-' Public function to reset the rounding configuration variable
-Public Function ResetRound() As Boolean
-    On Error GoTo ErrorHandler
-    ARESConfig.ResetConfigVar ARESConfig.ARES_ROUNDS.key
-    ResetRound = (ARESConfig.ARES_ROUNDS.Value = ARESConfig.ARES_ROUNDS.defaultValue)
-    Exit Function
-
-ErrorHandler:
-    ' Return False in case of an error
-    ResetRound = False
-    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Length.ResetRound"
 End Function
 
 ' ============================================================

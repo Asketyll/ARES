@@ -59,7 +59,7 @@ Public Sub RepairUncovered(ByRef Elements() As Element, _
 
     For i = LBound(Elements) To UBound(Elements)
         If Measurable(Elements(i)) Then
-            dTotal = Length.GetLength(Elements(i), RndLength:=False)
+            dTotal = Length.GetLength(Elements(i))
             If dTotal > dSlack Then
                 nTested = nTested + 1
                 dIn = Length.GetPartialLengthInsideZones(Elements(i), zones)
@@ -228,7 +228,7 @@ Private Sub TestAndBuffer(ByVal oPiece As Element, _
     Dim dIn    As Double
     Dim buf    As Element
 
-    dTotal = Length.GetLength(oPiece, RndLength:=False)
+    dTotal = Length.GetLength(oPiece)
     If dTotal <= dSlack Then Exit Sub
 
     dIn = Length.GetPartialLengthInsideZones(oPiece, zones)

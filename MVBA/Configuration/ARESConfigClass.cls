@@ -12,13 +12,6 @@ Private mbInitialized As Boolean
 '                                   USE CONFIG MODULE TO GET, SET AND REMOVE A VALUE
 '######################################################################################################################
 
-' Used in Length module for default rounding
-Public ARES_ROUNDS As ARES_MS_VAR_Class 'Default Value: 2  Range 0 to 254 (Byte -1)    #255 it reserved for error (ARES_RND_ERROR_VALUE)
-' Length-specific rounding, distinct from the general-purpose ARES_ROUNDS. Sole reader:
-' PropertyCalculation.GetLengthDefaultDecimals - the default decimals of the Length/GroupLength calc
-' sources. (It predates Property Calculation and was originally an Auto Lengths setting; it outlived that
-' feature's removal because the calc sources inherited the rounding convention.)
-Public ARES_LENGTH_ROUND As ARES_MS_VAR_Class 'Default Value: 1             Range 0 to 254 (Byte -1) #255 it reserved for error (ARES_RND_ERROR_VALUE)
 ' RETIRED, KEPT ON PURPOSE - no code reads these two any more (their last readers were StringsInEl's
 ' TRIGGER mode, which lost its callers with Auto Lengths). They survive as a DOCUMENTARY TRACE for the
 ' manual conversion of old-format drawings: they record the pattern a site used to mark an Auto Lengths
@@ -189,8 +182,6 @@ Private Function CreateConfigVariables() As Boolean
     CreateConfigVariables = False
 
     ' Create each configuration variable. Station = this machine's (never in a theme); business = what a theme carries.
-    Set ARES_ROUNDS = CreateConfigVar("ARES_Round", "2", ARESVarScopeBusiness)
-    Set ARES_LENGTH_ROUND = CreateConfigVar("ARES_Length_Round", "1", ARESVarScopeBusiness)
     Set ARES_LANGUAGE = CreateConfigVar("ARES_Language", "", ARESVarScopeStation)
     Set ARES_UPDATE_ATLASCELLLABEL = CreateConfigVar("ARES_Update_ATLASCellLabel", "True", ARESVarScopeBusiness)
     Set ARES_CELL_LIKE_LABEL = CreateConfigVar("ARES_Cell_Is_Label_Name", "ETI076|ETI01E|ETI01F|ETI01K|ETI01M|ETI01N|ETI01O", ARESVarScopeBusiness)

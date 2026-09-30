@@ -30,10 +30,10 @@ Private Const BRK_OPEN As String = "["
 Private Const BRK_CLOSE As String = "]"
 Private Const PROP_KEYWORD As String = "PROP"
 ' Upper bound accepted for Coord[n]/Length[n]/GroupLength[n] decimal counts (syntactic; runtime formatting
-' clamps to a sane max). Also within Length.GetLength's Byte RND range (255 is its reserved error sentinel).
+' clamps to a sane max). Also within the Byte range Length.GetLength's RND argument takes.
 Private Const SOURCE_MAX_DECIMALS As Long = 254
-' Coord/GroupCellCoord's SECOND, optional bracket group ([system,decimals]) - separator between the two options
-' inside that one group. The system name itself is NOT a fixed constant: any name MicroStation's own
+' Separator inside a geo-output options group ([system,decimals]) - GroupCellCoord's second bracket group,
+' or Coord's single one. The system name itself is NOT a fixed constant: any name MicroStation's own
 ' GeographicCoordinateSystem library recognises is accepted syntactically here (see ParseGeoOptions) - only
 ' resolved (Application.CreateGCSFromKeyName) at evaluation time, in Module B (SourceEval).
 Private Const GEO_OPTS_SEPARATOR As String = ","
@@ -67,18 +67,23 @@ Public Enum CalcSource
 End Enum
 
 ' One parsed calc rule: Prop[TargetProp] [& conditions]* = Source. Conditions() (RuleGrammar.RuleCondition)
-' is bounded by nCond. SourceArg holds the pattern (GroupCellText/GroupCellCoord/GroupCellId), the fixed text (Value), the
-' decimals string (Coord[n]) - empty for Id and bare Coord. SourceSystem/SourceGeoDecimals are the
-' geo-output extension on Coord/GroupCellCoord ONLY (see calc-rules-grammar.md's split-coordinate/geo-output
-' sections): "" SourceSystem = native DGN coordinates (unchanged behaviour); otherwise SourceSystem holds
-' the REQUESTED output system's name VERBATIM (e.g. "WGS84", "EPSG:4171", any MicroStation
-' GeographicCoordinateSystem key name - not restricted to a fixed list; resolved via
-' Application.CreateGCSFromKeyName only at evaluation time), with SourceGeoDecimals either "" (full
-' precision, no rounding - deliberately NOT the same as SourceArg's/GetCoordDefaultDecimals()'s
-' "omitted = default rounding" convention) or an explicit decimal count. SourceGeoDecimals exists as its
-' OWN field (not reusing SourceArg) because GroupCellCoord's SourceArg is already the pattern - there is nowhere
-' else to put it. Public: Module B (SourceEval) and Module C (TriggerPush) receive/return it across the
-' module boundary.
+' is bounded by nCond. SourceArg holds the pattern (GroupCellText/GroupCellCoord/GroupCellId), the fixed
+' text (Value), or the decimals of Coord[n]/Length[n]/GroupLength[n] - empty for the no-argument sources.
+'
+' A MEASURED source must state its decimals: Coord, Length, GroupLength and GroupCellCoord are all refused
+' without them. There is no configured fallback any more (ARES_Round and ARES_Length_Round are gone), so a
+' rule reads the same on every station.
+'
+' SourceSystem/SourceDecimals carry the SECOND bracket group of GroupCellCoord, and the non-integer form of
+' Coord's single group (see calc-rules-grammar.md). SourceSystem tells the two apart:
+'   ""  = native DGN coordinates, SourceDecimals holding GroupCellCoord's mandatory decimal count;
+'   else the REQUESTED output system's name VERBATIM ("LL84", "EPSG:4171", any MicroStation
+'   GeographicCoordinateSystem key name - not a fixed list, resolved via Application.CreateGCSFromKeyName
+'   at evaluation time only), with SourceDecimals either "" (full precision - the geo output's own
+'   convention, which no config default ever fed) or an explicit count.
+' SourceDecimals is its own field rather than SourceArg because GroupCellCoord's SourceArg is already the
+' pattern. Public: Module B (SourceEval) and Module C (TriggerPush) receive/return it across the module
+' boundary.
 Public Type CalcRuleInfo
     TargetProp As String
     Conditions() As RuleGrammar.RuleCondition
@@ -86,7 +91,7 @@ Public Type CalcRuleInfo
     SourceKind As CalcSource
     SourceArg As String
     SourceSystem As String
-    SourceGeoDecimals As String
+    SourceDecimals As String
 End Type
 
 Private mCalcRules() As CalcRuleInfo
@@ -436,7 +441,7 @@ Private Function ParseCalcRule(ByVal sInput As String, ByRef r As CalcRuleInfo) 
     r.SourceKind = csCellText
     r.SourceArg = ""
     r.SourceSystem = ""
-    r.SourceGeoDecimals = ""
+    r.SourceDecimals = ""
 
     Dim s As String
     s = Trim(sInput)
@@ -635,12 +640,12 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             Exit Function
         End If
 
-        ' Only GroupCellCoord may carry a SECOND bracket group right after the first (the geo-output options
-        ' group, e.g. "[pattern][WGS84,6]" or "[pattern][EPSG:4171]") - its first group is always the
-        ' mandatory pattern, so the options need a group of their own. Coord has NO mandatory first group,
-        ' so its own geo-output options (if any) are classified INSIDE its single existing optional group
-        ' instead (see the "COORD" case below) - it never gets a second group. Every other keyword keeps
-        ' today's strict "nothing after the first ']'" rule unchanged (see calc-rules-grammar.md's
+        ' Only GroupCellCoord may carry a SECOND bracket group right after the first, and for it that group
+        ' is MANDATORY: "[pattern][3]" for native output with 3 decimals, or "[pattern][WGS84,6]" /
+        ' "[pattern][EPSG:4171]" for geo output. Its first group is always the pattern, so neither the
+        ' decimals nor the geo options fit there. Coord has NO mandatory first group, so both live INSIDE
+        ' its single group instead (see the "COORD" case below) - it never gets a second group. Every other
+        ' keyword keeps the strict "nothing after the first ']'" rule (see calc-rules-grammar.md's
         ' split-coordinate/geo-output sections).
         Dim sAfterFirst As String
         sAfterFirst = Mid(src, nClose + 1)
@@ -696,9 +701,20 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
             End If
             r.SourceKind = csCellCoord
             r.SourceArg = pat
-            If bHasArg2 Then
+            ' Second group, MANDATORY since the rounding config vars were removed: a bare integer means
+            ' native coordinates with that many decimals, anything else is the geo-output grammar, which
+            ' states its own precision. Same integer-first test as Coord's single group.
+            If Not bHasArg2 Then
+                ParseSource = "GroupCellCoord[pattern] needs a second group: [n] decimals, or a coordinate system"
+                Exit Function
+            End If
+            Dim sArg2CC As String
+            sArg2CC = Trim(arg2)
+            If IsNonNegIntInRange(sArg2CC, 0, SOURCE_MAX_DECIMALS) Then
+                r.SourceDecimals = sArg2CC
+            Else
                 Dim sGeoReasonCC As String
-                If Not ParseGeoOptions("GroupCellCoord", arg2, r.SourceSystem, r.SourceGeoDecimals, sGeoReasonCC) Then
+                If Not ParseGeoOptions("GroupCellCoord", arg2, r.SourceSystem, r.SourceDecimals, sGeoReasonCC) Then
                     ParseSource = sGeoReasonCC
                     Exit Function
                 End If
@@ -773,19 +789,21 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
         Case "COORD"
             r.SourceKind = csCoord
             r.SourceArg = ""
-            If bHasArg Then
-                Dim sN As String
-                sN = Trim(arg)
-                If IsNonNegIntInRange(sN, 0, SOURCE_MAX_DECIMALS) Then
-                    r.SourceArg = sN                ' legacy Coord[n] - unchanged, native decimals
-                Else
-                    ' Not a bare integer -> try the geo-output options grammar in this SAME single group
-                    ' (Coord never gets a 2nd bracket group - see the pre-dispatch comment above).
-                    Dim sGeoReasonC As String
-                    If Not ParseGeoOptions("Coord", arg, r.SourceSystem, r.SourceGeoDecimals, sGeoReasonC) Then
-                        ParseSource = sGeoReasonC
-                        Exit Function
-                    End If
+            If Not bHasArg Then
+                ParseSource = "Coord needs [n] decimals, or a coordinate system"
+                Exit Function
+            End If
+            Dim sN As String
+            sN = Trim(arg)
+            If IsNonNegIntInRange(sN, 0, SOURCE_MAX_DECIMALS) Then
+                r.SourceArg = sN                    ' Coord[n] - native decimals
+            Else
+                ' Not a bare integer -> try the geo-output options grammar in this SAME single group
+                ' (Coord never gets a 2nd bracket group - see the pre-dispatch comment above).
+                Dim sGeoReasonC As String
+                If Not ParseGeoOptions("Coord", arg, r.SourceSystem, r.SourceDecimals, sGeoReasonC) Then
+                    ParseSource = sGeoReasonC
+                    Exit Function
                 End If
             End If
         Case "ID"
@@ -840,27 +858,31 @@ Private Function ParseSource(ByVal sRight As String, ByRef r As CalcRuleInfo) As
         Case "LENGTH"
             r.SourceKind = csLength
             r.SourceArg = ""
-            If bHasArg Then
-                Dim sNLen As String
-                sNLen = Trim(arg)
-                If Not IsNonNegIntInRange(sNLen, 0, SOURCE_MAX_DECIMALS) Then
-                    ParseSource = "Length[n] needs an integer decimal count"
-                    Exit Function
-                End If
-                r.SourceArg = sNLen
+            If Not bHasArg Then
+                ParseSource = "Length needs [n] decimals"
+                Exit Function
             End If
+            Dim sNLen As String
+            sNLen = Trim(arg)
+            If Not IsNonNegIntInRange(sNLen, 0, SOURCE_MAX_DECIMALS) Then
+                ParseSource = "Length[n] needs an integer decimal count"
+                Exit Function
+            End If
+            r.SourceArg = sNLen
         Case "GROUPLENGTH"
             r.SourceKind = csGroupLength
             r.SourceArg = ""
-            If bHasArg Then
-                Dim sNGrp As String
-                sNGrp = Trim(arg)
-                If Not IsNonNegIntInRange(sNGrp, 0, SOURCE_MAX_DECIMALS) Then
-                    ParseSource = "GroupLength[n] needs an integer decimal count"
-                    Exit Function
-                End If
-                r.SourceArg = sNGrp
+            If Not bHasArg Then
+                ParseSource = "GroupLength needs [n] decimals"
+                Exit Function
             End If
+            Dim sNGrp As String
+            sNGrp = Trim(arg)
+            If Not IsNonNegIntInRange(sNGrp, 0, SOURCE_MAX_DECIMALS) Then
+                ParseSource = "GroupLength[n] needs an integer decimal count"
+                Exit Function
+            End If
+            r.SourceArg = sNGrp
         Case Else
             If Len(kw) = 0 Then
                 ParseSource = "empty source (expected GroupCellText/GroupCellCoord/GroupCellId/GroupCellLvl/GroupCellColor/GroupCellStyle/GroupCellWeight/GroupLvlColor/GroupLvlStyle/GroupLvlWeight/GroupColor/GroupProp/Value/Coord/Id/Lvl/Color/Style/Weight/Length/GroupLength)"
@@ -900,8 +922,9 @@ End Function
 ' group ("[]", or a leading/trailing empty token like "WGS84,"), is rejected - mirrors Value[]'s "empty ...
 ' invalid" refusal. Whether the system name actually resolves is checked ONLY at evaluation time
 ' (Application.CreateGCSFromKeyName, a COM lookup) - this function is syntax only. outDecimals "" (no
-' decimals token supplied) means FULL PRECISION at evaluation time - deliberately NOT the same
-' "omitted = default rounding" convention as Coord[n]/Length[n]/GroupLength[n] (see
+' decimals token supplied) means FULL PRECISION at evaluation time. That is the geo output's OWN
+' convention and the one place decimals may still be omitted: the native Coord[n] / Length[n] /
+' GroupLength[n] / GroupCellCoord[pattern][n] forms all require theirs (see
 ' PropertyCalculation_SourceEval.FormatGeoPoint).
 Private Function ParseGeoOptions(ByVal sKeyword As String, ByVal sOpts As String, ByRef outSystem As String, ByRef outDecimals As String, ByRef sReason As String) As Boolean
     ParseGeoOptions = False
@@ -992,16 +1015,19 @@ Private Function CalcRuleToCanonical(ByRef r As CalcRuleInfo) As String
     CalcRuleToCanonical = sOut
 End Function
 
-' Canonical text of a rule's Source (keyword canonical, arg verbatim). Bracketed-arg kinds (GroupCell* and the
-' optional-decimals Coord/Length/GroupLength) share one bracket-wrap helper.
+' Canonical text of a rule's Source (keyword canonical, arg verbatim). Bracketed-arg kinds (GroupCell* and
+' the now mandatory-decimals Coord/Length/GroupLength) share one bracket-wrap helper.
 Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
     Select Case r.SourceKind
         Case csCellText
             SourceToCanonical = "GroupCellText" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csCellCoord
+            ' The second group is always written back: the geo options, or the mandatory decimal count.
             SourceToCanonical = "GroupCellCoord" & BRK_OPEN & r.SourceArg & BRK_CLOSE
             If Len(r.SourceSystem) > 0 Then
                 SourceToCanonical = SourceToCanonical & BRK_OPEN & GeoOptionsToCanonical(r) & BRK_CLOSE
+            Else
+                SourceToCanonical = SourceToCanonical & BRK_OPEN & r.SourceDecimals & BRK_CLOSE
             End If
         Case csCellId
             SourceToCanonical = "GroupCellId" & BRK_OPEN & r.SourceArg & BRK_CLOSE
@@ -1025,7 +1051,7 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
             If Len(r.SourceSystem) > 0 Then
                 SourceToCanonical = "Coord" & BRK_OPEN & GeoOptionsToCanonical(r) & BRK_CLOSE
             Else
-                SourceToCanonical = OptionalArgKeywordToCanonical("Coord", r.SourceArg)
+                SourceToCanonical = DecimalsKeywordToCanonical("Coord", r.SourceArg)
             End If
         Case csId
             SourceToCanonical = "Id"
@@ -1042,32 +1068,32 @@ Private Function SourceToCanonical(ByRef r As CalcRuleInfo) As String
         Case csGroupProp
             SourceToCanonical = "GroupProp" & BRK_OPEN & r.SourceArg & BRK_CLOSE
         Case csLength
-            SourceToCanonical = OptionalArgKeywordToCanonical("Length", r.SourceArg)
+            SourceToCanonical = DecimalsKeywordToCanonical("Length", r.SourceArg)
         Case csGroupLength
-            SourceToCanonical = OptionalArgKeywordToCanonical("GroupLength", r.SourceArg)
+            SourceToCanonical = DecimalsKeywordToCanonical("GroupLength", r.SourceArg)
         Case Else
             SourceToCanonical = ""
     End Select
 End Function
 
-' sKeyword bare, or sKeyword[arg] when arg is non-empty - shared by Coord/Length/GroupLength (all take an
-' OPTIONAL decimals arg, unlike the mandatory-pattern GroupCell* sources).
-Private Function OptionalArgKeywordToCanonical(ByVal sKeyword As String, ByVal sArg As String) As String
+' sKeyword[arg] for the native Coord/Length/GroupLength decimals. The parser now refuses all three without
+' one, so the bare form is only a guard against a rule reaching here half-built - never a valid output.
+Private Function DecimalsKeywordToCanonical(ByVal sKeyword As String, ByVal sArg As String) As String
     If Len(sArg) > 0 Then
-        OptionalArgKeywordToCanonical = sKeyword & BRK_OPEN & sArg & BRK_CLOSE
+        DecimalsKeywordToCanonical = sKeyword & BRK_OPEN & sArg & BRK_CLOSE
     Else
-        OptionalArgKeywordToCanonical = sKeyword
+        DecimalsKeywordToCanonical = sKeyword
     End If
 End Function
 
 ' Canonical content of a Coord/GroupCellCoord geo-output options group ("WGS84" or "WGS84,n", or any other
 ' requested system name) - the r.SourceSystem side is mandatory when this is called (ParseGeoOptions never
-' leaves it empty on success), r.SourceGeoDecimals
+' leaves it empty on success), r.SourceDecimals
 ' is appended only when a decimal count was given (omitted = full precision, see the type's own comment).
 Private Function GeoOptionsToCanonical(ByRef r As CalcRuleInfo) As String
     GeoOptionsToCanonical = r.SourceSystem
-    If Len(r.SourceGeoDecimals) > 0 Then
-        GeoOptionsToCanonical = GeoOptionsToCanonical & GEO_OPTS_SEPARATOR & r.SourceGeoDecimals
+    If Len(r.SourceDecimals) > 0 Then
+        GeoOptionsToCanonical = GeoOptionsToCanonical & GEO_OPTS_SEPARATOR & r.SourceDecimals
     End If
 End Function
 

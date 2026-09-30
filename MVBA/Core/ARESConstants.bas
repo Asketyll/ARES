@@ -27,8 +27,8 @@ Public Const ARES_VAR_DELIMITER As String = "|"
 Public Const ARES_NAVD As String = "NaVD"
 
 ' === ROUNDING ERROR CONSTANTS ===
-' Reserved sentinel for all rounding config variables (ARES_ROUNDS, ARES_LENGTH_ROUND, ARES_ZONE_EXPORT_ROUND)
-' Used in Length module and ExportLengthInRegion module
+' Reserved sentinel for the rounding config variables (ARES_ZONE_EXPORT_ROUND, ARES_CABLEREPORT_ROUND)
+' Used in ExportLengthInRegion and CableReport, which fall back to the variable's default on it
 Public Const ARES_RND_ERROR_VALUE As Byte = 255
 
 ' === CELL CONSTANTS ===

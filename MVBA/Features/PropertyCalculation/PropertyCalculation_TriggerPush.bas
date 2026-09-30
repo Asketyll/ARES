@@ -67,15 +67,16 @@ Public Sub PushCellDerivedValuesToMembers(ByVal oCell As element)
                             If PropertyCalculation.FindCalcRuleForProperty(P, m) = ri Then
                                 kIdx = CLng(rule.SourceKind)
                                 Dim sPushVal As String
-                                If Len(rule.SourceSystem) > 0 Then
-                                    ' A geo-output GroupCellCoord rule (any requested system, or in principle any future rule carrying
-                                    ' its own extra params) - the kIdx-only cache assumes "same SourceKind
-                                    ' -> same value", which no longer holds once GroupCellCoord rules can differ
-                                    ' by SourceSystem/SourceGeoDecimals (see the WGS84 plan's §3.1). Bypass
-                                    ' the shared cache entirely for this case and re-read every time;
-                                    ' correctness over the cache's micro-optimisation, and this only runs on
-                                    ' an actual trigger-cell edit, never a bulk hot path.
-                                    sPushVal = PropertyCalculation_SourceEval.ReadCellSourceValue(oCell, rule.SourceKind, rule.SourceSystem, rule.SourceGeoDecimals)
+                                If Len(rule.SourceSystem) > 0 Or Len(rule.SourceDecimals) > 0 Then
+                                    ' A rule carrying its own output params - in practice every GroupCellCoord,
+                                    ' since its second bracket group is mandatory: a coordinate system, or the
+                                    ' decimal count. The kIdx-only cache assumes "same SourceKind -> same
+                                    ' value", which does not hold once two rules on the same kind differ by
+                                    ' SourceSystem/SourceDecimals (see the WGS84 plan's §3.1). Bypass the
+                                    ' shared cache entirely here and re-read every time; correctness over the
+                                    ' cache's micro-optimisation, and this only runs on an actual trigger-cell
+                                    ' edit, never a bulk hot path. The paramless GroupCell* kinds still cache.
+                                    sPushVal = PropertyCalculation_SourceEval.ReadCellSourceValue(oCell, rule.SourceKind, rule.SourceSystem, rule.SourceDecimals)
                                 Else
                                     If Not cacheReady(kIdx) Then
                                         cacheVal(kIdx) = PropertyCalculation_SourceEval.ReadCellSourceValue(oCell, rule.SourceKind)

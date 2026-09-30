@@ -915,7 +915,7 @@ Private Function IsSound(ByVal oShape As Element, ByVal oSrc As Element, ByVal D
     dArea = Zoning.AreaOf(oShape)
     If dArea <= 0 Or dArea > 1E+29 Then Why "no usable area": Exit Function
 
-    dTotal = Length.GetLength(oSrc, RndLength:=False)
+    dTotal = Length.GetLength(oSrc)
     If dTotal <= 0 Then IsSound = True: Exit Function
 
     Set zones(0) = oShape

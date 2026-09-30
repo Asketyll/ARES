@@ -305,14 +305,14 @@ Private Function ARES_VARTest() As Boolean
     ' Test 4.2: Get config variable
     TotalTests = TotalTests + 1
     Dim ConfigVar As ARES_MS_VAR_Class
-    Set ConfigVar = TestConfig.GetConfigVar("ARES_Round")
+    Set ConfigVar = TestConfig.GetConfigVar("ARES_Zone_Export_Round")
     If Not ConfigVar Is Nothing Then
         TestsPassed = TestsPassed + 1
     End If
     
     ' Test 4.3: Reset config variable
     TotalTests = TotalTests + 1
-    If TestConfig.ResetConfigVar("ARES_Round") Then
+    If TestConfig.ResetConfigVar("ARES_Zone_Export_Round") Then
         TestsPassed = TestsPassed + 1
     End If
     
@@ -652,53 +652,26 @@ Private Function LengthTest() As Boolean
         ARESConfig.Initialize
     End If
     
-    ' Test 8.1: Basic length calculation
+    ' Test 8.1: No decimals argument = the raw measurement. The strict bounds are the assertion: an
+    ' omitted argument must not round, and there is no configured default left to round it for us.
     TotalTests = TotalTests + 1
-    Dim CalculatedLength As Double
-    CalculatedLength = Length.GetLength(TestElement, , True, False)
-    ' Line from (0,0,0) to (200,200,0) should have length = sqrt(200² + 200²) ˜ 282.84
-    If CalculatedLength > 280 And CalculatedLength < 285 Then
+    Dim UnroundedLength As Double
+    UnroundedLength = Length.GetLength(TestElement)
+    ' Line from (0,0,0) to (200,200,0): length = sqrt(200² + 200²) ˜ 282.8427
+    If UnroundedLength > 282.84 And UnroundedLength < 282.85 Then
         TestsPassed = TestsPassed + 1
     End If
-    
+
     ' Test 8.2: Length with rounding
     TotalTests = TotalTests + 1
     Dim RoundedLength As Double
-    RoundedLength = Length.GetLength(TestElement, 1, True, False)
+    RoundedLength = Length.GetLength(TestElement, 1)
     ' Should be rounded to 1 decimal place
     If RoundedLength > 282# And RoundedLength < 283# Then
         TestsPassed = TestsPassed + 1
     End If
-    
-    ' Test 8.3: Length without rounding
-    TotalTests = TotalTests + 1
-    Dim UnroundedLength As Double
-    UnroundedLength = Length.GetLength(TestElement, , False, False)
-    If UnroundedLength > 282.84 And UnroundedLength < 282.85 Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 8.4: SetRound function
-    TotalTests = TotalTests + 1
-    If Length.SetRound(3) Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 8.5: ResetRound function
-    TotalTests = TotalTests + 1
-    If Length.ResetRound() Then
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 8.6: Error handling with invalid rounding
-    TotalTests = TotalTests + 1
-    Dim ErrorLength As Double
-    ErrorLength = Length.GetLength(TestElement, 255, True, False) ' 255 is reserved error value
-    If ErrorLength = 0 Then ' Should return 0 on error
-        TestsPassed = TestsPassed + 1
-    End If
-    
-    ' Test 8.7: Create additional element types for testing
+
+    ' Test 8.3: Create additional element types for testing
     Dim TestArc As ArcElement
     Dim ArcCenter As Point3d
     Dim StartAngle As Double, SweepAngle As Double
@@ -737,19 +710,17 @@ Private Function LengthTest() As Boolean
     ActiveModelReference.AddElement TestShape
     If Length.GetLength(TestShape) > 0 Then TestsPassed = TestsPassed + 1
 
-    ' --- Decimals argument, also relocated. The original set and restored ARES_Length_Round around these
-    '     calls, but passed the rounding EXPLICITLY as the second argument, so the config never drove the
-    '     assertions - the manipulation was decorative and is deliberately NOT carried over.
-    '     NOTE: ARES_Length_Round's real consumer is PropertyCalculation.GetLengthDefaultDecimals, and it
-    '     has NO test anywhere. Do not read this block as covering that variable. ---
+    ' --- Decimals argument: 0 gives a whole number, 2 does not. Since the rounding config vars were
+    '     removed the argument is the ONLY source of decimals, so these two calls now cover the whole
+    '     mechanism rather than one half of it. ---
     TotalTests = TotalTests + 1
     Dim Length0 As Double
-    Length0 = Length.GetLength(TestElement, 0, True)
+    Length0 = Length.GetLength(TestElement, 0)
     If Length0 = Int(Length0) Then TestsPassed = TestsPassed + 1
 
     TotalTests = TotalTests + 1
     Dim Length2 As Double
-    Length2 = Length.GetLength(TestElement, 2, True)
+    Length2 = Length.GetLength(TestElement, 2)
     If Length2 <> Int(Length2) Then TestsPassed = TestsPassed + 1
 
     LengthTest = (TestsPassed = TotalTests)
@@ -1102,10 +1073,10 @@ Private Function ConfigExportImportTest() As Boolean
     ' Test 16.4: Modify a configuration value
     TotalTests = TotalTests + 1
     Dim OriginalValue As String
-    OriginalValue = TestConfig.ARES_ROUNDS.Value
-    TestConfig.ARES_ROUNDS.Value = "99"
-    Config.SetVar "ARES_Round", "99"
-    If TestConfig.ARES_ROUNDS.Value = "99" Then
+    OriginalValue = TestConfig.ARES_ZONE_EXPORT_ROUND.Value
+    TestConfig.ARES_ZONE_EXPORT_ROUND.Value = "99"
+    Config.SetVar "ARES_Zone_Export_Round", "99"
+    If TestConfig.ARES_ZONE_EXPORT_ROUND.Value = "99" Then
         TestsPassed = TestsPassed + 1
     End If
     
@@ -1117,7 +1088,7 @@ Private Function ConfigExportImportTest() As Boolean
     
     ' Test 16.6: Verify import restored original value
     TotalTests = TotalTests + 1
-    If TestConfig.ARES_ROUNDS.Value = OriginalValue Then
+    If TestConfig.ARES_ZONE_EXPORT_ROUND.Value = OriginalValue Then
         TestsPassed = TestsPassed + 1
     End If
     
@@ -1284,7 +1255,7 @@ Private Function PropertyCalculationTest() As Boolean
     '     3150,75) and point-string (Range centre 5050,50) assert the REAL anchor's X-substring so a
     '     fabricated "0;0" (the m1 fault fallback) would FAIL - the point-string isolates the pure Range-
     '     centre seed (no specific anchor). The line stays tolerant on its exact Origin. ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[XY]=Coord"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[XY]=Coord[2]"
     PropertyCalculation.RefreshCalcRules
     Dim cCoord As element
     Set cCoord = CreateCalculationTestCell("XYCELL", 0, "t", Point3dFromXYZ(2800, 30, 0))
@@ -1298,7 +1269,7 @@ Private Function PropertyCalculationTest() As Boolean
     TotalTests = TotalTests + 1
     If RVContains("XY", lCoord, ";") Then TestsPassed = TestsPassed + 1
 
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[XY]=Coord"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[XY]=Coord[2]"
     PropertyCalculation.RefreshCalcRules
     Dim shCoord As element
     Set shCoord = CreateCalculationTestShape(0, 3100, 50)
@@ -1317,7 +1288,7 @@ Private Function PropertyCalculationTest() As Boolean
     '     position instead of the tagging cell's). Also exercises the "|" alternation (same
     '     ARES_VAR_DELIMITER grammar as a tag/calc CONDITION's Cell[name|name|...]) - the cell name (SP012)
     '     matches the SECOND alternative only. Cell at (6000,10); grouped line elsewhere at (6100,90). ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=GroupCellCoord[ASUF*|SP0*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=GroupCellCoord[ASUF*|SP0*][2]"
     PropertyCalculation.RefreshCalcRules
     Dim cCC As element, lCC As element
     Set cCC = CreateCalculationTestCell("SP012", 7430, "t", Point3dFromXYZ(6000, 10, 0))
@@ -1345,7 +1316,7 @@ Private Function PropertyCalculationTest() As Boolean
     ' --- IsTriggerCell extended: a cell matching a GroupCellCoord pattern IS a trigger (so a MOVED cell gets its
     '     new coordinates pushed); one matching ONLY a GroupCellId pattern is NOT (an ID never changes, no push
     '     is ever needed) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=GroupCellCoord[ASUF*] ; Prop[TagRef]=GroupCellId[BOIS*]"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Coordonnee]=GroupCellCoord[ASUF*][2] ; Prop[TagRef]=GroupCellId[BOIS*]"
     PropertyCalculation.RefreshCalcRules
     Dim cCoordTrig As element, cIdOnly As element
     Set cCoordTrig = CreateCalculationTestCell("ASUF7", 7432, "t", Point3dFromXYZ(6700, 0, 0))
@@ -1535,14 +1506,14 @@ Private Function PropertyCalculationTest() As Boolean
     '     ElementChangeHandler Branch-2 re-queue gate, mirroring HasGroupLengthRules) ---
     TotalTests = TotalTests + 1
     If PropertyCalculation.HasGroupColorRules Then TestsPassed = TestsPassed + 1
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length[1]"
     PropertyCalculation.RefreshCalcRules
     TotalTests = TotalTests + 1
     If Not PropertyCalculation.HasGroupColorRules Then TestsPassed = TestsPassed + 1
 
     ' --- Length: SELF source, ONLY when the bearing element is itself length-capable (a 100-unit line);
     '     "" (never a fabricated 0) on a non-length-capable bearing element (a cell) ---
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length[1]"
     PropertyCalculation.RefreshCalcRules
     Dim lLen As element
     Set lLen = CreateGroupedTestLine(0, Point3dFromXYZ(7600, 0, 0), Point3dFromXYZ(7700, 0, 0))
@@ -1611,7 +1582,7 @@ Private Function PropertyCalculationTest() As Boolean
     '     ElementChangeHandler Branch-2 re-queue gate independently of ARES_Update_Lengths) ---
     TotalTests = TotalTests + 1
     If PropertyCalculation.HasGroupLengthRules Then TestsPassed = TestsPassed + 1
-    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length"
+    ARESConfig.ARES_CALC_RULES.Value = "Prop[Len]=Length[1]"
     PropertyCalculation.RefreshCalcRules
     TotalTests = TotalTests + 1
     If Not PropertyCalculation.HasGroupLengthRules Then TestsPassed = TestsPassed + 1
@@ -1766,20 +1737,22 @@ Private Function CalcRuleValidationTest() As Boolean
     ' --- Valid rules: reason "" AND the expected canonical form (matrix #1-9, #20) ---
     TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=GroupCellText[ETI*]", "Prop[Repere]=GroupCellText[ETI*]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[Coupe]=Value[Type-A]", "Prop[Coupe]=Value[Type-A]") Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If CNorm("Prop[XY]=Coord", "Prop[XY]=Coord") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[XY]=Coord[3]", "Prop[XY]=Coord[3]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[XY]=GroupCellCoord[ETI*][3]", "Prop[XY]=GroupCellCoord[ETI*][3]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[L]=Length[0]", "Prop[L]=Length[0]") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[L]=GroupLength[1]", "Prop[L]=GroupLength[1]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[Ref]=Id", "Prop[Ref]=Id") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[Repere]&Cell[ETIREF]=Value[REF]", "Prop[Repere]&Cell[ETIREF]=Value[REF]") Then TestsPassed = TestsPassed + 1
-    TotalTests = TotalTests + 1: If CNorm("Prop[XY]&Type[Line]=Coord", "Prop[XY]&Type[Line]=Coord") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("Prop[XY]&Type[Line]=Coord[2]", "Prop[XY]&Type[Line]=Coord[2]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[Repere]=GroupCellText[ETI0?6]", "Prop[Repere]=GroupCellText[ETI0?6]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("Prop[X]=Value[a|b]", "Prop[X]=Value[a|b]") Then TestsPassed = TestsPassed + 1
     ' Keyword casing canonicalises; the condition type NAME stays VERBATIM ("line", not "Line") - reusing
     ' RuleGrammar.ConditionToCanonical, which keeps names verbatim (matrix #8's "Type[Line]" is a typo).
-    TotalTests = TotalTests + 1: If CNorm("prop[xy]&type[line]=coord", "Prop[xy]&Type[line]=Coord") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("prop[xy]&type[line]=coord[2]", "Prop[xy]&Type[line]=Coord[2]") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("PROP[x]=ID", "Prop[x]=Id") Then TestsPassed = TestsPassed + 1
     TotalTests = TotalTests + 1: If CNorm("prop[x]=groupcellTEXT[ETI*]", "Prop[x]=GroupCellText[ETI*]") Then TestsPassed = TestsPassed + 1
     ' Normalisation collapses spare spaces around "&" and "="
-    TotalTests = TotalTests + 1: If CNorm("  Prop[XY]  &  Type[Line]  =  Coord  ", "Prop[XY]&Type[Line]=Coord") Then TestsPassed = TestsPassed + 1
+    TotalTests = TotalTests + 1: If CNorm("  Prop[XY]  &  Type[Line]  =  Coord[2]  ", "Prop[XY]&Type[Line]=Coord[2]") Then TestsPassed = TestsPassed + 1
     ' Empty rule -> "" reason with empty canonical (the caller deletes)
     TotalTests = TotalTests + 1
     canon = "sentinel"
@@ -1801,6 +1774,13 @@ Private Function CalcRuleValidationTest() As Boolean
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Value") Then TestsPassed = TestsPassed + 1              ' Value with no [text]
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Id[5]") Then TestsPassed = TestsPassed + 1              ' Id takes no argument
     TotalTests = TotalTests + 1: If CReject("Prop[X]=Coord[x]") Then TestsPassed = TestsPassed + 1           ' Coord[n] non-integer
+    ' Mandatory decimals: the rounding config vars are gone, so a measured source with no [n] has no
+    ' fallback left and is refused rather than silently rounded to whatever the station was set to.
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=Coord") Then TestsPassed = TestsPassed + 1              ' Coord with no decimals
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=Length") Then TestsPassed = TestsPassed + 1             ' Length with no decimals
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=GroupLength") Then TestsPassed = TestsPassed + 1        ' GroupLength with no decimals
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=GroupCellCoord[ETI*]") Then TestsPassed = TestsPassed + 1   ' no 2nd group at all
+    TotalTests = TotalTests + 1: If CReject("Prop[X]=GroupCellCoord[ETI*][]") Then TestsPassed = TestsPassed + 1 ' empty 2nd group
     TotalTests = TotalTests + 1: If CReject("Prop[A;B]=Value[a]") Then TestsPassed = TestsPassed + 1         ' ";" inside Prop[...]
 
     ' --- Contradiction detector (conditions only; the Prop target is ignored) ---
@@ -3696,7 +3676,7 @@ Private Function ConfigThemesTest() As Boolean
     Open sPath For Output As #FileNum
     Print #FileNum, "# ARES Configuration Export"
     Print #FileNum, "# Version: 0.9"
-    Print #FileNum, "ARES_Round=3:::DEFAULT=2:::MODIFIED=True"
+    Print #FileNum, "ARES_Zone_Export_Round=3:::DEFAULT=2:::MODIFIED=True"
     Print #FileNum, "ARES_Calc_Rules=Prop[X]=Value[1]"
     Print #FileNum, "ARES_Language=English"
     Print #FileNum, "ARES_Not_A_Variable=1"
@@ -3717,7 +3697,7 @@ Private Function ConfigThemesTest() As Boolean
     End If
     TotalTests = TotalTests + 1
     If nLines = 3 Then
-        If sKeys(0) = "ARES_Round" And sValues(0) = "3" Then TestsPassed = TestsPassed + 1
+        If sKeys(0) = "ARES_Zone_Export_Round" And sValues(0) = "3" Then TestsPassed = TestsPassed + 1
     End If
 
     ' A theme load leaves a station line alone: the business line holds its current value (no write), and the
@@ -3727,7 +3707,7 @@ Private Function ConfigThemesTest() As Boolean
     If sProbe = sSavedStation Then sProbe = sProbe & "2"
     FileNum = FreeFile
     Open sPath For Output As #FileNum
-    Print #FileNum, "ARES_Round=" & ARESConfig.ARES_ROUNDS.value
+    Print #FileNum, "ARES_Zone_Export_Round=" & ARESConfig.ARES_ZONE_EXPORT_ROUND.value
     Print #FileNum, "ARES_Update_Ignore_Version=" & sProbe
     Close #FileNum
     FileNum = 0
