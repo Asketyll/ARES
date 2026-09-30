@@ -492,14 +492,41 @@ Private Function ErrorHandlerTest() As Boolean
     Dim TestsPassed As Integer
     Dim TotalTests As Integer
     Dim TestHandler As New ErrorHandlerClass
-    
+    Dim tNewest As MessageCenterMessage
+    Dim tPrevious As MessageCenterMessage
+    Dim bSavedLangInit As Boolean
+    Dim bLangInitSaved As Boolean
+    Dim bStayedUninit As Boolean
+    Dim nLockFile As Integer
+    Dim bLockOpen As Boolean
+    Dim bLogged As Boolean
+    Dim ptOrigin As Point3d
+
+    ' The Error of 6.2 is the translated text: translations must be ready before the first write
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+
+    ' Start without a log file, so the first write below is the one that creates it
+    If Len(Dir(TestHandler.LogFilePath)) > 0 Then Kill TestHandler.LogFilePath
+
     ' Test 6.1: Log error
     TotalTests = TotalTests + 1
     If TestHandler.HandleError("Test error", 1001, "TestSource", "TestModule") Then
         TestsPassed = TestsPassed + 1
     End If
+
+    ' Test 6.2: Log created -> translated Error (Details = log path), then the Warning for the entry (newest)
+    TotalTests = TotalTests + 1
+    tNewest = MessageCenter.GetMessage(0)
+    tPrevious = MessageCenter.GetMessage(1)
+    If tNewest.Priority = msdMessageCenterPriorityWarning And InStr(tNewest.Message, "Test error") > 0 _
+       And InStr(tNewest.Details, TestHandler.LogFilePath) > 0 _
+       And tPrevious.Priority = msdMessageCenterPriorityError And tPrevious.Details = TestHandler.LogFilePath _
+       And (tPrevious.Message = "ARES created a log file: " & TestHandler.LogFilePath _
+            Or tPrevious.Message = "ARES a créé un journal : " & TestHandler.LogFilePath) Then
+        TestsPassed = TestsPassed + 1
+    End If
     
-    ' Test 6.2: Get last log entry
+    ' Test 6.3: Get last log entry
     TotalTests = TotalTests + 1
     Dim LastEntry As String
     LastEntry = TestHandler.GetLastLogEntry
@@ -507,14 +534,92 @@ Private Function ErrorHandlerTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
     
-    ' Test 6.3: Clear log file
+    ' Test 6.4: Log already exists -> Warning only (the previous message is the first Warning)
+    TotalTests = TotalTests + 1
+    TestHandler.HandleError "Second test error", 1002, "TestSource", "TestModule"
+    tNewest = MessageCenter.GetMessage(0)
+    tPrevious = MessageCenter.GetMessage(1)
+    If tNewest.Priority = msdMessageCenterPriorityWarning And InStr(tNewest.Message, "Second test error") > 0 _
+       And tPrevious.Priority = msdMessageCenterPriorityWarning And InStr(tPrevious.Message, "Test error") > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 6.5: Details passed -> own indented line in the .log, carried by the Warning's Details
+    TotalTests = TotalTests + 1
+    TestHandler.HandleError "Detailed test error", 1003, "TestSource", "TestModule", "id=42"
+    tNewest = MessageCenter.GetMessage(0)
+    LastEntry = TestHandler.GetLastLogEntry
+    If LastEntry = "    Details: id=42" And tNewest.Priority = msdMessageCenterPriorityWarning _
+       And InStr(tNewest.Details, "    Details: id=42") > 0 _
+       And InStr(tNewest.Message, "ARES: [TestModule] Error 1003 (TestSource): Detailed test error") = 1 _
+       And InStr(tNewest.Message, vbCrLf) = 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 6.6: Multi-line Details -> continuation lines indented under "Details: "
+    TotalTests = TotalTests + 1
+    TestHandler.HandleError "Multi-line test error", 1005, "TestSource", "TestModule", "a=1" & vbCrLf & "b=2"
+    LastEntry = TestHandler.GetLastLogEntry
+    If LastEntry = "             b=2" Then
+        TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 6.7: Informational log (Number 0) -> a Warning too: every write is surfaced
+    TotalTests = TotalTests + 1
+    TestHandler.HandleError "Informational test entry", 0, "", "TestModule"
+    tNewest = MessageCenter.GetMessage(0)
+    If tNewest.Priority = msdMessageCenterPriorityWarning And InStr(tNewest.Message, "Informational test entry") > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 6.8: Translations not ready -> the Error falls back to its English text, no init triggered
+    TotalTests = TotalTests + 1
+    Kill TestHandler.LogFilePath
+    bSavedLangInit = LangManager.IsInit
+    bLangInitSaved = True
+    LangManager.IsInit = False
+    TestHandler.HandleError "Untranslated test error", 1004, "TestSource", "TestModule"
+    bStayedUninit = Not LangManager.IsInit
+    LangManager.IsInit = bSavedLangInit
+    bLangInitSaved = False
+    tPrevious = MessageCenter.GetMessage(1)
+    If bStayedUninit And tPrevious.Priority = msdMessageCenterPriorityError _
+       And tPrevious.Message = "ARES created a log file: " & TestHandler.LogFilePath Then
+        TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 6.9: Clear log file
     TotalTests = TotalTests + 1
     TestHandler.ClearLogFile
     LastEntry = TestHandler.GetLastLogEntry
     If LastEntry = "" Then
         TestsPassed = TestsPassed + 1
     End If
-    
+
+    ' Test 6.10: Append fails (log held locked) -> returns False, the Warning still goes out
+    TotalTests = TotalTests + 1
+    nLockFile = FreeFile
+    Open TestHandler.LogFilePath For Binary Lock Read Write As #nLockFile
+    bLockOpen = True
+    bLogged = TestHandler.HandleError("Unloggable test error", 1006, "TestSource", "TestModule")
+    Close #nLockFile
+    bLockOpen = False
+    tNewest = MessageCenter.GetMessage(0)
+    If Not bLogged And tNewest.Priority = msdMessageCenterPriorityWarning _
+       And InStr(tNewest.Message, "Unloggable test error") > 0 _
+       And InStr(tNewest.Details, "Log write failed: ") > 0 Then
+        TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 6.11: SplitRegion refusal (not a region) -> no Message Center entry
+    TotalTests = TotalTests + 1
+    tPrevious = MessageCenter.GetMessage(0)
+    RegionSplit.SplitElementAt Nothing, ptOrigin
+    tNewest = MessageCenter.GetMessage(0)
+    If tNewest.Message = tPrevious.Message And tNewest.Details = tPrevious.Details Then
+        TestsPassed = TestsPassed + 1
+    End If
+
     ' Cleanup: Delete test log file
     On Error Resume Next
     If Len(Dir(TestHandler.LogFilePath)) > 0 Then
@@ -524,8 +629,10 @@ Private Function ErrorHandlerTest() As Boolean
     
     ErrorHandlerTest = (TestsPassed = TotalTests)
     Exit Function
-    
+
 TestError:
+    If bLangInitSaved Then LangManager.IsInit = bSavedLangInit
+    If bLockOpen Then Close #nLockFile
     ErrorHandlerTest = False
 End Function
 

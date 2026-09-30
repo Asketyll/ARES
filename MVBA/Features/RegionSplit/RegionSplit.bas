@@ -58,12 +58,10 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
     ' --- Validate region + active model ---
     If Not IsSplittableRegion(oRegion) Then
         ShowSplitStatus "RegionSplitNoRegion", "SplitRegion: not a supported closed region"
-        ErrorHandler.HandleError "oRegion is Nothing / not a supported closed region", 0, "", "RegionSplit.SplitElementAt"
         Exit Sub
     End If
     If Not Application.HasActiveModelReference Then
         ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: no active model"
-        ErrorHandler.HandleError "No active model reference", 0, "", "RegionSplit.SplitElementAt"
         Exit Sub
     End If
 
@@ -73,8 +71,8 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
     ' instead of collapsing the vertex list.
     verts = GetBoundaryVertices(oRegion, dStrokeTol, dCollinearTol)
     If Not HasAtLeast(verts, 2) Then
-        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: cannot read boundary"
         ErrorHandler.HandleError "Boundary vertex list empty / too small", 0, "", "RegionSplit.SplitElementAt"
+        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: cannot read boundary"
         Exit Sub
     End If
 
@@ -85,28 +83,25 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
     nSeg = GetClosestSegmentIndex(verts, ClickPt)
     If nSeg < LBound(verts) Or nSeg > UBound(verts) - 1 Then
         ShowSplitStatus "RegionSplitClickNotOnEdge", "SplitRegion: no boundary segment near the click"
-        ErrorHandler.HandleError "No closest boundary segment resolved (index " & nSeg & ")", 0, "", "RegionSplit.SplitElementAt"
         Exit Sub
     End If
 
     ' Degenerate (zero-length / duplicate vertex) segment guard.
     If Point3dDistanceXY(verts(nSeg), verts(nSeg + 1)) <= dCollinearTol Then
         ShowSplitStatus "RegionSplitClickNotOnEdge", "SplitRegion: clicked segment is degenerate"
-        ErrorHandler.HandleError "Closest boundary segment is degenerate (<= collinear tol)", 0, "", "RegionSplit.SplitElementAt"
         Exit Sub
     End If
 
     ' --- Entry point: perpendicular foot of the click on the closest segment ---
     If Not GetEntryPoint(verts(nSeg), verts(nSeg + 1), ClickPt, entryPt) Then
         ShowSplitStatus "RegionSplitClickNotOnEdge", "SplitRegion: cannot resolve the entry point"
-        ErrorHandler.HandleError "GetEntryPoint failed (degenerate closest segment)", 0, "", "RegionSplit.SplitElementAt"
         Exit Sub
     End If
 
     ' --- Interior cut direction: perpendicular to the segment, oriented inward ---
     If Not GetInteriorDirection(verts(nSeg), verts(nSeg + 1), verts, dirIn) Then
-        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: cannot orient the cut into the interior"
         ErrorHandler.HandleError "Failed to orient the perpendicular into the region interior", 0, "", "RegionSplit.SplitElementAt"
+        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: cannot orient the cut into the interior"
         Exit Sub
     End If
 
@@ -117,8 +112,8 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
 
     ' --- Exit point: first opposite-boundary crossing beyond the entry ---
     If Not GetExitPoint(oRegion, entryPt, dirIn, dCollinearTol, exitPt) Then
-        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: cut does not reach the opposite boundary"
         ErrorHandler.HandleError "No valid opposite-boundary crossing for the perpendicular cut", 0, "", "RegionSplit.SplitElementAt"
+        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: cut does not reach the opposite boundary"
         Exit Sub
     End If
 
@@ -130,15 +125,15 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
     nHalves = 0
     If Not SplitByOffsetKnives(oRegion, entryPt, exitPt, dCollinearTol, dStrokeTol, _
                                Point3dDistanceXY(oRng.Low, oRng.High), halves, nHalves) Then
-        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: boolean split failed"
         ErrorHandler.HandleError "SplitByOffsetKnives failed to produce two gapless regions", 0, "", "RegionSplit.SplitElementAt"
+        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: boolean split failed"
         Exit Sub
     End If
 
     ' SplitByOffsetKnives guarantees nHalves = 2 on True; defence-in-depth here too.
     If nHalves < 2 Then
-        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: split did not produce two regions"
         ErrorHandler.HandleError "Boolean split produced fewer than two regions (" & nHalves & ")", 0, "", "RegionSplit.SplitElementAt"
+        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: split did not produce two regions"
         Exit Sub
     End If
 
@@ -150,8 +145,8 @@ Public Sub SplitElementAt(ByVal oRegion As Element, ByRef ClickPt As Point3d)
     ' write failure leaves the original intact (anti-destructive ordering holds on the error
     ' path too). On failure: abort cleanly, original untouched, log a WARNING.
     If Not WriteHalves(oRegion, halves, nHalves) Then
-        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: failed to write both halves"
         ErrorHandler.HandleError "WriteHalves failed; original left intact", 0, "", "RegionSplit.SplitElementAt"
+        ShowSplitStatus "RegionSplitCannotSplit", "SplitRegion: failed to write both halves"
         Exit Sub
     End If
     If Not bKeepOriginal Then ActiveModelReference.RemoveElement oRegion

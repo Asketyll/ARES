@@ -42,7 +42,6 @@ Public Sub MergeElements(ByVal oFirst As Element, ByVal oSecond As Element)
     ' --- Validate both regions + active model ---
     If Not IsMergeableRegion(oFirst) Or Not IsMergeableRegion(oSecond) Then
         ShowMergeStatus "MergeRegionNoRegion", "MergeRegion: not a supported closed region"
-        ErrorHandler.HandleError "oFirst/oSecond is Nothing / not a supported closed region", 0, "", "RegionMerge.MergeElements"
         Exit Sub
     End If
     If DLongComp(oFirst.ID, oSecond.ID) = 0 Then
@@ -51,22 +50,21 @@ Public Sub MergeElements(ByVal oFirst As Element, ByVal oSecond As Element)
     End If
     If Not Application.HasActiveModelReference Then
         ShowMergeStatus "MergeRegionCannotMerge", "MergeRegion: no active model"
-        ErrorHandler.HandleError "No active model reference", 0, "", "RegionMerge.MergeElements"
         Exit Sub
     End If
 
     ' --- Boolean union near the origin -> one region (or several, when disjoint) ---
     nMerged = 0
     If Not UnionNearOrigin(oFirst, oSecond, merged, nMerged) Then
-        ShowMergeStatus "MergeRegionCannotMerge", "MergeRegion: boolean union failed"
         ErrorHandler.HandleError "GetRegionUnion failed during merge", 0, "", "RegionMerge.MergeElements"
+        ShowMergeStatus "MergeRegionCannotMerge", "MergeRegion: boolean union failed"
         Exit Sub
     End If
 
     ' Must yield >= 1 non-empty region, else abort with no model change.
     If nMerged < 1 Then
-        ShowMergeStatus "MergeRegionCannotMerge", "MergeRegion: union produced no region"
         ErrorHandler.HandleError "Boolean union produced no region", 0, "", "RegionMerge.MergeElements"
+        ShowMergeStatus "MergeRegionCannotMerge", "MergeRegion: union produced no region"
         Exit Sub
     End If
 
@@ -85,8 +83,8 @@ Public Sub MergeElements(ByVal oFirst As Element, ByVal oSecond As Element)
     ' partial write failure leaves both originals intact (anti-destructive ordering holds on
     ' the error path too).
     If Not WriteMerged(oFirst, merged, nMerged) Then
-        ShowMergeStatus "MergeRegionCannotMerge", "MergeRegion: failed to write the merged region"
         ErrorHandler.HandleError "WriteMerged failed; originals left intact", 0, "", "RegionMerge.MergeElements"
+        ShowMergeStatus "MergeRegionCannotMerge", "MergeRegion: failed to write the merged region"
         Exit Sub
     End If
     If Not bKeepOriginals Then

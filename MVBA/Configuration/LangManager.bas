@@ -256,6 +256,7 @@ Sub InitializeTranslations()
     ' --- Call Stack tracer ---
     moTranslations.Add "EN_CallStackLogged", "ARES: call stack written to the log"
     moTranslations.Add "EN_CallStackEmpty", "ARES: no call stack captured yet - trigger an ARES event (add/modify an element) first, then run this again"
+    moTranslations.Add "EN_LogFileCreated", "ARES created a log file: {0}"
 
     ' Property Rendering options form (epic 15). The colour-sync and ATLAS label settings moved here from
     ' the Auto Lengths options form: all three serve DISPLAY, and CellRedreaw - the sole consumer of the two
@@ -562,6 +563,7 @@ Sub InitializeTranslations()
     ' --- Traceur de pile d'appels ---
     moTranslations.Add "FR_CallStackLogged", "ARES : pile d'appels écrite dans le journal"
     moTranslations.Add "FR_CallStackEmpty", "ARES : aucune pile d'appels capturée pour l'instant - déclenchez d'abord un événement ARES (ajout/modification d'un élément), puis relancez cette commande"
+    moTranslations.Add "FR_LogFileCreated", "ARES a créé un journal : {0}"
 
     ' Formulaire d'options du Rendu de propriétés (epic 15)
     moTranslations.Add "FR_RenderingGUIOptionsCaption", "Options du Rendu de propriétés"
