@@ -80,9 +80,9 @@ Public Sub ActivateLevels()
 
     If nModels = 0 Then
         If nReadOnly > 0 Then
-            ShowStatus GetTranslation("SheetLevelsReadOnly", nReadOnly)
+            LangManager.ShowStatusText GetTranslation("SheetLevelsReadOnly", nReadOnly)
         Else
-            ShowStatus GetTranslation("SheetLevelsNoModel", sPattern)
+            LangManager.ShowStatusText GetTranslation("SheetLevelsNoModel", sPattern)
         End If
         Exit Sub
     End If
@@ -91,9 +91,9 @@ Public Sub ActivateLevels()
     If nSwitched > 0 Then RedrawAllViews
 
     If nReadOnly > 0 Then
-        ShowStatus GetTranslation("SheetLevelsCompletePartial", nModels, nViews, nSwitched, nReadOnly)
+        LangManager.ShowStatusText GetTranslation("SheetLevelsCompletePartial", nModels, nViews, nSwitched, nReadOnly)
     Else
-        ShowStatus GetTranslation("SheetLevelsComplete", nModels, nViews, nSwitched)
+        LangManager.ShowStatusText GetTranslation("SheetLevelsComplete", nModels, nViews, nSwitched)
     End If
     Exit Sub
 

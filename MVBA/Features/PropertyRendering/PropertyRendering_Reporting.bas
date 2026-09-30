@@ -68,7 +68,7 @@ Public Sub ReportTokenRefused(ByVal sName As String, ByVal sKey As String)
     If Len(sKey) = 0 Then Exit Sub
     If Not mbTokenRefusedShown Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
-        ShowStatus LangManager.GetTranslation(sKey, sName)
+        LangManager.ShowStatusText LangManager.GetTranslation(sKey, sName)
         mbTokenRefusedShown = True
     End If
 End Sub
@@ -242,7 +242,7 @@ Public Sub ReportGovernedValue(ByVal P As String)
     On Error Resume Next
     If Not mbGovernedShown Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
-        ShowStatus LangManager.GetTranslation("RenderValueGoverned", P)
+        LangManager.ShowStatusText LangManager.GetTranslation("RenderValueGoverned", P)
         mbGovernedShown = True
     End If
 End Sub

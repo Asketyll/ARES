@@ -246,6 +246,12 @@ Private Function LangManagerTest() As Boolean
     
     Dim TestsPassed As Integer
     Dim TotalTests As Integer
+    Dim tNewest As MessageCenterMessage
+    Dim tBelow As MessageCenterMessage
+    Dim sMarker As String
+    Dim bSavedLangInit As Boolean
+    Dim bLangInitSaved As Boolean
+    Dim bInitDone As Boolean
     
     ' Initialize translations
     If Not LangManager.IsInit Then
@@ -281,10 +287,60 @@ Private Function LangManagerTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
     
+    ' Tests 2.5-2.7 post a unique marker first: the status must then be exactly ONE new entry on top
+    ' of it, so a leftover identical entry from an earlier run cannot make the case pass.
+
+    ' Test 2.5: Parameter-less status -> newest Message Center entry = translated text, Info, no Details
+    TotalTests = TotalTests + 1
+    sMarker = "UT-MARKER-2.5-" & Format(Now, "hhnnss")
+    Messaging.PostMessage sMarker
+    LangManager.ShowStatusT "CallStackLogged"
+    tNewest = MessageCenter.GetMessage(0)
+    tBelow = MessageCenter.GetMessage(1)
+    If tNewest.Message = LangManager.GetTranslation("CallStackLogged") _
+       And tNewest.Priority = msdMessageCenterPriorityInfo And Len(tNewest.Details) = 0 _
+       And tBelow.Message = sMarker Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 2.6: Status with params -> same, with {0} substituted
+    TotalTests = TotalTests + 1
+    sMarker = "UT-MARKER-2.6-" & Format(Now, "hhnnss")
+    Messaging.PostMessage sMarker
+    LangManager.ShowStatusText LangManager.GetTranslation("ConfigThemeLoaded", "UnitTestTheme")
+    tNewest = MessageCenter.GetMessage(0)
+    tBelow = MessageCenter.GetMessage(1)
+    If tNewest.Message = LangManager.GetTranslation("ConfigThemeLoaded", "UnitTestTheme") _
+       And InStr(tNewest.Message, "UnitTestTheme") > 0 _
+       And tNewest.Priority = msdMessageCenterPriorityInfo And Len(tNewest.Details) = 0 _
+       And tBelow.Message = sMarker Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
+    ' Test 2.7: Translations not ready -> ShowStatusT initialises them, then posts the translated text
+    TotalTests = TotalTests + 1
+    sMarker = "UT-MARKER-2.7-" & Format(Now, "hhnnss")
+    Messaging.PostMessage sMarker
+    bSavedLangInit = LangManager.IsInit
+    bLangInitSaved = True
+    LangManager.IsInit = False
+    LangManager.ShowStatusT "RegionSplitNoRegion"
+    bInitDone = LangManager.IsInit
+    LangManager.IsInit = bSavedLangInit
+    bLangInitSaved = False
+    tNewest = MessageCenter.GetMessage(0)
+    tBelow = MessageCenter.GetMessage(1)
+    If bInitDone And tNewest.Message = LangManager.GetTranslation("RegionSplitNoRegion") _
+       And tNewest.Priority = msdMessageCenterPriorityInfo And Len(tNewest.Details) = 0 _
+       And tBelow.Message = sMarker Then
+        TestsPassed = TestsPassed + 1
+    End If
+    
     LangManagerTest = (TestsPassed = TotalTests)
     Exit Function
     
 ErrorHandler:
+    If bLangInitSaved Then LangManager.IsInit = bSavedLangInit
     LangManagerTest = False
 End Function
 
@@ -501,6 +557,7 @@ Private Function ErrorHandlerTest() As Boolean
     Dim bLockOpen As Boolean
     Dim bLogged As Boolean
     Dim ptOrigin As Point3d
+    Dim sStatus As String
 
     ' The Error of 6.2 is the translated text: translations must be ready before the first write
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
@@ -611,20 +668,25 @@ Private Function ErrorHandlerTest() As Boolean
         TestsPassed = TestsPassed + 1
     End If
 
-    ' Test 6.11: SplitRegion refusal (not a region) -> no log entry reaches the Message Center. The
-    ' translated status itself may be listed there, at priority None with no Details (measured
-    ' 2026-09-30), so the entry just before it must be the one that was newest before the call.
+    ' Test 6.11: SplitRegion refusal (not a region) -> its translated status is the newest entry, at
+    ' Info with no Details, and no log entry reaches the Message Center: the entry just below it is
+    ' the one that was newest before the call - or that one already was the same status (a merged
+    ' identical repeat).
     TotalTests = TotalTests + 1
+    sStatus = LangManager.GetTranslation("RegionSplitNoRegion")
     tPrevious = MessageCenter.GetMessage(0)
     RegionSplit.SplitElementAt Nothing, ptOrigin
     tNewest = MessageCenter.GetMessage(0)
-    If tNewest.Message = tPrevious.Message And tNewest.Details = tPrevious.Details Then
-        TestsPassed = TestsPassed + 1
-    ElseIf tNewest.Priority <> msdMessageCenterPriorityWarning _
-           And tNewest.Priority <> msdMessageCenterPriorityError And Len(tNewest.Details) = 0 Then
-        tNewest = MessageCenter.GetMessage(1)
-        If tNewest.Message = tPrevious.Message And tNewest.Details = tPrevious.Details Then
+    If tNewest.Message = sStatus And tNewest.Priority = msdMessageCenterPriorityInfo _
+       And Len(tNewest.Details) = 0 Then
+        If tPrevious.Message = sStatus And tPrevious.Priority = msdMessageCenterPriorityInfo _
+           And Len(tPrevious.Details) = 0 Then
             TestsPassed = TestsPassed + 1
+        Else
+            tNewest = MessageCenter.GetMessage(1)
+            If tNewest.Message = tPrevious.Message And tNewest.Details = tPrevious.Details Then
+                TestsPassed = TestsPassed + 1
+            End If
         End If
     End If
 

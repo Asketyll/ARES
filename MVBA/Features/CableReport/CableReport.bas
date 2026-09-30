@@ -54,13 +54,13 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     Dim nCableLevels    As Long
     nCableLevels = ResolveCableLevels(CableLevel, cableLevels, sIgnoredLevels)
     If nCableLevels = 0 Then
-        ShowStatus GetTranslation("CableReportLevelNotFound", CableLevel)
+        ShowStatusText GetTranslation("CableReportLevelNotFound", CableLevel)
         Exit Sub
     End If
     If Len(sIgnoredLevels) > 0 Then
         ' Status-bar only, not logged: a typo'd/renamed level in the list is a user config issue,
         ' not a fault - the export still runs fine on the valid subset.
-        ShowStatus GetTranslation("CableReportLevelsIgnored", sIgnoredLevels)
+        ShowStatusText GetTranslation("CableReportLevelsIgnored", sIgnoredLevels)
     End If
 
     ' --- Resolve zone level (optional - a missing/invalid level degrades to an export with no soil-type column) ---
@@ -207,7 +207,7 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     WriteToExcel oRowData, oColumns, oPivot, oShared, oCableTotal, oTrench, rowOrder, _
                  Len(sAerialProp) > 0, oAerialRows, Filepath, ExcelVisible
 
-    ShowStatus GetTranslation("CableReportComplete", nRowCount, oColumns.Count, nIncomplete, nSharedZones)
+    ShowStatusText GetTranslation("CableReportComplete", nRowCount, oColumns.Count, nIncomplete, nSharedZones)
     Exit Sub
 
 ErrorHandler:
@@ -899,7 +899,7 @@ Private Function ResolveConfiguredProperty(ByVal sConfiguredName As String, ByVa
     End If
 
     ErrorHandler.HandleError "Property configured but not an ItemType of the ARES DGNLib: '" & sName & "' (" & sFieldLabel & ")", 0, "", "CableReport.ResolveConfiguredProperty"
-    ShowStatus GetTranslation("CableReportPropertyInvalid", sFieldLabel, sName)
+    ShowStatusText GetTranslation("CableReportPropertyInvalid", sFieldLabel, sName)
     Exit Function
 
 ErrorHandler:

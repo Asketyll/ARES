@@ -98,7 +98,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     ' Status-bar only, not logged: a misconfigured/renamed level name is a user config
     ' issue, not a fault worth an error-log entry.
     If Not GetElements.IsValidLevelName(ZoneLevel) Then
-		ShowStatus GetTranslation("ZoneExportLevelNotFound", ZoneLevel)
+		ShowStatusText GetTranslation("ZoneExportLevelNotFound", ZoneLevel)
         Exit Sub
     End If
 
@@ -115,7 +115,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     If Len(sIgnoredLevels) > 0 Then
         ' Status-bar only, not logged: a typo'd/renamed filter level name is a user config
         ' issue, not a fault - the export still runs fine on the valid subset (or all levels).
-        ShowStatus GetTranslation("ZoneExportFilterLevelsIgnored", sIgnoredLevels)
+        ShowStatusText GetTranslation("ZoneExportFilterLevelsIgnored", sIgnoredLevels)
     End If
 
     ' --- Resolve filepath: dialog or auto-generated depending on ARES_ZONE_EXPORT_USE_DIALOG ---
@@ -139,7 +139,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     Dim zones() As Element
     If Not CollectZones(ZoneLevel, zones) Then
         ' AC-6: warning already logged inside CollectZones.
-        ShowStatus GetTranslation("ZoneExportNoZones", ZoneLevel)
+        ShowStatusText GetTranslation("ZoneExportNoZones", ZoneLevel)
         Exit Sub
     End If
 
@@ -181,9 +181,9 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     WriteToExcel oGroups, Filepath, ExcelVisible, sGroupBy, bPerZone, zoneLabels
 
     If bPerZone Then
-        ShowStatus GetTranslation("ZoneExportCompletePerZone", nElementCount, oGroups.Count, sGroupBy)
+        ShowStatusText GetTranslation("ZoneExportCompletePerZone", nElementCount, oGroups.Count, sGroupBy)
     Else
-        ShowStatus GetTranslation("ZoneExportComplete", nElementCount, oGroups.Count, sGroupBy)
+        ShowStatusText GetTranslation("ZoneExportComplete", nElementCount, oGroups.Count, sGroupBy)
     End If
     Exit Sub
 

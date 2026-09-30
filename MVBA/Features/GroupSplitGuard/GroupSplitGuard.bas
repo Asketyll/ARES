@@ -358,7 +358,7 @@ Private Sub SeparateGroup(ByRef pieces() As element, ByVal nPieces As Long, ByVa
     End If
 
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    ShowStatus GetTranslation("GroupSplitGuardSeparated", nPieces, nMoved, nLocked)
+    LangManager.ShowStatusText GetTranslation("GroupSplitGuardSeparated", nPieces, nMoved, nLocked)
     Exit Sub
 
 ErrorHandler:

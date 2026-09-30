@@ -55,7 +55,7 @@ Private Function GetElementLength(ByVal El As element) As Double
             GetElementLength = LengthShape(El, True)
         Case Else
             GetElementLength = 0
-            ShowStatus GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(El.ID), El.Type)
+            ShowStatusText GetTranslation("LengthElementTypeNotSupportedByInterface", DLongToString(El.ID), El.Type)
     End Select
     
     Exit Function
@@ -200,7 +200,7 @@ Private Function GetConduitLengthFromComplexShape(ByVal El As ComplexShapeElemen
     If SubElementCount < 4 Or ValidCount < 2 Then
         ' Too few segments to isolate 2 end caps (not a valid conduit topology) - fall
         ' back to the longest single sub-element.
-        ShowStatus GetTranslation("LengthConduitFallbackToLongestSide", DLongToString(El.ID))
+        ShowStatusText GetTranslation("LengthConduitFallbackToLongestSide", DLongToString(El.ID))
         GetConduitLengthFromComplexShape = LongestSide
     Else
         GetConduitLengthFromComplexShape = (El.Perimeter - (Smallest1 + Smallest2)) / 2

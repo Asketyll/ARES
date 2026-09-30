@@ -1,7 +1,7 @@
 ' Module: LangManager
 ' Description: This module manages translations for different languages in GUI.
 ' License: This project is licensed under the AGPL-3.0.
-' Dependencies: Config, ARESConfigClass, ARESConstants, ErrorHandlerClass
+' Dependencies: Config, ARESConfigClass, ARESConstants, ErrorHandlerClass, Messaging
 Option Explicit
 
 Private moSupportedLanguages As Collection
@@ -696,15 +696,24 @@ ErrorHandler:
     GetTranslation = "[Translation error for: " & sKey & "]"
 End Function
 
-' Show a user-facing status line, translated. Self-initialises the translation system so
-' callers never leak the "[not initialized]" sentinel. This is THE channel for parameter-less
-' user status; for messages carrying an identifier/count call ShowStatus GetTranslation(key, args)
-' directly (after ensuring init). Diagnostics/faults NEVER come here — they go to
-' ErrorHandler.HandleError (the .log). See the messaging rules in project-context.md / MVBA README.
+' Show a user-facing status line, translated, for a parameter-less key. Self-initialises the
+' translation system so callers never leak the "[not initialized]" sentinel, then goes through
+' ShowStatusText. Diagnostics/faults NEVER come here — they go to ErrorHandler.HandleError (the
+' .log). See the messaging rules in project-context.md / MVBA README.
 Public Sub ShowStatusT(ByVal sKey As String)
     On Error Resume Next
     If Not IsInit Then InitializeTranslations
-    ShowStatus GetTranslation(sKey)
+    ShowStatusText GetTranslation(sKey)
+End Sub
+
+' THE entry point for every user status: an already-translated text (ShowStatusText
+' GetTranslation(key, args) when it carries an identifier/count). Posted to the Message Center at
+' Info, which also shows it on the status bar; never also call ShowStatus (it would list it twice).
+' Does NOT initialise translations: a caller building its text with GetTranslation must ensure
+' LangManager.IsInit first (ShowStatusT does it for keyed statuses). Never raises.
+Public Sub ShowStatusText(ByVal sText As String)
+    On Error Resume Next
+    Messaging.PostMessage sText, "", msdMessageCenterPriorityInfo
 End Sub
 
 ' Return the resolved user language (e.g. "English", "Français")

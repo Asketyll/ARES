@@ -209,13 +209,13 @@ Public Sub SuspendChangeTracking()
     Else
         ShowStatusT "ChangeTrackingNoHandler"
     End If
-    If ErrorHandler.HadError Then ShowStatus GetTranslation("CommandFailed", "SuspendChangeTracking")
+    If ErrorHandler.HadError Then LangManager.ShowStatusText GetTranslation("CommandFailed", "SuspendChangeTracking")
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "BootLoader.SuspendChangeTracking"
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    ShowStatus GetTranslation("CommandFailed", "SuspendChangeTracking")
+    LangManager.ShowStatusText GetTranslation("CommandFailed", "SuspendChangeTracking")
 End Sub
 
 ' Resume change tracking after bulk operations

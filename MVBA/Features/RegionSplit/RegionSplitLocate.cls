@@ -43,7 +43,7 @@ Private Sub IPrimitiveCommandEvents_DataPoint(Point As Point3d, ByVal View As Vi
     Loop
 
     ' Nothing splittable under the click.
-    ShowStatus GetTranslation("RegionSplitNoRegion")
+    ShowStatusText GetTranslation("RegionSplitNoRegion")
     CommandState.StartPrimitive Me
     Exit Sub
 

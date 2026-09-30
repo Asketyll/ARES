@@ -21,7 +21,7 @@ Private Sub ReportFailure(ByVal sOp As String, ByVal sDesc As String, ByVal lNum
     On Error Resume Next
     ErrorHandler.HandleError sDesc, lNum, sSrc, "Command." & sOp
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
-    ShowStatus GetTranslation("CommandFailed", sOp)
+    LangManager.ShowStatusText GetTranslation("CommandFailed", sOp)
 End Sub
 
 ' Success-path counterpart to ReportFailure: if a real fault was logged (by this command or a module
@@ -31,7 +31,7 @@ Private Sub ReportIfLogged(ByVal sOp As String)
     On Error Resume Next
     If ErrorHandler.HadError Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
-        ShowStatus GetTranslation("CommandFailed", sOp)
+        LangManager.ShowStatusText GetTranslation("CommandFailed", sOp)
     End If
 End Sub
 
@@ -149,9 +149,9 @@ Sub ResetARESVariables()
     
     If ARESConfig.ResetAllConfigVars() Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
-        ShowStatus GetTranslation("VarResetAllSuccess")
+        LangManager.ShowStatusText GetTranslation("VarResetAllSuccess")
     Else
-        ShowStatus GetTranslation("VarResetAllFailed")
+        LangManager.ShowStatusText GetTranslation("VarResetAllFailed")
     End If
     ReportIfLogged "ResetARESVariables"
     
@@ -173,9 +173,9 @@ Sub RemoveARESVariables()
     
     If ARESConfig.RemoveAllConfigVars() Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
-        ShowStatus GetTranslation("VarRemoveSuccess")
+        LangManager.ShowStatusText GetTranslation("VarRemoveSuccess")
     Else
-        ShowStatus GetTranslation("VarRemoveError")
+        LangManager.ShowStatusText GetTranslation("VarRemoveError")
     End If
     ReportIfLogged "RemoveARESVariables"
     
@@ -226,7 +226,7 @@ Sub RunOutline()
     Dim dDist As Double
     dDist = Val(ARESConfig.ARES_OUTLINE_DISTANCE.Value)
     If dDist <= 0 Then
-        ShowStatus GetTranslation("OutlineDistanceInvalid")
+        LangManager.ShowStatusText GetTranslation("OutlineDistanceInvalid")
         Exit Sub
     End If
 
@@ -235,7 +235,7 @@ Sub RunOutline()
     Dim sLvls As String
     sLvls = ARESConfig.ARES_OUTLINE_LEVEL.Value
     If Len(Trim(sLvls)) = 0 Then
-        ShowStatus GetTranslation("OutlineLevelEmpty")
+        LangManager.ShowStatusText GetTranslation("OutlineLevelEmpty")
         Exit Sub
     End If
 
@@ -800,7 +800,7 @@ Sub RecalculateSelection()
         nCount = nCount + 1
     Loop
 
-    ShowStatus GetTranslation("RecalculateComplete", nCount)
+    LangManager.ShowStatusText GetTranslation("RecalculateComplete", nCount)
     ReportIfLogged "RecalculateSelection"
     Exit Sub
 

@@ -45,7 +45,7 @@ Private Sub IPrimitiveCommandEvents_DataPoint(Point As Point3d, ByVal View As Vi
     If moFirstZone Is Nothing Then
         ' --- Awaiting the FIRST click ---
         If oEle Is Nothing Then
-            ShowStatus GetTranslation("MergeRegionNoRegion")
+            ShowStatusText GetTranslation("MergeRegionNoRegion")
             Exit Sub                                ' no state to lose; redo the first click
         End If
         Set moFirstZone = oEle
@@ -59,11 +59,11 @@ Private Sub IPrimitiveCommandEvents_DataPoint(Point As Point3d, ByVal View As Vi
 
     ' --- Awaiting the SECOND click ---
     If oEle Is Nothing Then
-        ShowStatus GetTranslation("MergeRegionNoRegion")
+        ShowStatusText GetTranslation("MergeRegionNoRegion")
         Exit Sub                                    ' keep moFirstZone; redo the second click only
     End If
     If DLongComp(moFirstZone.ID, oEle.ID) = 0 Then
-        ShowStatus GetTranslation("MergeRegionSameZone")
+        ShowStatusText GetTranslation("MergeRegionSameZone")
         Exit Sub                                    ' keep moFirstZone; redo the second click only
     End If
 

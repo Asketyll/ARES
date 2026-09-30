@@ -26,7 +26,7 @@ Option Explicit
 '
 ' Ordering guarantee: build + validate both halves FIRST, add both, THEN delete
 ' the original. Any error before completion leaves the original intact (no destructive
-' partial edit). Every degenerate input aborts cleanly (ShowStatus + return, no model
+' partial edit). Every degenerate input aborts cleanly (user status via ShowStatusT + return, no model
 ' change) via the input guards.
 '
 ' Parameters:

@@ -146,9 +146,9 @@ Public Function LoadTheme(ByVal sName As String) As Boolean
 
     If Not ARESConfig.LoadConfig(ThemePath(sName), True, True, bReadable, nUnknown, sFileVersion) Then
         If bReadable Then
-            ShowStatus GetTranslation("ConfigThemeNoSetting", sName)
+            LangManager.ShowStatusText GetTranslation("ConfigThemeNoSetting", sName)
         Else
-            ShowStatus GetTranslation("ConfigThemeUnreadable", sName)
+            LangManager.ShowStatusText GetTranslation("ConfigThemeUnreadable", sName)
         End If
         Exit Function
     End If
@@ -158,9 +158,9 @@ Public Function LoadTheme(ByVal sName As String) As Boolean
 
     sWarnings = DescribeLoadWarnings(nUnknown, sFileVersion)
     If Len(sWarnings) > 0 Then
-        ShowStatus GetTranslation("ConfigThemeLoadedWarnings", sName, sWarnings)
+        LangManager.ShowStatusText GetTranslation("ConfigThemeLoadedWarnings", sName, sWarnings)
     Else
-        ShowStatus GetTranslation("ConfigThemeLoaded", sName)
+        LangManager.ShowStatusText GetTranslation("ConfigThemeLoaded", sName)
     End If
     LoadTheme = True
     Exit Function
@@ -188,7 +188,7 @@ Public Function SaveTheme(ByVal sName As String) As Boolean
     End If
 
     If Not EnsureThemeFolder() Then
-        ShowStatus GetTranslation("ConfigThemeSaveFailed", sName)
+        LangManager.ShowStatusText GetTranslation("ConfigThemeSaveFailed", sName)
         Exit Function
     End If
 
@@ -204,18 +204,18 @@ Public Function SaveTheme(ByVal sName As String) As Boolean
     End If
 
     If Not ARESConfig.ExportConfig(sPath, True) Then
-        ShowStatus GetTranslation("ConfigThemeSaveFailed", sName)
+        LangManager.ShowStatusText GetTranslation("ConfigThemeSaveFailed", sName)
         Exit Function
     End If
 
     ARESConfig.ARES_THEME_CURRENT.Value = sName
-    ShowStatus GetTranslation("ConfigThemeSaved", sName)
+    LangManager.ShowStatusText GetTranslation("ConfigThemeSaved", sName)
     SaveTheme = True
     Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ConfigThemes.SaveTheme"
-    ShowStatus GetTranslation("ConfigThemeSaveFailed", sName)
+    LangManager.ShowStatusText GetTranslation("ConfigThemeSaveFailed", sName)
     SaveTheme = False
 End Function
 

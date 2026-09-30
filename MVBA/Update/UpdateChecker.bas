@@ -308,15 +308,15 @@ Public Sub CheckForUpdateManual()
     Dim sLatest As String
 
     sInstalled = GetInstalledVersion()
-    If Len(sInstalled) = 0 Then ShowStatus GetTranslation("UpdateCheckFailed") : Exit Sub
+    If Len(sInstalled) = 0 Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
 
     sLatest = GetLatestVersionFromGitHub()
-    If Len(sLatest) = 0 Then ShowStatus GetTranslation("UpdateCheckFailed") : Exit Sub
-    If Not IsValidVersion(sLatest) Then ShowStatus GetTranslation("UpdateCheckFailed") : Exit Sub
-    If Not HasInstallableMvba() Then ShowStatus GetTranslation("UpdateCheckFailed") : Exit Sub
+    If Len(sLatest) = 0 Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
+    If Not IsValidVersion(sLatest) Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
+    If Not HasInstallableMvba() Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
 
     If CompareVersions(sLatest, sInstalled) <= 0 Then
-        ShowStatus GetTranslation("UpdateAlreadyUpToDate")
+        ShowStatusText GetTranslation("UpdateAlreadyUpToDate")
         Exit Sub
     End If
 
@@ -390,7 +390,7 @@ Public Sub DownloadAndInstall()
     If Not IsValidVersion(msLatestVersion) Then Exit Sub
     If mnAssetCount = 0 Then Exit Sub
 
-    ShowStatus GetTranslation("UpdateDownloading")
+    ShowStatusText GetTranslation("UpdateDownloading")
     Set oFso = CreateObject("Scripting.FileSystemObject")
     sTempDir = Environ("TEMP") & "\" & oFso.GetTempName()
     oFso.CreateFolder sTempDir

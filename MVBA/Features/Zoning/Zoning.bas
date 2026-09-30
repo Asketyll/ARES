@@ -165,9 +165,9 @@ Public Sub Zoning(Optional Lvls As Variant, _
     If nBuffered < nTotalEls Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
         If nBuffered = 0 Then
-            ShowStatus LangManager.GetTranslation("ZoningNoBufferCreated", nTotalEls)
+            LangManager.ShowStatusText LangManager.GetTranslation("ZoningNoBufferCreated", nTotalEls)
         Else
-            ShowStatus LangManager.GetTranslation("ZoningSomeBuffersFailed", nTotalEls - nBuffered, nTotalEls)
+            LangManager.ShowStatusText LangManager.GetTranslation("ZoningSomeBuffersFailed", nTotalEls - nBuffered, nTotalEls)
         End If
     End If
 

@@ -32,19 +32,19 @@ Public Sub ExportConfigurationUI()
     If Len(filePath) > 0 Then
         ' Export configuration
         If ARESConfig.ExportConfig(filePath) Then
-            ShowStatus GetTranslation("ConfigExportSuccess", filePath)
+            LangManager.ShowStatusText GetTranslation("ConfigExportSuccess", filePath)
         Else
-            ShowStatus GetTranslation("ConfigExportFailed")
+            LangManager.ShowStatusText GetTranslation("ConfigExportFailed")
         End If
     Else
-        ShowStatus GetTranslation("ConfigOperationCancelled")
+        LangManager.ShowStatusText GetTranslation("ConfigOperationCancelled")
     End If
 
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ExportConfigurationUI"
-    ShowStatus GetTranslation("ConfigExportFailed")
+    LangManager.ShowStatusText GetTranslation("ConfigExportFailed")
 End Sub
 
 ' Import configuration with file dialog
@@ -74,7 +74,7 @@ Public Sub ImportConfigurationUI()
                                 GetTranslation("ConfigImportOptions"))
 
         If overwriteChoice = vbCancel Then
-            ShowStatus GetTranslation("ConfigOperationCancelled")
+            LangManager.ShowStatusText GetTranslation("ConfigOperationCancelled")
             Exit Sub
         End If
 
@@ -87,23 +87,23 @@ Public Sub ImportConfigurationUI()
             ARESConfig.ARES_THEME_CURRENT.Value = ""
             LangManager.InitializeTranslations
             ConfigThemes.ApplyLoadedConfiguration
-            ShowStatus GetTranslation("ConfigImportSuccess", filePath)
+            LangManager.ShowStatusText GetTranslation("ConfigImportSuccess", filePath)
             MsgBox GetTranslation("ConfigImportSuccess", filePath), vbInformation + vbOKOnly, GetTranslation("ConfigImportTitle")
             sWarnings = ConfigThemes.DescribeLoadWarnings(nUnknown, sFileVersion)
-            If Len(sWarnings) > 0 Then ShowStatus GetTranslation("ConfigImportWarnings", sWarnings)
+            If Len(sWarnings) > 0 Then LangManager.ShowStatusText GetTranslation("ConfigImportWarnings", sWarnings)
         Else
-            ShowStatus GetTranslation("ConfigImportFailed")
+            LangManager.ShowStatusText GetTranslation("ConfigImportFailed")
             MsgBox GetTranslation("ConfigImportFailed"), vbCritical + vbOKOnly, GetTranslation("ConfigImportTitle")
         End If
     Else
-        ShowStatus GetTranslation("ConfigOperationCancelled")
+        LangManager.ShowStatusText GetTranslation("ConfigOperationCancelled")
     End If
 
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ImportConfigurationUI"
-    ShowStatus GetTranslation("ConfigImportFailed")
+    LangManager.ShowStatusText GetTranslation("ConfigImportFailed")
 End Sub
 
 ' === CORE DIALOG FUNCTIONS ===
