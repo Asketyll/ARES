@@ -43,6 +43,7 @@ User features — full key-in reference and configuration variables live in the 
 | Group Split Guard | After a cut that leaves two cable pieces in one graphic group, asks whether to separate the group (each text joins the nearest piece), undo the cut, or keep it | [EN](https://github.com/Asketyll/ARES/wiki/Property-Calculation)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Calcul-de-Propriete) |
 
 System:
+- **Configuration Themes** - Named configurations kept in `C:\ARES\Thème`, listed and switched from one window; a pick applies at once, without restarting MicroStation ([EN](https://github.com/Asketyll/ARES/wiki/System-and-Config)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Systeme-et-Config))
 - **Multi-language** - French/English interface ([EN](https://github.com/Asketyll/ARES/wiki/System-and-Config)&nbsp;·&nbsp;[FR](https://github.com/Asketyll/ARES/wiki/Systeme-et-Config))
 - **Bulk Operation Detection** - Auto-suspend during merge/reprojection for performance
 
