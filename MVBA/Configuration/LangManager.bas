@@ -98,6 +98,41 @@ Sub InitializeTranslations()
     moTranslations.Add "EN_OutlineLevelEmpty", "ARES: ARES_Outline_Level empty — RunOutline aborted"
     ' --- Messaging retrofit: generic command failure (detail goes to the .log) ---
     moTranslations.Add "EN_CommandFailed", "{0} failed"
+    ' --- Key-in announce: command name + prompt (Command.BeginKeyin / EndKeyin) ---
+    moTranslations.Add "EN_Keyin_CheckForUpdate", "Check for update"
+    moTranslations.Add "EN_Keyin_ExportARESConfig", "Export ARES configuration"
+    moTranslations.Add "EN_Keyin_ImportARESConfig", "Import ARES configuration"
+    moTranslations.Add "EN_Keyin_ShowARESConfigSummary", "ARES configuration summary"
+    moTranslations.Add "EN_Keyin_OpenARESThemes", "Edit ARES themes"
+    moTranslations.Add "EN_Keyin_ResetARESVariables", "Reset ARES variables"
+    moTranslations.Add "EN_Keyin_RemoveARESVariables", "Remove ARES variables"
+    moTranslations.Add "EN_Keyin_RunZoning", "Zoning"
+    moTranslations.Add "EN_Keyin_RunOutline", "Outline"
+    moTranslations.Add "EN_Keyin_ExportLength", "Zone export"
+    moTranslations.Add "EN_Keyin_ExportCableReport", "Cable report"
+    moTranslations.Add "EN_Keyin_EditCableReportOptions", "Edit cable report options"
+    moTranslations.Add "EN_Keyin_EditZoningOptions", "Edit zoning options"
+    moTranslations.Add "EN_Keyin_EditOutlineOptions", "Edit outline options"
+    moTranslations.Add "EN_Keyin_ActivateSheetLevels", "Sheet levels"
+    moTranslations.Add "EN_Keyin_EditSheetLevelsOptions", "Edit sheet levels options"
+    moTranslations.Add "EN_Keyin_RunARESTests", "ARES unit tests"
+    moTranslations.Add "EN_Keyin_RunARESPerformanceTests", "ARES performance tests"
+    moTranslations.Add "EN_Keyin_English", "ARES language: English"
+    moTranslations.Add "EN_Keyin_French", "ARES language: French"
+    moTranslations.Add "EN_Keyin_OpenARESWiki", "Open the ARES wiki"
+    moTranslations.Add "EN_Keyin_EditZoneExportOptions", "Edit zone export options"
+    moTranslations.Add "EN_Keyin_EditPropertyTaggingOptions", "Edit custom-property options"
+    moTranslations.Add "EN_Keyin_EditPropertyCalculationOptions", "Edit property calculation options"
+    moTranslations.Add "EN_Keyin_EditPropertyRenderingOptions", "Edit property rendering options"
+    moTranslations.Add "EN_Keyin_OpenPropertyLibrary", "Open the property library"
+    moTranslations.Add "EN_Keyin_BindPropertyRender", "Bind property rendering"
+    moTranslations.Add "EN_Keyin_RecalculateSelection", "Recalculate selection"
+    moTranslations.Add "EN_Keyin_LogCallStack", "Log the call stack"
+    moTranslations.Add "EN_Keyin_ResetFormPositions", "Reset window positions"
+    moTranslations.Add "EN_KeyinWorking", "Working..."
+    moTranslations.Add "EN_KeyinFormOpen", "Set the options in the window"
+    moTranslations.Add "EN_KeyinDone", "Done"
+    moTranslations.Add "EN_KeyinFailed", "Failed"
     ' --- Language switch ---
     moTranslations.Add "EN_LanguageChanged", "ARES language set — please restart MicroStation."
     moTranslations.Add "EN_LanguageChangeFailed", "Unable to set ARES language — set ARES_Language manually."
@@ -405,6 +440,41 @@ Sub InitializeTranslations()
     moTranslations.Add "FR_OutlineLevelEmpty", "ARES : ARES_Outline_Level vide — RunOutline annulé"
     ' --- Messaging retrofit: generic command failure (detail goes to the .log) ---
     moTranslations.Add "FR_CommandFailed", "{0} a échoué"
+    ' --- Key-in announce: command name + prompt (Command.BeginKeyin / EndKeyin) ---
+    moTranslations.Add "FR_Keyin_CheckForUpdate", "Rechercher une mise à jour"
+    moTranslations.Add "FR_Keyin_ExportARESConfig", "Exporter la configuration ARES"
+    moTranslations.Add "FR_Keyin_ImportARESConfig", "Importer la configuration ARES"
+    moTranslations.Add "FR_Keyin_ShowARESConfigSummary", "Résumé de la configuration ARES"
+    moTranslations.Add "FR_Keyin_OpenARESThemes", "Modifier les thèmes ARES"
+    moTranslations.Add "FR_Keyin_ResetARESVariables", "Réinitialiser les variables ARES"
+    moTranslations.Add "FR_Keyin_RemoveARESVariables", "Supprimer les variables ARES"
+    moTranslations.Add "FR_Keyin_RunZoning", "Zonage"
+    moTranslations.Add "FR_Keyin_RunOutline", "Contour"
+    moTranslations.Add "FR_Keyin_ExportLength", "Export de zone"
+    moTranslations.Add "FR_Keyin_ExportCableReport", "Rapport de câbles"
+    moTranslations.Add "FR_Keyin_EditCableReportOptions", "Modifier les options du rapport de câbles"
+    moTranslations.Add "FR_Keyin_EditZoningOptions", "Modifier les options de zonage"
+    moTranslations.Add "FR_Keyin_EditOutlineOptions", "Modifier les options de contour"
+    moTranslations.Add "FR_Keyin_ActivateSheetLevels", "Niveaux des modèles papier"
+    moTranslations.Add "FR_Keyin_EditSheetLevelsOptions", "Modifier les options des niveaux des modèles papier"
+    moTranslations.Add "FR_Keyin_RunARESTests", "Tests unitaires ARES"
+    moTranslations.Add "FR_Keyin_RunARESPerformanceTests", "Tests de performance ARES"
+    moTranslations.Add "FR_Keyin_English", "Langue ARES : anglais"
+    moTranslations.Add "FR_Keyin_French", "Langue ARES : français"
+    moTranslations.Add "FR_Keyin_OpenARESWiki", "Ouvrir le wiki ARES"
+    moTranslations.Add "FR_Keyin_EditZoneExportOptions", "Modifier les options d'export de zone"
+    moTranslations.Add "FR_Keyin_EditPropertyTaggingOptions", "Modifier les options de propriétés personnalisées"
+    moTranslations.Add "FR_Keyin_EditPropertyCalculationOptions", "Modifier les options de calcul de propriété"
+    moTranslations.Add "FR_Keyin_EditPropertyRenderingOptions", "Modifier les options de rendu de propriété"
+    moTranslations.Add "FR_Keyin_OpenPropertyLibrary", "Ouvrir la bibliothèque de propriétés"
+    moTranslations.Add "FR_Keyin_BindPropertyRender", "Lier le rendu des propriétés"
+    moTranslations.Add "FR_Keyin_RecalculateSelection", "Recalculer la sélection"
+    moTranslations.Add "FR_Keyin_LogCallStack", "Journaliser la pile d'appels"
+    moTranslations.Add "FR_Keyin_ResetFormPositions", "Réinitialiser la position des fenêtres"
+    moTranslations.Add "FR_KeyinWorking", "En cours..."
+    moTranslations.Add "FR_KeyinFormOpen", "Réglez les options dans la fenêtre"
+    moTranslations.Add "FR_KeyinDone", "Terminé"
+    moTranslations.Add "FR_KeyinFailed", "Échec"
     ' --- Language switch ---
     moTranslations.Add "FR_LanguageChanged", "Langue ARES définie — veuillez redémarrer MicroStation."
     moTranslations.Add "FR_LanguageChangeFailed", "Impossible de définir la langue ARES — définissez ARES_Language manuellement."
@@ -694,6 +764,14 @@ Public Function GetTranslation(sKey As String, ParamArray params() As Variant) A
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "LangManager.GetTranslation"
     GetTranslation = "[Translation error for: " & sKey & "]"
+End Function
+
+' True if sKey exists in the language of that 2-letter prefix ("EN", "FR"), without GetTranslation's
+' English fallback. Used by Command.KeyinName and by the tests to prove a key exists in every language.
+Public Function HasTranslation(ByVal sLangPrefix As String, ByVal sKey As String) As Boolean
+    On Error Resume Next
+    If Not IsInit Then InitializeTranslations
+    HasTranslation = moTranslations.Exists(UCase(sLangPrefix) & "_" & sKey)
 End Function
 
 ' Show a user-facing status line, translated, for a parameter-less key. Self-initialises the

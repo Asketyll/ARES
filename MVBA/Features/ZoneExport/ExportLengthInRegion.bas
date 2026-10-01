@@ -67,23 +67,24 @@ Private Const XL_V_ALIGN_CENTER  As Long   = -4108 ' xlCenter (vertical alignmen
 '   Filepath  : when provided, saves the workbook to that path in .xlsx
 '               format and overwrites any existing file silently. When
 '               omitted, the workbook is left unsaved and visible.
-Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
-                                Optional ByVal Filepath As String = "", _
-                                Optional ByVal ExcelVisible As Boolean = True)
+' Returns True when the workbook was written.
+Public Function ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
+                                     Optional ByVal Filepath As String = "", _
+                                     Optional ByVal ExcelVisible As Boolean = True) As Boolean
 
     On Error GoTo ErrorHandler
 
     ' --- AC-4: Config must be initialised ---
     If Not ARESConfig.IsInitialized Then
         ErrorHandler.HandleError "ARESConfig not initialized", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
-		Exit Sub
+		Exit Function
     End If
 
     ' --- AC-5: Active model must exist ---
     If Not Application.HasActiveModelReference Then
         ErrorHandler.HandleError "No active model reference", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
 		ShowStatusT "ZoneExportNoActiveModel"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- AC-2 / AC-3: resolve effective zone level ---
@@ -91,7 +92,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     If Len(ZoneLevel) = 0 Then
         ErrorHandler.HandleError "Zone level is empty (config ARES_ZONING_OUTPUT_LEVEL not set)", 0, "", "ExportLengthInRegion.ExportLengthInRegion"
 		ShowStatusT "ZoneExportLevelNotConfigured"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- AC-7: zone level must exist ---
@@ -99,7 +100,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     ' issue, not a fault worth an error-log entry.
     If Not GetElements.IsValidLevelName(ZoneLevel) Then
 		ShowStatusText GetTranslation("ZoneExportLevelNotFound", ZoneLevel)
-        Exit Sub
+        Exit Function
     End If
 
     ' --- Resolve optional candidate level filter (ARES_Zone_Export_Level) ---
@@ -128,7 +129,7 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
                            DIALOG_FILTER_XLSX, "xlsx")
             If Len(Filepath) = 0 Then
                 ShowStatusT "ZoneExportCancelled"
-                Exit Sub
+                Exit Function
             End If
         Else
             Filepath = BuildDefaultFilepath()
@@ -140,14 +141,14 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     If Not CollectZones(ZoneLevel, zones) Then
         ' AC-6: warning already logged inside CollectZones.
         ShowStatusText GetTranslation("ZoneExportNoZones", ZoneLevel)
-        Exit Sub
+        Exit Function
     End If
 
     ' --- T4: union bbox of all zones ---
     Dim oZoneRange As Range3d
     If Not ComputeZoneUnionRange(zones, oZoneRange) Then
         ErrorHandler.HandleError "failed to compute zone bbox, aborting", 0, "", "ExportLengthInRegion.ExportLengthInRegion": ShowStatusT "ZoneExportFailed"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- T5: coarse-scan candidates (graphical, bbox overlap, optional level filter) ---
@@ -185,11 +186,12 @@ Public Sub ExportLengthInRegion(Optional ByVal ZoneLevel As String = "", _
     Else
         ShowStatusText GetTranslation("ZoneExportComplete", nElementCount, oGroups.Count, sGroupBy)
     End If
-    Exit Sub
+    ExportLengthInRegion = True
+    Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "ExportLengthInRegion.ExportLengthInRegion"
-End Sub
+End Function
 
 ' ============================================================
 '  ZONE COLLECTION (T3) + BBOX (T4) + CANDIDATE SCAN (T5)

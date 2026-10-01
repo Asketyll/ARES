@@ -13,11 +13,11 @@ Option Explicit
 
 Implements IPrimitiveCommandEvents
 
-' _Start: show the locate cursor and the command/prompt strings.
+' _Start: show the locate cursor and the prompt. The command name is CommandState.CommandName, set by
+' whoever called StartPrimitive, right after it.
 Private Sub IPrimitiveCommandEvents_Start()
     On Error GoTo ErrorHandler
     CommandState.SetLocateCursor
-    ShowCommand GetTranslation("RegionSplitSelectRegionC")
     ShowPrompt GetTranslation("RegionSplitSelectRegionP")
     Exit Sub
 
@@ -37,6 +37,7 @@ Private Sub IPrimitiveCommandEvents_DataPoint(Point As Point3d, ByVal View As Vi
         If oEle.IsShapeElement Or oEle.IsComplexShapeElement Then
             RegionSplit.SplitElementAt oEle, Point
             CommandState.StartPrimitive Me      ' clear highlight + ready for the next region
+            CommandState.CommandName = GetTranslation("RegionSplitSelectRegionC")
             Exit Sub
         End If
         Set oEle = CommandState.LocateElement(Point, View, False)   ' next element under the click
@@ -45,12 +46,14 @@ Private Sub IPrimitiveCommandEvents_DataPoint(Point As Point3d, ByVal View As Vi
     ' Nothing splittable under the click.
     ShowStatusText GetTranslation("RegionSplitNoRegion")
     CommandState.StartPrimitive Me
+    CommandState.CommandName = GetTranslation("RegionSplitSelectRegionC")
     Exit Sub
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "RegionSplitLocate.DataPoint"
     On Error Resume Next
     CommandState.StartPrimitive Me
+    CommandState.CommandName = GetTranslation("RegionSplitSelectRegionC")
 End Sub
 
 ' _Reset: end the command and return MicroStation to its default tool.

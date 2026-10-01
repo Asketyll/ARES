@@ -300,28 +300,29 @@ Private Function IsValidVersion(ByVal sVersion As String) As Boolean
 End Function
 
 ' Manually checks for an available update and shows the dialog unconditionally
-' (bypasses mute and ignore-version preferences).
-Public Sub CheckForUpdateManual()
+' (bypasses mute and ignore-version preferences). True when the check could be made.
+Public Function CheckForUpdateManual() As Boolean
     On Error Resume Next
 
     Dim sInstalled As String
     Dim sLatest As String
 
     sInstalled = GetInstalledVersion()
-    If Len(sInstalled) = 0 Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
+    If Len(sInstalled) = 0 Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Function
 
     sLatest = GetLatestVersionFromGitHub()
-    If Len(sLatest) = 0 Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
-    If Not IsValidVersion(sLatest) Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
-    If Not HasInstallableMvba() Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Sub
+    If Len(sLatest) = 0 Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Function
+    If Not IsValidVersion(sLatest) Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Function
+    If Not HasInstallableMvba() Then ShowStatusText GetTranslation("UpdateCheckFailed") : Exit Function
 
+    CheckForUpdateManual = True
     If CompareVersions(sLatest, sInstalled) <= 0 Then
         ShowStatusText GetTranslation("UpdateAlreadyUpToDate")
-        Exit Sub
+        Exit Function
     End If
 
     ShowUpdateDialog sInstalled, sLatest
-End Sub
+End Function
 
 ' Checks for an available update and notifies the user if one is found.
 ' Silently exits if the network is unavailable, the check fails, or preferences suppress it.

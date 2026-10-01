@@ -9,8 +9,8 @@ Option Explicit
 
 ' === PUBLIC INTERFACE FOR CONFIGURATION MANAGEMENT ===
 
-' Export configuration with file dialog
-Public Sub ExportConfigurationUI()
+' Export configuration with file dialog. True when the configuration was exported.
+Public Function ExportConfigurationUI() As Boolean
     On Error GoTo ErrorHandler
 
     ' Initialize if needed
@@ -33,6 +33,7 @@ Public Sub ExportConfigurationUI()
         ' Export configuration
         If ARESConfig.ExportConfig(filePath) Then
             LangManager.ShowStatusText GetTranslation("ConfigExportSuccess", filePath)
+            ExportConfigurationUI = True
         Else
             LangManager.ShowStatusText GetTranslation("ConfigExportFailed")
         End If
@@ -40,15 +41,15 @@ Public Sub ExportConfigurationUI()
         LangManager.ShowStatusText GetTranslation("ConfigOperationCancelled")
     End If
 
-    Exit Sub
+    Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ExportConfigurationUI"
     LangManager.ShowStatusText GetTranslation("ConfigExportFailed")
-End Sub
+End Function
 
-' Import configuration with file dialog
-Public Sub ImportConfigurationUI()
+' Import configuration with file dialog. True when the configuration was imported.
+Public Function ImportConfigurationUI() As Boolean
     On Error GoTo ErrorHandler
 
     ' Initialize if needed
@@ -64,7 +65,7 @@ Public Sub ImportConfigurationUI()
         ' Check if file exists
         If Len(Dir(filePath)) = 0 Then
             MsgBox GetTranslation("ConfigFileNotFound", filePath), vbCritical + vbOKOnly, GetTranslation("ConfigImportTitle")
-            Exit Sub
+            Exit Function
         End If
 
         ' Ask about overwriting existing settings
@@ -75,7 +76,7 @@ Public Sub ImportConfigurationUI()
 
         If overwriteChoice = vbCancel Then
             LangManager.ShowStatusText GetTranslation("ConfigOperationCancelled")
-            Exit Sub
+            Exit Function
         End If
 
         ' Import configuration
@@ -91,6 +92,7 @@ Public Sub ImportConfigurationUI()
             MsgBox GetTranslation("ConfigImportSuccess", filePath), vbInformation + vbOKOnly, GetTranslation("ConfigImportTitle")
             sWarnings = ConfigThemes.DescribeLoadWarnings(nUnknown, sFileVersion)
             If Len(sWarnings) > 0 Then LangManager.ShowStatusText GetTranslation("ConfigImportWarnings", sWarnings)
+            ImportConfigurationUI = True
         Else
             LangManager.ShowStatusText GetTranslation("ConfigImportFailed")
             MsgBox GetTranslation("ConfigImportFailed"), vbCritical + vbOKOnly, GetTranslation("ConfigImportTitle")
@@ -99,12 +101,12 @@ Public Sub ImportConfigurationUI()
         LangManager.ShowStatusText GetTranslation("ConfigOperationCancelled")
     End If
 
-    Exit Sub
+    Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "FileDialogs.ImportConfigurationUI"
     LangManager.ShowStatusText GetTranslation("ConfigImportFailed")
-End Sub
+End Function
 
 ' === CORE DIALOG FUNCTIONS ===
 

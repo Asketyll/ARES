@@ -30,16 +30,17 @@ Private mnDbgShown As Long
 ' user how many source elements went through without producing anything.
 Private mnBufsMade As Long
 
-' Generates offset zones around elements on the specified source levels.
-Public Sub Zoning(Optional Lvls As Variant, _
-                  Optional OutputLevel As String = "", _
-                  Optional Color As Long = -1, _
-                  Optional Style As String = "", _
-                  Optional Weight As Long = -1, _
-                  Optional Dist As Double = 0, _
-                  Optional MergeZones As Boolean = True, _
-                  Optional DebugMode As Boolean = False, _
-                  Optional RoundCaps As Boolean = True)
+' Generates offset zones around elements on the specified source levels. True when at least one
+' source element produced a zone.
+Public Function Zoning(Optional Lvls As Variant, _
+                       Optional OutputLevel As String = "", _
+                       Optional Color As Long = -1, _
+                       Optional Style As String = "", _
+                       Optional Weight As Long = -1, _
+                       Optional Dist As Double = 0, _
+                       Optional MergeZones As Boolean = True, _
+                       Optional DebugMode As Boolean = False, _
+                       Optional RoundCaps As Boolean = True) As Boolean
 
     On Error GoTo ErrorHandler
 
@@ -60,7 +61,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
     ' --- Guard: configuration must be initialised before we can read config vars ---
     If Not ARESConfig.IsInitialized Then
         ErrorHandler.HandleError "ARESConfig not initialized", 0, "", "Zoning.Zoning"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- Fill in any missing parameters from ARESConfig ---
@@ -89,7 +90,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
         LvlsStr = ARESConfig.ARES_ZONING_LEVEL.Value
         If Len(LvlsStr) = 0 Then
             ErrorHandler.HandleError "No levels provided and ARES_Zoning_Level config is empty", 0, "", "Zoning.Zoning"
-            Exit Sub
+            Exit Function
         End If
         ResolvedLvls = Split(LvlsStr, ARES_VAR_DELIMITER)
     Else
@@ -100,22 +101,22 @@ Public Sub Zoning(Optional Lvls As Variant, _
     ' --- Validate the final parameter values ---
     If Dist <= 0 Then
         ErrorHandler.HandleError "Distance must be greater than zero", 0, "", "Zoning.Zoning"
-        Exit Sub
+        Exit Function
     End If
     If UBound(ResolvedLvls) < LBound(ResolvedLvls) Then
         ErrorHandler.HandleError "No levels provided", 0, "", "Zoning.Zoning"
-        Exit Sub
+        Exit Function
     End If
     If Not Application.HasActiveModelReference Then
         ErrorHandler.HandleError "No active model reference", 0, "", "Zoning.Zoning"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- Get (or create) the output level ---
     Set TargetLevel = GetElements.GetLevel(OutputLevel)
     If TargetLevel Is Nothing Then
         ErrorHandler.HandleError "Failed to get or create output level: " & OutputLevel, 0, "", "Zoning.Zoning"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- Collect all source elements by level and type ---
@@ -134,11 +135,11 @@ Public Sub Zoning(Optional Lvls As Variant, _
     If IsArray(Elements) Then
         If UBound(Elements) < LBound(Elements) Then
             ErrorHandler.HandleError "No elements found on specified levels", 0, "", "Zoning.Zoning"
-            Exit Sub
+            Exit Function
         End If
     Else
         ErrorHandler.HandleError "Failed to retrieve elements", 0, "", "Zoning.Zoning"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- Set the output strategy via the nAllBufs sentinel ---
@@ -166,6 +167,7 @@ Public Sub Zoning(Optional Lvls As Variant, _
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
         If nBuffered = 0 Then
             LangManager.ShowStatusText LangManager.GetTranslation("ZoningNoBufferCreated", nTotalEls)
+            Exit Function
         Else
             LangManager.ShowStatusText LangManager.GetTranslation("ZoningSomeBuffersFailed", nTotalEls - nBuffered, nTotalEls)
         End If
@@ -231,11 +233,12 @@ Public Sub Zoning(Optional Lvls As Variant, _
             WriteEl mergedAll(k), TargetLevel, Color, Style, Weight
         Next k
     End If
-    Exit Sub
+    Zoning = True
+    Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "Zoning.Zoning"
-End Sub
+End Function
 
 ' ============================================================
 '  OUTPUT HELPERS

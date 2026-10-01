@@ -13,15 +13,24 @@ Private moPropertyCalculationGUI     As PropertyCalculation_GUI_Options
 Private moPropertyRenderingGUI       As PropertyRendering_GUI_Options
 Private moSheetLevelsGUI     As SheetLevels_GUI_Options
 Private moConfigThemesGUI    As ConfigThemes_GUI
+Private mbKeyinForm          As Boolean     ' the running key-in opens a form (set by BeginKeyin)
+Private msLastKeyin          As String      ' Sub name of the last key-in that wrote the command area
 
 ' Report a trapped fault from a key-in entry point (messaging rules): log the technical detail
 ' to the .log (English, via HandleError), then show the user a translated, GENERIC failure line.
 ' Raw Err.Description never reaches the status bar. Capture Err.* at the handler and pass them in.
-Private Sub ReportFailure(ByVal sOp As String, ByVal sDesc As String, ByVal lNum As Long, ByVal sSrc As String)
+' bAnnounce: leave the name + "Failed" in the command/prompt areas; False for the interactive key-ins,
+' whose command name is CommandState.CommandName.
+Private Sub ReportFailure(ByVal sOp As String, ByVal sDesc As String, ByVal lNum As Long, ByVal sSrc As String, _
+                          Optional ByVal bAnnounce As Boolean = True)
     On Error Resume Next
     ErrorHandler.HandleError sDesc, lNum, sSrc, "Command." & sOp
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
     LangManager.ShowStatusText GetTranslation("CommandFailed", sOp)
+    If bAnnounce Then
+        ShowCommand KeyinName(sOp)
+        ShowPrompt GetTranslation("KeyinFailed")
+    End If
 End Sub
 
 ' Success-path counterpart to ReportFailure: if a real fault was logged (by this command or a module
@@ -35,14 +44,79 @@ Private Sub ReportIfLogged(ByVal sOp As String)
     End If
 End Sub
 
+' Entry ritual of every synchronous key-in: reset the fault flag (unless bClearFlag is False), then
+' announce the key-in's translated name in the command area and what it is doing in the prompt area -
+' both transient, never in the Message Center. bForm: the key-in opens an options window.
+' English/Francais call it after the language reload with bClearFlag:=False (they clear the flag at
+' their top), so the name shows in the new language.
+Private Sub BeginKeyin(ByVal sOp As String, Optional ByVal bForm As Boolean = False, _
+                       Optional ByVal bClearFlag As Boolean = True)
+    On Error Resume Next
+    If bClearFlag Then ErrorHandler.ClearErrorFlag
+    mbKeyinForm = bForm
+    msLastKeyin = sOp
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+    ShowCommand KeyinName(sOp)
+    If bForm Then
+        ShowPrompt GetTranslation("KeyinFormOpen")
+    Else
+        ShowPrompt GetTranslation("KeyinWorking")
+    End If
+End Sub
+
+' Exit ritual, every non-fault return path of a synchronous key-in: report a fault swallowed downstream,
+' then leave the name in the command area and the end state in the prompt area. bAchieved: False when
+' the key-in refused, was cancelled, or otherwise did not do its job.
+Private Sub EndKeyin(ByVal sOp As String, Optional ByVal bAchieved As Boolean = True)
+    On Error Resume Next
+    ReportIfLogged sOp
+    If Not LangManager.IsInit Then LangManager.InitializeTranslations
+    ShowCommand KeyinName(sOp)
+    ShowPrompt GetTranslation(KeyinEndPromptKey(ErrorHandler.HadError, bAchieved, mbKeyinForm))
+End Sub
+
+' Translation key of the prompt a key-in ends on. A fault or an unachieved run wins over everything,
+' then a form opener keeps its form prompt, else Done.
+Public Function KeyinEndPromptKey(ByVal bHadError As Boolean, ByVal bAchieved As Boolean, _
+                                  ByVal bForm As Boolean) As String
+    If bHadError Or Not bAchieved Then
+        KeyinEndPromptKey = "KeyinFailed"
+    ElseIf bForm Then
+        KeyinEndPromptKey = "KeyinFormOpen"
+    Else
+        KeyinEndPromptKey = "KeyinDone"
+    End If
+End Function
+
+' Translated name of a key-in; the Sub name itself when it has no key. Français is keyed as French:
+' translation keys stay ASCII.
+Private Function KeyinName(ByVal sOp As String) As String
+    Dim sKey As String
+    sKey = "Keyin_" & IIf(sOp = "Français", "French", sOp)
+    If LangManager.HasTranslation("EN", sKey) Then
+        KeyinName = GetTranslation(sKey)
+    Else
+        KeyinName = sOp
+    End If
+End Function
+
+' An options window closed: clear the command and prompt areas, but only when its opener is still the
+' last key-in shown there - a later key-in, another form or a locate tool keeps what it wrote.
+Private Sub ClearKeyinIfLast(ByVal sOpener As String)
+    On Error Resume Next
+    If msLastKeyin <> sOpener Then Exit Sub
+    ShowCommand ""
+    ShowPrompt ""
+    msLastKeyin = ""
+End Sub
+
 ' === UPDATE COMMANDS ===
 
 ' Manually check for an available update — bypasses mute and ignore-version preferences
 Sub CheckForUpdate()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
-    UpdateChecker.CheckForUpdateManual
-    ReportIfLogged "CheckForUpdate"
+    BeginKeyin "CheckForUpdate"
+    EndKeyin "CheckForUpdate", UpdateChecker.CheckForUpdateManual()
     Exit Sub
 
 ErrorHandler:
@@ -54,9 +128,8 @@ End Sub
 ' Export current configuration using event-driven UI
 Sub ExportARESConfig()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
-    FileDialogs.ExportConfigurationUI
-    ReportIfLogged "ExportARESConfig"
+    BeginKeyin "ExportARESConfig"
+    EndKeyin "ExportARESConfig", FileDialogs.ExportConfigurationUI()
     Exit Sub
     
 ErrorHandler:
@@ -66,9 +139,8 @@ End Sub
 ' Import configuration using event-driven UI
 Sub ImportARESConfig()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
-    FileDialogs.ImportConfigurationUI
-    ReportIfLogged "ImportARESConfig"
+    BeginKeyin "ImportARESConfig"
+    EndKeyin "ImportARESConfig", FileDialogs.ImportConfigurationUI()
     Exit Sub
     
 ErrorHandler:
@@ -78,11 +150,11 @@ End Sub
 ' Show current configuration summary
 Sub ShowARESConfigSummary()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "ShowARESConfigSummary"
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
     If Not ARESConfig.IsInitialized Then ARESConfig.Initialize
     MsgBox ARESConfig.GetConfigSummary(), vbOKOnly + vbInformation, GetTranslation("ConfigSummaryTitle")
-    ReportIfLogged "ShowARESConfigSummary"
+    EndKeyin "ShowARESConfigSummary"
     Exit Sub
 
 ErrorHandler:
@@ -93,7 +165,7 @@ End Sub
 ' and the current settings can be saved as a theme from there.
 Sub OpenARESThemes()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "OpenARESThemes", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -106,7 +178,7 @@ Sub OpenARESThemes()
     End If
 
     moConfigThemesGUI.Show vbModeless
-    ReportIfLogged "OpenARESThemes"
+    EndKeyin "OpenARESThemes"
     Exit Sub
 
 ErrorHandler:
@@ -115,6 +187,7 @@ End Sub
 
 Public Sub OnConfigThemesGUIClosed()
     Set moConfigThemesGUI = Nothing
+    ClearKeyinIfLast "OpenARESThemes"
 End Sub
 
 ' Re-seed every open ARES form from the configuration just loaded, discarding any edit in progress.
@@ -140,20 +213,22 @@ End Sub
 ' Sub to reset all ARES var in MS
 Sub ResetARESVariables()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "ResetARESVariables"
     
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
     End If
     
-    If ARESConfig.ResetAllConfigVars() Then
+    Dim bDone As Boolean
+    bDone = ARESConfig.ResetAllConfigVars()
+    If bDone Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
         LangManager.ShowStatusText GetTranslation("VarResetAllSuccess")
     Else
         LangManager.ShowStatusText GetTranslation("VarResetAllFailed")
     End If
-    ReportIfLogged "ResetARESVariables"
+    EndKeyin "ResetARESVariables", bDone
     
     Exit Sub
     
@@ -164,20 +239,22 @@ End Sub
 ' Sub to remove all ARES var in MS
 Sub RemoveARESVariables()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "RemoveARESVariables"
     
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
     End If
     
-    If ARESConfig.RemoveAllConfigVars() Then
+    Dim bDone As Boolean
+    bDone = ARESConfig.RemoveAllConfigVars()
+    If bDone Then
         If Not LangManager.IsInit Then LangManager.InitializeTranslations
         LangManager.ShowStatusText GetTranslation("VarRemoveSuccess")
     Else
         LangManager.ShowStatusText GetTranslation("VarRemoveError")
     End If
-    ReportIfLogged "RemoveARESVariables"
+    EndKeyin "RemoveARESVariables", bDone
     
     Exit Sub
     
@@ -192,14 +269,13 @@ End Sub
 ' Run zoning using configuration defaults (levels, distance, output properties from ARESConfig)
 Sub RunZoning()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "RunZoning"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
     End If
 
-    Zoning.Zoning
-    ReportIfLogged "RunZoning"
+    EndKeyin "RunZoning", Zoning.Zoning()
     Exit Sub
 
 ErrorHandler:
@@ -212,7 +288,7 @@ End Sub
 ' merged. Edit its options via EditOutlineOptions.
 Sub RunOutline()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "RunOutline"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -227,6 +303,7 @@ Sub RunOutline()
     dDist = Val(ARESConfig.ARES_OUTLINE_DISTANCE.Value)
     If dDist <= 0 Then
         LangManager.ShowStatusText GetTranslation("OutlineDistanceInvalid")
+        EndKeyin "RunOutline", False
         Exit Sub
     End If
 
@@ -236,17 +313,19 @@ Sub RunOutline()
     sLvls = ARESConfig.ARES_OUTLINE_LEVEL.Value
     If Len(Trim(sLvls)) = 0 Then
         LangManager.ShowStatusText GetTranslation("OutlineLevelEmpty")
+        EndKeyin "RunOutline", False
         Exit Sub
     End If
 
     ' Drive the engine from Outline's own option set (output symbology included).
-    Zoning.Zoning Lvls:=Split(sLvls, ARES_VAR_DELIMITER), _
-                  OutputLevel:=ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.Value, _
-                  Color:=CLng(ARESConfig.ARES_OUTLINE_OUTPUT_COLOR.Value), _
-                  Style:=ARESConfig.ARES_OUTLINE_OUTPUT_STYLE.Value, _
-                  Weight:=CLng(ARESConfig.ARES_OUTLINE_OUTPUT_WEIGHT.Value), _
-                  Dist:=dDist, MergeZones:=False, RoundCaps:=False
-    ReportIfLogged "RunOutline"
+    Dim bDone As Boolean
+    bDone = Zoning.Zoning(Lvls:=Split(sLvls, ARES_VAR_DELIMITER), _
+                          OutputLevel:=ARESConfig.ARES_OUTLINE_OUTPUT_LEVEL.Value, _
+                          Color:=CLng(ARESConfig.ARES_OUTLINE_OUTPUT_COLOR.Value), _
+                          Style:=ARESConfig.ARES_OUTLINE_OUTPUT_STYLE.Value, _
+                          Weight:=CLng(ARESConfig.ARES_OUTLINE_OUTPUT_WEIGHT.Value), _
+                          Dist:=dDist, MergeZones:=False, RoundCaps:=False)
+    EndKeyin "RunOutline", bDone
     Exit Sub
 
 ErrorHandler:
@@ -259,7 +338,7 @@ End Sub
 ' user-editable via the "Open once exported" checkbox in EditZoneExportOptions).
 Sub ExportLength()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "ExportLength"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -268,8 +347,7 @@ Sub ExportLength()
     Dim bVisible As Boolean
     bVisible = (UCase(Trim(ARESConfig.ARES_ZONE_EXPORT_EXCEL_VISIBLE.Value)) = "TRUE")
 
-    ExportLengthInRegion.ExportLengthInRegion ExcelVisible:=bVisible
-    ReportIfLogged "ExportLength"
+    EndKeyin "ExportLength", ExportLengthInRegion.ExportLengthInRegion(ExcelVisible:=bVisible)
     Exit Sub
 
 ErrorHandler:
@@ -282,7 +360,7 @@ End Sub
 ' sheet, never measured. Excel visibility is driven by ARES_CableReport_Excel_Visible.
 Sub ExportCableReport()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "ExportCableReport"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -291,8 +369,7 @@ Sub ExportCableReport()
     Dim bVisible As Boolean
     bVisible = (UCase(Trim(ARESConfig.ARES_CABLEREPORT_EXCEL_VISIBLE.Value)) = "TRUE")
 
-    CableReport.CableReport ExcelVisible:=bVisible
-    ReportIfLogged "ExportCableReport"
+    EndKeyin "ExportCableReport", CableReport.CableReport(ExcelVisible:=bVisible)
     Exit Sub
 
 ErrorHandler:
@@ -302,7 +379,7 @@ End Sub
 ' Open the CableReport options GUI
 Sub EditCableReportOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditCableReportOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -315,7 +392,7 @@ Sub EditCableReportOptions()
     End If
 
     moCableReportGUI.Show vbModeless
-    ReportIfLogged "EditCableReportOptions"
+    EndKeyin "EditCableReportOptions"
     Exit Sub
 
 ErrorHandler:
@@ -324,12 +401,13 @@ End Sub
 
 Public Sub OnCableReportGUIClosed()
     Set moCableReportGUI = Nothing
+    ClearKeyinIfLast "EditCableReportOptions"
 End Sub
 
 ' Open the Zoning options GUI
 Sub EditZoningOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditZoningOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -342,7 +420,7 @@ Sub EditZoningOptions()
     End If
 
     moZoningGUI.Show vbModeless
-    ReportIfLogged "EditZoningOptions"
+    EndKeyin "EditZoningOptions"
     Exit Sub
 
 ErrorHandler:
@@ -352,7 +430,7 @@ End Sub
 ' Open the Outline options GUI
 Sub EditOutlineOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditOutlineOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -365,7 +443,7 @@ Sub EditOutlineOptions()
     End If
 
     moOutlineGUI.Show vbModeless
-    ReportIfLogged "EditOutlineOptions"
+    EndKeyin "EditOutlineOptions"
     Exit Sub
 
 ErrorHandler:
@@ -388,10 +466,12 @@ Sub SplitRegion()
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
 
     CommandState.StartPrimitive New RegionSplitLocate
+    CommandState.CommandName = GetTranslation("RegionSplitSelectRegionC")   ' after StartPrimitive: tied to the undo buffer
+    msLastKeyin = "SplitRegion"
     Exit Sub
 
 ErrorHandler:
-    ReportFailure "SplitRegion", Err.Description, Err.Number, Err.Source
+    ReportFailure "SplitRegion", Err.Description, Err.Number, Err.Source, bAnnounce:=False
 End Sub
 
 ' Merge two closed regions (Shape / ComplexShape) into a single region from two successive
@@ -407,10 +487,12 @@ Sub MergeRegion()
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
 
     CommandState.StartPrimitive New RegionMergeLocate
+    CommandState.CommandName = GetTranslation("MergeRegionSelectFirstC")   ' after StartPrimitive: tied to the undo buffer
+    msLastKeyin = "MergeRegion"
     Exit Sub
 
 ErrorHandler:
-    ReportFailure "MergeRegion", Err.Description, Err.Number, Err.Source
+    ReportFailure "MergeRegion", Err.Description, Err.Number, Err.Source, bAnnounce:=False
 End Sub
 
 ' === SHEET LEVELS COMMANDS ===
@@ -421,7 +503,7 @@ End Sub
 ' SheetLevels module header for why the per-view masks are out of reach from here.
 Sub ActivateSheetLevels()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "ActivateSheetLevels"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -429,8 +511,7 @@ Sub ActivateSheetLevels()
 
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
 
-    SheetLevels.ActivateLevels
-    ReportIfLogged "ActivateSheetLevels"
+    EndKeyin "ActivateSheetLevels", SheetLevels.ActivateLevels()
     Exit Sub
 
 ErrorHandler:
@@ -441,7 +522,7 @@ End Sub
 ' references are processed too.
 Sub EditSheetLevelsOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditSheetLevelsOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -454,7 +535,7 @@ Sub EditSheetLevelsOptions()
     End If
 
     moSheetLevelsGUI.Show vbModeless
-    ReportIfLogged "EditSheetLevelsOptions"
+    EndKeyin "EditSheetLevelsOptions"
     Exit Sub
 
 ErrorHandler:
@@ -463,6 +544,7 @@ End Sub
 
 Public Sub OnSheetLevelsGUIClosed()
     Set moSheetLevelsGUI = Nothing
+    ClearKeyinIfLast "EditSheetLevelsOptions"
 End Sub
 
 ' === TESTING COMMANDS ===
@@ -470,9 +552,9 @@ End Sub
 ' Run all unit tests
 Sub RunARESTests()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "RunARESTests"
     UnitTesting.RunAllTests
-    ReportIfLogged "RunARESTests"
+    EndKeyin "RunARESTests"
     Exit Sub
     
 ErrorHandler:
@@ -482,9 +564,9 @@ End Sub
 ' Run performance tests
 Sub RunARESPerformanceTests()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "RunARESPerformanceTests"
     UnitTesting.RunPerformanceTests
-    ReportIfLogged "RunARESPerformanceTests"
+    EndKeyin "RunARESPerformanceTests"
     Exit Sub
     
 ErrorHandler:
@@ -498,13 +580,16 @@ Sub English()
     On Error GoTo ErrorHandler
     ErrorHandler.ClearErrorFlag
     
-    If Config.SetVar("ARES_Language", "English") Then
+    Dim bDone As Boolean
+    bDone = Config.SetVar("ARES_Language", "English")
+    If bDone Then
         LangManager.InitializeTranslations          ' reload so the confirmation shows in the resolved language
         LangManager.ShowStatusT "LanguageChanged"
     Else
         LangManager.ShowStatusT "LanguageChangeFailed"
     End If
-    ReportIfLogged "English"
+    BeginKeyin "English", bClearFlag:=False            ' announced after the reload: the name is in the new language
+    EndKeyin "English", bDone
 
     Exit Sub
 
@@ -517,13 +602,16 @@ Sub Français()
     On Error GoTo ErrorHandler
     ErrorHandler.ClearErrorFlag
     
-    If Config.SetVar("ARES_Language", "Français") Then
+    Dim bDone As Boolean
+    bDone = Config.SetVar("ARES_Language", "Français")
+    If bDone Then
         LangManager.InitializeTranslations          ' reload so the confirmation shows in the resolved language
         LangManager.ShowStatusT "LanguageChanged"
     Else
         LangManager.ShowStatusT "LanguageChangeFailed"
     End If
-    ReportIfLogged "Français"
+    BeginKeyin "Français", bClearFlag:=False            ' announced after the reload: the name is in the new language
+    EndKeyin "Français", bDone
 
     Exit Sub
 
@@ -534,7 +622,7 @@ End Sub
 ' Sub to open ARES wiki in default browser
 Sub OpenARESWiki()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "OpenARESWiki"
     
     Dim WikiURL As String
     Dim Result As Long
@@ -548,7 +636,7 @@ Sub OpenARESWiki()
 
     ' Use Shell to open URL in default browser
     Result = Shell("rundll32.exe url.dll,FileProtocolHandler " & WikiURL, vbNormalFocus)
-    ReportIfLogged "OpenARESWiki"
+    EndKeyin "OpenARESWiki"
     
     Exit Sub
 
@@ -583,16 +671,18 @@ End Sub
 ' Called from UserForm_QueryClose when form closes
 Public Sub OnZoningGUIClosed()
     Set moZoningGUI = Nothing
+    ClearKeyinIfLast "EditZoningOptions"
 End Sub
 
 Public Sub OnOutlineGUIClosed()
     Set moOutlineGUI = Nothing
+    ClearKeyinIfLast "EditOutlineOptions"
 End Sub
 
 ' Open the ZoneExport options GUI
 Sub EditZoneExportOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditZoneExportOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -605,7 +695,7 @@ Sub EditZoneExportOptions()
     End If
 
     moZoneExportGUI.Show vbModeless
-    ReportIfLogged "EditZoneExportOptions"
+    EndKeyin "EditZoneExportOptions"
     Exit Sub
 
 ErrorHandler:
@@ -614,12 +704,13 @@ End Sub
 
 Public Sub OnZoneExportGUIClosed()
     Set moZoneExportGUI = Nothing
+    ClearKeyinIfLast "EditZoneExportOptions"
 End Sub
 
 ' Open the Property Tagging (custom-property) options GUI
 Sub EditPropertyTaggingOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditPropertyTaggingOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -632,7 +723,7 @@ Sub EditPropertyTaggingOptions()
     End If
 
     moPropertyTaggingGUI.Show vbModeless
-    ReportIfLogged "EditPropertyTaggingOptions"
+    EndKeyin "EditPropertyTaggingOptions"
     Exit Sub
 
 ErrorHandler:
@@ -641,12 +732,13 @@ End Sub
 
 Public Sub OnPropertyTaggingGUIClosed()
     Set moPropertyTaggingGUI = Nothing
+    ClearKeyinIfLast "EditPropertyTaggingOptions"
 End Sub
 
 ' Open the Property Calculation (calc rules -> custom-property values) options GUI
 Sub EditPropertyCalculationOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditPropertyCalculationOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -659,7 +751,7 @@ Sub EditPropertyCalculationOptions()
     End If
 
     moPropertyCalculationGUI.Show vbModeless
-    ReportIfLogged "EditPropertyCalculationOptions"
+    EndKeyin "EditPropertyCalculationOptions"
     Exit Sub
 
 ErrorHandler:
@@ -668,13 +760,14 @@ End Sub
 
 Public Sub OnPropertyCalculationGUIClosed()
     Set moPropertyCalculationGUI = Nothing
+    ClearKeyinIfLast "EditPropertyCalculationOptions"
 End Sub
 
 ' Key-in: options panel for Property Rendering - the render master switch plus the three display settings
 ' that outlive Auto Lengths (colour sync and the two ATLAS label-cell options).
 Sub EditPropertyRenderingOptions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "EditPropertyRenderingOptions", True
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -687,7 +780,7 @@ Sub EditPropertyRenderingOptions()
     End If
 
     moPropertyRenderingGUI.Show vbModeless
-    ReportIfLogged "EditPropertyRenderingOptions"
+    EndKeyin "EditPropertyRenderingOptions"
     Exit Sub
 
 ErrorHandler:
@@ -696,6 +789,7 @@ End Sub
 
 Public Sub OnPropertyRenderingGUIClosed()
     Set moPropertyRenderingGUI = Nothing
+    ClearKeyinIfLast "EditPropertyRenderingOptions"
 End Sub
 
 ' Key-in: open the DGNLib holding the ARES custom-property ItemTypes, then its Item Types dialog, so the
@@ -704,7 +798,7 @@ End Sub
 ' CustomPropertyHandler.RefreshItemTypes), which closes the edit loop without a restart.
 Sub OpenPropertyLibrary()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "OpenPropertyLibrary"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -716,10 +810,11 @@ Sub OpenPropertyLibrary()
     ' reported on the status bar only - the technical detail, if any, already went to the log downstream.
     If Not CustomPropertyHandler.OpenCustomPropertyLibrary() Then
         ShowStatusT "PropertyLibraryNotFound"
+        EndKeyin "OpenPropertyLibrary", False
         Exit Sub
     End If
 
-    ReportIfLogged "OpenPropertyLibrary"
+    EndKeyin "OpenPropertyLibrary"
     Exit Sub
 
 ErrorHandler:
@@ -733,7 +828,7 @@ End Sub
 ' Operates on the current selection; an empty selection or a disabled feature is status-only.
 Sub BindPropertyRender()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "BindPropertyRender"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -743,11 +838,13 @@ Sub BindPropertyRender()
 
     If Not PropertyRendering.IsEnabled Then
         ShowStatusT "RenderDisabled"
+        EndKeyin "BindPropertyRender", False
         Exit Sub
     End If
 
     If Not ActiveModelReference.AnyElementsSelected Then
         ShowStatusT "RenderNoSelection"
+        EndKeyin "BindPropertyRender", False
         Exit Sub
     End If
 
@@ -762,7 +859,7 @@ Sub BindPropertyRender()
 
     ' BindElement already reports every refusal on the status bar (and the success of a real bind), so a
     ' zero count needs no extra message here.
-    ReportIfLogged "BindPropertyRender"
+    EndKeyin "BindPropertyRender"
     Exit Sub
 
 ErrorHandler:
@@ -776,7 +873,7 @@ End Sub
 ' gates itself inside ProcessElement, same as it would for a real event.
 Sub RecalculateSelection()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "RecalculateSelection"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -786,6 +883,7 @@ Sub RecalculateSelection()
 
     If Not ActiveModelReference.AnyElementsSelected Then
         ShowStatusT "RecalculateNoSelection"
+        EndKeyin "RecalculateSelection", False
         Exit Sub
     End If
 
@@ -801,7 +899,7 @@ Sub RecalculateSelection()
     Loop
 
     LangManager.ShowStatusText GetTranslation("RecalculateComplete", nCount)
-    ReportIfLogged "RecalculateSelection"
+    EndKeyin "RecalculateSelection"
     Exit Sub
 
 ErrorHandler:
@@ -816,7 +914,7 @@ End Sub
 ' Debug.Print instrumentation used to give during manual debugging sessions.
 Sub LogCallStack()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "LogCallStack"
 
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
 
@@ -825,12 +923,13 @@ Sub LogCallStack()
 
     If Len(sSnapshot) = 0 Then
         ShowStatusT "CallStackEmpty"
+        EndKeyin "LogCallStack", False
         Exit Sub
     End If
 
     ErrorHandler.HandleError sSnapshot, 0, "", "Command.LogCallStack"
     ShowStatusT "CallStackLogged"
-    ReportIfLogged "LogCallStack"
+    EndKeyin "LogCallStack"
     Exit Sub
 
 ErrorHandler:
@@ -854,7 +953,7 @@ End Sub
 ' Key-in: forget all saved form positions and re-center any option form currently open.
 Sub ResetFormPositions()
     On Error GoTo ErrorHandler
-    ErrorHandler.ClearErrorFlag
+    BeginKeyin "ResetFormPositions"
     If BootLoader.ARESConfig Is Nothing Or Not ARESConfig.IsInitialized Then
         Set BootLoader.ARESConfig = New ARESConfigClass
         ARESConfig.Initialize
@@ -873,7 +972,7 @@ Sub ResetFormPositions()
     If Not moConfigThemesGUI Is Nothing Then FormPlacement.CenterForm moConfigThemesGUI
 
     ShowStatusT "FormPositionsReset"
-    ReportIfLogged "ResetFormPositions"
+    EndKeyin "ResetFormPositions"
     Exit Sub
 
 ErrorHandler:

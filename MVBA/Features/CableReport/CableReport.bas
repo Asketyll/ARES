@@ -20,22 +20,23 @@ Private Const XL_OPENXML_FORMAT As Long   = 51       ' xlOpenXMLWorkbook (.xlsx)
 '  PUBLIC ENTRY POINT
 ' ============================================================
 
-Public Sub CableReport(Optional ByVal CableLevel As String = "", _
-                       Optional ByVal ZoneLevel As String = "", _
-                       Optional ByVal Filepath As String = "", _
-                       Optional ByVal ExcelVisible As Boolean = True)
+' Returns True when the report workbook was written.
+Public Function CableReport(Optional ByVal CableLevel As String = "", _
+                            Optional ByVal ZoneLevel As String = "", _
+                            Optional ByVal Filepath As String = "", _
+                            Optional ByVal ExcelVisible As Boolean = True) As Boolean
 
     On Error GoTo ErrorHandler
 
     If Not ARESConfig.IsInitialized Then
         ErrorHandler.HandleError "ARESConfig not initialized", 0, "", "CableReport.CableReport"
-        Exit Sub
+        Exit Function
     End If
 
     If Not Application.HasActiveModelReference Then
         ErrorHandler.HandleError "No active model reference", 0, "", "CableReport.CableReport"
         ShowStatusT "CableReportNoActiveModel"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- Resolve cable level(s): |-delimited list (ARES_VAR_DELIMITER) - several cable-laying
@@ -46,7 +47,7 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     If Len(CableLevel) = 0 Then
         ErrorHandler.HandleError "Cable level is empty (config ARES_CableReport_Cable_Level not set)", 0, "", "CableReport.CableReport"
         ShowStatusT "CableReportLevelNotConfigured"
-        Exit Sub
+        Exit Function
     End If
 
     Dim cableLevels()   As String
@@ -55,7 +56,7 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     nCableLevels = ResolveCableLevels(CableLevel, cableLevels, sIgnoredLevels)
     If nCableLevels = 0 Then
         ShowStatusText GetTranslation("CableReportLevelNotFound", CableLevel)
-        Exit Sub
+        Exit Function
     End If
     If Len(sIgnoredLevels) > 0 Then
         ' Status-bar only, not logged: a typo'd/renamed level in the list is a user config issue,
@@ -89,7 +90,7 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
                        DIALOG_FILTER_XLSX, "xlsx")
         If Len(Filepath) = 0 Then
             ShowStatusT "CableReportCancelled"
-            Exit Sub
+            Exit Function
         End If
     End If
 
@@ -97,7 +98,7 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
     Dim cables() As Element
     If Not CollectCables(cableLevels, cables) Then
         ShowStatusT "CableReportNoCables"
-        Exit Sub
+        Exit Function
     End If
 
     ' --- One row on each sheet the cable belongs to (ClassifyCable) ---
@@ -208,11 +209,12 @@ Public Sub CableReport(Optional ByVal CableLevel As String = "", _
                  Len(sAerialProp) > 0, oAerialRows, Filepath, ExcelVisible
 
     ShowStatusText GetTranslation("CableReportComplete", nRowCount, oColumns.Count, nIncomplete, nSharedZones)
-    Exit Sub
+    CableReport = True
+    Exit Function
 
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CableReport.CableReport"
-End Sub
+End Function
 
 ' ============================================================
 '  CABLE / ZONE COLLECTION

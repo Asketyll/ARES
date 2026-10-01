@@ -335,7 +335,52 @@ Private Function LangManagerTest() As Boolean
        And tBelow.Message = sMarker Then
         TestsPassed = TestsPassed + 1
     End If
-    
+
+    ' Test 2.8: every key the key-in announce uses (Command.BeginKeyin / EndKeyin) exists in EN and FR.
+    ' HasTranslation, not GetTranslation: GetTranslation falls back to English, which would hide a missing
+    ' French key.
+    TotalTests = TotalTests + 1
+    Dim vKey As Variant
+    Dim bAllKeyinKeys As Boolean
+    bAllKeyinKeys = True
+    For Each vKey In Array("Keyin_CheckForUpdate", "Keyin_ExportARESConfig", "Keyin_ImportARESConfig", _
+        "Keyin_ShowARESConfigSummary", "Keyin_OpenARESThemes", "Keyin_ResetARESVariables", _
+        "Keyin_RemoveARESVariables", "Keyin_RunZoning", "Keyin_RunOutline", "Keyin_ExportLength", _
+        "Keyin_ExportCableReport", "Keyin_EditCableReportOptions", "Keyin_EditZoningOptions", _
+        "Keyin_EditOutlineOptions", "Keyin_ActivateSheetLevels", "Keyin_EditSheetLevelsOptions", _
+        "Keyin_RunARESTests", "Keyin_RunARESPerformanceTests", "Keyin_English", "Keyin_French", _
+        "Keyin_OpenARESWiki", "Keyin_EditZoneExportOptions", "Keyin_EditPropertyTaggingOptions", _
+        "Keyin_EditPropertyCalculationOptions", "Keyin_EditPropertyRenderingOptions", _
+        "Keyin_OpenPropertyLibrary", "Keyin_BindPropertyRender", "Keyin_RecalculateSelection", _
+        "Keyin_LogCallStack", "Keyin_ResetFormPositions", _
+        "KeyinWorking", "KeyinFormOpen", "KeyinDone", "KeyinFailed")
+        If Not LangManager.HasTranslation("EN", CStr(vKey)) Then bAllKeyinKeys = False
+        If Not LangManager.HasTranslation("FR", CStr(vKey)) Then bAllKeyinKeys = False
+    Next vKey
+    If bAllKeyinKeys Then
+        TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 2.9: the prompt a key-in ends on - a fault or a refusal ends on Failed (a fault even on a form
+    ' opener), a form opener keeps its form prompt, anything else is Done.
+    TotalTests = TotalTests + 1
+    If Command.KeyinEndPromptKey(True, True, False) = "KeyinFailed" _
+       And Command.KeyinEndPromptKey(False, False, False) = "KeyinFailed" _
+       And Command.KeyinEndPromptKey(True, True, True) = "KeyinFailed" _
+       And Command.KeyinEndPromptKey(False, True, True) = "KeyinFormOpen" _
+       And Command.KeyinEndPromptKey(False, True, False) = "KeyinDone" Then
+        TestsPassed = TestsPassed + 1
+    End If
+
+    ' Test 2.10: a feature entry point stopped by a guard reports it did not do its job. Guard paths only:
+    ' Zoning gets an existing output level (no level created) and a source level that does not exist (no
+    ' element found); CableReport a cable level that does not exist. Nothing is written to the model.
+    TotalTests = TotalTests + 1
+    If Zoning.Zoning(Lvls:="__ARES_UT_NO_SUCH_LEVEL__", OutputLevel:=ActiveSettings.Level.Name) = False _
+       And CableReport.CableReport(CableLevel:="__ARES_UT_NO_SUCH_LEVEL__") = False Then
+        TestsPassed = TestsPassed + 1
+    End If
+
     LangManagerTest = (TestsPassed = TotalTests)
     Exit Function
     

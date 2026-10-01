@@ -13,15 +13,16 @@ Private Const MAX_VIEWS As Long = 8
 ' Depth cap on the reference tree - a reference can itself reference, with no cheap loop detection here.
 Private Const MAX_ATTACH_DEPTH As Long = 8
 
-' Sole public entry, driven by the key-in Command.ActivateSheetLevels.
-Public Sub ActivateLevels()
+' Sole public entry, driven by the key-in Command.ActivateSheetLevels. True when at least one sheet
+' model was processed.
+Public Function ActivateLevels() As Boolean
     On Error GoTo ErrorHandler
 
     Dim oPrevModel As ModelReference
 
     If Not ARESConfig.IsInitialized Then
         ErrorHandler.HandleError "ARESConfig not initialized", 0, "", "SheetLevels.ActivateLevels"
-        Exit Sub
+        Exit Function
     End If
 
     If Not LangManager.IsInit Then LangManager.InitializeTranslations
@@ -30,14 +31,14 @@ Public Sub ActivateLevels()
     If Not Application.HasActiveDesignFile Then
         ErrorHandler.HandleError "No active design file", 0, "", "SheetLevels.ActivateLevels"
         ShowStatusT "SheetLevelsNoDesignFile"
-        Exit Sub
+        Exit Function
     End If
 
     Dim sPattern As String
     sPattern = ResolvePattern()
     If Len(sPattern) = 0 Then
         ShowStatusT "SheetLevelsPatternEmpty"
-        Exit Sub
+        Exit Function
     End If
 
     ' Captured BEFORE the first Activate, restored on every exit path including the fault one.
@@ -84,7 +85,7 @@ Public Sub ActivateLevels()
         Else
             LangManager.ShowStatusText GetTranslation("SheetLevelsNoModel", sPattern)
         End If
-        Exit Sub
+        Exit Function
     End If
 
     ' Without this the restored model keeps painting the level set it had on entry.
@@ -95,12 +96,13 @@ Public Sub ActivateLevels()
     Else
         LangManager.ShowStatusText GetTranslation("SheetLevelsComplete", nModels, nViews, nSwitched)
     End If
-    Exit Sub
+    ActivateLevels = True
+    Exit Function
 
 ErrorHandler:
     RestoreModel oPrevModel   ' before anything else - never leave the user parked on folio 17
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "SheetLevels.ActivateLevels"
-End Sub
+End Function
 
 ' The configured model-name pattern, normalised: alternatives trimmed, blanks dropped, rejoined.
 ' "" = not configured, which includes a value that is nothing but delimiters. Read live, not from

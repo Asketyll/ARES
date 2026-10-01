@@ -22,12 +22,12 @@ Implements IPrimitiveCommandEvents
 ' The region acquired on the first click of the current pair; Nothing while awaiting it.
 Private moFirstZone As Element
 
-' _Start: show the locate cursor, reset any pending first pick, and prompt for the first click.
+' _Start: show the locate cursor, reset any pending first pick, and prompt for the first click. The command
+' name is CommandState.CommandName, set by whoever called StartPrimitive, right after it.
 Private Sub IPrimitiveCommandEvents_Start()
     On Error GoTo ErrorHandler
     Set moFirstZone = Nothing
     CommandState.SetLocateCursor
-    ShowCommand GetTranslation("MergeRegionSelectFirstC")
     ShowPrompt GetTranslation("MergeRegionSelectFirstP")
     Exit Sub
 
@@ -71,6 +71,7 @@ Private Sub IPrimitiveCommandEvents_DataPoint(Point As Point3d, ByVal View As Vi
     Set moFirstZone = Nothing
     Set MSGraphicalInteraction.TEC = Nothing         ' release the first-click highlight overlay
     CommandState.StartPrimitive Me                  ' clear highlight + ready for the next pair
+    CommandState.CommandName = GetTranslation("MergeRegionSelectFirstC")
     Exit Sub
 
 ErrorHandler:
@@ -79,6 +80,7 @@ ErrorHandler:
     Set moFirstZone = Nothing
     Set MSGraphicalInteraction.TEC = Nothing
     CommandState.StartPrimitive Me
+    CommandState.CommandName = GetTranslation("MergeRegionSelectFirstC")
 End Sub
 
 ' LocateMergeableRegion
