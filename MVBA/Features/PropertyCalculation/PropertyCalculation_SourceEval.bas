@@ -465,11 +465,27 @@ Private Function EvaluateGroupProp(ByVal oEl As element, ByVal sPropName As Stri
     Dim sVal     As String
     Dim oRead    As element
     Dim bDisagree As Boolean
+    Dim bShapeKnown As Boolean
+    Dim bMulti   As Boolean
+    Dim oShape   As ItemType
     nFound = 0
     For i = LBound(cands) To UBound(cands)
         Set oRead = FreshHandle(cands(i))          ' pull source: the scan found it, the fresh handle is read
         If CustomPropertyHandler.IsItemAttachedToElement(oRead, sPropName) Then
-            vVal = CustomPropertyHandler.GetPropertyValueFromElement(oRead, sPropName, sPropName)
+            ' A multi-value property is read whole (packed, every member) so the receiver can mirror it
+            ' member by member; the item's shape is a library definition, so it is resolved once.
+            If Not bShapeKnown Then
+                Set oShape = CustomPropertyHandler.GetItemTypeFromElement(oRead, sPropName)
+                If Not oShape Is Nothing Then
+                    bMulti = CustomPropertyHandler.IsMultiMemberItem(oShape)
+                    bShapeKnown = True
+                End If
+            End If
+            If bMulti Then
+                vVal = CustomPropertyHandler.GetMembersPacked(oRead, sPropName)
+            Else
+                vVal = CustomPropertyHandler.GetPropertyValueFromElement(oRead, sPropName, sPropName)
+            End If
             If Not IsNull(vVal) Then
                 sVal = CStr(vVal)
                 If Len(sVal) > 0 Then

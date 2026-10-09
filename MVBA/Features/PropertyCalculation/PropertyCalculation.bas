@@ -1317,13 +1317,22 @@ Public Function ApplyValueToSibling(ByVal s As element, ByVal P As String, ByVal
     ' CustomPropertyHandler.GetXYSplitMembers), NOT by which SourceKind produced value. Any calc rule
     ' (Coord/GroupCellCoord, but also Value[...] or any other source) that targets such an item takes this
     ' split-write path; ApplyXYValueToSibling rejects outright (writes nothing) if value is not exactly
-    ' "part;part" once non-empty, rather than truncating silently. Every OTHER target (the 1-field shape
-    ' every other property uses) takes the unchanged single-field path below unmodified - GetXYSplitMembers
-    ' is False for a 1-member item by construction, so this is a pure no-op check for every property that
-    ' isn't a split coordinate.
+    ' "part;part" once non-empty, rather than truncating silently. A multi-value item receiving a packed
+    ' (GroupProp) or empty value is mirrored member by member (ApplyMembersToSibling). Every other case
+    ' takes the unchanged single-field path below - a packed value first reduced to the donor's first
+    ' non-empty member, what a single-value reader of the donor sees.
     Dim oItem As ItemType
     Dim sXMember As String, sYMember As String
     Set oItem = CustomPropertyHandler.GetItemTypeFromElement(s, P, ARESConstants.ARES_NAME_LIBRARY_TYPE)
+
+    ' Cheap string test first: IsMultiMemberItem walks the item, and only a packed or empty value can mirror.
+    If CustomPropertyHandler.IsPackedMembers(value) Or Len(value) = 0 Then
+        If CustomPropertyHandler.IsMultiMemberItem(oItem) Then
+            If ApplyMembersToSibling(s, P, oItem, value) Then Exit Function
+        End If
+    End If
+    If CustomPropertyHandler.IsPackedMembers(value) Then value = CustomPropertyHandler.GetPackedFirstValue(value)
+
     If CustomPropertyHandler.GetXYSplitMembers(oItem, sXMember, sYMember) Then
         ApplyXYValueToSibling s, P, sXMember, sYMember, value
         Exit Function
@@ -1483,6 +1492,120 @@ Private Sub ApplyXYValueToSibling(ByVal s As element, ByVal P As String, ByVal s
 ErrorHandler:
     ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ApplyXYValueToSibling"
 End Sub
+
+' Multi-value write path for ApplyValueToSibling: s becomes a MIRROR of the donor (see PlanMemberMirror).
+' Every member is read and written on its own name with bNoFallback:=True (the fallback would address the
+' wrong member). A refused member does not stop the others; it is reported once. An empty value with a
+' non-empty member is the usual transition: detach (ARES_Calc_Detach_Empty) or clear every non-empty member.
+' False = not mirrored (a packed value naming none of s's members) - the caller takes the single-field path.
+Private Function ApplyMembersToSibling(ByVal s As element, ByVal P As String, ByVal oItem As ItemType, ByVal value As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    ApplyMembersToSibling = False
+
+    Dim sNames() As String
+    Dim sCur() As String
+    Dim nCount As Long
+    Dim oProp As ItemTypeProperty
+    Dim vCur As Variant
+    Dim i As Long
+
+    nCount = 0
+    Do
+        Set oProp = oItem.Find("*", oProp)
+        If oProp Is Nothing Then Exit Do
+        ReDim Preserve sNames(nCount)
+        ReDim Preserve sCur(nCount)
+        sNames(nCount) = oProp.PropertyName
+        vCur = CustomPropertyHandler.GetPropertyValueFromElement(s, sNames(nCount), P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True)
+        If IsNull(vCur) Then
+            sCur(nCount) = ""
+        ElseIf IsArray(vCur) Then
+            sCur(nCount) = ""
+        Else
+            sCur(nCount) = CStr(vCur)
+        End If
+        nCount = nCount + 1
+    Loop
+    If nCount = 0 Then Exit Function
+
+    Dim sWanted() As String
+    Dim bWrite() As Boolean
+    If Not PlanMemberMirror(sNames, sCur, value, sWanted, bWrite) Then Exit Function
+    ApplyMembersToSibling = True
+
+    Dim bAnyWrite As Boolean
+    Dim bChanged As Boolean
+    Dim bRejected As Boolean
+    bAnyWrite = False
+    bChanged = False
+    bRejected = False
+    For i = 0 To nCount - 1
+        If bWrite(i) Then bAnyWrite = True
+    Next i
+    If Not bAnyWrite Then Exit Function                ' already mirrored -> no-op (loop-safety)
+
+    If Len(value) = 0 And IsDetachEmptyEnabled() Then
+        ' Option ON: delegate the detach to the tagger (the only permitted detach path).
+        PropertyTagging.DetachRuleProperty s, P
+        bChanged = True
+    Else
+        For i = 0 To nCount - 1
+            If bWrite(i) Then
+                If CustomPropertyHandler.SetPropertyValueToElement(s, sNames(i), sWanted(i), P, ARESConstants.ARES_NAME_LIBRARY_TYPE, True) Then
+                    bChanged = True
+                Else
+                    bRejected = True
+                End If
+            End If
+        Next i
+    End If
+
+    If bRejected Then ReportRejected
+    If bChanged Then
+        PropertyRendering.NoteDirtyGroup s
+        PropertyActuator.ProcessElement s
+    End If
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.ApplyMembersToSibling"
+End Function
+
+' Pure mirror plan (no element, no DGNLib - the test seam of ApplyMembersToSibling). For each member
+' (sNames/sCur, same bounds) sets sWanted = the packed donor's member of the same name ("" when absent from
+' the donor) and bWrite = it differs from sCur (compare-before-write). sPacked "" (donor fully empty) wants
+' every member emptied. False when sPacked is non-empty and either not packed or naming none of the
+' members - not a mirror.
+Public Function PlanMemberMirror(ByRef sNames() As String, ByRef sCur() As String, ByVal sPacked As String, ByRef sWanted() As String, ByRef bWrite() As Boolean) As Boolean
+    On Error GoTo ErrorHandler
+
+    PlanMemberMirror = False
+    If Len(sPacked) > 0 Then
+        If Not CustomPropertyHandler.IsPackedMembers(sPacked) Then Exit Function
+    End If
+
+    Dim i As Long
+    Dim nMatched As Long
+    ReDim sWanted(LBound(sNames) To UBound(sNames))
+    ReDim bWrite(LBound(sNames) To UBound(sNames))
+    nMatched = 0
+    For i = LBound(sNames) To UBound(sNames)
+        sWanted(i) = ""
+        If Len(sPacked) > 0 Then
+            If CustomPropertyHandler.TryGetPackedMember(sPacked, sNames(i), sWanted(i)) Then nMatched = nMatched + 1
+        End If
+        bWrite(i) = (sCur(i) <> sWanted(i))
+    Next i
+
+    If Len(sPacked) > 0 And nMatched = 0 Then Exit Function
+    PlanMemberMirror = True
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PropertyCalculation.PlanMemberMirror"
+    PlanMemberMirror = False
+End Function
 
 ' Option (ARES_Calc_Detach_Empty): when True, an emptied value is DETACHED (delegated to the tagger)
 ' instead of cleared. Mirrors IsEnabled - fail-closed False on any nil; lazy ARESConfig init.

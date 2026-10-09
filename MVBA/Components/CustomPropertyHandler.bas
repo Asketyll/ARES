@@ -516,6 +516,177 @@ ErrorHandler:
     sYMember = ""
 End Function
 
+' True when oItem is a MULTI-VALUE property: 2+ members, and not the X/Y split-coordinate shape (which has
+' its own write path). GroupProp reads such an item packed (GetMembersPacked) and its receiver mirrors it
+' member by member; a plain value from any other source still takes the single-field path.
+Public Function IsMultiMemberItem(ByVal oItem As ItemType) As Boolean
+    On Error GoTo ErrorHandler
+
+    IsMultiMemberItem = False
+    If oItem Is Nothing Then Exit Function
+
+    Dim oProp As ItemTypeProperty
+    Dim nCount As Long
+    nCount = 0
+    Do
+        Set oProp = oItem.Find("*", oProp)
+        If oProp Is Nothing Then Exit Do
+        nCount = nCount + 1
+    Loop
+    If nCount < 2 Then Exit Function
+
+    Dim sXMember As String, sYMember As String
+    IsMultiMemberItem = Not GetXYSplitMembers(oItem, sXMember, sYMember)
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.IsMultiMemberItem"
+    IsMultiMemberItem = False
+End Function
+
+' Every member of ItemName on El, in definition order, packed as one string (see PackMembers). "" when the
+' item is not attached or every member is empty. Each member is read on its own name, so a multi-value
+' property is never collapsed to the first non-empty member the way GetPropertyValueFromElement does.
+Public Function GetMembersPacked(ByVal El As element, ByVal ItemName As String, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As String
+    On Error GoTo ErrorHandler
+
+    GetMembersPacked = ""
+    If El Is Nothing Then Exit Function
+    If Len(ItemName) = 0 Then Exit Function
+
+    Dim oItem As ItemType
+    Set oItem = GetItemTypeFromElement(El, ItemName, LibraryName)
+    If oItem Is Nothing Then Exit Function
+
+    Dim oHandler As ItemTypePropertyHandler
+    Set oHandler = GetItemTypePropertyHandlerFromElement(El, ItemName, LibraryName)
+    If oHandler Is Nothing Then Exit Function
+
+    Dim sNames() As String
+    Dim sValues() As String
+    Dim nCount As Long
+    Dim oProp As ItemTypeProperty
+    Dim vVal As Variant
+    nCount = 0
+    Do
+        Set oProp = oItem.Find("*", oProp)
+        If oProp Is Nothing Then Exit Do
+        ReDim Preserve sNames(nCount)
+        ReDim Preserve sValues(nCount)
+        sNames(nCount) = oProp.PropertyName
+        vVal = Null
+        On Error Resume Next
+        vVal = oHandler.GetPropertyValue(oProp.PropertyName)
+        On Error GoTo ErrorHandler
+        If IsNull(vVal) Then
+            sValues(nCount) = ""
+        ElseIf IsArray(vVal) Then
+            sValues(nCount) = ""
+        Else
+            sValues(nCount) = CStr(vVal)
+        End If
+        nCount = nCount + 1
+    Loop
+    If nCount = 0 Then Exit Function
+
+    GetMembersPacked = PackMembers(sNames, sValues)
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetMembersPacked"
+    GetMembersPacked = ""
+End Function
+
+' Packs member names/values (same bounds) as Chr(30) & name & Chr(31) & value, one record per member, in
+' the given order. The leading Chr(30) is what IsPackedMembers recognises. "" when every value is empty,
+' so an empty multi-value property reads as empty to the callers that test Len() = 0.
+Public Function PackMembers(ByRef sNames() As String, ByRef sValues() As String) As String
+    On Error GoTo ErrorHandler
+
+    PackMembers = ""
+
+    Dim i As Long
+    Dim bAnyValue As Boolean
+    Dim sOut As String
+    bAnyValue = False
+    sOut = ""
+    For i = LBound(sNames) To UBound(sNames)
+        sOut = sOut & Chr$(30) & sNames(i) & Chr$(31) & sValues(i)
+        If Len(sValues(i)) > 0 Then bAnyValue = True
+    Next i
+
+    If bAnyValue Then PackMembers = sOut
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.PackMembers"
+    PackMembers = ""
+End Function
+
+' True when s was produced by PackMembers (starts with the record separator Chr(30)).
+Public Function IsPackedMembers(ByVal s As String) As Boolean
+    IsPackedMembers = (Left$(s, 1) = Chr$(30))
+End Function
+
+' Value of member sName in a packed string (case-insensitive name match). False when sName is not in it.
+Public Function TryGetPackedMember(ByVal sPacked As String, ByVal sName As String, ByRef sValue As String) As Boolean
+    On Error GoTo ErrorHandler
+
+    TryGetPackedMember = False
+    sValue = ""
+    If Not IsPackedMembers(sPacked) Then Exit Function
+
+    Dim records() As String
+    Dim i As Long
+    Dim nSep As Long
+    records = Split(Mid$(sPacked, 2), Chr$(30))
+    For i = LBound(records) To UBound(records)
+        nSep = InStr(1, records(i), Chr$(31), vbBinaryCompare)
+        If nSep > 0 Then
+            If StrComp(Left$(records(i), nSep - 1), sName, vbTextCompare) = 0 Then
+                sValue = Mid$(records(i), nSep + 1)
+                TryGetPackedMember = True
+                Exit Function
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.TryGetPackedMember"
+    TryGetPackedMember = False
+    sValue = ""
+End Function
+
+' First non-empty member value of a packed string, in packed order - what a single-value reader sees of a
+' multi-value property (same rule as GetFirstPropertyValue). A non-packed s is returned as is.
+Public Function GetPackedFirstValue(ByVal sPacked As String) As String
+    On Error GoTo ErrorHandler
+
+    GetPackedFirstValue = sPacked
+    If Not IsPackedMembers(sPacked) Then Exit Function
+    GetPackedFirstValue = ""
+
+    Dim records() As String
+    Dim i As Long
+    Dim nSep As Long
+    records = Split(Mid$(sPacked, 2), Chr$(30))
+    For i = LBound(records) To UBound(records)
+        nSep = InStr(1, records(i), Chr$(31), vbBinaryCompare)
+        If nSep > 0 Then
+            If Len(records(i)) > nSep Then
+                GetPackedFirstValue = Mid$(records(i), nSep + 1)
+                Exit Function
+            End If
+        End If
+    Next i
+    Exit Function
+
+ErrorHandler:
+    ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandler.GetPackedFirstValue"
+    GetPackedFirstValue = ""
+End Function
+
 ' Get the ItemTypeLibrary an element references items from (Nothing if the element has none).
 Public Function GetItemTypeLibraryFromElement(ByVal El As element, Optional ByVal LibraryName As String = ARESConstants.ARES_NAME_LIBRARY_TYPE) As ItemTypeLibrary
     On Error GoTo ErrorHandler
@@ -610,8 +781,9 @@ ErrorHandler:
     GetPropertyValueFromElement = Null
 End Function
 
-' Fallback for GetPropertyValueFromElement: returns the value of the first real ItemTypeProperty the
-' handler can read (ARES item types are single-property, so the first hit is unambiguous).
+' Fallback for GetPropertyValueFromElement: returns the first NON-EMPTY value among the ItemType's
+' properties, in definition order. An unset text member reads back "" (not Null), so stopping at the
+' first non-Null one would hide the member that actually holds the value of a multi-value property.
 Private Function GetFirstPropertyValue(ByVal oHandler As ItemTypePropertyHandler, ByVal LibraryName As String) As Variant
     On Error GoTo ErrorHandler
 
@@ -634,7 +806,13 @@ Private Function GetFirstPropertyValue(ByVal oHandler As ItemTypePropertyHandler
         On Error Resume Next
         vVal = oHandler.GetPropertyValue(oProp.PropertyName)
         On Error GoTo ErrorHandler
-        If Not IsNull(vVal) Then
+        If IsNull(vVal) Then
+        ElseIf VarType(vVal) = vbString Then
+            If Len(vVal) > 0 Then
+                GetFirstPropertyValue = vVal
+                Exit Function
+            End If
+        Else
             GetFirstPropertyValue = vVal
             Exit Function
         End If

@@ -449,6 +449,12 @@ Private Function CustomPropertyHandlerTest() As Boolean
     Dim vFirst As Variant
     Dim vSecond As Variant
 
+    ' Pure, DGNLib-free: the packed form GroupProp uses to mirror a multi-value property
+    If Not PackedMembersTest() Then
+        CustomPropertyHandlerTest = False
+        Exit Function
+    End If
+
     ' A graphical test element is required to attach items
     If TestElement Is Nothing Then
         CustomPropertyHandlerTest = False
@@ -584,6 +590,110 @@ ErrorHandler:
         BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "CustomPropertyHandlerTest"
     End If
     CustomPropertyHandlerTest = False
+End Function
+
+' Helper for Test 5: PackMembers / IsPackedMembers / TryGetPackedMember / GetPackedFirstValue round-trip.
+' Also the pure mirror plan (PlanMemberMirror); the element reads/writes around it (GetMembersPacked,
+' ApplyMembersToSibling) need a multi-value DGNLib item - checked by hand.
+Private Function PackedMembersTest() As Boolean
+    On Error GoTo ErrorHandler
+
+    PackedMembersTest = False
+
+    Dim sNames(2) As String
+    Dim sValues(2) As String
+    Dim sPacked As String
+    Dim sVal As String
+    sNames(0) = "Nature Aer. HT :"
+    sNames(1) = "Nature Aer. BT :"
+    sNames(2) = "OU (or)"
+    sValues(0) = ""
+    sValues(1) = "BTA 4x19 CU + 1 CU EP"
+    sValues(2) = ""
+
+    sPacked = CustomPropertyHandler.PackMembers(sNames, sValues)
+    If Not CustomPropertyHandler.IsPackedMembers(sPacked) Then Exit Function
+
+    ' Every member comes back with its own value, empty ones included; an unknown name is not found
+    If Not CustomPropertyHandler.TryGetPackedMember(sPacked, "Nature Aer. HT :", sVal) Then Exit Function
+    If sVal <> "" Then Exit Function
+    If Not CustomPropertyHandler.TryGetPackedMember(sPacked, "nature aer. bt :", sVal) Then Exit Function
+    If sVal <> "BTA 4x19 CU + 1 CU EP" Then Exit Function
+    If Not CustomPropertyHandler.TryGetPackedMember(sPacked, "OU (or)", sVal) Then Exit Function
+    If sVal <> "" Then Exit Function
+    If CustomPropertyHandler.TryGetPackedMember(sPacked, "Nature Aer.", sVal) Then Exit Function
+
+    ' A single-value reader sees the first non-empty member
+    If CustomPropertyHandler.GetPackedFirstValue(sPacked) <> "BTA 4x19 CU + 1 CU EP" Then Exit Function
+
+    ' Every member empty -> "" (no donor), not a packed string of empty members
+    sValues(1) = ""
+    If CustomPropertyHandler.PackMembers(sNames, sValues) <> "" Then Exit Function
+
+    ' A plain value is not packed, and passes through unchanged
+    If CustomPropertyHandler.IsPackedMembers("BTA 4x19 CU + 1 CU EP") Then Exit Function
+    If CustomPropertyHandler.IsPackedMembers("") Then Exit Function
+    If CustomPropertyHandler.TryGetPackedMember("BTA", "Nature Aer. BT :", sVal) Then Exit Function
+    If CustomPropertyHandler.GetPackedFirstValue("BTA") <> "BTA" Then Exit Function
+
+    ' Mirror plan (PropertyCalculation.PlanMemberMirror): receiver HT "X", BT "", OU "" - the donor's previous state
+    Dim sCur() As String
+    Dim sWanted() As String
+    Dim bWrite() As Boolean
+    ReDim sCur(2)
+    sCur(0) = "X"
+    sCur(1) = ""
+    sCur(2) = ""
+    sValues(1) = "BTA 4x19 CU + 1 CU EP"
+    sPacked = CustomPropertyHandler.PackMembers(sNames, sValues)
+
+    ' Full match: HT emptied, BT filled, OU (already equal) not written
+    If Not PropertyCalculation.PlanMemberMirror(sNames, sCur, sPacked, sWanted, bWrite) Then Exit Function
+    If sWanted(0) <> "" Or Not bWrite(0) Then Exit Function
+    If sWanted(1) <> "BTA 4x19 CU + 1 CU EP" Or Not bWrite(1) Then Exit Function
+    If sWanted(2) <> "" Or bWrite(2) Then Exit Function
+
+    ' Already mirrored: nothing written (loop-safety)
+    sCur(0) = ""
+    sCur(1) = "BTA 4x19 CU + 1 CU EP"
+    If Not PropertyCalculation.PlanMemberMirror(sNames, sCur, sPacked, sWanted, bWrite) Then Exit Function
+    If bWrite(0) Or bWrite(1) Or bWrite(2) Then Exit Function
+
+    ' Partial match: a receiver member absent from the donor is emptied
+    Dim sDonorNames(0) As String
+    Dim sDonorValues(0) As String
+    sDonorNames(0) = "Nature Aer. HT :"
+    sDonorValues(0) = "HTA"
+    sCur(2) = "stale"
+    If Not PropertyCalculation.PlanMemberMirror(sNames, sCur, CustomPropertyHandler.PackMembers(sDonorNames, sDonorValues), sWanted, bWrite) Then Exit Function
+    If sWanted(0) <> "HTA" Or Not bWrite(0) Then Exit Function
+    If sWanted(1) <> "" Or Not bWrite(1) Then Exit Function
+    If sWanted(2) <> "" Or Not bWrite(2) Then Exit Function
+
+    ' No member name matches: not a mirror (the caller takes the single-field path)
+    sDonorNames(0) = "Other"
+    If PropertyCalculation.PlanMemberMirror(sNames, sCur, CustomPropertyHandler.PackMembers(sDonorNames, sDonorValues), sWanted, bWrite) Then Exit Function
+
+    ' All-empty donor packs to "": every non-empty member is cleared, the empty one left alone
+    sValues(0) = ""
+    sValues(1) = ""
+    sValues(2) = ""
+    sCur(0) = ""
+    If Not PropertyCalculation.PlanMemberMirror(sNames, sCur, CustomPropertyHandler.PackMembers(sNames, sValues), sWanted, bWrite) Then Exit Function
+    If bWrite(0) Or Not bWrite(1) Or Not bWrite(2) Then Exit Function
+    If sWanted(1) <> "" Or sWanted(2) <> "" Then Exit Function
+
+    ' A plain value is not a mirror
+    If PropertyCalculation.PlanMemberMirror(sNames, sCur, "BTA", sWanted, bWrite) Then Exit Function
+
+    PackedMembersTest = True
+    Exit Function
+
+ErrorHandler:
+    If Not BootLoader.ErrorHandler Is Nothing Then
+        BootLoader.ErrorHandler.HandleError Err.Description, Err.Number, Err.Source, "PackedMembersTest"
+    End If
+    PackedMembersTest = False
 End Function
 
 ' Test 6: Error Handler
